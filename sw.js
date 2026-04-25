@@ -1,9 +1,9 @@
-const CACHE_NAME = 'anuvaad-v13';
+const CACHE_NAME = 'anuvaad-v14';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css?v=13',
-  '/js/main.js?v=13',
+  '/styles.css?v=14',
+  '/js/main.js?v=14',
   '/icon-512.png',
   '/manifest.json',
   '/robots.txt'
