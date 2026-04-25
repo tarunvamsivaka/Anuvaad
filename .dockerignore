@@ -1,0 +1,29 @@
+# Version control
+.git
+.gitignore
+
+# Environment files
+.env
+.env.example
+
+# Documentation & dev artifacts
+README.md
+TEST_CASES.md
+implementation_plan_1
+walkthrough_1
+audit_report1
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+
+# IDE/Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,25 @@
+{
+  "name": "Anuvaad — Code Translator",
+  "short_name": "Anuvaad",
+  "description": "Translate code to plain English and back. Understand any codebase instantly.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#111010",
+  "theme_color": "#c8860a",
+  "orientation": "any",
+  "categories": ["developer", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

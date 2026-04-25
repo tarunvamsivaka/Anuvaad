@@ -1,0 +1,23 @@
+# Environments
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# IDEs
+.vscode/
+.idea/
+
+# Dependencies
+venv/
+env/
+.venv/
+
+# Deprecated monolith (replaced by js/ modules)
+script.js
+TEST_CASES.md
