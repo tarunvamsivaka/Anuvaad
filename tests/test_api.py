@@ -143,3 +143,77 @@ class TestCodeToCode:
             "source_language": "python"
         })
         assert res.status_code == 422
+
+
+class TestStripeWebhook:
+    """Tests for POST /api/webhook/stripe."""
+
+    def test_checkout_completed(self, client):
+        event = {
+            "type": "checkout.session.completed",
+            "data": {
+                "object": {
+                    "customer_email": "test@example.com",
+                    "subscription": "sub_12345"
+                }
+            }
+        }
+        res = client.post("/api/webhook/stripe", json=event)
+        assert res.status_code == 200
+        assert res.json()["received"] is True
+
+    def test_subscription_updated(self, client):
+        event = {
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "customer": "cus_12345",
+                    "status": "active"
+                }
+            }
+        }
+        res = client.post("/api/webhook/stripe", json=event)
+        assert res.status_code == 200
+
+    def test_subscription_deleted(self, client):
+        event = {
+            "type": "customer.subscription.deleted",
+            "data": {
+                "object": {
+                    "customer": "cus_12345"
+                }
+            }
+        }
+        res = client.post("/api/webhook/stripe", json=event)
+        assert res.status_code == 200
+
+    def test_payment_failed(self, client):
+        event = {
+            "type": "invoice.payment_failed",
+            "data": {
+                "object": {
+                    "customer_email": "test@example.com",
+                    "attempt_count": 2
+                }
+            }
+        }
+        res = client.post("/api/webhook/stripe", json=event)
+        assert res.status_code == 200
+
+    def test_unhandled_event(self, client):
+        event = {
+            "type": "some.future.event",
+            "data": {"object": {}}
+        }
+        res = client.post("/api/webhook/stripe", json=event)
+        assert res.status_code == 200
+        assert res.json()["received"] is True
+
+    def test_invalid_payload(self, client):
+        res = client.post(
+            "/api/webhook/stripe",
+            content=b"not json",
+            headers={"Content-Type": "application/json"}
+        )
+        assert res.status_code == 422 or res.status_code == 400
+

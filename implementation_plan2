@@ -1,0 +1,103 @@
+# Anuvaad — Comprehensive Improvement Plan
+
+## Triage: Already Done vs. Needs Work
+
+### ✅ Already Completed (No Action Needed)
+
+| # | Item | Status | Evidence |
+|---|---|---|---|
+| 1 | **JS files in repo** | ✅ Done | All 10 modules in `/js/` folder verified on GitHub |
+| 16 | **Automated tests** | ✅ Done | 44 pytest tests (API, validation, cache) |
+| 17 | **CI/CD pipeline** | ✅ Done | `.github/workflows/ci.yml` — 3 Python versions + lint + Docker |
+| 3 | **.env not published** | ✅ Done | `.env` returns 404 on GitHub; `.gitignore` excludes it |
+
+### 🔴 Critical — Fix Before Launch (This Session)
+
+| # | Item | What's Needed |
+|---|---|---|
+| 4 | **Stripe Webhooks** | Add webhook handler for payment success, renewal, cancellation, failed payment |
+| 6 | **Service Worker strategy** | Switch `/` and `index.html` to network-first; keep CSS/JS cache-first |
+| 7 | **Error UX** | Add user-friendly messages for timeout, quota, auth, network errors |
+
+### 🟠 High Priority — Needs Your Decision
+
+| # | Item | What's Needed | Notes |
+|---|---|---|---|
+| 2 | **HTTPS** | Uncomment nginx SSL block, add certs | **Depends on your hosting choice** (Vercel/Railway/VPS). Can't implement until you decide hosting |
+| 5 | **Redis rate limiter** | Replace in-memory store with Redis | **Depends on hosting** — needs Redis instance (Upstash/Railway) |
+| 8 | **Analytics** | Add tracking code | **Needs your choice**: Plausible (privacy-first) vs PostHog (full product analytics) vs GA4 |
+| 9 | **Legal pages** | Privacy Policy, Terms, Refund, Contact | **Needs your input**: company name, address, contact email, refund policy terms |
+| 19 | **Free vs Pro limits** | Clear pricing table | Already planned from last session, deferred to gather traffic data first |
+
+### 🟡 Product Improvements (Post-Launch Roadmap)
+
+| # | Item | Priority |
+|---|---|---|
+| 10 | Better landing page copy | Week 1-2 |
+| 11 | Social proof | Week 2-4 |
+| 12 | File upload (.py, .java, .cpp) | Month 1 |
+| 13 | GitHub repo analysis | Month 2 |
+| 14 | VS Code extension | Month 2-3 |
+| 15 | Team/College plans | Month 3+ |
+| 18 | Logging + Monitoring (Sentry) | Week 1 |
+
+---
+
+## Proposed Changes (This Session — Items 4, 6, 7)
+
+### 1. Stripe Webhooks (#4)
+
+#### [MODIFY] [main.py](file:///f:/Anuvaad/main.py)
+- Add `POST /api/webhook/stripe` endpoint
+- Handle events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+- Verify webhook signature using `STRIPE_WEBHOOK_SECRET`
+- Log all subscription lifecycle events
+
+#### [MODIFY] [.env.example](file:///f:/Anuvaad/.env.example)
+- Add `STRIPE_WEBHOOK_SECRET` variable
+
+---
+
+### 2. Service Worker Network-First (#6)
+
+#### [MODIFY] [sw.js](file:///f:/Anuvaad/sw.js)
+- HTML/root routes: **network-first** (try network, fall back to cache)
+- Static assets (CSS, JS, images): **cache-first** (fast, busted via `?v=` param)
+- API routes: **network-only** (never cache)
+
+---
+
+### 3. Error UX Improvements (#7)
+
+#### [MODIFY] [js/ui.js](file:///f:/Anuvaad/js/ui.js)
+- Enhance `getErrorMessage()` to detect specific error types:
+  - `504` → "Translation timed out — try shorter code"
+  - `429` → "Rate limit reached — wait 60 seconds"
+  - `401/403` → "Session expired — please sign in again"
+  - `500` → "Translation engine error — try again"
+  - Network/fetch fail → "You appear to be offline"
+  - Stripe errors → "Payment could not be processed"
+
+#### [MODIFY] [js/main.js](file:///f:/Anuvaad/js/main.js)
+- Pass HTTP status codes to error handler for better classification
+- Add offline detection with `navigator.onLine` check
+
+---
+
+## Open Questions
+
+> [!IMPORTANT]
+> 1. **Hosting platform**: Where will you deploy? (Vercel, Railway, DigitalOcean, AWS, etc.) — This determines HTTPS and Redis approach
+> 2. **Analytics tool**: Plausible ($9/mo, privacy-first), PostHog (free tier), or GA4 (free, Google)?
+> 3. **Legal pages**: Do you want me to generate template Privacy Policy / Terms of Service, or will you write your own?
+
+## Verification Plan
+
+### Automated Tests
+- Add tests for the new Stripe webhook endpoint
+- Run full test suite: `pytest tests/ -v`
+
+### Manual Verification
+- Test SW network-first by changing `index.html` and hard-refreshing
+- Simulate API errors (timeout, rate limit) and verify user-friendly messages
+- Test Stripe webhook with `stripe listen --forward-to localhost:8000/api/webhook/stripe`

@@ -7,7 +7,7 @@
 
 import { appState, API_BASE, FREE_TIER_LIMIT, USAGE_KEY } from './state.js';
 import { initEditor, getEditorValue, setEditorValue, switchLanguage } from './editor.js';
-import { showToast, updateCharCount, initTheme, initCharCountFallback, initCopyCode, updateStats, initSearch, initExpandCollapse, initResizer, getErrorMessage } from './ui.js';
+import { showToast, updateCharCount, initTheme, initCharCountFallback, initCopyCode, updateStats, initSearch, initExpandCollapse, initResizer, getErrorMessage, initOfflineDetection } from './ui.js';
 import { renderCards, renderLeftPane } from './cards.js';
 import { initAuth } from './auth.js';
 import { initHistory, saveToHistory, updateHistoryBadge } from './history.js';
@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSearch();
     initExpandCollapse();
     initResizer();
+    initOfflineDetection();
 
     // ── INIT FEATURE MODULES ──
     initAuth();
@@ -215,7 +216,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload = { raw_code: raw, source_language: langSelect.value, target_language: targetLangSelect.value };
             }
             const res = await fetch(`${API_BASE}${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) {
+                const err = new Error(`HTTP ${res.status}`);
+                err.status = res.status;
+                throw err;
+            }
             const data = await res.json();
 
             // Complete progress

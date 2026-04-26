@@ -229,11 +229,75 @@ export function initResizer() {
 
 // ── SMART ERROR HANDLER ──
 
+/**
+ * Convert an error or HTTP status into a user-friendly, actionable message.
+ * Accepts Error objects, HTTP status strings (e.g. "HTTP 504"), or response objects.
+ * @param {Error|string|{status: number}} err
+ * @returns {string}
+ */
 export function getErrorMessage(err) {
-    if (!navigator.onLine) return 'You appear to be offline. Check your connection.';
-    if (err.message && err.message.includes('504')) return 'Translation timed out. The code may be too complex — try a smaller snippet.';
-    if (err.message && err.message.includes('429')) return 'Too many requests. Please wait a moment.';
-    if (err.message && err.message.includes('500')) return 'Translation engine error. Try again.';
-    if (err.message && err.message.includes('Failed to fetch')) return 'Could not reach the Anuvaad engine. Make sure main.py is running on port 8000.';
-    return `Translation failed: ${err.message}`;
+    // Offline detection
+    if (!navigator.onLine) {
+        return 'You appear to be offline. Check your internet connection and try again.';
+    }
+
+    const msg = err?.message || String(err);
+    const status = err?.status || extractStatus(msg);
+
+    // HTTP status-based messages
+    switch (status) {
+        case 401:
+            return 'Your session has expired. Please sign in again to continue.';
+        case 403:
+            return 'Access denied. Please sign in with an authorized account.';
+        case 429:
+            return 'Rate limit reached — you\'ve made too many requests. Please wait 60 seconds before trying again.';
+        case 504:
+            return 'Translation timed out — the code may be too complex. Try a smaller snippet or simplify your input.';
+        case 502:
+        case 503:
+            return 'The translation service is temporarily unavailable. Please try again in a few moments.';
+        case 500:
+            return 'Translation engine error. This is usually temporary — please try again.';
+    }
+
+    // Pattern-based detection
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_CONNECTION')) {
+        return 'Could not reach the Anuvaad server. Make sure you\'re connected to the internet.';
+    }
+    if (msg.includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+        return 'AI quota exceeded. The service will reset shortly — please try again in a few minutes.';
+    }
+    if (msg.includes('timeout') || msg.includes('TimeoutError') || msg.includes('timed out')) {
+        return 'Request timed out. Try a shorter code snippet or check your connection.';
+    }
+    if (msg.includes('AbortError')) {
+        return 'Request was cancelled. Please try again.';
+    }
+    if (msg.includes('JSON') || msg.includes('parse')) {
+        return 'Received an invalid response from the server. Please try again.';
+    }
+
+    return `Something went wrong: ${msg}`;
+}
+
+/** Extract HTTP status code from error message strings like "HTTP 504" */
+function extractStatus(msg) {
+    const match = msg.match(/\b(4\d{2}|5\d{2})\b/);
+    return match ? parseInt(match[1], 10) : 0;
+}
+
+// ── OFFLINE / ONLINE BANNER ──
+
+/**
+ * Initialize offline detection banners.
+ * Shows a non-intrusive toast when the user goes offline/online.
+ */
+export function initOfflineDetection() {
+    window.addEventListener('offline', () => {
+        showToast('You are offline. Translations won\'t work until you reconnect.', 'warning');
+    });
+    window.addEventListener('online', () => {
+        showToast('You\'re back online!', 'success');
+    });
 }

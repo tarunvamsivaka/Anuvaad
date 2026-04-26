@@ -420,5 +420,68 @@ async def create_checkout_session(payload: CheckoutPayload):
         logger.error(f"Stripe Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Payment session creation failed. Please try again later.")
 
+
+# ── STRIPE WEBHOOKS ──
+# Handles the full subscription lifecycle:
+# - checkout.session.completed → new subscriber
+# - customer.subscription.updated → plan change / renewal
+# - customer.subscription.deleted → cancellation
+# - invoice.payment_failed → failed payment
+
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+
+@app.post("/api/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events for subscription lifecycle management.
+    Requires STRIPE_WEBHOOK_SECRET to verify event signatures."""
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook signature verification disabled")
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid payload")
+    else:
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError:
+            logger.error("Stripe webhook: invalid payload")
+            raise HTTPException(status_code=400, detail="Invalid payload")
+        except stripe.error.SignatureVerificationError:
+            logger.error("Stripe webhook: invalid signature")
+            raise HTTPException(status_code=400, detail="Invalid signature")
+
+    event_type = event.get("type", "") if isinstance(event, dict) else event["type"]
+    data = event.get("data", {}).get("object", {}) if isinstance(event, dict) else event["data"]["object"]
+
+    if event_type == "checkout.session.completed":
+        customer_email = data.get("customer_email", "unknown")
+        subscription_id = data.get("subscription", "")
+        logger.info(f"✅ New subscription: {customer_email} (sub: {subscription_id})")
+
+    elif event_type == "customer.subscription.updated":
+        status = data.get("status", "unknown")
+        customer_id = data.get("customer", "")
+        logger.info(f"🔄 Subscription updated: customer={customer_id} status={status}")
+
+    elif event_type == "customer.subscription.deleted":
+        customer_id = data.get("customer", "")
+        logger.info(f"❌ Subscription cancelled: customer={customer_id}")
+
+    elif event_type == "invoice.payment_failed":
+        customer_email = data.get("customer_email", "unknown")
+        attempt_count = data.get("attempt_count", 0)
+        logger.warning(f"⚠ Payment failed: {customer_email} (attempt #{attempt_count})")
+
+    else:
+        logger.info(f"Stripe webhook received: {event_type} (unhandled)")
+
+    return {"received": True}
+
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
