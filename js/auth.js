@@ -36,7 +36,7 @@ export function initAuth() {
                 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxicWd2ZWhqdGJma3hhd2J6bndkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTA5ODAsImV4cCI6MjA5MTgyNjk4MH0.Qz8n3jrmnSFfhkLdyAqaQJVR-Yw1Mnr8Y_4QbaZy8vY';
                 appState.supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
-                appState.supabase.auth.onAuthStateChange((event, session) => {
+                appState.supabase.auth.onAuthStateChange(async (event, session) => {
                     if (session) {
                         appState.currentUserEmail = session.user.email;
                         menuEmail.textContent = appState.currentUserEmail;
@@ -50,6 +50,28 @@ export function initAuth() {
                         if (modalTitle) modalTitle.textContent = 'Welcome back';
                         if (modalSub) modalSub.textContent = 'Sign in to save your translations';
 
+                        // Check Pro subscription status from backend
+                        try {
+                            const resp = await fetch(`${API_BASE}/api/subscription-status`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ access_token: session.access_token })
+                            });
+                            if (resp.ok) {
+                                const sub = await resp.json();
+                                appState.isPro = sub.isPro;
+                                if (sub.isPro) {
+                                    stripeBtn.style.display = 'none';
+                                    const badge = document.getElementById('account-label');
+                                    if (badge) badge.textContent = '✦ Pro';
+                                } else {
+                                    stripeBtn.style.display = '';
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('Could not check subscription status:', e.message);
+                        }
+
                         // Auto-trigger pending translation after signup
                         if (appState.pendingTranslate) {
                             appState.pendingTranslate = false;
@@ -59,6 +81,7 @@ export function initAuth() {
                         }
                     } else {
                         appState.currentUserEmail = null;
+                        appState.isPro = false;
                         signInBtn.classList.remove('hidden');
                         accountWrap.classList.add('hidden');
                     }

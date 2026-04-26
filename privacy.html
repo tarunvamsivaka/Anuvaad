@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Anuvaad Privacy Policy — How we handle your data, what we collect, and your rights.">
+    <title>Privacy Policy — Anuvaad</title>
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%230d0d0d' rx='20' width='100' height='100'/><text x='50' y='72' text-anchor='middle' fill='%23c8860a' font-size='65' font-family='serif' font-weight='bold'>A</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Syne:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #faf9f6;
+            --text: #1a1a1a;
+            --muted: #6b6860;
+            --amber: #c8860a;
+            --card-bg: #ffffff;
+            --border: #e8e4dc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Syne', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        .legal-header {
+            background: linear-gradient(135deg, #0d0d0d, #1a1a17);
+            padding: 2.5rem 2rem;
+            text-align: center;
+        }
+
+        .legal-header a {
+            color: var(--amber);
+            text-decoration: none;
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.4rem;
+        }
+
+        .legal-header h1 {
+            color: #fff;
+            font-family: 'DM Serif Display', serif;
+            font-size: 2rem;
+            margin-top: 1rem;
+            font-weight: 400;
+        }
+
+        .legal-header .date {
+            color: #888;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .legal-content {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 3rem 2rem 4rem;
+        }
+
+        h2 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.4rem;
+            margin: 2.5rem 0 0.75rem;
+            color: var(--amber);
+            font-weight: 400;
+        }
+
+        h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.5rem;
+        }
+
+        p, li {
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin-bottom: 0.75rem;
+        }
+
+        ul {
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li { margin-bottom: 0.4rem; }
+
+        a { color: var(--amber); }
+
+        .legal-footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .legal-footer a {
+            color: var(--amber);
+            text-decoration: none;
+            margin: 0 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="legal-header">
+        <a href="index.html">Anuvaad</a>
+        <h1>Privacy Policy</h1>
+        <p class="date">Last updated: April 26, 2026</p>
+    </header>
+
+    <main class="legal-content">
+        <h2>1. Introduction</h2>
+        <p>Anuvaad ("we," "our," or "us") is an AI-powered code translation service. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website and services at <strong>anuvaad.dev</strong>.</p>
+
+        <h2>2. Information We Collect</h2>
+
+        <h3>Account Information</h3>
+        <ul>
+            <li>Email address (provided during sign-up)</li>
+            <li>Authentication data via Supabase (hashed passwords, OAuth tokens)</li>
+        </ul>
+
+        <h3>Usage Data</h3>
+        <ul>
+            <li>Code snippets submitted for translation (processed in real-time, not stored permanently)</li>
+            <li>Translation history (stored locally in your browser via localStorage)</li>
+            <li>Feature usage metrics (translation count, modes used)</li>
+        </ul>
+
+        <h3>Payment Information</h3>
+        <ul>
+            <li>Stripe handles all payment processing. We never see or store your full credit card number.</li>
+            <li>We store your subscription status (plan type, active/cancelled) in our database.</li>
+        </ul>
+
+        <h3>Technical Data</h3>
+        <ul>
+            <li>IP address (for rate limiting, not stored long-term)</li>
+            <li>Browser type and version</li>
+            <li>Device information</li>
+        </ul>
+
+        <h2>3. How We Use Your Information</h2>
+        <ul>
+            <li><strong>Provide the service:</strong> Translate code, generate code, and manage your account.</li>
+            <li><strong>Process payments:</strong> Manage Pro subscriptions via Stripe.</li>
+            <li><strong>Rate limiting:</strong> Prevent abuse and ensure fair usage for all users.</li>
+            <li><strong>Improve the service:</strong> Analyze usage patterns to enhance features.</li>
+            <li><strong>Communication:</strong> Send account-related emails (e.g., payment receipts, subscription changes).</li>
+        </ul>
+
+        <h2>4. Code Data Processing</h2>
+        <p><strong>Your code is not stored on our servers.</strong> Code submitted for translation is sent to Google's Gemini API for processing. The translated response is returned to your browser immediately. We do not maintain a database of submitted code.</p>
+        <p>Translation history is stored <strong>only in your browser's localStorage</strong> and never transmitted to our servers.</p>
+
+        <h2>5. Third-Party Services</h2>
+        <ul>
+            <li><strong>Google Gemini API</strong> — Processes code translations. Subject to <a href="https://policies.google.com/privacy" target="_blank">Google's Privacy Policy</a>.</li>
+            <li><strong>Supabase</strong> — Authentication and database. Subject to <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy</a>.</li>
+            <li><strong>Stripe</strong> — Payment processing. Subject to <a href="https://stripe.com/privacy" target="_blank">Stripe's Privacy Policy</a>.</li>
+        </ul>
+
+        <h2>6. Data Retention</h2>
+        <ul>
+            <li>Account data is retained while your account is active.</li>
+            <li>Subscription records are retained for billing compliance.</li>
+            <li>Rate limiting data is stored in-memory and cleared on server restart.</li>
+            <li>You may request account deletion at any time by contacting us.</li>
+        </ul>
+
+        <h2>7. Data Security</h2>
+        <p>We implement appropriate technical measures to protect your data:</p>
+        <ul>
+            <li>HTTPS encryption for all data in transit</li>
+            <li>Supabase Row Level Security (RLS) for database access control</li>
+            <li>Stripe PCI-DSS compliant payment handling</li>
+            <li>Environment variables for all secret keys (never hardcoded)</li>
+        </ul>
+
+        <h2>8. Your Rights</h2>
+        <p>You have the right to:</p>
+        <ul>
+            <li><strong>Access</strong> your personal data</li>
+            <li><strong>Correct</strong> inaccurate data</li>
+            <li><strong>Delete</strong> your account and associated data</li>
+            <li><strong>Export</strong> your translation history (available via the Export feature)</li>
+            <li><strong>Withdraw consent</strong> at any time</li>
+        </ul>
+
+        <h2>9. Cookies</h2>
+        <p>We use minimal cookies/storage:</p>
+        <ul>
+            <li><strong>Authentication tokens</strong> (Supabase session) — required for sign-in</li>
+            <li><strong>Theme preference</strong> (localStorage) — dark/light mode choice</li>
+            <li><strong>Translation history</strong> (localStorage) — your saved translations</li>
+            <li><strong>Usage counter</strong> (localStorage) — daily translation count</li>
+        </ul>
+        <p>We do not use third-party tracking cookies.</p>
+
+        <h2>10. Children's Privacy</h2>
+        <p>Anuvaad is not directed at children under 13. We do not knowingly collect personal information from children under 13.</p>
+
+        <h2>11. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. We will notify you of any changes by updating the "Last updated" date at the top of this page.</p>
+
+        <h2>12. Contact Us</h2>
+        <p>If you have questions about this Privacy Policy, please contact us at:</p>
+        <p><strong>Email:</strong> <a href="mailto:privacy@anuvaad.dev">privacy@anuvaad.dev</a></p>
+    </main>
+
+    <footer class="legal-footer">
+        <p>
+            <a href="index.html">← Back to Anuvaad</a>
+            <a href="terms.html">Terms of Service</a>
+        </p>
+        <p style="margin-top: 0.5rem;">© 2026 Anuvaad. All rights reserved.</p>
+    </footer>
+</body>
+
+</html>

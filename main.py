@@ -5,6 +5,7 @@ import hashlib
 import logging
 import uvicorn
 import stripe
+import httpx
 from collections import OrderedDict
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -60,6 +61,52 @@ if STRIPE_KEY and STRIPE_KEY != "sk_test_your_stripe_secret_key_here":
     logger.info("Stripe configured")
 else:
     logger.info("Stripe not configured (Pro tier disabled)")
+
+# ── SUPABASE SERVER-SIDE CLIENT ──
+# Uses the SERVICE ROLE KEY (not anon key) for privileged DB writes.
+# The anon key is only for client-side auth; the service role key
+# bypasses RLS for webhook-driven subscription updates.
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+
+if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+    logger.info("Supabase server-side client configured")
+else:
+    logger.warning("SUPABASE_SERVICE_ROLE_KEY not set — subscription DB updates disabled")
+
+async def supabase_request(method: str, path: str, data: dict = None) -> dict | None:
+    """Make an authenticated request to the Supabase REST API using the service role key."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        logger.warning("Supabase not configured — skipping DB operation")
+        return None
+    url = f"{SUPABASE_URL}/rest/v1/{path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            if method == "GET":
+                resp = await client.get(url, headers=headers)
+            elif method == "POST":
+                headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+                resp = await client.post(url, headers=headers, json=data)
+            elif method == "PATCH":
+                resp = await client.patch(url, headers=headers, json=data)
+            else:
+                return None
+            if resp.status_code in (200, 201):
+                result = resp.json()
+                return result[0] if isinstance(result, list) and result else result
+            else:
+                logger.error(f"Supabase {method} {path} failed: {resp.status_code} {resp.text}")
+                return None
+    except Exception as e:
+        logger.error(f"Supabase request error: {e}")
+        return None
 
 logger.info(f"Anuvaad API starting -- Gemini key: {'Set' if GEMINI_API_KEY != 'dummy_key' else 'Missing'}")
 
@@ -422,18 +469,14 @@ async def create_checkout_session(payload: CheckoutPayload):
 
 
 # ── STRIPE WEBHOOKS ──
-# Handles the full subscription lifecycle:
-# - checkout.session.completed → new subscriber
-# - customer.subscription.updated → plan change / renewal
-# - customer.subscription.deleted → cancellation
-# - invoice.payment_failed → failed payment
+# Handles the full subscription lifecycle and updates the Supabase
+# user_subscriptions table so the frontend can gate Pro features.
 
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
 @app.post("/api/webhook/stripe")
 async def stripe_webhook(request: Request):
-    """Handle Stripe webhook events for subscription lifecycle management.
-    Requires STRIPE_WEBHOOK_SECRET to verify event signatures."""
+    """Handle Stripe webhook events and update user_subscriptions in Supabase."""
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
@@ -461,26 +504,101 @@ async def stripe_webhook(request: Request):
     if event_type == "checkout.session.completed":
         customer_email = data.get("customer_email", "unknown")
         subscription_id = data.get("subscription", "")
+        customer_id = data.get("customer", "")
         logger.info(f"✅ New subscription: {customer_email} (sub: {subscription_id})")
+        # Upsert into Supabase — creates or updates the user's subscription record
+        await supabase_request("POST", "user_subscriptions", {
+            "user_email": customer_email,
+            "stripe_customer_id": customer_id,
+            "stripe_subscription_id": subscription_id,
+            "plan": "pro",
+            "status": "active"
+        })
 
     elif event_type == "customer.subscription.updated":
         status = data.get("status", "unknown")
         customer_id = data.get("customer", "")
+        period_end = data.get("current_period_end")
         logger.info(f"🔄 Subscription updated: customer={customer_id} status={status}")
+        # Map Stripe status to our simplified status
+        db_status = "active" if status in ("active", "trialing") else "past_due" if status == "past_due" else "cancelled"
+        update_data = {"status": db_status}
+        if period_end:
+            from datetime import datetime, timezone
+            update_data["current_period_end"] = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
+        await supabase_request("PATCH",
+            f"user_subscriptions?stripe_customer_id=eq.{customer_id}",
+            update_data
+        )
 
     elif event_type == "customer.subscription.deleted":
         customer_id = data.get("customer", "")
         logger.info(f"❌ Subscription cancelled: customer={customer_id}")
+        await supabase_request("PATCH",
+            f"user_subscriptions?stripe_customer_id=eq.{customer_id}",
+            {"plan": "free", "status": "cancelled"}
+        )
 
     elif event_type == "invoice.payment_failed":
         customer_email = data.get("customer_email", "unknown")
         attempt_count = data.get("attempt_count", 0)
         logger.warning(f"⚠ Payment failed: {customer_email} (attempt #{attempt_count})")
+        if customer_email and customer_email != "unknown":
+            await supabase_request("PATCH",
+                f"user_subscriptions?user_email=eq.{customer_email}",
+                {"status": "past_due"}
+            )
 
     else:
         logger.info(f"Stripe webhook received: {event_type} (unhandled)")
 
     return {"received": True}
+
+
+# ── SUBSCRIPTION STATUS CHECK ──
+# Frontend calls this after auth to determine if the user is Pro.
+
+class SubscriptionCheckPayload(BaseModel):
+    access_token: str = Field(..., min_length=10)
+
+@app.post("/api/subscription-status")
+async def check_subscription_status(payload: SubscriptionCheckPayload):
+    """Check if the authenticated user has an active Pro subscription.
+    Returns {plan, status, isPro} for the frontend to gate features."""
+    # Verify the JWT and extract the user email
+    try:
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={
+                    "Authorization": f"Bearer {payload.access_token}",
+                    "apikey": SUPABASE_ANON_KEY
+                }
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+            user_data = resp.json()
+            user_email = user_data.get("email", "")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Could not verify authentication")
+
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Could not determine user email")
+
+    # Look up subscription in Supabase
+    sub = await supabase_request("GET",
+        f"user_subscriptions?user_email=eq.{user_email}&select=plan,status")
+
+    if sub and isinstance(sub, dict):
+        plan = sub.get("plan", "free")
+        status = sub.get("status", "active")
+        is_pro = plan in ("pro", "enterprise") and status in ("active", "trialing")
+    else:
+        plan = "free"
+        status = "active"
+        is_pro = False
+
+    return {"plan": plan, "status": status, "isPro": is_pro}
 
 
 if __name__ == "__main__":
