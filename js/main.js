@@ -153,6 +153,20 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Paste some code or type a description first.', 'warning');
             return;
         }
+
+        // ── SOFT AUTH GATE ──
+        // Users can explore freely, but must sign in to translate
+        if (!appState.currentUserEmail) {
+            appState.pendingTranslate = true;
+            // Update modal messaging to feel inviting, not blocking
+            const modalTitle = document.getElementById('modal-title');
+            const modalSub = document.getElementById('modal-sub');
+            if (modalTitle) modalTitle.textContent = 'Sign in to translate';
+            if (modalSub) modalSub.textContent = 'Create a free account to unlock translations — it only takes 10 seconds.';
+            document.getElementById('overlay').classList.remove('hidden');
+            return;
+        }
+
         if (!appState.isPro && getUsageCount() >= FREE_TIER_LIMIT) {
             showToast('Daily limit reached. Upgrade to Pro for unlimited translations.', 'warning');
             return;

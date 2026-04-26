@@ -43,6 +43,20 @@ export function initAuth() {
                         signInBtn.classList.add('hidden');
                         accountWrap.classList.remove('hidden');
                         overlay.classList.add('hidden');
+
+                        // Reset modal text to default
+                        const modalTitle = document.getElementById('modal-title');
+                        const modalSub = document.getElementById('modal-sub');
+                        if (modalTitle) modalTitle.textContent = 'Welcome back';
+                        if (modalSub) modalSub.textContent = 'Sign in to save your translations';
+
+                        // Auto-trigger pending translation after signup
+                        if (appState.pendingTranslate) {
+                            appState.pendingTranslate = false;
+                            setTimeout(() => {
+                                document.getElementById('translate-btn')?.click();
+                            }, 500);
+                        }
                     } else {
                         appState.currentUserEmail = null;
                         signInBtn.classList.remove('hidden');
@@ -143,9 +157,16 @@ export function initAuth() {
     });
 
     // === MODAL DROPDOWN UI ===
+    function resetModalState() {
+        appState.pendingTranslate = false;
+        const modalTitle = document.getElementById('modal-title');
+        const modalSub = document.getElementById('modal-sub');
+        if (modalTitle) modalTitle.textContent = 'Welcome back';
+        if (modalSub) modalSub.textContent = 'Sign in to save your translations';
+    }
     signInBtn.addEventListener('click', () => { overlay.classList.remove('hidden'); });
-    closeModal.addEventListener('click', () => { overlay.classList.add('hidden'); });
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+    closeModal.addEventListener('click', () => { overlay.classList.add('hidden'); resetModalState(); });
+    overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.classList.add('hidden'); resetModalState(); } });
     tabLogin.addEventListener('click', () => { tabLogin.classList.add('active'); tabSignup.classList.remove('active'); authSubmit.textContent = 'Log In'; });
     tabSignup.addEventListener('click', () => { tabSignup.classList.add('active'); tabLogin.classList.remove('active'); authSubmit.textContent = 'Create Account'; });
     accountBtn.addEventListener('click', e => { e.stopPropagation(); appState.accountMenuOpen = !appState.accountMenuOpen; accountMenu.classList.toggle('hidden', !appState.accountMenuOpen); });

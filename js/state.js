@@ -29,4 +29,6 @@ export const appState = {
     isPro: false,
     /** @type {object|null} Supabase client instance */
     supabase: null,
+    /** @type {boolean} Whether a translation is pending after auth */
+    pendingTranslate: false,
 };
