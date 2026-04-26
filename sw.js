@@ -1,9 +1,9 @@
-const CACHE_NAME = 'anuvaad-v14';
+const CACHE_NAME = 'anuvaad-v15';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/styles.css?v=14',
-  '/js/main.js?v=14',
+  '/styles.css?v=15',
+  '/js/main.js?v=15',
   '/icon-512.png',
   '/manifest.json',
   '/robots.txt'
@@ -12,44 +12,40 @@ const STATIC_ASSETS = [
 // Install — cache static assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
-// Activate — clean old caches
+// Activate — purge old caches
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// Fetch — network-first for API, cache-first for static
+// Fetch — cache-first for static, network-first for API
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Always go to network for API calls
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(event.request));
-    return;
-  }
+  // Never cache API calls
+  if (url.pathname.startsWith('/api/')) return;
 
-  // Cache-first for static assets
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        // Don't cache non-successful responses or external resources
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+    caches.match(event.request)
+      .then(cached => cached || fetch(event.request)
+        .then(response => {
+          if (response.status === 200 && event.request.method === 'GET') {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
           return response;
-        }
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        return response;
-      });
-    })
+        })
+      )
   );
 });
