@@ -11,8 +11,8 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-class TestLRUCache:
-    """Tests for the in-memory LRU cache."""
+class TestRedisCache:
+    """Tests for the Redis-backed cache."""
 
     def test_cache_hit_returns_same_result(self, client):
         """Second identical request should return cached result."""
@@ -34,37 +34,6 @@ class TestLRUCache:
         assert res1.status_code == 200
         assert res2.status_code == 200
         # Both succeed (cache miss for second, but still processes)
-
-    def test_cache_eviction(self):
-        """LRU cache should evict oldest when full."""
-        from main import LRUCache
-        cache = LRUCache(max_size=2)
-        cache.put("a", 1)
-        cache.put("b", 2)
-        cache.put("c", 3)  # Should evict "a"
-        assert cache.get("a") is None
-        assert cache.get("b") == 2
-        assert cache.get("c") == 3
-
-    def test_cache_lru_ordering(self):
-        """Accessing an item should move it to the end (prevent eviction)."""
-        from main import LRUCache
-        cache = LRUCache(max_size=2)
-        cache.put("a", 1)
-        cache.put("b", 2)
-        cache.get("a")  # Touch "a", making "b" the LRU
-        cache.put("c", 3)  # Should evict "b", not "a"
-        assert cache.get("a") == 1
-        assert cache.get("b") is None
-        assert cache.get("c") == 3
-
-    def test_cache_overwrite(self):
-        """Updating an existing key should replace the value."""
-        from main import LRUCache
-        cache = LRUCache(max_size=5)
-        cache.put("k", "old")
-        cache.put("k", "new")
-        assert cache.get("k") == "new"
 
     def test_english_to_code_not_cached(self, client):
         """The english-to-code endpoint should NOT be cached (by design)."""

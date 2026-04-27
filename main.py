@@ -33,10 +33,12 @@ app = FastAPI(title="Anuvaad API")
 # ── CORS ──
 # FRONTEND_URL must be set in production .env to your actual domain.
 # In development, localhost origins are also allowed.
-_frontend_url = os.getenv("FRONTEND_URL", "http://127.0.0.1:5500")
+_frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
 _allowed_origins = [_frontend_url]
-if _frontend_url not in ("http://localhost:5500", "http://127.0.0.1:5500"):
-    _allowed_origins += ["http://localhost:5500", "http://127.0.0.1:5500"]
+# Always allow both the legacy port and the Next.js dev server port
+for origin in ["http://localhost:3000", "http://localhost:5500", "http://127.0.0.1:5500"]:
+    if origin not in _allowed_origins:
+        _allowed_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,7 +80,8 @@ else:
     logger.warning("SUPABASE_SERVICE_ROLE_KEY not set — subscription DB updates disabled")
 
 async def supabase_request(method: str, path: str, data: dict = None) -> dict | None:
-    """Make an authenticated request to the Supabase REST API using the service role key."""
+    """Make an authenticated request to the Supabase REST API using the service role key.
+    Returns a single dict (first element if the response is a list)."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         logger.warning("Supabase not configured — skipping DB operation")
         return None
@@ -90,14 +93,14 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
         "Prefer": "return=representation"
     }
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient() as http_client:
             if method == "GET":
-                resp = await client.get(url, headers=headers)
+                resp = await http_client.get(url, headers=headers)
             elif method == "POST":
                 headers["Prefer"] = "resolution=merge-duplicates,return=representation"
-                resp = await client.post(url, headers=headers, json=data)
+                resp = await http_client.post(url, headers=headers, json=data)
             elif method == "PATCH":
-                resp = await client.patch(url, headers=headers, json=data)
+                resp = await http_client.patch(url, headers=headers, json=data)
             else:
                 return None
             if resp.status_code in (200, 201):
@@ -109,6 +112,30 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
     except Exception as e:
         logger.error(f"Supabase request error: {e}")
         return None
+
+
+async def supabase_request_list(path: str) -> list:
+    """GET helper that always returns a list (for multi-row queries)."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{path}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(url, headers=headers)
+            if resp.status_code == 200:
+                result = resp.json()
+                return result if isinstance(result, list) else [result] if result else []
+            else:
+                logger.error(f"Supabase GET {path} failed: {resp.status_code} {resp.text}")
+                return []
+    except Exception as e:
+        logger.error(f"Supabase list request error: {e}")
+        return []
 
 # ── API KEY / JWT AUTHENTICATION ──
 security = HTTPBearer(auto_error=False)
@@ -553,8 +580,8 @@ async def create_checkout_session(payload: CheckoutPayload):
             payment_method_types=['card'],
             line_items=[{'price': PRO_PRICE_ID, 'quantity': 1}],
             mode='subscription',
-            success_url=f'{os.getenv("FRONTEND_URL", "http://127.0.0.1:5500")}/index.html?payment=success',
-            cancel_url=f'{os.getenv("FRONTEND_URL", "http://127.0.0.1:5500")}/index.html?payment=cancel',
+            success_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=success',
+            cancel_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=cancel',
             customer_email=verified_email,
         )
         return {"url": session.url}
@@ -709,16 +736,16 @@ async def create_workspace(payload: WorkspaceCreate, email: str = Depends(get_us
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    # Create workspace
+    # Create workspace — supabase_request returns a single dict
     workspace = await supabase_request("POST", "workspaces", {
         "name": payload.name,
         "owner_email": email
     })
     
-    if not workspace or not isinstance(workspace, list) or len(workspace) == 0:
+    if not workspace or not isinstance(workspace, dict) or "id" not in workspace:
         raise HTTPException(status_code=500, detail="Failed to create workspace")
         
-    workspace_id = workspace[0].get("id")
+    workspace_id = workspace.get("id")
     
     # Add creator as owner in workspace_members
     await supabase_request("POST", "workspace_members", {
@@ -727,26 +754,26 @@ async def create_workspace(payload: WorkspaceCreate, email: str = Depends(get_us
         "role": "owner"
     })
     
-    return workspace[0]
+    return workspace
 
 @app.get("/api/workspaces")
 async def list_workspaces(email: str = Depends(get_user_email)):
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    # Get all memberships for the user
-    memberships = await supabase_request("GET", f"workspace_members?user_email=eq.{email}&select=workspace_id,role")
+    # Get all memberships for the user — always returns a list
+    memberships = await supabase_request_list(f"workspace_members?user_email=eq.{email}&select=workspace_id,role")
     
-    if not memberships or not isinstance(memberships, list):
+    if not memberships:
         return []
         
-    workspace_ids = [m["workspace_id"] for m in memberships]
+    workspace_ids = [m["workspace_id"] for m in memberships if isinstance(m, dict) and "workspace_id" in m]
     if not workspace_ids:
         return []
         
-    # Fetch workspace details
+    # Fetch workspace details — always returns a list
     ids_param = ",".join(workspace_ids)
-    workspaces = await supabase_request("GET", f"workspaces?id=in.({ids_param})")
+    workspaces = await supabase_request_list(f"workspaces?id=in.({ids_param})")
     return workspaces
 
 @app.get("/api/workspaces/{workspace_id}/members")
@@ -759,7 +786,7 @@ async def list_workspace_members(workspace_id: str, email: str = Depends(get_use
     if not membership:
         raise HTTPException(status_code=403, detail="Forbidden")
         
-    members = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}")
+    members = await supabase_request_list(f"workspace_members?workspace_id=eq.{workspace_id}")
     return members
 
 @app.post("/api/workspaces/{workspace_id}/invite")
@@ -767,9 +794,9 @@ async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, e
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
-    # Verify user is an admin or owner
+    # Verify user is an admin or owner — supabase_request returns a single dict
     membership = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{email}")
-    if not membership or not isinstance(membership, list) or membership[0].get("role") not in ["owner", "admin"]:
+    if not membership or not isinstance(membership, dict) or membership.get("role") not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required")
         
     # Add new member

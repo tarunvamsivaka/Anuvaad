@@ -74,20 +74,17 @@ def client_rate_limited():
     """
     import main as app_module
     import fakeredis
-    import asyncio
 
     fake_models = _FakeModels()
-    fake_redis = fakeredis.FakeAsyncRedis()
 
-    # Pre-fill rate store for testclient's IP
-    async def setup_redis():
-        await fake_redis.set("rate_limit:testclient", app_module.RATE_LIMIT_MAX)
-    
-    # We must run this async setup before yielding the client
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(setup_redis())
+    # Create a shared fakeredis server so sync setup + async usage share state
+    server = fakeredis.FakeServer()
+    fake_redis_sync = fakeredis.FakeRedis(server=server)
+    fake_redis_sync.set("rate_limit:testclient", str(app_module.RATE_LIMIT_MAX))
 
-    with patch.object(app_module, 'redis_client', fake_redis):
+    fake_redis_async = fakeredis.FakeAsyncRedis(server=server, decode_responses=True)
+
+    with patch.object(app_module, 'redis_client', fake_redis_async):
         with patch.object(type(app_module.client), 'models', new_callable=PropertyMock, return_value=fake_models):
             from fastapi.testclient import TestClient
             with TestClient(app_module.app) as tc:

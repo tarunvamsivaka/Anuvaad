@@ -28,7 +28,10 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const refreshWorkspaces = async () => {
     try {
       const { data: session } = await supabase.auth.getSession();
-      if (!session.session?.access_token) return;
+      if (!session.session?.access_token) {
+        setLoading(false);
+        return;
+      }
 
       const res = await fetch('/api/workspaces', {
         headers: {
@@ -38,11 +41,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       
       if (res.ok) {
         const data = await res.json();
-        setWorkspaces(data);
-        
-        // If we have workspaces but no active one selected, select the first one
-        // Wait, maybe we want "Personal" (null) to be the default.
-        // Let's keep it null by default.
+        setWorkspaces(Array.isArray(data) ? data : []);
       }
     } catch (e) {
       console.error("Failed to fetch workspaces", e);

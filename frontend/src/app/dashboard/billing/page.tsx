@@ -4,15 +4,31 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Check, Zap, CreditCard, ExternalLink, Loader2 } from "lucide-react";
+import { Check, Zap, CreditCard, ExternalLink, Loader2, X, PartyPopper } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 export default function BillingPage() {
   const { isPro, session } = useAuth();
   const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
+
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    if (payment === "success" || payment === "cancel") {
+      setPaymentStatus(payment);
+      // Clear the query param from URL without reload
+      window.history.replaceState({}, "", "/dashboard/billing");
+      // Auto-dismiss after 8 seconds
+      const timer = setTimeout(() => setPaymentStatus(null), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   async function handleUpgrade() {
+    if (!session?.access_token || !session?.user?.email) return;
     setLoading(true);
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -20,17 +36,19 @@ export default function BillingPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: session?.user?.email,
-          success_url: `${window.location.origin}/dashboard/billing?success=true`,
-          cancel_url: `${window.location.origin}/dashboard/billing?canceled=true`,
+          user_email: session.user.email,
+          access_token: session.access_token,
         }),
       });
       if (res.ok) {
         const data = await res.json();
         if (data.url) window.location.href = data.url;
+      } else {
+        const err = await res.json().catch(() => null);
+        console.error("Checkout failed:", err?.detail || res.status);
       }
-    } catch {
-      // Silently fail
+    } catch (e) {
+      console.error("Checkout error:", e);
     } finally {
       setLoading(false);
     }
@@ -43,6 +61,39 @@ export default function BillingPage() {
           <h1 className="text-lg font-semibold">Billing</h1>
         </div>
       </header>
+
+      {/* Payment status banner */}
+      {paymentStatus && (
+        <div className={`mx-auto max-w-3xl px-6 pt-4`}>
+          <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm animate-in fade-in slide-in-from-top-2 ${
+            paymentStatus === "success"
+              ? "border-emerald-600/30 bg-emerald-600/5 text-emerald-700 dark:text-emerald-400"
+              : "border-amber-600/30 bg-amber-600/5 text-amber-700 dark:text-amber-400"
+          }`}>
+            {paymentStatus === "success" ? (
+              <>
+                <PartyPopper className="h-5 w-5 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold">Payment successful!</p>
+                  <p className="text-xs opacity-80">Welcome to Pro. Your subscription is now active.</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <X className="h-5 w-5 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold">Payment cancelled</p>
+                  <p className="text-xs opacity-80">No charges were made. You can upgrade anytime.</p>
+                </div>
+              </>
+            )}
+            <button onClick={() => setPaymentStatus(null)} className="shrink-0 rounded p-1 hover:bg-black/5 dark:hover:bg-white/5">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-3xl p-6">
         {/* Current plan */}
         <Card className="p-6">

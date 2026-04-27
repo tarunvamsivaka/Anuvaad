@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 const languages = ["python","javascript","java","cpp","typescript","go","rust"];
 
@@ -103,7 +104,7 @@ export default function TranslatePage() {
     } finally {
       setLoading(false);
     }
-  }, [input, mode, sourceLanguage, targetLanguage, customInstructions, session]);
+  }, [input, mode, sourceLanguage, targetLanguage, customInstructions, session, activeWorkspace]);
 
   const handleCopy = useCallback(() => {
     if (!outputBlocks) return;
