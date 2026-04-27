@@ -9,7 +9,6 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
@@ -40,21 +39,24 @@ export default function HistoryPage() {
         return;
       }
       try {
-        let query = supabase
-          .from("translation_history")
-          .select("*")
-          .order("created_at", { ascending: false });
-          
+        const params = new URLSearchParams();
         if (activeWorkspace) {
-          query = query.eq("workspace_id", activeWorkspace.id);
-        } else {
-          query = query.is("workspace_id", null);
+          params.set("workspace_id", activeWorkspace.id);
         }
         
-        const { data, error } = await query;
+        const res = await fetch(`/api/history?${params.toString()}`, {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+        });
         
-        if (error) throw error;
-        setHistory(data as HistoryItem[] || []);
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          throw new Error(err?.detail || `HTTP ${res.status}`);
+        }
+        
+        const data = await res.json();
+        setHistory(Array.isArray(data) ? data as HistoryItem[] : []);
       } catch (err: any) {
         console.error("Error fetching history:", err);
         setError("Failed to load translation history.");

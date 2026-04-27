@@ -7,10 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, UserPlus, Building, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
 
 export default function TeamPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { workspaces, activeWorkspace, setActiveWorkspace, refreshWorkspaces } = useWorkspace();
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
@@ -19,17 +18,16 @@ export default function TeamPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (activeWorkspace) {
+    if (activeWorkspace && session) {
       fetchMembers();
     }
-  }, [activeWorkspace]);
+  }, [activeWorkspace, session]);
 
   async function fetchMembers() {
-    if (!activeWorkspace) return;
+    if (!activeWorkspace || !session) return;
     try {
-      const { data: session } = await supabase.auth.getSession();
       const res = await fetch(`/api/workspaces/${activeWorkspace.id}/members`, {
-        headers: { Authorization: `Bearer ${session.session?.access_token}` }
+        headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (res.ok) setMembers(await res.json());
     } catch (e) {
@@ -39,14 +37,14 @@ export default function TeamPage() {
 
   async function handleCreateWorkspace(e: React.FormEvent) {
     e.preventDefault();
+    if (!session) return;
     setLoading(true);
     setError("");
     try {
-      const { data: session } = await supabase.auth.getSession();
       const res = await fetch('/api/workspaces', {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${session.session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ name: newWorkspaceName })
@@ -67,15 +65,14 @@ export default function TeamPage() {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
-    if (!activeWorkspace) return;
+    if (!activeWorkspace || !session) return;
     setLoading(true);
     setError("");
     try {
-      const { data: session } = await supabase.auth.getSession();
       const res = await fetch(`/api/workspaces/${activeWorkspace.id}/invite`, {
         method: 'POST',
         headers: { 
-          'Authorization': `Bearer ${session.session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ email: inviteEmail, role: "member" })

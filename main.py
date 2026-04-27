@@ -808,5 +808,101 @@ async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, e
     
     return {"status": "success", "message": f"Invited {payload.email}"}
 
+
+# ── TRANSLATION HISTORY API ──
+# Frontend uses this instead of querying Supabase directly
+# (avoids RLS infinite recursion on workspace_members)
+
+@app.get("/api/history")
+async def get_translation_history(workspace_id: str = None, email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    if workspace_id:
+        path = f"translation_history?workspace_id=eq.{workspace_id}&order=created_at.desc"
+    else:
+        path = f"translation_history?user_email=eq.{email}&workspace_id=is.null&order=created_at.desc"
+    
+    history = await supabase_request_list(path)
+    return history
+
+
+# ── API KEYS API ──
+# Same pattern — route through the backend to avoid RLS issues.
+
+@app.get("/api/api-keys")
+async def list_api_keys(workspace_id: str = None, email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    path = f"api_keys?user_email=eq.{email}&select=id,name,key_prefix,created_at,last_used_at&order=created_at.desc"
+    if workspace_id:
+        path += f"&workspace_id=eq.{workspace_id}"
+    else:
+        path += "&workspace_id=is.null"
+    
+    keys = await supabase_request_list(path)
+    return keys
+
+class ApiKeyCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    workspace_id: str | None = None
+
+@app.post("/api/api-keys")
+async def create_api_key(payload: ApiKeyCreate, email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    import secrets
+    raw_key = f"ak_{secrets.token_urlsafe(24)}"
+    
+    data = {
+        "user_email": email,
+        "name": payload.name,
+        "key_prefix": raw_key[:8] + "...",
+        "api_key_hash": raw_key,
+    }
+    if payload.workspace_id:
+        data["workspace_id"] = payload.workspace_id
+    
+    result = await supabase_request("POST", "api_keys", data)
+    if not result:
+        raise HTTPException(status_code=500, detail="Failed to create API key")
+    
+    # Return the raw key (only shown once) along with the metadata
+    return {**result, "raw_key": raw_key}
+
+
+class ApiKeyDelete(BaseModel):
+    key_id: str = Field(..., min_length=1)
+
+@app.delete("/api/api-keys/{key_id}")
+async def delete_api_key(key_id: str, email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Verify ownership before deleting
+    key = await supabase_request("GET", f"api_keys?id=eq.{key_id}&user_email=eq.{email}")
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+    
+    # Delete via PATCH with a special marker since we don't have a DELETE helper
+    # Use direct HTTP delete instead
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    
+    url = f"{SUPABASE_URL}/rest/v1/api_keys?id=eq.{key_id}&user_email=eq.{email}"
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+    async with httpx.AsyncClient() as http_client:
+        resp = await http_client.delete(url, headers=headers)
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail="Failed to delete API key")
+    
+    return {"status": "success"}
+
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

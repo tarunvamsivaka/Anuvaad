@@ -9,11 +9,10 @@ import { LogOut, Key, Plus, Copy, Check, Trash2, ShieldAlert } from "lucide-reac
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
 export default function SettingsPage() {
-  const { user, isPro, signOut } = useAuth();
+  const { user, session, isPro, signOut } = useAuth();
   const router = useRouter();
   const { activeWorkspace } = useWorkspace();
   
@@ -24,56 +23,54 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (session) {
       fetchApiKeys();
     }
-  }, [user, activeWorkspace]);
+  }, [session, activeWorkspace]);
 
   async function fetchApiKeys() {
-    if (!user) return;
-    let query = supabase
-      .from('api_keys')
-      .select('id, name, key_prefix, created_at, last_used_at')
-      .eq('user_email', user.email)
-      .order('created_at', { ascending: false });
+    if (!session) return;
+    try {
+      const params = new URLSearchParams();
+      if (activeWorkspace) {
+        params.set("workspace_id", activeWorkspace.id);
+      }
 
-    if (activeWorkspace) {
-      query = query.eq('workspace_id', activeWorkspace.id);
-    } else {
-      query = query.is('workspace_id', null);
-    }
+      const res = await fetch(`/api/api-keys?${params.toString()}`, {
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
 
-    const { data, error } = await query;
-    
-    if (!error && data) {
-      setApiKeys(data);
+      if (res.ok) {
+        const data = await res.json();
+        setApiKeys(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+      console.error("Error fetching API keys:", e);
     }
   }
 
   async function handleCreateApiKey() {
-    if (!user || !newKeyName.trim()) return;
+    if (!session || !newKeyName.trim()) return;
     setLoading(true);
     try {
-      // 1. Generate secure random string (simplified for frontend demo)
-      const randomPart = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-      const rawKey = `ak_${randomPart}`;
-      
-      // 2. In a real app, hash this properly. For now, we'll store the raw token as the "hash" for the FastAPI backend to verify.
-      const { data, error } = await supabase
-        .from('api_keys')
-        .insert({
-          user_email: user.email,
+      const res = await fetch('/api/api-keys', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           name: newKeyName,
-          key_prefix: rawKey.substring(0, 8) + "...",
-          api_key_hash: rawKey, // Simplification for demo
-          workspace_id: activeWorkspace ? activeWorkspace.id : null
-        })
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      setGeneratedKey(rawKey);
+          workspace_id: activeWorkspace ? activeWorkspace.id : null,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create API key");
+
+      const data = await res.json();
+      setGeneratedKey(data.raw_key);
       setNewKeyName("");
       fetchApiKeys();
     } catch (e) {
@@ -84,9 +81,18 @@ export default function SettingsPage() {
   }
 
   async function revokeApiKey(id: string) {
-    if (!user) return;
-    await supabase.from('api_keys').delete().eq('id', id);
-    fetchApiKeys();
+    if (!session) return;
+    try {
+      await fetch(`/api/api-keys/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+      fetchApiKeys();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   const handleCopy = () => {
