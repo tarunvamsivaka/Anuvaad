@@ -8,8 +8,9 @@ import stripe
 import httpx
 from collections import OrderedDict
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
@@ -107,6 +108,48 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
     except Exception as e:
         logger.error(f"Supabase request error: {e}")
         return None
+
+# ── API KEY / JWT AUTHENTICATION ──
+security = HTTPBearer(auto_error=False)
+
+async def get_user_email(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str | None:
+    if not credentials:
+        return None
+    token = credentials.credentials
+    # 1. Check if it's an API Key (starts with 'ak_')
+    if token.startswith("ak_"):
+        # Look up API key in Supabase
+        # In a real app, hash the key and compare. For simplicity here:
+        api_key_data = await supabase_request("GET", f"api_keys?api_key_hash=eq.{token}&select=user_email")
+        if api_key_data and isinstance(api_key_data, dict):
+            # Update last_used_at
+            await supabase_request("PATCH", f"api_keys?api_key_hash=eq.{token}", {"last_used_at": "now()"})
+            return api_key_data.get("user_email")
+        return None
+    
+    # 2. Otherwise assume it's a Supabase JWT
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY}
+            )
+            if resp.status_code == 200:
+                return resp.json().get("email")
+    except Exception as e:
+        logger.error(f"JWT verification error: {e}")
+    return None
+
+async def log_translation_history(email: str, title: str, source_lang: str, target_lang: str, mode: str, chars: int):
+    if not email: return
+    await supabase_request("POST", "translation_history", {
+        "user_email": email,
+        "title": title[:100],
+        "source_language": source_lang,
+        "target_language": target_lang,
+        "mode": mode,
+        "character_count": chars
+    })
 
 logger.info(f"Anuvaad API starting -- Gemini key: {'Set' if GEMINI_API_KEY != 'dummy_key' else 'Missing'}")
 
@@ -274,10 +317,13 @@ def normalize_blocks(raw_result) -> list:
 
 # 4. API Routes
 @app.post("/api/code-to-english")
-async def function_translate_to_english(payload: CodePayload):
+async def function_translate_to_english(payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     key = cache_key(payload.raw_code, payload.language, "code-to-english")
     cached = _translation_cache.get(key)
     if cached:
+        if email:
+            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
+            background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code))
         return cached
 
     user_prompt = f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}"
@@ -298,6 +344,11 @@ async def function_translate_to_english(payload: CodePayload):
         raw = json.loads(response.text)
         result = normalize_blocks(raw)
         _translation_cache.put(key, result)
+        
+        if email:
+            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
+            background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code))
+            
         return result
     except json.JSONDecodeError as e:
         logger.error(f"JSON Parse Error: {str(e)}")
@@ -313,10 +364,13 @@ async def function_translate_to_english(payload: CodePayload):
         raise HTTPException(status_code=500, detail="Translation failed. Please check your API key and try again.")
 
 @app.post("/api/generate-from-english")
-async def function_generate_from_english(payload: GeneratePayload):
+async def function_generate_from_english(payload: GeneratePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     key = cache_key(payload.prompt, payload.language, "generate-from-english")
     cached = _translation_cache.get(key)
     if cached:
+        if email:
+            title = payload.prompt[:50] + "..." if len(payload.prompt) > 50 else payload.prompt
+            background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt))
         return cached
 
     user_prompt = f"Programming Language: {payload.language}\n\nUser Request:\n{payload.prompt}\n\nFirst, generate the complete, working code to satisfy this request. Then, analyze your generated code and break it down into logical blocks using the system instructions."
@@ -337,6 +391,11 @@ async def function_generate_from_english(payload: GeneratePayload):
         raw = json.loads(response.text)
         result = normalize_blocks(raw)
         _translation_cache.put(key, result)
+        
+        if email:
+            title = payload.prompt[:50] + "..." if len(payload.prompt) > 50 else payload.prompt
+            background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt))
+            
         return result
     except json.JSONDecodeError as e:
         logger.error(f"JSON Parse Error: {str(e)}")
@@ -379,10 +438,13 @@ async def function_update_to_code(payload: EnglishUpdatePayload):
 
 # NEW: Code-to-Code Translation
 @app.post("/api/code-to-code")
-async def function_code_to_code(payload: CodeToCodePayload):
+async def function_code_to_code(payload: CodeToCodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     key = cache_key(payload.raw_code, f"{payload.source_language}->{payload.target_language}", "code-to-code")
     cached = _translation_cache.get(key)
     if cached:
+        if email:
+            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
+            background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code))
         return cached
 
     system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
@@ -407,6 +469,11 @@ Return a JSON array where each object has: id (e.g. 'block_1'), code_snippet (th
         raw = json.loads(response.text)
         result = normalize_blocks(raw)
         _translation_cache.put(key, result)
+        
+        if email:
+            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
+            background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code))
+            
         return result
     except json.JSONDecodeError as e:
         logger.error(f"JSON Parse Error: {str(e)}")

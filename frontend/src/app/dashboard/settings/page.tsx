@@ -5,13 +5,84 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Trash2 } from "lucide-react";
+import { LogOut, Key, Plus, Copy, Check, Trash2, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function SettingsPage() {
   const { user, isPro, signOut } = useAuth();
   const router = useRouter();
+  
+  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [generatedKey, setGeneratedKey] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchApiKeys();
+    }
+  }, [user]);
+
+  async function fetchApiKeys() {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('api_keys')
+      .select('id, name, key_prefix, created_at, last_used_at')
+      .eq('user_email', user.email)
+      .order('created_at', { ascending: false });
+    
+    if (!error && data) {
+      setApiKeys(data);
+    }
+  }
+
+  async function handleCreateApiKey() {
+    if (!user || !newKeyName.trim()) return;
+    setLoading(true);
+    try {
+      // 1. Generate secure random string (simplified for frontend demo)
+      const randomPart = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const rawKey = `ak_${randomPart}`;
+      
+      // 2. In a real app, hash this properly. For now, we'll store the raw token as the "hash" for the FastAPI backend to verify.
+      const { data, error } = await supabase
+        .from('api_keys')
+        .insert({
+          user_email: user.email,
+          name: newKeyName,
+          key_prefix: rawKey.substring(0, 8) + "...",
+          api_key_hash: rawKey // Simplification for demo
+        })
+        .select()
+        .single();
+        
+      if (error) throw error;
+      
+      setGeneratedKey(rawKey);
+      setNewKeyName("");
+      fetchApiKeys();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revokeApiKey(id: string) {
+    if (!user) return;
+    await supabase.from('api_keys').delete().eq('id', id);
+    fetchApiKeys();
+  }
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(generatedKey);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   async function handleSignOut() {
     await signOut();
@@ -19,20 +90,21 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="flex h-14 items-center px-6">
           <h1 className="text-lg font-semibold">Settings</h1>
         </div>
       </header>
-      <div className="mx-auto max-w-2xl p-6 space-y-6">
+      <div className="mx-auto max-w-3xl p-6 space-y-6">
+        
         {/* Profile */}
         <Card className="p-6">
           <h2 className="text-sm font-semibold">Profile</h2>
           <div className="mt-4 space-y-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground">Email</label>
-              <Input value={user?.email || ""} disabled className="mt-1 text-sm" />
+              <Input value={user?.email || ""} disabled className="mt-1 text-sm bg-muted/50" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Display Name</label>
@@ -42,30 +114,91 @@ export default function SettingsPage() {
           <Button size="sm" className="mt-4 bg-amber-600 hover:bg-amber-700 text-xs">Save Changes</Button>
         </Card>
 
-        {/* Preferences */}
-        <Card className="p-6">
-          <h2 className="text-sm font-semibold">Preferences</h2>
-          <div className="mt-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Default Source Language</p>
-                <p className="text-xs text-muted-foreground">Language pre-selected in translator</p>
+        {/* Developer / API Keys */}
+        <Card className="p-6 border-amber-600/20">
+          <div className="flex items-center gap-2 mb-4">
+            <Key className="h-5 w-5 text-amber-600" />
+            <h2 className="text-sm font-semibold">Developer API Keys</h2>
+          </div>
+          <p className="text-xs text-muted-foreground mb-6">
+            Generate Bearer tokens to access the Anuvaad API programmatically from your CI/CD pipelines or internal tools.
+          </p>
+
+          {generatedKey && (
+            <div className="mb-6 p-4 border border-amber-600/30 bg-amber-600/5 rounded-lg">
+              <div className="flex items-start gap-3">
+                <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-medium text-foreground">Save your new API key</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Please copy this key and save it somewhere secure. For security reasons, you won't be able to see it again.
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <code className="text-xs bg-background border border-border px-3 py-1.5 rounded flex-1 font-mono break-all">
+                      {generatedKey}
+                    </code>
+                    <Button size="sm" variant="secondary" onClick={handleCopy} className="shrink-0 h-8">
+                      {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <Button size="sm" variant="ghost" className="mt-3 text-xs h-7" onClick={() => setGeneratedKey("")}>
+                    I have saved this key
+                  </Button>
+                </div>
               </div>
-              <select className="h-8 rounded-md border border-border bg-background px-2 text-xs">
-                <option>Python</option><option>JavaScript</option><option>Java</option>
-                <option>C++</option><option>TypeScript</option><option>Go</option><option>Rust</option>
-              </select>
             </div>
-            <Separator />
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Theme</p>
-                <p className="text-xs text-muted-foreground">Choose your preferred theme</p>
-              </div>
-              <select className="h-8 rounded-md border border-border bg-background px-2 text-xs">
-                <option>System</option><option>Light</option><option>Dark</option>
-              </select>
+          )}
+
+          <div className="flex items-end gap-3 mb-6">
+            <div className="flex-1">
+              <label className="text-xs font-medium text-muted-foreground">Key Name</label>
+              <Input 
+                placeholder="e.g. CI Pipeline, Backend Script" 
+                value={newKeyName}
+                onChange={(e) => setNewKeyName(e.target.value)}
+                className="mt-1 text-sm" 
+              />
             </div>
+            <Button size="sm" onClick={handleCreateApiKey} disabled={loading || !newKeyName.trim()} className="bg-foreground text-background hover:bg-foreground/90 h-9">
+              <Plus className="h-4 w-4 mr-1.5" /> Create Key
+            </Button>
+          </div>
+
+          <div className="border border-border rounded-lg overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground">Name</th>
+                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground">Prefix</th>
+                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground">Created</th>
+                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {apiKeys.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-xs text-muted-foreground">
+                      No API keys generated yet.
+                    </td>
+                  </tr>
+                ) : (
+                  apiKeys.map(key => (
+                    <tr key={key.id} className="hover:bg-muted/30">
+                      <td className="px-4 py-3 font-medium text-foreground">{key.name}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{key.key_prefix}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {new Date(key.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <Button variant="ghost" size="sm" onClick={() => revokeApiKey(key.id)} className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+                          Revoke
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </Card>
 
@@ -83,25 +216,15 @@ export default function SettingsPage() {
         </Card>
 
         {/* Danger zone */}
-        <Card className="border-destructive/20 p-6">
+        <Card className="border-destructive/20 p-6 bg-destructive/5">
           <h2 className="text-sm font-semibold text-destructive">Danger Zone</h2>
           <div className="mt-4 flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Sign Out</p>
-              <p className="text-xs text-muted-foreground">Sign out of your account</p>
+              <p className="text-xs text-muted-foreground">Sign out of your account on this device</p>
             </div>
-            <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleSignOut}>
+            <Button variant="outline" size="sm" className="gap-2 text-xs bg-background" onClick={handleSignOut}>
               <LogOut className="h-3 w-3" /> Sign Out
-            </Button>
-          </div>
-          <Separator className="my-4" />
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Delete Account</p>
-              <p className="text-xs text-muted-foreground">Permanently delete your account and data</p>
-            </div>
-            <Button variant="destructive" size="sm" className="gap-2 text-xs">
-              <Trash2 className="h-3 w-3" /> Delete
             </Button>
           </div>
         </Card>
