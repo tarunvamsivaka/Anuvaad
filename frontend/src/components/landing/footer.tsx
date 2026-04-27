@@ -6,19 +6,16 @@ const footerLinks = {
     { label: "Features", href: "#features" },
     { label: "Pricing", href: "#pricing" },
     { label: "FAQ", href: "#faq" },
-    { label: "Changelog", href: "/changelog" },
+    { label: "Dashboard", href: "/dashboard" },
   ],
   Resources: [
-    { label: "Documentation", href: "/docs" },
-    { label: "API Reference", href: "/api" },
-    { label: "Blog", href: "/blog" },
-    { label: "Status", href: "/status" },
+    { label: "GitHub", href: "https://github.com/tarunvamsivaka/Anuvaad", external: true },
+    { label: "API Docs", href: "https://github.com/tarunvamsivaka/Anuvaad#api-endpoints", external: true },
+    { label: "README", href: "https://github.com/tarunvamsivaka/Anuvaad#readme", external: true },
   ],
   Legal: [
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Service", href: "/terms" },
-    { label: "Security", href: "/security" },
-    { label: "Contact", href: "/contact" },
   ],
 };
 
@@ -40,7 +37,11 @@ export function Footer() {
               <ul className="mt-4 space-y-3">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">{link.label}</Link>
+                    {"external" in link && link.external ? (
+                      <a href={link.href} target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground transition-colors hover:text-foreground">{link.label}</a>
+                    ) : (
+                      <Link href={link.href} className="text-sm text-muted-foreground transition-colors hover:text-foreground">{link.label}</Link>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -51,8 +52,8 @@ export function Footer() {
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Anuvaad. All rights reserved.</p>
           <div className="flex gap-6">
-            <a href="https://github.com/tarunvamsivaka/Anuvaad" target="_blank" rel="noopener" className="text-sm text-muted-foreground transition-colors hover:text-foreground">GitHub</a>
-            <a href="https://twitter.com/anuvaaddev" target="_blank" rel="noopener" className="text-sm text-muted-foreground transition-colors hover:text-foreground">Twitter</a>
+            <a href="https://github.com/tarunvamsivaka/Anuvaad" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground transition-colors hover:text-foreground">GitHub</a>
+            <a href="https://twitter.com/anuvaaddev" target="_blank" rel="noopener noreferrer" className="text-sm text-muted-foreground transition-colors hover:text-foreground">Twitter</a>
           </div>
         </div>
       </div>

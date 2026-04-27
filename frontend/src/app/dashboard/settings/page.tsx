@@ -6,8 +6,18 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { LogOut, Trash2 } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 
 export default function SettingsPage() {
+  const { user, isPro, signOut } = useAuth();
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await signOut();
+    router.push("/");
+  }
+
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -22,11 +32,11 @@ export default function SettingsPage() {
           <div className="mt-4 space-y-4">
             <div>
               <label className="text-xs font-medium text-muted-foreground">Email</label>
-              <Input value="user@example.com" disabled className="mt-1 text-sm" />
+              <Input value={user?.email || ""} disabled className="mt-1 text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Display Name</label>
-              <Input placeholder="Your name" className="mt-1 text-sm" />
+              <Input placeholder="Your name" defaultValue={user?.user_metadata?.full_name || ""} className="mt-1 text-sm" />
             </div>
           </div>
           <Button size="sm" className="mt-4 bg-amber-600 hover:bg-amber-700 text-xs">Save Changes</Button>
@@ -64,9 +74,11 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold">Subscription</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Free Plan · 10 translations/day</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isPro ? "Pro Plan · Unlimited translations" : "Free Plan · 10 translations/day"}
+              </p>
             </div>
-            <Badge variant="secondary" className="text-[10px]">Free</Badge>
+            <Badge variant="secondary" className="text-[10px]">{isPro ? "✦ Pro" : "Free"}</Badge>
           </div>
         </Card>
 
@@ -78,7 +90,7 @@ export default function SettingsPage() {
               <p className="text-sm font-medium">Sign Out</p>
               <p className="text-xs text-muted-foreground">Sign out of your account</p>
             </div>
-            <Button variant="outline" size="sm" className="gap-2 text-xs">
+            <Button variant="outline" size="sm" className="gap-2 text-xs" onClick={handleSignOut}>
               <LogOut className="h-3 w-3" /> Sign Out
             </Button>
           </div>

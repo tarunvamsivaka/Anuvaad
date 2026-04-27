@@ -13,74 +13,51 @@ import {
   FileText,
   TrendingUp,
 } from "lucide-react";
-
-const stats = [
-  {
-    label: "Translations Today",
-    value: "3",
-    limit: "/10",
-    icon: Code2,
-    color: "text-amber-600",
-    bg: "bg-amber-600/10",
-  },
-  {
-    label: "This Week",
-    value: "18",
-    icon: TrendingUp,
-    color: "text-blue-600",
-    bg: "bg-blue-600/10",
-  },
-  {
-    label: "Total Translations",
-    value: "127",
-    icon: FileText,
-    color: "text-emerald-600",
-    bg: "bg-emerald-600/10",
-  },
-  {
-    label: "Avg. Response",
-    value: "1.2s",
-    icon: Clock,
-    color: "text-purple-600",
-    bg: "bg-purple-600/10",
-  },
-];
-
-const recentTranslations = [
-  {
-    title: "fibonacci.py",
-    language: "Python",
-    mode: "Code → English",
-    time: "2 min ago",
-  },
-  {
-    title: "quicksort.java",
-    language: "Java",
-    mode: "Code → English",
-    time: "15 min ago",
-  },
-  {
-    title: "React useState hook",
-    language: "JavaScript",
-    mode: "English → Code",
-    time: "1 hour ago",
-  },
-  {
-    title: "binary_search.cpp",
-    language: "C++",
-    mode: "Code → Code",
-    time: "3 hours ago",
-  },
-];
+import { useAuth } from "@/lib/auth-context";
 
 export default function DashboardPage() {
+  const { user, isPro } = useAuth();
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
+
+  const stats = [
+    {
+      label: "Translations Today",
+      value: isPro ? "∞" : "0",
+      limit: isPro ? undefined : "/10",
+      icon: Code2,
+      color: "text-amber-600",
+      bg: "bg-amber-600/10",
+    },
+    {
+      label: "Plan",
+      value: isPro ? "Pro" : "Free",
+      icon: TrendingUp,
+      color: "text-blue-600",
+      bg: "bg-blue-600/10",
+    },
+    {
+      label: "Languages",
+      value: "7",
+      icon: FileText,
+      color: "text-emerald-600",
+      bg: "bg-emerald-600/10",
+    },
+    {
+      label: "Avg. Response",
+      value: "~2s",
+      icon: Clock,
+      color: "text-purple-600",
+      bg: "bg-purple-600/10",
+    },
+  ];
+
   return (
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-6">
           <div>
-            <h1 className="text-lg font-semibold">Dashboard</h1>
+            <h1 className="text-lg font-semibold">Welcome, {firstName}</h1>
           </div>
           <Link
             href="/dashboard/translate"
@@ -127,7 +104,7 @@ export default function DashboardPage() {
           })}
         </div>
 
-        {/* Quick actions + Recent translations */}
+        {/* Quick actions + Getting started */}
         <div className="mt-8 grid gap-6 lg:grid-cols-3">
           {/* Quick actions */}
           <Card className="p-5 lg:col-span-1">
@@ -183,65 +160,63 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* Recent translations */}
+          {/* Getting started guide */}
           <Card className="p-5 lg:col-span-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Recent Translations</h2>
-              <Link
-                href="/dashboard/history"
-                className="text-xs font-medium text-amber-600 hover:text-amber-700"
-              >
-                View All →
-              </Link>
+              <h2 className="text-sm font-semibold">Getting Started</h2>
+              <Badge variant="secondary" className="text-[10px]">Guide</Badge>
             </div>
-            <div className="mt-4 space-y-1">
-              {recentTranslations.map((t, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-muted"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-xs font-bold text-muted-foreground">
-                    {t.language.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium">{t.title}</p>
-                    <p className="text-xs text-muted-foreground">{t.mode}</p>
-                  </div>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {t.language}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {t.time}
-                  </span>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-start gap-3 rounded-lg px-3 py-2.5">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">1</div>
+                <div>
+                  <p className="text-sm font-medium">Paste your code</p>
+                  <p className="text-xs text-muted-foreground">Go to Translate and paste any code snippet in any supported language.</p>
                 </div>
-              ))}
+              </div>
+              <div className="flex items-start gap-3 rounded-lg px-3 py-2.5">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">2</div>
+                <div>
+                  <p className="text-sm font-medium">Choose your mode</p>
+                  <p className="text-xs text-muted-foreground">Code → English, English → Code, or Code → Code. Select source and target languages.</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg px-3 py-2.5">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">3</div>
+                <div>
+                  <p className="text-sm font-medium">Get your translation</p>
+                  <p className="text-xs text-muted-foreground">AI analyzes your input and returns a clear, structured translation in seconds.</p>
+                </div>
+              </div>
             </div>
           </Card>
         </div>
 
         {/* Upgrade banner for free users */}
-        <Card className="mt-8 overflow-hidden border-amber-600/20 bg-gradient-to-r from-amber-600/5 to-amber-500/5 p-6">
-          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
-              <h3 className="text-sm font-semibold">
-                Upgrade to Pro for unlimited translations
-              </h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Remove the daily limit, get priority processing, and support
-                larger inputs.
-              </p>
+        {!isPro && (
+          <Card className="mt-8 overflow-hidden border-amber-600/20 bg-gradient-to-r from-amber-600/5 to-amber-500/5 p-6">
+            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+              <div>
+                <h3 className="text-sm font-semibold">
+                  Upgrade to Pro for unlimited translations
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Remove the daily limit, get priority processing, and support
+                  larger inputs.
+                </p>
+              </div>
+              <Link
+                href="/dashboard/billing"
+                className={cn(
+                  buttonVariants({ size: "sm" }),
+                  "shrink-0 gap-1.5 bg-amber-600 hover:bg-amber-700"
+                )}
+              >
+                <Zap className="h-3.5 w-3.5" /> Upgrade Now
+              </Link>
             </div>
-            <Link
-              href="/dashboard/billing"
-              className={cn(
-                buttonVariants({ size: "sm" }),
-                "shrink-0 gap-1.5 bg-amber-600 hover:bg-amber-700"
-              )}
-            >
-              <Zap className="h-3.5 w-3.5" /> Upgrade Now
-            </Link>
-          </div>
-        </Card>
+          </Card>
+        )}
       </div>
     </div>
   );

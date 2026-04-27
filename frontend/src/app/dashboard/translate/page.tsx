@@ -4,12 +4,12 @@ import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   ArrowRight, Copy, Download, Loader2, RotateCcw,
-  Sparkles, Code2, FileText, ArrowLeftRight,
+  Sparkles, Code2, FileText, ArrowLeftRight, Check,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 const languages = ["python","javascript","java","cpp","typescript","go","rust"];
 
@@ -20,12 +20,14 @@ const modes = [
 ];
 
 export default function TranslatePage() {
+  const { isPro } = useAuth();
   const [mode, setMode] = useState("code-to-english");
   const [sourceLanguage, setSourceLanguage] = useState("python");
   const [targetLanguage, setTargetLanguage] = useState("javascript");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const currentMode = modes.find((m) => m.id === mode)!;
 
@@ -65,8 +67,23 @@ export default function TranslatePage() {
     }
   }, [input, mode, sourceLanguage, targetLanguage]);
 
-  const handleCopy = useCallback(() => { navigator.clipboard.writeText(output); }, [output]);
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }, [output]);
+
   const handleClear = useCallback(() => { setInput(""); setOutput(""); }, []);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([output], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `anuvaad-translation.${mode === "code-to-english" ? "md" : "txt"}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [output, mode]);
 
   return (
     <div className="min-h-screen">
@@ -77,8 +94,14 @@ export default function TranslatePage() {
             <Badge variant="secondary" className="text-[10px]">{currentMode.label}</Badge>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">3/10 today</span>
-            <Badge className="bg-amber-600/10 text-amber-700 hover:bg-amber-600/10 text-[10px]">Free Plan</Badge>
+            <Badge className={cn(
+              "text-[10px]",
+              isPro
+                ? "bg-amber-600/10 text-amber-700 hover:bg-amber-600/10"
+                : "bg-muted text-muted-foreground hover:bg-muted"
+            )}>
+              {isPro ? "✦ Pro" : "Free Plan"}
+            </Badge>
           </div>
         </div>
       </header>
@@ -131,12 +154,14 @@ export default function TranslatePage() {
               </p>
               <div className="flex items-center gap-1">
                 <span className="text-[10px] text-muted-foreground">{input.length.toLocaleString()} chars</span>
-                <Button variant="ghost" size="icon-xs" onClick={handleClear}><RotateCcw className="h-3 w-3" /></Button>
+                <Button variant="ghost" size="sm" onClick={handleClear} className="h-6 w-6 p-0"><RotateCcw className="h-3 w-3" /></Button>
               </div>
             </div>
-            <Textarea value={input} onChange={(e) => setInput(e.target.value)}
+            <textarea value={input} onChange={(e) => setInput(e.target.value)}
               placeholder={mode === "english-to-code" ? "Describe the code you want..." : "Paste your code here..."}
-              className="min-h-[400px] flex-1 resize-none rounded-none border-0 font-mono text-sm focus-visible:ring-0" />
+              className="min-h-[400px] flex-1 resize-none border-0 bg-background p-4 font-mono text-sm focus:outline-none"
+              onKeyDown={(e) => { if (e.ctrlKey && e.key === "Enter") handleTranslate(); }}
+            />
           </Card>
 
           <Card className="flex flex-col overflow-hidden">
@@ -146,8 +171,13 @@ export default function TranslatePage() {
               </p>
               {output && (
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon-xs" onClick={handleCopy}><Copy className="h-3 w-3" /></Button>
-                  <Button variant="ghost" size="icon-xs"><Download className="h-3 w-3" /></Button>
+                  <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 gap-1 px-2 text-[10px]">
+                    {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                    {copied ? "Copied" : "Copy"}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={handleDownload} className="h-6 w-6 p-0">
+                    <Download className="h-3 w-3" />
+                  </Button>
                 </div>
               )}
             </div>
@@ -168,7 +198,7 @@ export default function TranslatePage() {
                       <Sparkles className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <p className="mt-4 text-sm font-medium">Ready to translate</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Paste code and click Translate</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Paste code and press Ctrl+Enter</p>
                   </div>
                 </div>
               )}

@@ -4,24 +4,20 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Code2, FileText, ArrowLeftRight, Trash2 } from "lucide-react";
+import { Search, Code2, FileText, ArrowLeftRight } from "lucide-react";
 import { useState } from "react";
-
-const history = [
-  { id: 1, title: "fibonacci.py", lang: "Python", mode: "Code → English", date: "Apr 26, 2026", chars: 340 },
-  { id: 2, title: "quicksort.java", lang: "Java", mode: "Code → English", date: "Apr 26, 2026", chars: 520 },
-  { id: 3, title: "React useState hook", lang: "JavaScript", mode: "English → Code", date: "Apr 25, 2026", chars: 180 },
-  { id: 4, title: "binary_search.cpp", lang: "C++", mode: "Code → Code", date: "Apr 25, 2026", chars: 410 },
-  { id: 5, title: "linked_list.py", lang: "Python", mode: "Code → English", date: "Apr 24, 2026", chars: 680 },
-  { id: 6, title: "REST API with Flask", lang: "Python", mode: "English → Code", date: "Apr 24, 2026", chars: 250 },
-  { id: 7, title: "merge_sort.go", lang: "Go", mode: "Code → Code", date: "Apr 23, 2026", chars: 390 },
-  { id: 8, title: "async_fetch.ts", lang: "TypeScript", mode: "Code → English", date: "Apr 23, 2026", chars: 470 },
-];
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/components/ui/button";
 
 const modeIcons = { "Code → English": FileText, "English → Code": Code2, "Code → Code": ArrowLeftRight };
 
 export default function HistoryPage() {
   const [search, setSearch] = useState("");
+
+  // TODO: Replace with real API call to fetch translation history
+  const history: { id: number; title: string; lang: string; mode: string; date: string; chars: number }[] = [];
+
   const filtered = history.filter((h) =>
     h.title.toLowerCase().includes(search.toLowerCase()) ||
     h.lang.toLowerCase().includes(search.toLowerCase())
@@ -55,17 +51,24 @@ export default function HistoryPage() {
                 </div>
                 <Badge variant="secondary" className="text-[10px]">{item.lang}</Badge>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">{item.date}</span>
-                <Button variant="ghost" size="icon-xs" className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-3 w-3" />
-                </Button>
               </Card>
             );
           })}
           {filtered.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Search className="h-8 w-8 text-muted-foreground" />
-              <p className="mt-4 text-sm font-medium">No translations found</p>
-              <p className="mt-1 text-xs text-muted-foreground">Try a different search term</p>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+                <Code2 className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <p className="mt-6 text-sm font-medium">No translations yet</p>
+              <p className="mt-2 max-w-xs text-xs text-muted-foreground">
+                Your translation history will appear here once you start translating code.
+              </p>
+              <Link
+                href="/dashboard/translate"
+                className={cn(buttonVariants({ size: "sm" }), "mt-6 gap-1.5 bg-amber-600 hover:bg-amber-700")}
+              >
+                <Code2 className="h-3.5 w-3.5" /> Start Translating
+              </Link>
             </div>
           )}
         </div>

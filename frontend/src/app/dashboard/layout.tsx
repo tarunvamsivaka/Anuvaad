@@ -9,6 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect } from "react";
 
@@ -90,6 +91,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* User section */}
         <div className="space-y-1 px-2 py-3">
+          {/* Theme toggle */}
+          <div className={cn("flex", collapsed ? "justify-center" : "px-3")}>
+            <ThemeToggle />
+          </div>
+
           {collapsed ? (
             <Tooltip>
               <TooltipTrigger>

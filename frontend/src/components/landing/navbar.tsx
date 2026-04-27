@@ -5,6 +5,7 @@ import { useState } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { Menu, X, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -29,14 +30,18 @@ export function Navbar() {
           ))}
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
-          <Link href="/login" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>Sign In</Link>
+        <div className="hidden items-center gap-2 md:flex">
+          <ThemeToggle />
+          <Link href="/signin" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>Sign In</Link>
           <Link href="/signup" className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}>Start Free <ArrowRight className="h-3.5 w-3.5" /></Link>
         </div>
 
-        <button className="md:hidden" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2 md:hidden">
+          <ThemeToggle />
+          <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {mobileOpen && (
@@ -46,7 +51,7 @@ export function Navbar() {
               <a key={link.href} href={link.href} className="text-sm font-medium text-muted-foreground" onClick={() => setMobileOpen(false)}>{link.label}</a>
             ))}
             <div className="flex gap-3 pt-2">
-              <Link href="/login" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1 text-center")}>Sign In</Link>
+              <Link href="/signin" className={cn(buttonVariants({ variant: "outline", size: "sm" }), "flex-1 text-center")}>Sign In</Link>
               <Link href="/signup" className={cn(buttonVariants({ size: "sm" }), "flex-1 text-center")}>Start Free</Link>
             </div>
           </nav>
