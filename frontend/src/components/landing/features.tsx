@@ -18,7 +18,7 @@ const features = [
     icon: Languages,
     title: "Code → Code",
     description:
-      "Translate between Python, JavaScript, Java, C++, TypeScript, Rust, and Go while preserving logic and structure.",
+      "Translate between 35+ languages — Python, JavaScript, C++, Java, SQL, HTML, CSS, Rust, Go, Kotlin, Swift, and many more.",
   },
   {
     icon: BookOpen,
@@ -58,7 +58,7 @@ export function Features() {
             Everything you need to understand code
           </h2>
           <p className="mt-4 text-lg text-muted-foreground">
-            Three powerful modes, seven languages, and instant AI-powered
+            Three powerful modes, 35+ languages, and instant AI-powered
             results.
           </p>
         </div>

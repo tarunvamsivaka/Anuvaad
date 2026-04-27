@@ -37,7 +37,7 @@ export default function DashboardPage() {
     },
     {
       label: "Languages",
-      value: "7",
+      value: "35+",
       icon: FileText,
       color: "text-emerald-600",
       bg: "bg-emerald-600/10",
