@@ -13,15 +13,46 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect } from "react";
 
+import { WorkspaceProvider, useWorkspace } from "@/context/WorkspaceContext";
+
 const sidebarLinks = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Translate", href: "/dashboard/translate", icon: Code2 },
   { label: "History", href: "/dashboard/history", icon: History },
+  { label: "Team", href: "/dashboard/team", icon: User },
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
+  const { workspaces, activeWorkspace, setActiveWorkspace } = useWorkspace();
+  
+  if (collapsed) return null;
+
+  return (
+    <div className="px-3 py-2">
+      <select 
+        className="w-full rounded-md border border-border/60 bg-muted/50 px-3 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-500"
+        value={activeWorkspace?.id || "personal"}
+        onChange={(e) => {
+          if (e.target.value === "personal") {
+            setActiveWorkspace(null);
+          } else {
+            const ws = workspaces.find(w => w.id === e.target.value);
+            if (ws) setActiveWorkspace(ws);
+          }
+        }}
+      >
+        <option value="personal">Personal Workspace</option>
+        {workspaces.map(ws => (
+          <option key={ws.id} value={ws.id}>{ws.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading, isPro, signOut } = useAuth();
@@ -58,6 +89,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-amber-600 text-xs font-bold text-white">A</div>
           {!collapsed && <span className="text-sm font-semibold tracking-tight">Anuvaad</span>}
         </div>
+        
+        <WorkspaceSwitcher collapsed={collapsed} />
 
         {/* Nav links */}
         <nav className="flex-1 space-y-1 px-2 py-3">
@@ -135,5 +168,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {children}
       </main>
     </div>
+  );
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <WorkspaceProvider>
+      <DashboardSidebar>{children}</DashboardSidebar>
+    </WorkspaceProvider>
   );
 }

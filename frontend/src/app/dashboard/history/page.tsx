@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 const modeIcons = { "Code → English": FileText, "English → Code": Code2, "Code → Code": ArrowLeftRight };
 
@@ -26,6 +27,7 @@ interface HistoryItem {
 
 export default function HistoryPage() {
   const { session } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const [search, setSearch] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,10 +40,18 @@ export default function HistoryPage() {
         return;
       }
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from("translation_history")
           .select("*")
           .order("created_at", { ascending: false });
+          
+        if (activeWorkspace) {
+          query = query.eq("workspace_id", activeWorkspace.id);
+        } else {
+          query = query.is("workspace_id", null);
+        }
+        
+        const { data, error } = await query;
         
         if (error) throw error;
         setHistory(data as HistoryItem[] || []);
@@ -54,7 +64,7 @@ export default function HistoryPage() {
     }
     
     fetchHistory();
-  }, [session]);
+  }, [session, activeWorkspace]);
 
   const filtered = history.filter((h) =>
     h.title.toLowerCase().includes(search.toLowerCase()) ||

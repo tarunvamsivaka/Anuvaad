@@ -10,10 +10,12 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 export default function SettingsPage() {
   const { user, isPro, signOut } = useAuth();
   const router = useRouter();
+  const { activeWorkspace } = useWorkspace();
   
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
@@ -25,15 +27,23 @@ export default function SettingsPage() {
     if (user) {
       fetchApiKeys();
     }
-  }, [user]);
+  }, [user, activeWorkspace]);
 
   async function fetchApiKeys() {
     if (!user) return;
-    const { data, error } = await supabase
+    let query = supabase
       .from('api_keys')
       .select('id, name, key_prefix, created_at, last_used_at')
       .eq('user_email', user.email)
       .order('created_at', { ascending: false });
+
+    if (activeWorkspace) {
+      query = query.eq('workspace_id', activeWorkspace.id);
+    } else {
+      query = query.is('workspace_id', null);
+    }
+
+    const { data, error } = await query;
     
     if (!error && data) {
       setApiKeys(data);
@@ -55,7 +65,8 @@ export default function SettingsPage() {
           user_email: user.email,
           name: newKeyName,
           key_prefix: rawKey.substring(0, 8) + "...",
-          api_key_hash: rawKey // Simplification for demo
+          api_key_hash: rawKey, // Simplification for demo
+          workspace_id: activeWorkspace ? activeWorkspace.id : null
         })
         .select()
         .single();

@@ -6,6 +6,7 @@ import logging
 import uvicorn
 import stripe
 import httpx
+import redis.asyncio as redis
 from collections import OrderedDict
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
@@ -140,16 +141,20 @@ async def get_user_email(credentials: HTTPAuthorizationCredentials = Depends(sec
         logger.error(f"JWT verification error: {e}")
     return None
 
-async def log_translation_history(email: str, title: str, source_lang: str, target_lang: str, mode: str, chars: int):
+async def log_translation_history(email: str, title: str, source_lang: str, target_lang: str, mode: str, chars: int, workspace_id: str | None = None):
     if not email: return
-    await supabase_request("POST", "translation_history", {
+    data = {
         "user_email": email,
         "title": title[:100],
         "source_language": source_lang,
         "target_language": target_lang,
         "mode": mode,
         "character_count": chars
-    })
+    }
+    if workspace_id:
+        data["workspace_id"] = workspace_id
+        
+    await supabase_request("POST", "translation_history", data)
 
 logger.info(f"Anuvaad API starting -- Gemini key: {'Set' if GEMINI_API_KEY != 'dummy_key' else 'Missing'}")
 
@@ -164,72 +169,61 @@ async def health_check():
     }
 
 SYSTEM_INSTRUCTION = """
-You are an expert code translator. Analyze the provided code and break it down into logical, sequential blocks.
-For each block, provide the exact raw code snippet and a plain-English, beginner-friendly explanation of what that specific code does.
-You MUST return the response as a JSON array of objects. Each object must have exactly three keys: id (a unique string like 'block_1'), code_snippet (the exact raw code), and english_translation (the plain text explanation).
+You are an expert code translator. Analyze the provided code and break it down logically.
+Provide a clear, plain-English, beginner-friendly explanation of what the code does. Use Markdown formatting. Use markdown code blocks (` ``` `) when referencing specific snippets of code.
+Do NOT wrap your response in JSON. Return pure Markdown.
 """
 
-# ── RATE LIMITING ──
-# NOTE: In-memory store — resets on server restart and is per-worker.
-# For multi-worker production deployments, replace with Redis.
+# ── REDIS CONNECTION ──
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
+try:
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+except Exception as e:
+    logger.warning(f"Could not initialize Redis client. Check REDIS_URL. {e}")
+    redis_client = None
+
+# ── RATE LIMITING (Redis-backed) ──
 RATE_LIMIT_WINDOW = 60  # seconds
 RATE_LIMIT_MAX = 15     # requests per window
-_rate_store: dict[str, list[float]] = {}
 
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     if not request.url.path.startswith("/api/"):
         return await call_next(request)
     
+    if not redis_client:
+        # Fallback if Redis is totally down (not ideal for prod, but safe)
+        return await call_next(request)
+
     client_ip = request.client.host if request.client else "unknown"
-    now = time.time()
+    redis_key = f"rate_limit:{client_ip}"
     
-    if client_ip not in _rate_store:
-        _rate_store[client_ip] = []
-    
-    # Clean old entries
-    _rate_store[client_ip] = [t for t in _rate_store[client_ip] if now - t < RATE_LIMIT_WINDOW]
-    
-    if len(_rate_store[client_ip]) >= RATE_LIMIT_MAX:
-        return JSONResponse(
-            status_code=429,
-            content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."}
-        )
-    
-    _rate_store[client_ip].append(now)
+    try:
+        current_count = await redis_client.incr(redis_key)
+        if current_count == 1:
+            await redis_client.expire(redis_key, RATE_LIMIT_WINDOW)
+            
+        if current_count > RATE_LIMIT_MAX:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."}
+            )
+    except Exception as e:
+        logger.error(f"Redis rate limit error: {e}")
+        # Allow request if Redis fails to avoid total outage
+        pass
+
     response = await call_next(request)
     return response
 
-# ── LRU CACHE ──
-# NOTE: In-memory cache — lost on restart, not shared across workers.
-# For persistence, replace with Redis or memcached.
-class LRUCache:
-    def __init__(self, max_size=100):
-        self._cache = OrderedDict()
-        self._max = max_size
-
-    def get(self, key):
-        if key in self._cache:
-            self._cache.move_to_end(key)
-            return self._cache[key]
-        return None
-
-    def put(self, key, value):
-        if key in self._cache:
-            self._cache.move_to_end(key)
-        self._cache[key] = value
-        if len(self._cache) > self._max:
-            self._cache.popitem(last=False)
-
-_translation_cache = LRUCache(max_size=200)
-
 def cache_key(code: str, language: str, endpoint: str) -> str:
-    return hashlib.sha256(f"{endpoint}:{language}:{code}".encode()).hexdigest()
+    return "anuvaad_cache:" + hashlib.sha256(f"{endpoint}:{language}:{code}".encode()).hexdigest()
 
 # 3. Pydantic Data Models (with validation)
 class CodePayload(BaseModel):
     raw_code: str = Field(..., min_length=1, max_length=10000)
     language: str = Field(..., min_length=1, max_length=30)
+    workspace_id: str | None = None
 
     @field_validator('raw_code')
     @classmethod
@@ -246,6 +240,7 @@ class EnglishUpdatePayload(BaseModel):
 class GeneratePayload(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=5000)
     language: str = Field(..., min_length=1, max_length=30)
+    workspace_id: str | None = None
 
     @field_validator('prompt')
     @classmethod
@@ -258,6 +253,7 @@ class CodeToCodePayload(BaseModel):
     raw_code: str = Field(..., min_length=1, max_length=10000)
     source_language: str = Field(..., min_length=1, max_length=30)
     target_language: str = Field(..., min_length=1, max_length=30)
+    workspace_id: str | None = None
 
     @field_validator('raw_code')
     @classmethod
@@ -319,12 +315,18 @@ def normalize_blocks(raw_result) -> list:
 @app.post("/api/code-to-english")
 async def function_translate_to_english(payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     key = cache_key(payload.raw_code, payload.language, "code-to-english")
-    cached = _translation_cache.get(key)
-    if cached:
-        if email:
-            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-            background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code))
-        return cached
+    
+    if redis_client:
+        try:
+            cached_str = await redis_client.get(key)
+            if cached_str:
+                cached = json.loads(cached_str)
+                if email:
+                    title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
+                    background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code), payload.workspace_id)
+                return cached
+        except Exception as e:
+            logger.error(f"Redis cache get error: {e}")
 
     user_prompt = f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}"
     
@@ -343,11 +345,16 @@ async def function_translate_to_english(payload: CodePayload, background_tasks: 
         )
         raw = json.loads(response.text)
         result = normalize_blocks(raw)
-        _translation_cache.put(key, result)
+        
+        if redis_client:
+            try:
+                await redis_client.setex(key, 86400 * 7, json.dumps(result)) # Cache for 7 days
+            except Exception as e:
+                logger.error(f"Redis cache set error: {e}")
         
         if email:
             title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-            background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code))
+            background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code), payload.workspace_id)
             
         return result
     except json.JSONDecodeError as e:
@@ -366,12 +373,18 @@ async def function_translate_to_english(payload: CodePayload, background_tasks: 
 @app.post("/api/generate-from-english")
 async def function_generate_from_english(payload: GeneratePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     key = cache_key(payload.prompt, payload.language, "generate-from-english")
-    cached = _translation_cache.get(key)
-    if cached:
-        if email:
-            title = payload.prompt[:50] + "..." if len(payload.prompt) > 50 else payload.prompt
-            background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt))
-        return cached
+    
+    if redis_client:
+        try:
+            cached_str = await redis_client.get(key)
+            if cached_str:
+                cached = json.loads(cached_str)
+                if email:
+                    title = payload.prompt[:50] + "..." if len(payload.prompt) > 50 else payload.prompt
+                    background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt), payload.workspace_id)
+                return cached
+        except Exception as e:
+            logger.error(f"Redis cache get error: {e}")
 
     user_prompt = f"Programming Language: {payload.language}\n\nUser Request:\n{payload.prompt}\n\nFirst, generate the complete, working code to satisfy this request. Then, analyze your generated code and break it down into logical blocks using the system instructions."
 
@@ -390,11 +403,16 @@ async def function_generate_from_english(payload: GeneratePayload, background_ta
         )
         raw = json.loads(response.text)
         result = normalize_blocks(raw)
-        _translation_cache.put(key, result)
+        
+        if redis_client:
+            try:
+                await redis_client.setex(key, 86400 * 7, json.dumps(result))
+            except Exception as e:
+                logger.error(f"Redis cache set error: {e}")
         
         if email:
             title = payload.prompt[:50] + "..." if len(payload.prompt) > 50 else payload.prompt
-            background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt))
+            background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt), payload.workspace_id)
             
         return result
     except json.JSONDecodeError as e:
@@ -440,12 +458,18 @@ async def function_update_to_code(payload: EnglishUpdatePayload):
 @app.post("/api/code-to-code")
 async def function_code_to_code(payload: CodeToCodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     key = cache_key(payload.raw_code, f"{payload.source_language}->{payload.target_language}", "code-to-code")
-    cached = _translation_cache.get(key)
-    if cached:
-        if email:
-            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-            background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code))
-        return cached
+    
+    if redis_client:
+        try:
+            cached_str = await redis_client.get(key)
+            if cached_str:
+                cached = json.loads(cached_str)
+                if email:
+                    title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
+                    background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code), payload.workspace_id)
+                return cached
+        except Exception as e:
+            logger.error(f"Redis cache get error: {e}")
 
     system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
@@ -468,11 +492,15 @@ Return a JSON array where each object has: id (e.g. 'block_1'), code_snippet (th
         )
         raw = json.loads(response.text)
         result = normalize_blocks(raw)
-        _translation_cache.put(key, result)
+        if redis_client:
+            try:
+                await redis_client.setex(key, 86400 * 7, json.dumps(result))
+            except Exception as e:
+                logger.error(f"Redis cache set error: {e}")
         
         if email:
             title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-            background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code))
+            background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code), payload.workspace_id)
             
         return result
     except json.JSONDecodeError as e:
@@ -667,6 +695,91 @@ async def check_subscription_status(payload: SubscriptionCheckPayload):
 
     return {"plan": plan, "status": status, "isPro": is_pro}
 
+# ── TEAM WORKSPACES API ──
+
+class WorkspaceCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+
+class WorkspaceInvite(BaseModel):
+    email: str = Field(..., min_length=3)
+    role: str = "member"
+
+@app.post("/api/workspaces")
+async def create_workspace(payload: WorkspaceCreate, email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Create workspace
+    workspace = await supabase_request("POST", "workspaces", {
+        "name": payload.name,
+        "owner_email": email
+    })
+    
+    if not workspace or not isinstance(workspace, list) or len(workspace) == 0:
+        raise HTTPException(status_code=500, detail="Failed to create workspace")
+        
+    workspace_id = workspace[0].get("id")
+    
+    # Add creator as owner in workspace_members
+    await supabase_request("POST", "workspace_members", {
+        "workspace_id": workspace_id,
+        "user_email": email,
+        "role": "owner"
+    })
+    
+    return workspace[0]
+
+@app.get("/api/workspaces")
+async def list_workspaces(email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    # Get all memberships for the user
+    memberships = await supabase_request("GET", f"workspace_members?user_email=eq.{email}&select=workspace_id,role")
+    
+    if not memberships or not isinstance(memberships, list):
+        return []
+        
+    workspace_ids = [m["workspace_id"] for m in memberships]
+    if not workspace_ids:
+        return []
+        
+    # Fetch workspace details
+    ids_param = ",".join(workspace_ids)
+    workspaces = await supabase_request("GET", f"workspaces?id=in.({ids_param})")
+    return workspaces
+
+@app.get("/api/workspaces/{workspace_id}/members")
+async def list_workspace_members(workspace_id: str, email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    # Verify user is a member of this workspace
+    membership = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{email}")
+    if not membership:
+        raise HTTPException(status_code=403, detail="Forbidden")
+        
+    members = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}")
+    return members
+
+@app.post("/api/workspaces/{workspace_id}/invite")
+async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, email: str = Depends(get_user_email)):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    # Verify user is an admin or owner
+    membership = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{email}")
+    if not membership or not isinstance(membership, list) or membership[0].get("role") not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Forbidden: Admin access required")
+        
+    # Add new member
+    await supabase_request("POST", "workspace_members", {
+        "workspace_id": workspace_id,
+        "user_email": payload.email,
+        "role": payload.role
+    })
+    
+    return {"status": "success", "message": f"Invited {payload.email}"}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

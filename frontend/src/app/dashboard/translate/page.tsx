@@ -45,6 +45,8 @@ export default function TranslatePage() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const { activeWorkspace } = useWorkspace();
+
   const currentMode = modes.find((m) => m.id === mode)!;
 
   const handleTranslate = useCallback(async () => {
@@ -68,6 +70,10 @@ export default function TranslatePage() {
       } else {
         endpoint = "/api/code-to-code";
         body = { raw_code: input, source_language: sourceLanguage, target_language: targetLanguage };
+      }
+      
+      if (activeWorkspace) {
+        body.workspace_id = activeWorkspace.id;
       }
       
       const headers: Record<string, string> = { "Content-Type": "application/json" };
