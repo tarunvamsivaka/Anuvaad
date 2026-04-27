@@ -104,7 +104,7 @@ export default function BillingPage() {
                 <Badge variant="secondary" className="text-[10px]">Current</Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isPro ? "Unlimited translations · Priority processing · 50K char inputs" : "10 translations per day · 7 languages · All modes"}
+                {isPro ? "Unlimited translations · Priority processing · 50K char inputs" : "10 translations per day · 35+ languages · All modes"}
               </p>
             </div>
             <p className="text-3xl font-bold">

@@ -17,9 +17,17 @@ Anuvaad is an AI-powered developer tool that translates code into plain English 
 
 Powered by **Google Gemini 2.5 Flash** with intelligent caching for instant results.
 
-## Supported Languages
+## Supported Languages (35+)
 
-Python · JavaScript · Java · C++ · TypeScript · Go · Rust
+**Web:** HTML · CSS · JavaScript · TypeScript  
+**Systems:** Python · Java · C++ · C · C# · Go · Rust  
+**Mobile:** Swift · Kotlin · Dart · Objective-C  
+**Scripting:** PHP · Ruby · Perl · Lua · R · MATLAB  
+**Data & Query:** SQL · GraphQL  
+**Shell & DevOps:** Bash · PowerShell · Dockerfile · YAML  
+**Functional:** Scala · Haskell · Elixir · Clojure  
+**Markup & Config:** JSON · XML · Markdown  
+**Assembly:** Assembly (MIPS)
 
 ## Architecture
 
@@ -106,10 +114,19 @@ python -m pytest tests/ -v
 | `POST` | `/api/code-to-english` | Translate code to English |
 | `POST` | `/api/generate-from-english` | Generate code from English |
 | `POST` | `/api/code-to-code` | Translate between languages |
+| `POST` | `/api/english-to-code` | Update code from modified English |
 | `GET` | `/api/health` | Health check |
 | `POST` | `/api/create-checkout-session` | Create Stripe checkout |
 | `POST` | `/api/webhook/stripe` | Stripe webhook handler |
 | `POST` | `/api/subscription-status` | Check Pro subscription |
+| `GET` | `/api/history` | Get translation history |
+| `GET` | `/api/workspaces` | List user workspaces |
+| `POST` | `/api/workspaces` | Create a workspace |
+| `GET` | `/api/workspaces/:id/members` | List workspace members |
+| `POST` | `/api/workspaces/:id/invite` | Invite a workspace member |
+| `GET` | `/api/api-keys` | List API keys |
+| `POST` | `/api/api-keys` | Create an API key |
+| `DELETE` | `/api/api-keys/:id` | Revoke an API key |
 
 ## Environment Variables
 
@@ -139,8 +156,8 @@ Anuvaad/
 │   ├── src/app/            # App Router pages
 │   ├── src/components/     # UI components (landing, shadcn)
 │   └── src/lib/            # Auth context, Supabase client
-├── main.py                 # FastAPI backend
-├── tests/                  # 50+ pytest tests
+├── main.py                 # FastAPI backend (932 lines)
+├── tests/                  # 140+ pytest tests
 ├── .github/workflows/      # CI pipeline
 ├── Dockerfile              # Multi-stage production build
 ├── docker-compose.yml      # Full stack orchestration

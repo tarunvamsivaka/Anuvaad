@@ -6,7 +6,7 @@ const steps = [
     step: "01",
     title: "Paste your code",
     description:
-      "Drop any code snippet into the editor. We support Python, JavaScript, Java, C++, TypeScript, Rust, and Go with full syntax highlighting.",
+      "Drop any code snippet into the editor. We support 35+ languages — Python, JavaScript, Java, C++, Rust, Go, Swift, Kotlin, SQL, and more — with full syntax highlighting.",
   },
   {
     icon: Cpu,

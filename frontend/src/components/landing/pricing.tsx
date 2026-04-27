@@ -11,7 +11,7 @@ const plans = [
   {
     name: "Free", price: { monthly: 0, yearly: 0 },
     description: "For individual developers getting started.",
-    features: ["10 translations per day", "7 programming languages", "All 3 translation modes", "Export as MD, JSON, PDF", "Syntax highlighted editor"],
+    features: ["10 translations per day", "35+ programming languages", "All 3 translation modes", "Export as MD, JSON, PDF", "Syntax highlighted editor"],
     cta: "Start Free", href: "/signup", highlighted: false,
   },
   {
