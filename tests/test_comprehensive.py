@@ -120,9 +120,7 @@ class TestRedisDown:
         """When Redis is None, rate limiting uses in-memory fallback."""
         import main as app_module
         for i in range(16):
-            res = client_no_redis.post("/api/code-to-english", json={
-                "raw_code": "x = 1", "language": "python"
-            })
+            res = client_no_redis.get("/api/health")
             if i < app_module.RATE_LIMIT_MAX:
                 assert res.status_code == 200
             else:

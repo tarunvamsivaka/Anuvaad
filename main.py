@@ -384,10 +384,19 @@ async def deduct_credit(email: str) -> bool:
     await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{email}", {"credits": current - 1})
     return True
 
-async def check_free_tier_limit(email: str | None, is_pro: bool) -> None:
+async def check_free_tier_limit(email: str | None, is_pro: bool, request: Request) -> None:
     """Raise 429 if a free-tier user has exceeded their daily limit and has no credits."""
     if not email:
-        return  # Unauthenticated users aren't rate-limited here (IP rate limit still applies)
+        client_ip = request.client.host if request.client else "unknown"
+        redis_key = f"anon_daily_usage:{client_ip}"
+        # Track anonymous usage by IP per 24 hours (86400 seconds)
+        count = await cache.incr_rate_limit(redis_key, 86400)
+        if count > FREE_TIER_DAILY_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Anonymous free tier limit reached ({FREE_TIER_DAILY_LIMIT} translations/day). Please sign up or upgrade to Pro."
+            )
+        return
     if is_pro:
         return  # Pro users have unlimited translations
     count = await get_today_usage_count(email)
@@ -1296,6 +1305,7 @@ async def upload_file_translate(
     language: str = Form(""),
     target_language: str = Form(""),
     access_token: str = Form(""),
+    request: Request = None,
     email: str | None = Depends(get_user_email),
 ):
     """Accept a code file upload (max 50KB free / 200KB Pro), translate via the LLM router."""
@@ -1343,8 +1353,7 @@ async def upload_file_translate(
     validate_code_input(raw_code)
     raw_code = sanitise_input(raw_code, mode="upload-file", email=email)
 
-    if email:
-        await check_free_tier_limit(email, is_pro)
+    await check_free_tier_limit(email, is_pro, request)
 
     # ── Route to the correct completion path
     model_name = "deepseek-reasoner" if use_r1 else "standard"
@@ -1398,7 +1407,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/code-to-english")
-async def function_translate_to_english_stream(payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
+async def function_translate_to_english_stream(request: Request, payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     validate_code_input(payload.raw_code)
     payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english", email=email)
     tier = "free"
@@ -1406,7 +1415,7 @@ async def function_translate_to_english_stream(payload: CodePayload, background_
     is_pro = False
     if email:
         is_pro = await get_user_pro_status(email)
-        await check_free_tier_limit(email, is_pro)
+    await check_free_tier_limit(email, is_pro, request)
         
     if payload.access_token:
         if await is_token_pro(payload.access_token):
@@ -1422,7 +1431,7 @@ async def function_translate_to_english_stream(payload: CodePayload, background_
     )
 
 @app.post("/api/code-to-english/sync")
-async def function_translate_to_english(payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
+async def function_translate_to_english(request: Request, payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     validate_code_input(payload.raw_code)
     payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english/sync", email=email)
     tier = "free"
@@ -1431,7 +1440,7 @@ async def function_translate_to_english(payload: CodePayload, background_tasks: 
     # Enforce free tier daily limit
     if email:
         is_pro = await get_user_pro_status(email)
-        await check_free_tier_limit(email, is_pro)
+    await check_free_tier_limit(email, is_pro, request)
         
     if payload.access_token:
         if await is_token_pro(payload.access_token):
@@ -1487,7 +1496,7 @@ async def function_translate_to_english(payload: CodePayload, background_tasks: 
         raise HTTPException(status_code=500, detail="Translation failed. Please try again.")
 
 @app.post("/api/generate-from-english")
-async def function_generate_from_english(payload: GeneratePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
+async def function_generate_from_english(request: Request, payload: GeneratePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     validate_code_input(payload.prompt)
     payload.prompt = sanitise_input(payload.prompt, mode="generate-from-english", email=email)
     tier = "free"
@@ -1496,7 +1505,7 @@ async def function_generate_from_english(payload: GeneratePayload, background_ta
     # Enforce free tier daily limit
     if email:
         is_pro = await get_user_pro_status(email)
-        await check_free_tier_limit(email, is_pro)
+    await check_free_tier_limit(email, is_pro, request)
         
     if payload.access_token:
         if await is_token_pro(payload.access_token):
@@ -1552,7 +1561,9 @@ async def function_generate_from_english(payload: GeneratePayload, background_ta
 # NOTE: This endpoint is intentionally NOT cached because the full_context
 # changes with every edit, making cache hits essentially impossible.
 @app.post("/api/english-to-code")
-async def function_update_to_code(payload: EnglishUpdatePayload):
+async def function_update_to_code(request: Request, payload: EnglishUpdatePayload, email: str | None = Depends(get_user_email)):
+    is_pro = await get_user_pro_status(email) if email else False
+    await check_free_tier_limit(email, is_pro, request)
     user_prompt = f"You are an expert programmer. The user is modifying a specific part of their code based on an English instruction. Here is the full context of the code: {payload.full_context}. The user wants to change the block identified as {payload.block_id} to do the following: '{payload.modified_english}'. Generate ONLY the new raw programming syntax required to fulfill this specific instruction. Do not include markdown formatting, backticks, or explanations. Return strictly the raw code."
 
     try:
@@ -1571,7 +1582,7 @@ async def function_update_to_code(payload: EnglishUpdatePayload):
 
 # NEW: Code-to-Code Translation
 @app.post("/api/code-to-code")
-async def function_code_to_code(payload: CodeToCodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
+async def function_code_to_code(request: Request, payload: CodeToCodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
     validate_code_input(payload.raw_code)
     payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-code", email=email)
     tier = "free"
@@ -1580,7 +1591,7 @@ async def function_code_to_code(payload: CodeToCodePayload, background_tasks: Ba
     # Enforce free tier daily limit
     if email:
         is_pro = await get_user_pro_status(email)
-        await check_free_tier_limit(email, is_pro)
+    await check_free_tier_limit(email, is_pro, request)
         
     if payload.access_token:
         if await is_token_pro(payload.access_token):
