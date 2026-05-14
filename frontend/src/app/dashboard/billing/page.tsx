@@ -4,16 +4,26 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Check, Zap, CreditCard, ExternalLink, Loader2, X, PartyPopper } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { toast } from "sonner";
+import { track } from "@/lib/analytics";
+import { useSubscriptionStatus, useTranslationStats, useCredits } from "@/lib/hooks";
 
 export default function BillingPage() {
   const { isPro, session } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [creditLoading, setCreditLoading] = useState(false);
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
+
+  const { subscription, isLoading: subLoading } = useSubscriptionStatus(session?.access_token);
+  const { stats, isLoading: statsLoading } = useTranslationStats(session?.user?.email);
+  const { credits, isLoading: creditsLoading } = useCredits(session?.access_token);
 
   useEffect(() => {
     const payment = searchParams.get("payment");
@@ -30,6 +40,7 @@ export default function BillingPage() {
   async function handleUpgrade() {
     if (!session?.access_token || !session?.user?.email) return;
     setLoading(true);
+    track("upgrade_clicked", { current_plan: isActuallyPro ? "pro" : "free", target_plan: "pro" });
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const res = await fetch(`${API}/api/create-checkout-session`, {
@@ -45,14 +56,68 @@ export default function BillingPage() {
         if (data.url) window.location.href = data.url;
       } else {
         const err = await res.json().catch(() => null);
-        console.error("Checkout failed:", err?.detail || res.status);
+        toast.error(err?.detail || "Failed to create checkout session.");
       }
     } catch (e) {
-      console.error("Checkout error:", e);
+      toast.error("Could not connect to billing service. Please try again.");
     } finally {
       setLoading(false);
     }
   }
+
+  async function handleManageBilling() {
+    if (!session?.access_token) return;
+    setPortalLoading(true);
+    track("portal_opened", {});
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/create-portal-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: session.access_token }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.detail || "Could not open billing portal.");
+      }
+    } catch {
+      toast.error("Could not connect to billing service. Please try again.");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
+
+  async function handleBuyCredits() {
+    if (!session?.access_token) return;
+    setCreditLoading(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/create-credit-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: session.access_token }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+      } else {
+        const err = await res.json().catch(() => null);
+        toast.error(err?.detail || "Could not open credit checkout.");
+      }
+    } catch {
+      toast.error("Could not connect to billing service. Please try again.");
+    } finally {
+      setCreditLoading(false);
+    }
+  }
+
+  const isActuallyPro = isPro || subscription?.plan === "pro";
+  const limit = 10;
+  const usageCount = stats?.today || 0;
+  const usagePercentage = Math.min((usageCount / limit) * 100, 100);
 
   return (
     <div className="min-h-screen">
@@ -100,18 +165,23 @@ export default function BillingPage() {
           <div className="flex items-start justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">{isPro ? "Pro Plan" : "Free Plan"}</h2>
-                <Badge variant="secondary" className="text-[10px]">Current</Badge>
+                <h2 className="text-lg font-semibold">{isActuallyPro ? "Pro Plan" : "Free Plan"}</h2>
+                <Badge variant="secondary" className="text-[10px]">{subscription?.status === "active" ? "Active" : "Current"}</Badge>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {isPro ? "Unlimited translations · Priority processing · 50K char inputs" : "10 translations per day · 35+ languages · All modes"}
+                {isActuallyPro ? "Unlimited translations · Priority processing · 50K char inputs" : "10 translations per day · 35+ languages · All modes"}
               </p>
+              {subscription?.current_period_end && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Renews on {new Date(subscription.current_period_end).toLocaleDateString()}
+                </p>
+              )}
             </div>
             <p className="text-3xl font-bold">
-              {isPro ? "$12" : "$0"}<span className="text-sm font-normal text-muted-foreground">/mo</span>
+              {isActuallyPro ? "$12" : "$0"}<span className="text-sm font-normal text-muted-foreground">/mo</span>
             </p>
           </div>
-          {!isPro && (
+          {!isActuallyPro && (
             <>
               <Separator className="my-6" />
               <div className="flex items-center justify-between">
@@ -119,16 +189,23 @@ export default function BillingPage() {
                   <p className="text-sm font-medium">Usage this billing period</p>
                   <p className="mt-1 text-xs text-muted-foreground">Daily limit resets at midnight UTC</p>
                 </div>
-                <div className="h-2 w-32 rounded-full bg-muted overflow-hidden">
-                  <div className="h-full w-[30%] rounded-full bg-amber-600 transition-all" />
-                </div>
+                {statsLoading ? (
+                  <Skeleton className="h-2 w-32 rounded-full" />
+                ) : (
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs font-medium text-muted-foreground">{usageCount} / {limit} used</span>
+                    <div className="h-2 w-32 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-amber-600 transition-all duration-500" style={{ width: `${usagePercentage}%` }} />
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
         </Card>
 
         {/* Upgrade section — only show for free users */}
-        {!isPro && (
+        {!isActuallyPro && (
           <Card className="mt-6 border-amber-600/20 bg-gradient-to-r from-amber-600/5 to-amber-500/5 p-6">
             <div className="flex items-center gap-2">
               <Zap className="h-5 w-5 text-amber-600" />
@@ -153,7 +230,7 @@ export default function BillingPage() {
         )}
 
         {/* Pro success state */}
-        {isPro && (
+        {isActuallyPro && (
           <Card className="mt-6 border-emerald-600/20 bg-gradient-to-r from-emerald-600/5 to-emerald-500/5 p-6">
             <div className="flex items-center gap-2">
               <Check className="h-5 w-5 text-emerald-600" />
@@ -165,14 +242,56 @@ export default function BillingPage() {
           </Card>
         )}
 
+        {/* Credits section */}
+        <Card className="mt-6 p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-semibold">Translation Credits</h2>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                One-time purchase credits for when you hit your free tier limits.
+              </p>
+            </div>
+            <div className="text-right">
+              {creditsLoading ? (
+                <Skeleton className="h-8 w-16 mb-1 ml-auto" />
+              ) : (
+                <p className="text-3xl font-bold text-amber-600">{credits}</p>
+              )}
+              <span className="text-xs font-normal text-muted-foreground">Available</span>
+            </div>
+          </div>
+          
+          <Separator className="my-6" />
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Buy more credits</p>
+              <p className="mt-1 text-xs text-muted-foreground">Never expire. Use anytime.</p>
+            </div>
+            <Button onClick={handleBuyCredits} disabled={creditLoading} variant="outline" className="gap-2">
+              {creditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-600" />}
+              {creditLoading ? "Processing..." : "Buy 100 Credits — $1"}
+            </Button>
+          </div>
+        </Card>
+
         {/* Payment method */}
         <Card className="mt-6 p-6">
           <h2 className="text-sm font-semibold">Payment Method</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isPro ? "Managed via Stripe." : "No payment method on file."}
+            {isActuallyPro ? "Managed via Stripe." : "No payment method on file."}
           </p>
-          <Button variant="outline" size="sm" className="mt-4 gap-2 text-xs">
-            <ExternalLink className="h-3 w-3" /> Manage in Stripe
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-4 gap-2 text-xs"
+            onClick={handleManageBilling}
+            disabled={portalLoading || !isActuallyPro}
+          >
+            {portalLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+            {portalLoading ? "Opening..." : "Manage in Stripe"}
           </Button>
         </Card>
       </div>

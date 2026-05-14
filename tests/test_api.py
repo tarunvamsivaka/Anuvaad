@@ -19,7 +19,7 @@ class TestHealthEndpoint:
         data = client.get("/api/health").json()
         assert data["status"] == "healthy"
         assert data["service"] == "anuvaad-api"
-        assert "gemini_configured" in data
+        assert "llm_configured" in data
         assert "stripe_configured" in data
 
 

@@ -3,11 +3,26 @@
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+
+const MotionDiv = dynamic(() => import("framer-motion").then((mod) => mod.motion.div), {
+  ssr: false,
+});
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 export function Hero() {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduceMotion(mediaQuery.matches);
+    const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
+    mediaQuery.addEventListener("change", handler);
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
+
   return (
     <section className="relative overflow-hidden">
       {/* Subtle gradient background */}
@@ -16,11 +31,11 @@ export function Hero() {
       </div>
 
       <div className="mx-auto max-w-6xl px-6 pb-24 pt-20 md:pb-32 md:pt-28">
-        <motion.div
+        <MotionDiv
           className="mx-auto max-w-3xl text-center"
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.5 }}
         >
           {/* Announcement badge */}
           <Badge
@@ -60,14 +75,14 @@ export function Hero() {
           <p className="mt-8 text-sm text-muted-foreground">
             Free to start · No credit card required · 10 translations/day
           </p>
-        </motion.div>
+        </MotionDiv>
 
         {/* Product screenshot mockup */}
-        <motion.div
+        <MotionDiv
           className="relative mx-auto mt-16 max-w-4xl"
-          initial={{ opacity: 0, y: 40 }}
+          initial={reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.2 }}
+          transition={reduceMotion ? { duration: 0 } : { duration: 0.7, delay: 0.2 }}
         >
           <div className="overflow-hidden rounded-xl border border-border/60 bg-card shadow-2xl shadow-black/5">
             {/* Browser chrome */}
@@ -166,7 +181,7 @@ export function Hero() {
               </div>
             </div>
           </div>
-        </motion.div>
+        </MotionDiv>
       </div>
     </section>
   );

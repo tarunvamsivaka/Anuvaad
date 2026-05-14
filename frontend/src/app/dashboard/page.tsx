@@ -14,38 +14,42 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useTranslationStats } from "@/lib/hooks";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
-  const { user, isPro } = useAuth();
+  const { user, isPro, session } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
 
-  const stats = [
+  const { stats, recentTranslations, isLoading } = useTranslationStats(user?.email);
+
+  const statCards = [
     {
       label: "Translations Today",
-      value: isPro ? "∞" : "0",
+      value: isPro ? "∞" : stats.today.toString(),
       limit: isPro ? undefined : "/10",
       icon: Code2,
       color: "text-amber-600",
       bg: "bg-amber-600/10",
     },
     {
-      label: "Plan",
-      value: isPro ? "Pro" : "Free",
+      label: "This Week",
+      value: stats.week.toString(),
       icon: TrendingUp,
       color: "text-blue-600",
       bg: "bg-blue-600/10",
     },
     {
-      label: "Languages",
-      value: "35+",
+      label: "Total Translations",
+      value: stats.total.toString(),
       icon: FileText,
       color: "text-emerald-600",
       bg: "bg-emerald-600/10",
     },
     {
-      label: "Avg. Response",
-      value: "~2s",
-      icon: Clock,
+      label: "Plan",
+      value: isPro ? "Pro" : "Free",
+      icon: Zap,
       color: "text-purple-600",
       bg: "bg-purple-600/10",
     },
@@ -74,7 +78,7 @@ export default function DashboardPage() {
       <div className="p-6">
         {/* Stats grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => {
+          {statCards.map((stat) => {
             const Icon = stat.icon;
             return (
               <Card key={stat.label} className="p-4">
@@ -92,11 +96,17 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-2 flex items-baseline gap-0.5">
-                  <span className="text-2xl font-bold">{stat.value}</span>
-                  {stat.limit && (
-                    <span className="text-sm text-muted-foreground">
-                      {stat.limit}
-                    </span>
+                  {isLoading ? (
+                    <Skeleton className="h-8 w-16" />
+                  ) : (
+                    <>
+                      <span className="text-2xl font-bold">{stat.value}</span>
+                      {stat.limit && (
+                        <span className="text-sm text-muted-foreground">
+                          {stat.limit}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
               </Card>
@@ -160,34 +170,49 @@ export default function DashboardPage() {
             </div>
           </Card>
 
-          {/* Getting started guide */}
+          {/* Recent Translations */}
           <Card className="p-5 lg:col-span-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold">Getting Started</h2>
-              <Badge variant="secondary" className="text-[10px]">Guide</Badge>
+              <h2 className="text-sm font-semibold">Recent Translations</h2>
+              <Link href="/dashboard/history">
+                <Badge variant="secondary" className="text-[10px] cursor-pointer hover:bg-muted">View All</Badge>
+              </Link>
             </div>
             <div className="mt-4 space-y-3">
-              <div className="flex items-start gap-3 rounded-lg px-3 py-2.5">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">1</div>
-                <div>
-                  <p className="text-sm font-medium">Paste your code</p>
-                  <p className="text-xs text-muted-foreground">Go to Translate and paste any code snippet in any supported language.</p>
+              {isLoading ? (
+                <div className="space-y-3">
+                   <Skeleton className="h-16 w-full rounded-lg" />
+                   <Skeleton className="h-16 w-full rounded-lg" />
+                   <Skeleton className="h-16 w-full rounded-lg" />
                 </div>
-              </div>
-              <div className="flex items-start gap-3 rounded-lg px-3 py-2.5">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">2</div>
-                <div>
-                  <p className="text-sm font-medium">Choose your mode</p>
-                  <p className="text-xs text-muted-foreground">Code → English, English → Code, or Code → Code. Select source and target languages.</p>
+              ) : recentTranslations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border p-8 text-center">
+                   <FileText className="h-8 w-8 text-muted-foreground mb-3" />
+                   <p className="text-sm font-medium">No translations yet</p>
+                   <p className="text-xs text-muted-foreground mt-1 max-w-[250px]">
+                     Your recent translation history will appear here once you start using the app.
+                   </p>
+                   <Link href="/dashboard/translate" className={cn(buttonVariants({ size: "sm", variant: "outline" }), "mt-4")}>
+                     Try your first translation
+                   </Link>
                 </div>
-              </div>
-              <div className="flex items-start gap-3 rounded-lg px-3 py-2.5">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-600 text-[10px] font-bold text-white">3</div>
-                <div>
-                  <p className="text-sm font-medium">Get your translation</p>
-                  <p className="text-xs text-muted-foreground">AI analyzes your input and returns a clear, structured translation in seconds.</p>
-                </div>
-              </div>
+              ) : (
+                recentTranslations.map(tx => (
+                  <div key={tx.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2.5 transition-colors hover:bg-muted/50">
+                    <div>
+                      <p className="text-sm font-medium">{tx.input_preview || "Code Snippet"}...</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-[10px]">{tx.mode}</Badge>
+                        <span className="text-xs text-muted-foreground">{tx.source_language} → {tx.target_language}</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground shrink-0 sm:text-right">
+                      {new Date(tx.created_at).toLocaleDateString()}<br/>
+                      <span className="text-[10px]">{tx.model_used}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </Card>
         </div>

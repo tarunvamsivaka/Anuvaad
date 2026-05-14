@@ -55,26 +55,26 @@ class TestCacheKey:
 
     def test_same_inputs_same_key(self):
         from main import cache_key
-        k1 = cache_key("print('hello')", "python", "code-to-english")
-        k2 = cache_key("print('hello')", "python", "code-to-english")
+        k1 = cache_key("print('hello')", "python", "code-to-english", "llama-3")
+        k2 = cache_key("print('hello')", "python", "code-to-english", "llama-3")
         assert k1 == k2
 
     def test_different_code_different_key(self):
         from main import cache_key
-        k1 = cache_key("print('hello')", "python", "code-to-english")
-        k2 = cache_key("print('world')", "python", "code-to-english")
+        k1 = cache_key("print('hello')", "python", "code-to-english", "llama-3")
+        k2 = cache_key("print('world')", "python", "code-to-english", "llama-3")
         assert k1 != k2
 
     def test_different_language_different_key(self):
         from main import cache_key
-        k1 = cache_key("console.log('hi')", "javascript", "code-to-english")
-        k2 = cache_key("console.log('hi')", "python", "code-to-english")
+        k1 = cache_key("console.log('hi')", "javascript", "code-to-english", "llama-3")
+        k2 = cache_key("console.log('hi')", "python", "code-to-english", "llama-3")
         assert k1 != k2
 
     def test_different_endpoint_different_key(self):
         from main import cache_key
-        k1 = cache_key("x = 1", "python", "code-to-english")
-        k2 = cache_key("x = 1", "python", "generate-from-english")
+        k1 = cache_key("x = 1", "python", "code-to-english", "llama-3")
+        k2 = cache_key("x = 1", "python", "generate-from-english", "llama-3")
         assert k1 != k2
 
 

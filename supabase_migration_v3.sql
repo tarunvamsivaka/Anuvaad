@@ -21,25 +21,30 @@ CREATE TABLE IF NOT EXISTS public.workspace_members (
 
 ALTER TABLE public.workspace_members ENABLE ROW LEVEL SECURITY;
 
+-- Helper function to get user workspaces without triggering RLS recursion
+CREATE OR REPLACE FUNCTION public.get_user_workspaces()
+RETURNS SETOF uuid
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT workspace_id FROM public.workspace_members 
+    WHERE user_email = (SELECT email FROM auth.users WHERE id = auth.uid());
+$$;
+
 -- 3. RLS Policies for Workspaces and Members
 -- Users can view workspaces they are a member of
 CREATE POLICY "Users can view their workspaces" 
     ON public.workspaces FOR SELECT 
     USING (
-        id IN (
-            SELECT workspace_id FROM public.workspace_members 
-            WHERE user_email IN (SELECT email FROM auth.users WHERE id = auth.uid())
-        )
+        id IN (SELECT public.get_user_workspaces())
     );
 
 -- Users can view members of workspaces they are a part of
 CREATE POLICY "Users can view their team members" 
     ON public.workspace_members FOR SELECT 
     USING (
-        workspace_id IN (
-            SELECT workspace_id FROM public.workspace_members 
-            WHERE user_email IN (SELECT email FROM auth.users WHERE id = auth.uid())
-        )
+        workspace_id IN (SELECT public.get_user_workspaces())
     );
 
 -- 4. Update translation_history and api_keys
@@ -58,10 +63,7 @@ DROP POLICY IF EXISTS "Users can view their own history" ON public.translation_h
 CREATE POLICY "Users can view history" 
     ON public.translation_history FOR SELECT 
     USING (
-        (workspace_id IN (
-            SELECT workspace_id FROM public.workspace_members 
-            WHERE user_email IN (SELECT email FROM auth.users WHERE id = auth.uid())
-        ))
+        (workspace_id IN (SELECT public.get_user_workspaces()))
         OR 
         (workspace_id IS NULL AND auth.uid() IN (SELECT id FROM auth.users WHERE email = user_email))
     );
@@ -74,10 +76,7 @@ DROP POLICY IF EXISTS "Users can manage their own API keys" ON public.api_keys;
 CREATE POLICY "Users can manage API keys" 
     ON public.api_keys FOR ALL 
     USING (
-        (workspace_id IN (
-            SELECT workspace_id FROM public.workspace_members 
-            WHERE user_email IN (SELECT email FROM auth.users WHERE id = auth.uid())
-        ))
+        (workspace_id IN (SELECT public.get_user_workspaces()))
         OR 
         (workspace_id IS NULL AND auth.uid() IN (SELECT id FROM auth.users WHERE email = user_email))
     );

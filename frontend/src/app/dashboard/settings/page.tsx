@@ -5,22 +5,45 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Key, Plus, Copy, Check, Trash2, ShieldAlert } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { LogOut, Key, Plus, Copy, Check, Trash2, ShieldAlert, Loader2, Monitor, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { toast } from "sonner";
+import { useTheme } from "next-themes";
 
 export default function SettingsPage() {
   const { user, session, isPro, signOut } = useAuth();
   const router = useRouter();
   const { activeWorkspace } = useWorkspace();
+  const { theme, setTheme } = useTheme();
   
+  const [displayName, setDisplayName] = useState("");
+  const [saving, setSaving] = useState(false);
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [generatedKey, setGeneratedKey] = useState("");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.user_metadata?.full_name) {
+      setDisplayName(user.user_metadata.full_name);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (session) {
@@ -51,6 +74,28 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSaveProfile() {
+    if (!displayName.trim()) {
+      toast.error("Display name cannot be empty.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: displayName.trim() },
+      });
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Profile updated successfully.");
+      }
+    } catch {
+      toast.error("Failed to update profile. Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleCreateApiKey() {
     if (!session || !newKeyName.trim()) return;
     setLoading(true);
@@ -73,7 +118,9 @@ export default function SettingsPage() {
       setGeneratedKey(data.raw_key);
       setNewKeyName("");
       fetchApiKeys();
+      toast.success("API key created successfully.");
     } catch (e) {
+      toast.error("Failed to create API key.");
       console.error(e);
     } finally {
       setLoading(false);
@@ -90,7 +137,9 @@ export default function SettingsPage() {
         },
       });
       fetchApiKeys();
+      toast.success("API key revoked.");
     } catch (e) {
+      toast.error("Failed to revoke API key.");
       console.error(e);
     }
   }
@@ -104,6 +153,31 @@ export default function SettingsPage() {
   async function handleSignOut() {
     await signOut();
     router.push("/");
+  }
+
+  async function handleDeleteAccount() {
+    if (!session) return;
+    setDeleting(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/account`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${session.access_token}` },
+      });
+      
+      if (res.ok || res.status === 204) {
+        toast.success("Account deleted successfully.");
+        await signOut();
+        router.push("/");
+      } else {
+        toast.error("Failed to delete account.");
+      }
+    } catch (e) {
+      toast.error("Failed to delete account. Please try again.");
+    } finally {
+      setDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
   }
 
   return (
@@ -125,10 +199,40 @@ export default function SettingsPage() {
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Display Name</label>
-              <Input placeholder="Your name" defaultValue={user?.user_metadata?.full_name || ""} className="mt-1 text-sm" />
+              <Input
+                placeholder="Your name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="mt-1 text-sm"
+              />
             </div>
           </div>
-          <Button size="sm" className="mt-4 bg-amber-600 hover:bg-amber-700 text-xs">Save Changes</Button>
+          <Button
+            size="sm"
+            className="mt-4 bg-amber-600 hover:bg-amber-700 text-xs gap-1.5"
+            onClick={handleSaveProfile}
+            disabled={saving}
+          >
+            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </Card>
+
+        {/* Appearance */}
+        <Card className="p-6">
+          <h2 className="text-sm font-semibold">Appearance</h2>
+          <p className="text-xs text-muted-foreground mt-1 mb-4">Customize the look and feel of your Anuvaad dashboard.</p>
+          <div className="max-w-xs mt-2">
+            <select
+              value={theme || "system"}
+              onChange={(e) => setTheme(e.target.value)}
+              className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              <option value="system">System</option>
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+            </select>
+          </div>
         </Card>
 
         {/* Developer / API Keys */}
@@ -234,8 +338,9 @@ export default function SettingsPage() {
 
         {/* Danger zone */}
         <Card className="border-destructive/20 p-6 bg-destructive/5">
-          <h2 className="text-sm font-semibold text-destructive">Danger Zone</h2>
-          <div className="mt-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-destructive mb-4">Danger Zone</h2>
+          
+          <div className="flex items-center justify-between py-2">
             <div>
               <p className="text-sm font-medium">Sign Out</p>
               <p className="text-xs text-muted-foreground">Sign out of your account on this device</p>
@@ -243,6 +348,39 @@ export default function SettingsPage() {
             <Button variant="outline" size="sm" className="gap-2 text-xs bg-background" onClick={handleSignOut}>
               <LogOut className="h-3 w-3" /> Sign Out
             </Button>
+          </div>
+          
+          <Separator className="my-4 bg-destructive/10" />
+          
+          <div className="flex items-center justify-between py-2">
+            <div>
+              <p className="text-sm font-medium text-destructive">Delete Account</p>
+              <p className="text-xs text-muted-foreground">Permanently remove your account and all data</p>
+            </div>
+            
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+              <DialogTrigger render={<Button variant="destructive" size="sm" className="gap-2 text-xs" />}>
+                  <Trash2 className="h-3 w-3" /> Delete
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Are you absolutely sure?</DialogTitle>
+                  <DialogDescription>
+                    This permanently deletes your account and all translations. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
+                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={deleting}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleting}>
+                    {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Delete Account
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
           </div>
         </Card>
       </div>

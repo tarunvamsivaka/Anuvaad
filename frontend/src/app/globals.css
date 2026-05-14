@@ -123,8 +123,43 @@
   }
   body {
     @apply bg-background text-foreground;
+    transition: background-color 150ms ease;
   }
   html {
     @apply font-sans;
   }
+
+  /* Accessibility: Focus styles */
+  :focus-visible {
+    outline: 2px solid #f59e0b; /* amber-500 */
+    outline-offset: 2px;
+  }
+  
+  button:focus-visible, 
+  a:focus-visible, 
+  input:focus-visible, 
+  select:focus-visible, 
+  textarea:focus-visible, 
+  [tabindex="0"]:focus-visible {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+  }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.blinking-cursor::after {
+  content: "█";
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) { 
+  * { 
+    animation-duration: 0.01ms !important; 
+    transition-duration: 0.01ms !important;
+  } 
 }

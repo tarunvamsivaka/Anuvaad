@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth-context";
+import { track } from "@/lib/analytics";
 import { Loader2 } from "lucide-react";
 
 export default function SignUpPage() {
@@ -26,15 +27,20 @@ export default function SignUpPage() {
     const { error } = await signUpWithEmail(email, password);
     setLoading(false);
     if (error) setError(error);
-    else setSuccess(true);
+    else {
+      track("signup_completed", { method: "email" });
+      setSuccess(true);
+    }
   }
 
   async function handleGoogle() {
+    track("signup_completed", { method: "google" });
     const { error } = await signInWithGoogle();
     if (error) setError(error);
   }
 
   async function handleGitHub() {
+    track("signup_completed", { method: "github" });
     const { error } = await signInWithGitHub();
     if (error) setError(error);
   }

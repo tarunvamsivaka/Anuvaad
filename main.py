@@ -3,21 +3,24 @@ import json
 import os
 import hashlib
 import logging
+import sys
+import base64
 import uvicorn
 import stripe
 import httpx
-import redis.asyncio as redis
-from collections import OrderedDict
+import resend
+from collections import OrderedDict, deque
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, Header, UploadFile, File, Form
+from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
-from google import genai
-from google.genai import types
+import openai
+from openai import AsyncOpenAI
+import sentry_sdk
 import time
 
 # Gemini API timeout (seconds) — prevents hung requests
@@ -26,6 +29,66 @@ GEMINI_TIMEOUT = 60
 # ── STRUCTURED LOGGING ──
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("anuvaad")
+
+# ── METRICS COLLECTOR ──
+class MetricsCollector:
+    """In-memory metrics for API observability. Resets on process restart."""
+
+    def __init__(self):
+        self.start_time = time.time()
+        self.total_requests: dict[str, int] = {}
+        self.total_errors: dict[str, int] = {}
+        self.model_calls: dict[str, int] = {}
+        self.model_errors: dict[str, int] = {}
+        self.cache_hits: int = 0
+        self.cache_misses: int = 0
+        # Rolling window for latency (last 100 per endpoint)
+        self._latencies: dict[str, deque] = {}
+
+    def record_request(self, endpoint: str, latency_ms: float, is_error: bool = False):
+        self.total_requests[endpoint] = self.total_requests.get(endpoint, 0) + 1
+        if is_error:
+            self.total_errors[endpoint] = self.total_errors.get(endpoint, 0) + 1
+        if endpoint not in self._latencies:
+            self._latencies[endpoint] = deque(maxlen=100)
+        self._latencies[endpoint].append(latency_ms)
+
+    def record_model_call(self, model_name: str, is_error: bool = False):
+        self.model_calls[model_name] = self.model_calls.get(model_name, 0) + 1
+        if is_error:
+            self.model_errors[model_name] = self.model_errors.get(model_name, 0) + 1
+
+    def record_cache_hit(self):
+        self.cache_hits += 1
+
+    def record_cache_miss(self):
+        self.cache_misses += 1
+
+    @property
+    def average_latency_ms(self) -> dict[str, float]:
+        return {
+            ep: round(sum(dq) / len(dq), 2) if dq else 0.0
+            for ep, dq in self._latencies.items()
+        }
+
+    @property
+    def uptime_seconds(self) -> int:
+        return int(time.time() - self.start_time)
+
+    def snapshot(self) -> dict:
+        return {
+            "uptime_seconds": self.uptime_seconds,
+            "python_version": sys.version,
+            "total_requests": dict(self.total_requests),
+            "total_errors": dict(self.total_errors),
+            "model_calls": dict(self.model_calls),
+            "model_errors": dict(self.model_errors),
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
+            "average_latency_ms": self.average_latency_ms,
+        }
+
+metrics = MetricsCollector()
 
 # 1. Core Initialization
 app = FastAPI(title="Anuvaad API")
@@ -48,15 +111,54 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 2. Modern Gemini SDK Setup
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-if not GEMINI_API_KEY or GEMINI_API_KEY == "your_gemini_api_key_here":
-    logger.warning("GEMINI_API_KEY is not set or still default!")
-    logger.warning("Copy .env.example to .env and add your key from https://aistudio.google.com/apikey")
-    logger.warning("The API will return errors until a valid key is provided.")
-    GEMINI_API_KEY = GEMINI_API_KEY or "dummy_key"
+# ── METRICS MIDDLEWARE ──
+METRICS_USERNAME = os.getenv("METRICS_USERNAME", "")
+METRICS_PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """Track request count, latency, and errors for all /api/ endpoints."""
+    path = request.url.path
+    if not path.startswith("/api/"):
+        return await call_next(request)
+
+    # Normalise endpoint name for grouping (strip /api/ prefix, replace slashes)
+    endpoint = path.replace("/api/", "").replace("/", "_").rstrip("_") or "root"
+    start = time.time()
+    is_error = False
+
+    try:
+        response = await call_next(request)
+        if response.status_code >= 400:
+            is_error = True
+        return response
+    except Exception:
+        is_error = True
+        raise
+    finally:
+        latency_ms = (time.time() - start) * 1000
+        metrics.record_request(endpoint, latency_ms, is_error)
+
+# 1.5 Sentry Initialization
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        traces_sample_rate=0.1,
+        environment=os.getenv("ENV", "development"),
+    )
+    logger.info("Sentry initialized")
+else:
+    logger.info("Sentry not configured")
+
+# 2. Modern LLM Setup (Groq + DeepSeek)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+
+if not GROQ_API_KEY or GROQ_API_KEY.startswith("your_"):
+    logger.warning("GROQ_API_KEY is not set or still default!")
+if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY.startswith("your_"):
+    logger.warning("DEEPSEEK_API_KEY is not set or still default!")
 
 # Startup validation
 STRIPE_KEY = os.getenv("STRIPE_SECRET_KEY", "")
@@ -78,6 +180,21 @@ if SUPABASE_URL and SUPABASE_SERVICE_KEY:
     logger.info("Supabase server-side client configured")
 else:
     logger.warning("SUPABASE_SERVICE_ROLE_KEY not set — subscription DB updates disabled")
+
+# ── STARTUP ENV VALIDATION ──
+# In production, critical env vars must be present.
+_is_production = os.getenv("ENV", "development").lower() == "production"
+if _is_production:
+    _missing = []
+    for _var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "STRIPE_WEBHOOK_SECRET"]:
+        val = os.getenv(_var, "")
+        if not val or val.startswith("your_") or val == "dummy_key":
+            _missing.append(_var)
+    if _missing:
+        raise RuntimeError(f"FATAL: Missing required env vars for production: {', '.join(_missing)}")
+    logger.info("Production env validation passed")
+
+FREE_TIER_DAILY_LIMIT = 10
 
 async def supabase_request(method: str, path: str, data: dict = None) -> dict | None:
     """Make an authenticated request to the Supabase REST API using the service role key.
@@ -147,11 +264,11 @@ async def get_user_email(credentials: HTTPAuthorizationCredentials = Depends(sec
     # 1. Check if it's an API Key (starts with 'ak_')
     if token.startswith("ak_"):
         # Look up API key in Supabase
-        # In a real app, hash the key and compare. For simplicity here:
-        api_key_data = await supabase_request("GET", f"api_keys?api_key_hash=eq.{token}&select=user_email")
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        api_key_data = await supabase_request("GET", f"api_keys?api_key_hash=eq.{token_hash}&select=user_email")
         if api_key_data and isinstance(api_key_data, dict):
             # Update last_used_at
-            await supabase_request("PATCH", f"api_keys?api_key_hash=eq.{token}", {"last_used_at": "now()"})
+            await supabase_request("PATCH", f"api_keys?api_key_hash=eq.{token_hash}", {"last_used_at": "now()"})
             return api_key_data.get("user_email")
         return None
     
@@ -168,31 +285,463 @@ async def get_user_email(credentials: HTTPAuthorizationCredentials = Depends(sec
         logger.error(f"JWT verification error: {e}")
     return None
 
-async def log_translation_history(email: str, title: str, source_lang: str, target_lang: str, mode: str, chars: int, workspace_id: str | None = None):
-    if not email: return
-    data = {
-        "user_email": email,
-        "title": title[:100],
-        "source_language": source_lang,
-        "target_language": target_lang,
-        "mode": mode,
-        "character_count": chars
-    }
-    if workspace_id:
-        data["workspace_id"] = workspace_id
-        
-    await supabase_request("POST", "translation_history", data)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+            email = await get_user_email(creds)
+            if email:
+                sentry_sdk.set_user({"email": email})
+        except Exception:
+            pass
+            
+    sentry_sdk.capture_exception(exc)
+    logger.error(f"Unhandled server error: {exc}")
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-logger.info(f"Anuvaad API starting -- Gemini key: {'Set' if GEMINI_API_KEY != 'dummy_key' else 'Missing'}")
+async def save_translation_background(user_email: str, mode: str, source_language: str, target_language: str, input_text: str, blocks: list, model_used: str, workspace_id: str | None = None):
+    if not user_email: return
+    try:
+        import uuid
+        input_preview = input_text[:80]
+        char_count = len(input_text)
+        block_count = len(blocks)
+        new_id = str(uuid.uuid4())
+        
+        data = {
+            "id": new_id,
+            "user_email": user_email,
+            "mode": mode,
+            "source_language": source_language,
+            "target_language": target_language,
+            "input_preview": input_preview,
+            "char_count": char_count,
+            "block_count": block_count,
+            "model_used": model_used
+        }
+        
+        # Legacy fields for backward compatibility with older schemas
+        data["title"] = input_preview
+        data["character_count"] = char_count
+        
+        if workspace_id:
+            data["workspace_id"] = workspace_id
+            
+        await supabase_request("POST", "translation_history", data)
+
+        # ── Milestone email check ──
+        # Count total translations for this user and send milestone emails
+        try:
+            all_rows = await supabase_request_list(
+                f"translation_history?user_email=eq.{user_email}&select=id"
+            )
+            total_count = len(all_rows)
+            if total_count in (10, 100, 500):
+                email_service.send_translation_milestone(user_email, total_count)
+        except Exception as milestone_err:
+            logger.warning(f"Milestone email check failed: {milestone_err}")
+    except Exception as e:
+        logger.warning(f"Failed to save translation history in background: {e}")
+
+async def get_today_usage_count(email: str) -> int:
+    """Count how many translations a user has made today (UTC)."""
+    if not email or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return 0
+    from datetime import datetime, timezone
+    today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00+00:00")
+    path = f"translation_history?user_email=eq.{email}&created_at=gte.{today_start}&select=id"
+    rows = await supabase_request_list(path)
+    return len(rows)
+
+async def check_free_tier_limit(email: str | None, is_pro: bool) -> None:
+    """Raise 429 if a free-tier user has exceeded their daily translation limit."""
+    if not email:
+        return  # Unauthenticated users aren't rate-limited here (IP rate limit still applies)
+    if is_pro:
+        return  # Pro users have unlimited translations
+    count = await get_today_usage_count(email)
+    if count >= FREE_TIER_DAILY_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Free tier limit reached ({FREE_TIER_DAILY_LIMIT} translations/day). Upgrade to Pro for unlimited translations."
+        )
+
+async def get_user_pro_status(email: str) -> bool:
+    """Check if a user has an active Pro subscription."""
+    if not email:
+        return False
+    sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{email}&select=plan,status")
+    if sub and isinstance(sub, dict):
+        plan = sub.get("plan", "free")
+        status = sub.get("status", "active")
+        return plan in ("pro", "enterprise") and status in ("active", "trialing")
+    return False
+logger.info("Anuvaad API starting")
+
+# ── RESEND EMAIL SERVICE ──
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+    logger.info("Resend email service configured")
+else:
+    logger.info("Resend not configured — transactional emails disabled")
+
+FRONTEND_BASE_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "Anuvaad <notifications@anuvaad.dev>")
+
+class EmailService:
+    """Transactional email service using Resend (free tier: 100 emails/day)."""
+
+    @staticmethod
+    def _send(to: str, subject: str, html: str):
+        """Fire-and-forget email send. Logs errors but never raises."""
+        if not RESEND_API_KEY:
+            logger.info(f"Email skipped (Resend not configured): {subject} → {to}")
+            return
+        try:
+            resend.Emails.send({
+                "from": EMAIL_FROM,
+                "to": [to],
+                "subject": subject,
+                "html": html,
+            })
+            logger.info(f"Email sent: {subject} → {to}")
+        except Exception as e:
+            logger.error(f"Resend email error: {e}")
+
+    @staticmethod
+    def send_welcome(user_email: str, display_name: str = ""):
+        name = display_name or user_email.split("@")[0]
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <!-- Header -->
+      <tr><td style="background:linear-gradient(135deg,#d97706,#b45309);padding:32px 40px;text-align:center;">
+        <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">Welcome to Anuvaad</h1>
+        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Your AI-powered code translation workspace</p>
+      </td></tr>
+      <!-- Body -->
+      <tr><td style="padding:32px 40px;">
+        <p style="margin:0 0 16px;font-size:16px;color:#18181b;">Hi {name},</p>
+        <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">Thanks for joining Anuvaad! Here's what you can do:</p>
+        <table width="100%" cellpadding="0" cellspacing="0">
+          <tr><td style="padding:12px 16px;background-color:#fefce8;border-left:3px solid #d97706;border-radius:6px;margin-bottom:12px;">
+            <p style="margin:0;font-size:13px;color:#3f3f46;"><strong style="color:#92400e;">Code → English</strong> — Translate any code into plain-English explanations</p>
+          </td></tr>
+          <tr><td style="height:8px;"></td></tr>
+          <tr><td style="padding:12px 16px;background-color:#fefce8;border-left:3px solid #d97706;border-radius:6px;">
+            <p style="margin:0;font-size:13px;color:#3f3f46;"><strong style="color:#92400e;">English → Code</strong> — Describe what you need and get working code</p>
+          </td></tr>
+          <tr><td style="height:8px;"></td></tr>
+          <tr><td style="padding:12px 16px;background-color:#fefce8;border-left:3px solid #d97706;border-radius:6px;">
+            <p style="margin:0;font-size:13px;color:#3f3f46;"><strong style="color:#92400e;">Code → Code</strong> — Convert between 30+ programming languages</p>
+          </td></tr>
+        </table>
+        <div style="text-align:center;margin:32px 0;">
+          <a href="{FRONTEND_BASE_URL}/dashboard/translate" style="display:inline-block;background-color:#d97706;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;">Start Translating →</a>
+        </div>
+        <p style="margin:0;font-size:12px;color:#a1a1aa;text-align:center;">Star us on <a href="https://github.com/AdiSuresh/Anuvaad" style="color:#d97706;text-decoration:none;">GitHub</a> if you find Anuvaad useful!</p>
+      </td></tr>
+      <!-- Footer -->
+      <tr><td style="padding:20px 40px;background-color:#fafafa;border-top:1px solid #e4e4e7;text-align:center;">
+        <p style="margin:0;font-size:11px;color:#a1a1aa;">Anuvaad — AI Code Translation Platform</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+"""
+        EmailService._send(user_email, "Welcome to Anuvaad 🚀", html)
+
+    @staticmethod
+    def send_subscription_confirmed(user_email: str, plan: str = "pro"):
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <tr><td style="background:linear-gradient(135deg,#d97706,#b45309);padding:32px 40px;text-align:center;">
+        <h1 style="margin:0;color:#ffffff;font-size:24px;">✦ {plan.title()} Plan Activated</h1>
+      </td></tr>
+      <tr><td style="padding:32px 40px;">
+        <p style="margin:0 0 16px;font-size:16px;color:#18181b;">Your {plan.title()} subscription is now active!</p>
+        <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">You now have access to:</p>
+        <ul style="margin:0 0 24px;padding-left:20px;font-size:14px;color:#3f3f46;line-height:2;">
+          <li>Unlimited daily translations</li>
+          <li>DeepSeek R1 reasoning model</li>
+          <li>200KB file uploads</li>
+          <li>Priority processing</li>
+        </ul>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="{FRONTEND_BASE_URL}/dashboard/translate" style="display:inline-block;background-color:#d97706;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;">Open Workspace →</a>
+        </div>
+      </td></tr>
+      <tr><td style="padding:20px 40px;background-color:#fafafa;border-top:1px solid #e4e4e7;text-align:center;">
+        <p style="margin:0;font-size:11px;color:#a1a1aa;">Manage your subscription in <a href="{FRONTEND_BASE_URL}/dashboard/billing" style="color:#d97706;text-decoration:none;">Billing Settings</a></p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+"""
+        EmailService._send(user_email, f"Your Anuvaad {plan.title()} plan is active ✦", html)
+
+    @staticmethod
+    def send_translation_milestone(user_email: str, count: int):
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:40px 0;">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <tr><td style="background:linear-gradient(135deg,#d97706,#b45309);padding:32px 40px;text-align:center;">
+        <h1 style="margin:0;color:#ffffff;font-size:48px;">🎉</h1>
+        <h2 style="margin:8px 0 0;color:#ffffff;font-size:22px;">{count} Translations!</h2>
+      </td></tr>
+      <tr><td style="padding:32px 40px;text-align:center;">
+        <p style="margin:0 0 16px;font-size:16px;color:#18181b;">You've translated <strong>{count}</strong> code snippets with Anuvaad.</p>
+        <p style="margin:0 0 24px;font-size:14px;color:#3f3f46;">Keep going — every line of code understood is a step forward.</p>
+        <a href="{FRONTEND_BASE_URL}/dashboard/translate" style="display:inline-block;background-color:#d97706;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;">Translate More →</a>
+      </td></tr>
+      <tr><td style="padding:20px 40px;background-color:#fafafa;border-top:1px solid #e4e4e7;text-align:center;">
+        <p style="margin:0;font-size:11px;color:#a1a1aa;">Anuvaad — AI Code Translation Platform</p>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>
+"""
+        EmailService._send(user_email, f"🎉 You've translated {count} snippets with Anuvaad!", html)
+
+email_service = EmailService()
 
 # ── HEALTH CHECK ──
 @app.get("/api/health")
 async def health_check():
+    redis_ok = False
+    if cache.client:
+        try:
+            await cache.ping()
+            redis_ok = True
+        except Exception:
+            pass
     return {
         "status": "healthy",
         "service": "anuvaad-api",
-        "gemini_configured": GEMINI_API_KEY != "dummy_key",
-        "stripe_configured": bool(STRIPE_KEY and STRIPE_KEY != "sk_test_your_stripe_secret_key_here")
+        "llm_configured": bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY),
+        "stripe_configured": bool(STRIPE_KEY and STRIPE_KEY != "sk_test_your_stripe_secret_key_here"),
+        "redis_connected": redis_ok,
+        "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
+    }
+
+# ── GITHUB GIST IMPORT ──
+GIST_MAX_SIZE = 50 * 1024  # 50 KB
+GIST_URL_PATTERN = re.compile(r"^https://gist\.github\.com/([^/]+)/([a-f0-9]+)$")
+
+# Map GitHub linguist language names to our internal language values
+GIST_LANGUAGE_MAP = {
+    "python": "python", "javascript": "javascript", "typescript": "typescript",
+    "java": "java", "c++": "cpp", "c": "c", "c#": "csharp",
+    "go": "go", "rust": "rust", "swift": "swift", "kotlin": "kotlin",
+    "dart": "dart", "php": "php", "ruby": "ruby", "perl": "perl",
+    "lua": "lua", "r": "r", "matlab": "matlab", "sql": "sql",
+    "shell": "bash", "powershell": "powershell", "dockerfile": "dockerfile",
+    "yaml": "yaml", "scala": "scala", "haskell": "haskell",
+    "elixir": "elixir", "clojure": "clojure", "html": "html",
+    "css": "css", "json": "json", "xml": "xml", "markdown": "markdown",
+    "objective-c": "objective-c", "graphql": "graphql",
+}
+
+@app.get("/api/import-gist")
+async def import_gist(url: str):
+    """Fetch a public GitHub Gist's first file and return its content for translation."""
+    # Validate URL format
+    match = GIST_URL_PATTERN.match(url.strip())
+    if not match:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid Gist URL. Expected format: https://gist.github.com/username/gist_id"
+        )
+    
+    username = match.group(1)
+    gist_id = match.group(2)
+    
+    # Fetch from GitHub API (unauthenticated — 60 req/hr per IP)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(
+                f"https://api.github.com/gists/{gist_id}",
+                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "Anuvaad-App"}
+            )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="GitHub API request timed out. Please try again.")
+    except httpx.RequestError as e:
+        logger.error(f"Gist fetch network error: {e}")
+        raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
+    
+    if resp.status_code == 404:
+        raise HTTPException(status_code=404, detail="Gist not found. It may be private or deleted.")
+    if resp.status_code == 403:
+        raise HTTPException(status_code=400, detail="Gist is private or GitHub rate limit exceeded.")
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"GitHub API returned status {resp.status_code}")
+    
+    gist_data = resp.json()
+    
+    # Check if gist is public
+    if not gist_data.get("public", True):
+        raise HTTPException(status_code=400, detail="This Gist is private. Only public Gists can be imported.")
+    
+    # Extract the first file
+    files = gist_data.get("files", {})
+    if not files:
+        raise HTTPException(status_code=400, detail="This Gist has no files.")
+    
+    first_filename = next(iter(files))
+    file_data = files[first_filename]
+    content = file_data.get("content", "")
+    
+    # Size check
+    if len(content.encode("utf-8")) > GIST_MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Gist content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file."
+        )
+    
+    # Detect language from GitHub's linguist classification
+    raw_language = (file_data.get("language") or "").lower()
+    detected_language = GIST_LANGUAGE_MAP.get(raw_language, "python")
+    
+    return {
+        "filename": first_filename,
+        "language": detected_language,
+        "content": content,
+        "char_count": len(content),
+        "username": username,
+    }
+
+# ── METRICS ENDPOINTS ──
+
+def _check_metrics_auth(request: Request) -> bool:
+    """Validate HTTP Basic Auth for the metrics endpoints."""
+    if not METRICS_USERNAME or not METRICS_PASSWORD:
+        # No credentials configured — allow access (dev mode)
+        return True
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+        username, password = decoded.split(":", 1)
+        return username == METRICS_USERNAME and password == METRICS_PASSWORD
+    except Exception:
+        return False
+
+@app.get("/api/metrics")
+async def get_metrics_json(request: Request):
+    """Return all metrics as JSON. Protected by HTTP Basic Auth."""
+    if not _check_metrics_auth(request):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized"},
+            headers={"WWW-Authenticate": 'Basic realm="metrics"'},
+        )
+    return metrics.snapshot()
+
+@app.get("/api/metrics/prometheus")
+async def get_metrics_prometheus(request: Request):
+    """Return metrics in Prometheus text exposition format."""
+    if not _check_metrics_auth(request):
+        return PlainTextResponse(
+            "Unauthorized",
+            status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="metrics"'},
+        )
+    snap = metrics.snapshot()
+    lines: list[str] = []
+
+    # ── Uptime
+    lines.append("# HELP anuvaad_uptime_seconds Seconds since process start")
+    lines.append("# TYPE anuvaad_uptime_seconds gauge")
+    lines.append(f'anuvaad_uptime_seconds {snap["uptime_seconds"]}')
+
+    # ── Requests
+    lines.append("# HELP anuvaad_requests_total Total requests per endpoint")
+    lines.append("# TYPE anuvaad_requests_total counter")
+    for ep, count in snap["total_requests"].items():
+        lines.append(f'anuvaad_requests_total{{endpoint="{ep}"}} {count}')
+
+    # ── Errors
+    lines.append("# HELP anuvaad_errors_total Total errors per endpoint")
+    lines.append("# TYPE anuvaad_errors_total counter")
+    for ep, count in snap["total_errors"].items():
+        lines.append(f'anuvaad_errors_total{{endpoint="{ep}"}} {count}')
+
+    # ── Model calls
+    lines.append("# HELP anuvaad_model_calls_total Total calls per model")
+    lines.append("# TYPE anuvaad_model_calls_total counter")
+    for model, count in snap["model_calls"].items():
+        lines.append(f'anuvaad_model_calls_total{{model="{model}"}} {count}')
+
+    # ── Model errors
+    lines.append("# HELP anuvaad_model_errors_total Total errors per model")
+    lines.append("# TYPE anuvaad_model_errors_total counter")
+    for model, count in snap["model_errors"].items():
+        lines.append(f'anuvaad_model_errors_total{{model="{model}"}} {count}')
+
+    # ── Cache
+    lines.append("# HELP anuvaad_cache_hits_total Total cache hits")
+    lines.append("# TYPE anuvaad_cache_hits_total counter")
+    lines.append(f'anuvaad_cache_hits_total {snap["cache_hits"]}')
+    lines.append("# HELP anuvaad_cache_misses_total Total cache misses")
+    lines.append("# TYPE anuvaad_cache_misses_total counter")
+    lines.append(f'anuvaad_cache_misses_total {snap["cache_misses"]}')
+
+    # ── Latency
+    lines.append("# HELP anuvaad_avg_latency_ms Rolling average latency per endpoint")
+    lines.append("# TYPE anuvaad_avg_latency_ms gauge")
+    for ep, lat in snap["average_latency_ms"].items():
+        lines.append(f'anuvaad_avg_latency_ms{{endpoint="{ep}"}} {lat}')
+
+    lines.append("")
+    return PlainTextResponse("\n".join(lines), media_type="text/plain; version=0.0.4; charset=utf-8")
+
+# ── USAGE STATS ──
+@app.get("/api/cache-stats")
+async def get_cache_stats():
+    """Return stats for the cache."""
+    stats = cache.fallback.stats()
+    stats["cache_type"] = "redis" if cache.client else "lru"
+    stats["redis_connected"] = bool(cache.client)
+    return stats
+
+@app.get("/api/usage")
+async def get_usage(email: str | None = Depends(get_user_email)):
+    """Return today's translation count and limit for the authenticated user."""
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    count = await get_today_usage_count(email)
+    is_pro = await get_user_pro_status(email)
+    return {
+        "translations_today": count,
+        "daily_limit": None if is_pro else FREE_TIER_DAILY_LIMIT,
+        "is_pro": is_pro
     }
 
 SYSTEM_INSTRUCTION = """
@@ -212,26 +761,120 @@ CRITICAL RULES:
 6. For HTML/CSS/markup languages, explain each tag, selector, property, or rule individually.
 7. For SQL, explain each clause (SELECT, FROM, WHERE, JOIN, etc.) as its own block.
 
-OUTPUT FORMAT — Return a JSON array of objects. Each object must have:
+OUTPUT FORMAT — Return a JSON object with a single key 'blocks' containing an array of objects. Each object must have:
 - "id": a unique block identifier like "block_1", "block_2", etc.
 - "code_snippet": the exact code lines for this block (copied verbatim from the input, preserving indentation)
 - "english_translation": a precise, plain-English explanation of what this specific code does
 
 Example for Python code `import os\\npath = os.getcwd()\\nprint(path)`:
-[
-  {"id": "block_1", "code_snippet": "import os", "english_translation": "Imports the `os` module from the Python standard library, which provides functions for interacting with the operating system."},
-  {"id": "block_2", "code_snippet": "path = os.getcwd()", "english_translation": "Calls `os.getcwd()` to get the current working directory path as a string, and stores it in the variable `path`."},
-  {"id": "block_3", "code_snippet": "print(path)", "english_translation": "Prints the value of `path` (the current working directory) to the console."}
-]
+{
+  "blocks": [
+    {"id": "block_1", "code_snippet": "import os", "english_translation": "Imports the `os` module from the Python standard library, which provides functions for interacting with the operating system."},
+    {"id": "block_2", "code_snippet": "path = os.getcwd()", "english_translation": "Calls `os.getcwd()` to get the current working directory path as a string, and stores it in the variable `path`."},
+    {"id": "block_3", "code_snippet": "print(path)", "english_translation": "Prints the value of `path` (the current working directory) to the console."}
+  ]
+}
 """
 
 # ── REDIS CONNECTION ──
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379")
-try:
-    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
-except Exception as e:
-    logger.warning(f"Could not initialize Redis client. Check REDIS_URL. {e}")
-    redis_client = None
+import collections
+import threading
+
+class LRUCache:
+    def __init__(self, max_size: int = 500):
+        self.cache = collections.OrderedDict()
+        self.max_size = max_size
+        self.hits = 0
+        self.misses = 0
+        self.lock = threading.Lock()
+        
+    def get(self, key: str):
+        with self.lock:
+            if key in self.cache:
+                self.cache.move_to_end(key)
+                self.hits += 1
+                return self.cache[key]
+            self.misses += 1
+            return None
+            
+    def set(self, key: str, value: any):
+        with self.lock:
+            self.cache[key] = value
+            self.cache.move_to_end(key)
+            if len(self.cache) > self.max_size:
+                self.cache.popitem(last=False)
+                
+    def stats(self):
+        with self.lock:
+            total = self.hits + self.misses
+            hit_rate = (self.hits / total) if total > 0 else 0.0
+            return {
+                "size": len(self.cache),
+                "max_size": self.max_size,
+                "hit_rate": hit_rate,
+                "hits": self.hits,
+                "misses": self.misses
+            }
+
+class RedisCache:
+    def __init__(self):
+        url = os.environ.get("UPSTASH_REDIS_URL")
+        token = os.environ.get("UPSTASH_REDIS_TOKEN")
+        self.client = None
+        if url and token:
+            try:
+                from upstash_redis.asyncio import Redis
+                self.client = Redis(url=url, token=token)
+            except Exception as e:
+                logger.warning(f"Failed to initialize Upstash Redis: {e}")
+        self.fallback = LRUCache(max_size=500)
+    
+    async def get(self, key: str):
+        if self.client:
+            try:
+                val = await self.client.get(key)
+                if val is not None:
+                    if isinstance(val, str):
+                        return json.loads(val)
+                    return val
+            except Exception as e:
+                logger.error(f"Redis get error: {e}")
+        return self.fallback.get(key)
+
+    async def put(self, key: str, value: any, ttl: int = 86400):
+        if self.client:
+            try:
+                await self.client.setex(key, ttl, json.dumps(value))
+                return
+            except Exception as e:
+                logger.error(f"Redis put error: {e}")
+        self.fallback.set(key, value)
+        
+    async def incr_rate_limit(self, key: str, window: int) -> int:
+        if self.client:
+            try:
+                count = await self.client.incr(key)
+                if count == 1:
+                    await self.client.expire(key, window)
+                return count
+            except Exception as e:
+                logger.error(f"Redis incr error: {e}")
+        
+        # Simple memory fallback
+        val = self.fallback.get(key) or 0
+        val += 1
+        self.fallback.set(key, val)
+        return val
+
+    async def ping(self):
+        if self.client:
+            # upstash_redis ping doesn't exist conventionally or returns 'PONG'
+            # We'll just do a basic get to verify connection
+            await self.client.get("health_ping")
+            return True
+        return False
+
+cache = RedisCache()
 
 # ── RATE LIMITING (Redis-backed) ──
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -241,40 +884,29 @@ RATE_LIMIT_MAX = 15     # requests per window
 async def rate_limit_middleware(request: Request, call_next):
     if not request.url.path.startswith("/api/"):
         return await call_next(request)
-    
-    if not redis_client:
-        # Fallback if Redis is totally down (not ideal for prod, but safe)
-        return await call_next(request)
 
     client_ip = request.client.host if request.client else "unknown"
     redis_key = f"rate_limit:{client_ip}"
     
-    try:
-        current_count = await redis_client.incr(redis_key)
-        if current_count == 1:
-            await redis_client.expire(redis_key, RATE_LIMIT_WINDOW)
-            
-        if current_count > RATE_LIMIT_MAX:
-            return JSONResponse(
-                status_code=429,
-                content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."}
-            )
-    except Exception as e:
-        logger.error(f"Redis rate limit error: {e}")
-        # Allow request if Redis fails to avoid total outage
-        pass
+    current_count = await cache.incr_rate_limit(redis_key, RATE_LIMIT_WINDOW)
+    
+    if current_count > RATE_LIMIT_MAX:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."}
+        )
 
-    response = await call_next(request)
-    return response
+    return await call_next(request)
 
-def cache_key(code: str, language: str, endpoint: str) -> str:
-    return "anuvaad_cache:" + hashlib.sha256(f"{endpoint}:{language}:{code}".encode()).hexdigest()
+def cache_key(code: str, language: str, endpoint: str, model: str) -> str:
+    return "anuvaad_cache:" + hashlib.sha256(f"{endpoint}:{language}:{code}:{model}".encode()).hexdigest()
 
 # 3. Pydantic Data Models (with validation)
 class CodePayload(BaseModel):
     raw_code: str = Field(..., min_length=1, max_length=10000)
     language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
+    access_token: str | None = None
 
     @field_validator('raw_code')
     @classmethod
@@ -292,6 +924,7 @@ class GeneratePayload(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=5000)
     language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
+    access_token: str | None = None
 
     @field_validator('prompt')
     @classmethod
@@ -305,6 +938,7 @@ class CodeToCodePayload(BaseModel):
     source_language: str = Field(..., min_length=1, max_length=30)
     target_language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
+    access_token: str | None = None
 
     @field_validator('raw_code')
     @classmethod
@@ -313,9 +947,25 @@ class CodeToCodePayload(BaseModel):
             raise ValueError('Code cannot be empty or whitespace only')
         return v
 
+class SaveTranslationPayload(BaseModel):
+    access_token: str = Field(..., min_length=1)
+    mode: str = Field(..., min_length=1)
+    source_language: str = Field(..., min_length=1)
+    target_language: str = Field(..., min_length=1)
+    input_text: str = Field(..., min_length=1)
+    block_count: int
+    model_used: str = Field(..., min_length=1)
+
+    @field_validator('input_text')
+    @classmethod
+    def input_text_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('Input cannot be empty or whitespace only')
+        return v
+
 # ── RESPONSE NORMALIZATION ──
-def normalize_blocks(raw_result) -> list:
-    """Ensure Gemini response is a list of {id, code_snippet, english_translation} dicts.
+def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> list:
+    """Ensure LLM response is a list of {id, code_snippet, english_translation, model_used, tier} dicts.
     Handles nested responses, alternative field names, and missing fields."""
     # Unwrap nested objects like {"blocks": [...]}, {"result": [...]}, etc.
     if isinstance(raw_result, dict):
@@ -352,6 +1002,8 @@ def normalize_blocks(raw_result) -> list:
             'id': str(block_id),
             'code_snippet': str(code),
             'english_translation': str(translation),
+            'model_used': model_used,
+            'tier': tier
         })
 
     # Filter out blocks with no meaningful content at all
@@ -362,50 +1014,424 @@ def normalize_blocks(raw_result) -> list:
 
     return normalized
 
-# 4. API Routes
-@app.post("/api/code-to-english")
-async def function_translate_to_english(payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
-    key = cache_key(payload.raw_code, payload.language, "code-to-english")
-    
-    if redis_client:
-        try:
-            cached_str = await redis_client.get(key)
-            if cached_str:
-                cached = json.loads(cached_str)
+# ── PRO TIER VERIFICATION ──
+async def is_token_pro(access_token: str | None) -> bool:
+    """Silently checks if a given token belongs to a Pro user."""
+    if not access_token:
+        return False
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {access_token}", "apikey": SUPABASE_ANON_KEY}
+            )
+            if resp.status_code == 200:
+                email = resp.json().get("email")
                 if email:
-                    title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-                    background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code), payload.workspace_id)
-                return cached
-        except Exception as e:
-            logger.error(f"Redis cache get error: {e}")
+                    return await get_user_pro_status(email)
+    except Exception as e:
+        logger.warning(f"Pro token check failed (silently falling back): {e}")
+    return False
+
+# ── LLM ROUTER ──
+def _clean_json_response(text: str) -> str:
+    """Strip markdown backticks from LLMs that don't enforce strict JSON mode."""
+    text = text.strip()
+    if text.startswith("```json"):
+        text = text[7:]
+    elif text.startswith("```"):
+        text = text[3:]
+    if text.endswith("```"):
+        text = text[:-3]
+    return text.strip()
+
+async def get_completion(prompt: str, system_instruction: str, mode: str, response_format: str = "json_object", use_r1: bool = False) -> tuple[str, str]:
+    """
+    Router for Groq and DeepSeek models.
+    If use_r1=True, routes to DeepSeek R1 (deepseek-reasoner).
+    mode='explanation' -> Groq (fallback DeepSeek)
+    mode='translation' -> DeepSeek (fallback Groq)
+    """
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+    
+    if not groq_api_key or not deepseek_api_key:
+        raise HTTPException(status_code=500, detail="LLM API keys not configured")
+        
+    groq_client = AsyncOpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
+    deepseek_client = AsyncOpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1")
+    
+    if use_r1:
+        primary = {"client": deepseek_client, "model": "deepseek-reasoner", "name": "DeepSeek R1"}
+        fallback = {"client": groq_client, "model": "llama-3.3-70b-versatile", "name": "Llama 3.3"}
+    else:
+        groq_model = "llama-3.3-70b-versatile"
+        deepseek_model = "deepseek-chat"
+        if mode == "explanation":
+            primary = {"client": groq_client, "model": groq_model, "name": "Llama 3.3"}
+            fallback = {"client": deepseek_client, "model": deepseek_model, "name": "DeepSeek V3"}
+        else: # "translation"
+            primary = {"client": deepseek_client, "model": deepseek_model, "name": "DeepSeek V3"}
+            fallback = {"client": groq_client, "model": groq_model, "name": "Llama 3.3"}
+        
+    messages = [
+        {"role": "system", "content": system_instruction},
+        {"role": "user", "content": prompt}
+    ]
+    
+    kwargs = {}
+    if response_format == "json_object" and primary["model"] != "deepseek-reasoner":
+        kwargs["response_format"] = {"type": "json_object"}
+
+    try:
+        response = await asyncio.wait_for(
+            primary["client"].chat.completions.create(
+                model=primary["model"],
+                messages=messages,
+                **kwargs
+            ),
+            timeout=GEMINI_TIMEOUT
+        )
+        metrics.record_model_call(primary["model"])
+        return _clean_json_response(response.choices[0].message.content), primary["name"]
+    except (openai.RateLimitError, Exception) as e:
+        metrics.record_model_call(primary["model"], is_error=True)
+        logger.warning(f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}")
+        fallback_kwargs = {}
+        if response_format == "json_object":
+            fallback_kwargs["response_format"] = {"type": "json_object"}
+            
+        try:
+            response = await asyncio.wait_for(
+                fallback["client"].chat.completions.create(
+                    model=fallback["model"],
+                    messages=messages,
+                    **fallback_kwargs
+                ),
+                timeout=GEMINI_TIMEOUT
+            )
+            metrics.record_model_call(fallback["model"])
+            return _clean_json_response(response.choices[0].message.content), fallback["name"]
+        except asyncio.TimeoutError:
+            metrics.record_model_call(fallback["model"], is_error=True)
+            logger.error(f"LLM API Timeout after {GEMINI_TIMEOUT}s on fallback {fallback['name']}")
+            raise HTTPException(status_code=504, detail=f"Translation timed out after {GEMINI_TIMEOUT}s. Please try again.")
+        except Exception as fallback_e:
+            metrics.record_model_call(fallback["model"], is_error=True)
+            logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
+            raise HTTPException(status_code=500, detail="Translation failed on both models. Please try again.")
+
+# 4. API Routes
+async def stream_code_to_english(payload: CodePayload, email: str | None, is_pro: bool, use_r1: bool, tier: str, background_tasks: BackgroundTasks):
+    model_name = "deepseek-reasoner" if use_r1 else "standard"
+    model = "deepseek-reasoner" if use_r1 else "llama-3.3-70b-versatile"
+    key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
+    
+    # Check Cache
+    cached = await cache.get(key)
+            
+    if cached:
+        metrics.record_cache_hit()
+        # Stream fake SSE chunks for UI consistency
+        yield f'data: {json.dumps({"chunk": "", "done": False})}\n\n'
+        yield f'data: {json.dumps({"done": True, "blocks": cached, "model_used": model})}\n\n'
+        
+        if email:
+            background_tasks.add_task(save_translation_background, email, "Code → English", payload.language, "english", payload.raw_code, cached, model_name, payload.workspace_id)
+        return
+
+    metrics.record_cache_miss()
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+    groq_client = AsyncOpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
+    deepseek_client = AsyncOpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1")
+    
+    if use_r1:
+        client = deepseek_client
+        model = "deepseek-reasoner"
+    else:
+        client = groq_client
+        model = "llama-3.3-70b-versatile"
+        
+    messages = [
+        {"role": "system", "content": SYSTEM_INSTRUCTION},
+        {"role": "user", "content": f"Programming Language: {payload.language}\\n\\nCode to Analyze/Translate:\\n{payload.raw_code}"}
+    ]
+    
+    kwargs = {"stream": True}
+    if model != "deepseek-reasoner":
+        kwargs["response_format"] = {"type": "json_object"}
+        
+    try:
+        stream = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            **kwargs
+        )
+        
+        full_content = ""
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                full_content += content
+                # Stream each chunk
+                yield f'data: {json.dumps({"chunk": content, "done": False})}\n\n'
+                
+        # Process and normalize the full JSON result
+        cleaned = _clean_json_response(full_content)
+        raw = json.loads(cleaned)
+        result = normalize_blocks(raw, model_used=model, tier=tier)
+        
+        await cache.put(key, result)
+        
+        # Send final complete blocks
+        yield f'data: {json.dumps({"done": True, "blocks": result, "model_used": model})}\n\n'
+        
+        if email:
+            background_tasks.add_task(save_translation_background, email, "Code → English", payload.language, "english", payload.raw_code, result, model, payload.workspace_id)
+            
+    except Exception as e:
+        logger.error(f"Streaming error: {str(e)}")
+        yield f'data: {json.dumps({"error": str(e), "done": True})}\n\n'
+
+# ── INPUT SANITISATION & VALIDATION ──
+import re
+
+def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
+    """Detects and neutralises prompt injection patterns hidden in comments."""
+    if not raw_code:
+        return raw_code
+
+    def replacer(match):
+        if email:
+            logger.warning(f"Prompt injection detected from {email} in mode {mode}")
+        else:
+            logger.warning(f"Prompt injection detected from anonymous user in mode {mode}")
+        return "[REDACTED INJECTION ATTEMPT]"
+
+    # Line comments: # or // followed by anything up to end of line containing malicious phrase
+    pattern_line = r"(?i)(//|#)[^\n]*?(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions)[^\n]*"
+    raw_code = re.sub(pattern_line, replacer, raw_code)
+    
+    # Block comments: /* ... */ or <!-- ... --> or """ ... """ or ''' ... '''
+    pattern_block = r"(?is)(/\*|<!--|'''|\"\"\").*?(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions).*?(?:\*/|-->|'''|\"\"\")"
+    raw_code = re.sub(pattern_block, replacer, raw_code)
+    
+    return raw_code
+
+def validate_code_input(raw_code: str):
+    if len(raw_code) > 10000:
+        raise HTTPException(status_code=422, detail="Input exceeds the maximum allowed length of 10,000 characters.")
+        
+    if len(raw_code) == 0:
+        return
+        
+    # Check for binary/junk (>90% non-printable)
+    printable_count = sum(1 for c in raw_code if c.isprintable() or c.isspace())
+    if (printable_count / len(raw_code)) < 0.1:
+        raise HTTPException(status_code=422, detail="Input contains too many non-printable characters. Binary uploads are not supported.")
+        
+    # Check for spam/ignore lines
+    lines = raw_code.splitlines()
+    if lines:
+        ignore_count = sum(1 for line in lines if re.match(r"^\s*(//|#)\s*ignore", line, re.IGNORECASE))
+        if ignore_count / len(lines) > 0.5:
+            raise HTTPException(status_code=422, detail="Input rejected: Too many ignored lines detected.")
+
+# ── FILE UPLOAD ENDPOINT ──
+
+ALLOWED_EXTENSIONS = {".py", ".js", ".ts", ".java", ".cpp", ".rs", ".go", ".c", ".cs"}
+EXTENSION_TO_LANGUAGE = {
+    ".py": "python", ".js": "javascript", ".ts": "typescript",
+    ".java": "java", ".cpp": "cpp", ".rs": "rust",
+    ".go": "go", ".c": "c", ".cs": "csharp",
+}
+FREE_MAX_FILE_SIZE = 50 * 1024   # 50 KB
+PRO_MAX_FILE_SIZE = 200 * 1024   # 200 KB
+
+@app.post("/api/upload-file")
+async def upload_file_translate(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    mode: str = Form("code-to-english"),
+    language: str = Form(""),
+    target_language: str = Form(""),
+    access_token: str = Form(""),
+    email: str | None = Depends(get_user_email),
+):
+    """Accept a code file upload (max 50KB free / 200KB Pro), translate via the LLM router."""
+    # ── Validate extension
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported file type '{ext}'. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}",
+        )
+
+    # ── Determine pro status and size limit
+    is_pro = False
+    if email:
+        is_pro = await get_user_pro_status(email)
+    if not is_pro and access_token:
+        is_pro = await is_token_pro(access_token)
+
+    max_size = PRO_MAX_FILE_SIZE if is_pro else FREE_MAX_FILE_SIZE
+    tier = "pro" if is_pro else "free"
+    use_r1 = is_pro
+
+    # ── Read and validate content
+    contents = await file.read()
+    if len(contents) > max_size:
+        limit_kb = max_size // 1024
+        raise HTTPException(
+            status_code=422,
+            detail=f"File too large ({len(contents) // 1024}KB). Maximum is {limit_kb}KB for {tier} users.",
+        )
+
+    try:
+        raw_code = contents.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=422, detail="File is not valid UTF-8 text.")
+
+    if not raw_code.strip():
+        raise HTTPException(status_code=422, detail="File is empty.")
+
+    # ── Detect language from extension if not provided
+    detected_language = language or EXTENSION_TO_LANGUAGE.get(ext, "python")
+
+    # ── Validate and sanitise
+    validate_code_input(raw_code)
+    raw_code = sanitise_input(raw_code, mode="upload-file", email=email)
+
+    if email:
+        await check_free_tier_limit(email, is_pro)
+
+    # ── Route to the correct completion path
+    model_name = "deepseek-reasoner" if use_r1 else "standard"
+    key = cache_key(raw_code, detected_language, mode, model_name)
+
+    cached = await cache.get(key)
+    if cached:
+        metrics.record_cache_hit()
+        if email:
+            background_tasks.add_task(
+                save_translation_background, email, f"File Upload ({mode})",
+                detected_language, target_language or "english", raw_code, cached, model_name, None,
+            )
+        return cached
+
+    metrics.record_cache_miss()
+
+    if mode == "code-to-code" and target_language:
+        system = f"""You are an expert polyglot programmer. Translate the given code from {detected_language} to {target_language}.
+Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
+Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
+        user_prompt = f"Source Language: {detected_language}\nTarget Language: {target_language}\n\nCode to Translate:\n{raw_code}"
+        completion_mode = "translation"
+    else:
+        system = SYSTEM_INSTRUCTION
+        user_prompt = f"Programming Language: {detected_language}\n\nCode to Analyze/Translate:\n{raw_code}"
+        completion_mode = "explanation"
+
+    try:
+        response_text, model_used = await get_completion(
+            prompt=user_prompt,
+            system_instruction=system,
+            mode=completion_mode,
+            response_format="json_object",
+            use_r1=use_r1,
+        )
+        raw = json.loads(response_text)
+        result = normalize_blocks(raw, model_used=model_used, tier=tier)
+        await cache.put(key, result, 86400 * 7)
+
+        if email:
+            background_tasks.add_task(
+                save_translation_background, email, f"File Upload ({mode})",
+                detected_language, target_language or "english", raw_code, result, model_name, None,
+            )
+        return result
+
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="LLM returned invalid JSON. Please try again.")
+    except ValueError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/code-to-english")
+async def function_translate_to_english_stream(payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
+    validate_code_input(payload.raw_code)
+    payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english", email=email)
+    tier = "free"
+    use_r1 = False
+    is_pro = False
+    if email:
+        is_pro = await get_user_pro_status(email)
+        await check_free_tier_limit(email, is_pro)
+        
+    if payload.access_token:
+        if await is_token_pro(payload.access_token):
+            tier = "pro"
+            use_r1 = True
+    elif is_pro:
+        tier = "pro"
+        use_r1 = True
+
+    return StreamingResponse(
+        stream_code_to_english(payload, email, is_pro, use_r1, tier, background_tasks),
+        media_type="text/event-stream"
+    )
+
+@app.post("/api/code-to-english/sync")
+async def function_translate_to_english(payload: CodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
+    validate_code_input(payload.raw_code)
+    payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english/sync", email=email)
+    tier = "free"
+    use_r1 = False
+    is_pro = False
+    # Enforce free tier daily limit
+    if email:
+        is_pro = await get_user_pro_status(email)
+        await check_free_tier_limit(email, is_pro)
+        
+    if payload.access_token:
+        if await is_token_pro(payload.access_token):
+            tier = "pro"
+            use_r1 = True
+    elif is_pro:
+        tier = "pro"
+        use_r1 = True
+
+    model_name = "deepseek-reasoner" if use_r1 else "standard"
+    key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
+    
+    cached = await cache.get(key)
+    if cached:
+        metrics.record_cache_hit()
+        if email:
+            background_tasks.add_task(save_translation_background, email, "Code → English", payload.language, "english", payload.raw_code, cached, model_name, payload.workspace_id)
+        return cached
+
+    metrics.record_cache_miss()
 
     user_prompt = f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}"
     
     try:
-        response = await asyncio.wait_for(
-            asyncio.to_thread(
-                client.models.generate_content,
-                model='gemini-2.5-flash',
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    response_mime_type="application/json"
-                )
-            ),
-            timeout=GEMINI_TIMEOUT
+        response_text, model_used = await get_completion(
+            prompt=user_prompt,
+            system_instruction=SYSTEM_INSTRUCTION,
+            mode="explanation",
+            response_format="json_object",
+            use_r1=use_r1
         )
-        raw = json.loads(response.text)
-        result = normalize_blocks(raw)
+        raw = json.loads(response_text)
+        result = normalize_blocks(raw, model_used=model_used, tier=tier)
         
-        if redis_client:
-            try:
-                await redis_client.setex(key, 86400 * 7, json.dumps(result)) # Cache for 7 days
-            except Exception as e:
-                logger.error(f"Redis cache set error: {e}")
+        await cache.put(key, result, 86400 * 7)
         
         if email:
-            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-            background_tasks.add_task(log_translation_history, email, title, payload.language, "english", "Code → English", len(payload.raw_code), payload.workspace_id)
+            background_tasks.add_task(save_translation_background, email, "Code → English", payload.language, "english", payload.raw_code, result, model_used, payload.workspace_id)
             
         return result
     except json.JSONDecodeError as e:
@@ -414,56 +1440,63 @@ async def function_translate_to_english(payload: CodePayload, background_tasks: 
     except ValueError as e:
         logger.error(f"Normalization Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Translation engine returned an unexpected format. Please try again.")
-    except asyncio.TimeoutError:
-        logger.error(f"Gemini API Timeout after {GEMINI_TIMEOUT}s")
-        raise HTTPException(status_code=504, detail=f"Translation timed out after {GEMINI_TIMEOUT}s. Please try again.")
     except Exception as e:
-        logger.error(f"Gemini API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Translation failed. Please check your API key and try again.")
+        # get_completion already handles fallbacks and timeouts internally, 
+        # so any exception bubbling up here is an ultimate failure or HTTP exception
+        if isinstance(e, HTTPException):
+            raise e
+        logger.error(f"LLM API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Translation failed. Please try again.")
 
 @app.post("/api/generate-from-english")
 async def function_generate_from_english(payload: GeneratePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
-    key = cache_key(payload.prompt, payload.language, "generate-from-english")
+    validate_code_input(payload.prompt)
+    payload.prompt = sanitise_input(payload.prompt, mode="generate-from-english", email=email)
+    tier = "free"
+    use_r1 = False
+    is_pro = False
+    # Enforce free tier daily limit
+    if email:
+        is_pro = await get_user_pro_status(email)
+        await check_free_tier_limit(email, is_pro)
+        
+    if payload.access_token:
+        if await is_token_pro(payload.access_token):
+            tier = "pro"
+            use_r1 = True
+    elif is_pro:
+        tier = "pro"
+        use_r1 = True
+
+    model_name = "deepseek-reasoner" if use_r1 else "standard"
+    key = cache_key(payload.prompt, payload.language, "generate-from-english", model_name)
     
-    if redis_client:
-        try:
-            cached_str = await redis_client.get(key)
-            if cached_str:
-                cached = json.loads(cached_str)
-                if email:
-                    title = payload.prompt[:50] + "..." if len(payload.prompt) > 50 else payload.prompt
-                    background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt), payload.workspace_id)
-                return cached
-        except Exception as e:
-            logger.error(f"Redis cache get error: {e}")
+    cached = await cache.get(key)
+    if cached:
+        metrics.record_cache_hit()
+        if email:
+            background_tasks.add_task(save_translation_background, email, "English → Code", "english", payload.language, payload.prompt, cached, model_name, payload.workspace_id)
+        return cached
+
+    metrics.record_cache_miss()
 
     user_prompt = f"Programming Language: {payload.language}\n\nUser Request:\n{payload.prompt}\n\nFirst, generate the complete, working code to satisfy this request. Then, analyze your generated code and break it down into logical blocks using the system instructions."
 
     try:
-        response = await asyncio.wait_for(
-            asyncio.to_thread(
-                client.models.generate_content,
-                model='gemini-2.5-flash',
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM_INSTRUCTION,
-                    response_mime_type="application/json"
-                )
-            ),
-            timeout=GEMINI_TIMEOUT
+        response_text, model_used = await get_completion(
+            prompt=user_prompt,
+            system_instruction=SYSTEM_INSTRUCTION,
+            mode="explanation",
+            response_format="json_object",
+            use_r1=use_r1
         )
-        raw = json.loads(response.text)
-        result = normalize_blocks(raw)
+        raw = json.loads(response_text)
+        result = normalize_blocks(raw, model_used=model_used, tier=tier)
         
-        if redis_client:
-            try:
-                await redis_client.setex(key, 86400 * 7, json.dumps(result))
-            except Exception as e:
-                logger.error(f"Redis cache set error: {e}")
+        await cache.put(key, result, 86400 * 7)
         
         if email:
-            title = payload.prompt[:50] + "..." if len(payload.prompt) > 50 else payload.prompt
-            background_tasks.add_task(log_translation_history, email, title, "english", payload.language, "English → Code", len(payload.prompt), payload.workspace_id)
+            background_tasks.add_task(save_translation_background, email, "English → Code", "english", payload.language, payload.prompt, result, model_used, payload.workspace_id)
             
         return result
     except json.JSONDecodeError as e:
@@ -472,12 +1505,11 @@ async def function_generate_from_english(payload: GeneratePayload, background_ta
     except ValueError as e:
         logger.error(f"Normalization Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Code generation returned an unexpected format. Please try again.")
-    except asyncio.TimeoutError:
-        logger.error(f"Gemini API Timeout after {GEMINI_TIMEOUT}s")
-        raise HTTPException(status_code=504, detail=f"Code generation timed out after {GEMINI_TIMEOUT}s. Please try again.")
     except Exception as e:
-        logger.error(f"Gemini API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Code generation failed. Please check your API key and try again.")
+        if isinstance(e, HTTPException):
+            raise e
+        logger.error(f"LLM API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Code generation failed. Please try again.")
 
 # NOTE: This endpoint is intentionally NOT cached because the full_context
 # changes with every edit, making cache hits essentially impossible.
@@ -486,72 +1518,73 @@ async def function_update_to_code(payload: EnglishUpdatePayload):
     user_prompt = f"You are an expert programmer. The user is modifying a specific part of their code based on an English instruction. Here is the full context of the code: {payload.full_context}. The user wants to change the block identified as {payload.block_id} to do the following: '{payload.modified_english}'. Generate ONLY the new raw programming syntax required to fulfill this specific instruction. Do not include markdown formatting, backticks, or explanations. Return strictly the raw code."
 
     try:
-        response = await asyncio.wait_for(
-            asyncio.to_thread(
-                client.models.generate_content,
-                model='gemini-2.5-flash',
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="text/plain"
-                )
-            ),
-            timeout=GEMINI_TIMEOUT
+        response_text, model_used = await get_completion(
+            prompt=user_prompt,
+            system_instruction="You are an expert programmer. Only output raw code without markdown formatting.",
+            mode="translation", # code generation focus, deepseek primary
+            response_format="text"
         )
-        return {"status": "success", "updated_code": response.text.strip()}
-    except asyncio.TimeoutError:
-        logger.error(f"Gemini API Timeout after {GEMINI_TIMEOUT}s")
-        raise HTTPException(status_code=504, detail=f"Code update timed out after {GEMINI_TIMEOUT}s. Please try again.")
+        return {"status": "success", "updated_code": response_text.strip(), "model_used": model_used}
     except Exception as e:
-        logger.error(f"Gemini API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Code update failed. Please check your API key and try again.")
+        if isinstance(e, HTTPException):
+            raise e
+        logger.error(f"LLM API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Code update failed. Please try again.")
 
 # NEW: Code-to-Code Translation
 @app.post("/api/code-to-code")
 async def function_code_to_code(payload: CodeToCodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
-    key = cache_key(payload.raw_code, f"{payload.source_language}->{payload.target_language}", "code-to-code")
+    validate_code_input(payload.raw_code)
+    payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-code", email=email)
+    tier = "free"
+    use_r1 = False
+    is_pro = False
+    # Enforce free tier daily limit
+    if email:
+        is_pro = await get_user_pro_status(email)
+        await check_free_tier_limit(email, is_pro)
+        
+    if payload.access_token:
+        if await is_token_pro(payload.access_token):
+            tier = "pro"
+            use_r1 = True
+    elif is_pro:
+        tier = "pro"
+        use_r1 = True
+
+    model_name = "deepseek-reasoner" if use_r1 else "standard"
+    key = cache_key(payload.raw_code, f"{payload.source_language}->{payload.target_language}", "code-to-code", model_name)
     
-    if redis_client:
-        try:
-            cached_str = await redis_client.get(key)
-            if cached_str:
-                cached = json.loads(cached_str)
-                if email:
-                    title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-                    background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code), payload.workspace_id)
-                return cached
-        except Exception as e:
-            logger.error(f"Redis cache get error: {e}")
+    cached = await cache.get(key)
+    if cached:
+        metrics.record_cache_hit()
+        if email:
+            background_tasks.add_task(save_translation_background, email, "Code → Code", payload.source_language, payload.target_language, payload.raw_code, cached, model_name, payload.workspace_id)
+        return cached
+
+    metrics.record_cache_miss()
 
     system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
-Return a JSON array where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
+Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
 
     user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
 
     try:
-        response = await asyncio.wait_for(
-            asyncio.to_thread(
-                client.models.generate_content,
-                model='gemini-2.5-flash',
-                contents=user_prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    response_mime_type="application/json"
-                )
-            ),
-            timeout=GEMINI_TIMEOUT
+        response_text, model_used = await get_completion(
+            prompt=user_prompt,
+            system_instruction=system,
+            mode="translation",
+            response_format="json_object",
+            use_r1=use_r1
         )
-        raw = json.loads(response.text)
-        result = normalize_blocks(raw)
-        if redis_client:
-            try:
-                await redis_client.setex(key, 86400 * 7, json.dumps(result))
-            except Exception as e:
-                logger.error(f"Redis cache set error: {e}")
+        raw = json.loads(response_text)
+        result = normalize_blocks(raw, model_used=model_used, tier=tier)
+        
+        await cache.put(key, result, 86400 * 7)
         
         if email:
-            title = payload.raw_code.split('\n')[0][:50] + "..." if len(payload.raw_code) > 50 else payload.raw_code[:50]
-            background_tasks.add_task(log_translation_history, email, title, payload.source_language, payload.target_language, "Code → Code", len(payload.raw_code), payload.workspace_id)
+            background_tasks.add_task(save_translation_background, email, "Code → Code", payload.source_language, payload.target_language, payload.raw_code, result, model_used, payload.workspace_id)
             
         return result
     except json.JSONDecodeError as e:
@@ -560,14 +1593,55 @@ Return a JSON array where each object has: id (e.g. 'block_1'), code_snippet (th
     except ValueError as e:
         logger.error(f"Normalization Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Code translation returned an unexpected format. Please try again.")
-    except asyncio.TimeoutError:
-        logger.error(f"Gemini API Timeout after {GEMINI_TIMEOUT}s")
-        raise HTTPException(status_code=504, detail=f"Code translation timed out after {GEMINI_TIMEOUT}s. Please try again.")
     except Exception as e:
-        logger.error(f"Gemini API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Code translation failed. Please check your API key and try again.")
+        if isinstance(e, HTTPException):
+            raise e
+        logger.error(f"LLM API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Code translation failed. Please try again.")
 
-# 5. Stripe Config & Routes
+import uuid
+
+
+
+# 5. Account Management
+@app.delete("/api/account")
+async def delete_account(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+        
+    try:
+        token = authorization.replace("Bearer ", "")
+        import httpx
+        async with httpx.AsyncClient() as client:
+            # Get user info
+            resp = await client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY}
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            
+            user_id = resp.json().get("id")
+            
+            if SUPABASE_SERVICE_KEY:
+                # Admin delete user
+                admin_resp = await client.delete(
+                    f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                    headers={"Authorization": f"Bearer {SUPABASE_SERVICE_KEY}", "apikey": SUPABASE_SERVICE_KEY}
+                )
+                if admin_resp.status_code not in (200, 204):
+                    logger.error(f"Admin delete user failed: {admin_resp.text}")
+                    raise HTTPException(status_code=500, detail="Failed to delete account")
+            
+            # Note: Cascade deletes in Supabase should handle translation_history automatically 
+            # if foreign keys are set up correctly.
+            from fastapi.responses import JSONResponse
+            return JSONResponse(content={}, status_code=204)
+    except Exception as e:
+        logger.error(f"Delete account error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete account")
+
+# 6. Stripe Config & Routes
 
 PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "price_ID")
 
@@ -582,12 +1656,11 @@ async def create_checkout_session(payload: CheckoutPayload):
     # Verify the Supabase JWT by calling the Supabase auth API
     try:
         import httpx
-        supabase_url = os.getenv("SUPABASE_URL", "https://lbqgvehjtbfkxawbznwd.supabase.co")
         async with httpx.AsyncClient() as http_client:
             resp = await http_client.get(
-                f"{supabase_url}/auth/v1/user",
+                f"{SUPABASE_URL}/auth/v1/user",
                 headers={"Authorization": f"Bearer {payload.access_token}",
-                         "apikey": os.getenv("SUPABASE_ANON_KEY", "")}
+                         "apikey": SUPABASE_ANON_KEY}
             )
             if resp.status_code != 200:
                 raise HTTPException(status_code=401, detail="Invalid or expired authentication token.")
@@ -614,6 +1687,116 @@ async def create_checkout_session(payload: CheckoutPayload):
         raise HTTPException(status_code=500, detail="Payment session creation failed. Please try again later.")
 
 
+# ── STRIPE BILLING PORTAL ──
+class PortalPayload(BaseModel):
+    access_token: str = Field(..., min_length=10)
+
+@app.post("/api/create-portal-session")
+async def create_portal_session(payload: PortalPayload):
+    """Create a Stripe Billing Portal session for the authenticated user.
+    Lets Pro users update payment methods, view invoices, and cancel."""
+    # Verify the JWT
+    try:
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {payload.access_token}", "apikey": SUPABASE_ANON_KEY}
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid or expired token")
+            user_email = resp.json().get("email", "")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Could not verify authentication")
+
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Could not determine user email")
+
+    # Look up stripe_customer_id from subscription record
+    sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=stripe_customer_id")
+    if not sub or not isinstance(sub, dict) or not sub.get("stripe_customer_id"):
+        raise HTTPException(status_code=404, detail="No active subscription found. Please subscribe first.")
+
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=sub["stripe_customer_id"],
+            return_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing',
+        )
+        return {"url": session.url}
+    except Exception as e:
+        logger.error(f"Stripe Portal Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Could not open billing portal. Please try again.")
+
+# ── STRIPE CREDIT CHECKOUT ──
+class CreditCheckoutPayload(BaseModel):
+    access_token: str = Field(..., min_length=10)
+
+@app.post("/api/create-credit-checkout")
+async def create_credit_checkout(payload: CreditCheckoutPayload):
+    try:
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {payload.access_token}", "apikey": SUPABASE_ANON_KEY}
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            user_email = resp.json().get("email", "")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Could not verify authentication")
+
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Could not determine email")
+
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': '100 Translation Credits',
+                        'description': 'One-time purchase of 100 translation credits for Anuvaad.'
+                    },
+                    'unit_amount': 100, # $1.00
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            metadata={
+                'type': 'credits',
+                'amount': 100,
+                'user_email': user_email
+            },
+            success_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=success',
+            cancel_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=cancel',
+            customer_email=user_email,
+        )
+        return {"url": session.url}
+    except Exception as e:
+        logger.error(f"Credit Checkout Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Could not create checkout session")
+
+# ── CHECK CREDITS ──
+@app.post("/api/check-credits")
+async def check_credits(payload: CreditCheckoutPayload):
+    try:
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {payload.access_token}", "apikey": SUPABASE_ANON_KEY}
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            user_email = resp.json().get("email", "")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Could not verify authentication")
+
+    sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=credits")
+    if sub and isinstance(sub, dict):
+        return {"credits": sub.get("credits") or 0}
+    return {"credits": 0}
+
+
 # ── STRIPE WEBHOOKS ──
 # Handles the full subscription lifecycle and updates the Supabase
 # user_subscriptions table so the frontend can gate Pro features.
@@ -622,44 +1805,83 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
 
 @app.post("/api/webhook/stripe")
 async def stripe_webhook(request: Request):
-    """Handle Stripe webhook events and update user_subscriptions in Supabase."""
+    """Handle Stripe webhook events and update user_subscriptions in Supabase.
+
+    SECURITY: Every incoming event MUST be verified against STRIPE_WEBHOOK_SECRET.
+    If the secret is not configured, this endpoint refuses to process any events
+    to prevent forged payloads from granting unauthorized Pro access.
+    """
+    # ── Guard: refuse to operate without a signing secret ──
+    if not STRIPE_WEBHOOK_SECRET:
+        logger.error(
+            "STRIPE_WEBHOOK_SECRET is not set — rejecting webhook request. "
+            "Set it in .env from Stripe Dashboard → Developers → Webhooks → Signing secret."
+        )
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Webhook endpoint not configured"}
+        )
+
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
 
-    if not STRIPE_WEBHOOK_SECRET:
-        logger.warning("STRIPE_WEBHOOK_SECRET not set — webhook signature verification disabled")
-        try:
-            event = json.loads(payload)
-        except json.JSONDecodeError:
-            raise HTTPException(status_code=400, detail="Invalid payload")
-    else:
-        try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, STRIPE_WEBHOOK_SECRET
-            )
-        except ValueError:
-            logger.error("Stripe webhook: invalid payload")
-            raise HTTPException(status_code=400, detail="Invalid payload")
-        except stripe.error.SignatureVerificationError:
-            logger.error("Stripe webhook: invalid signature")
-            raise HTTPException(status_code=400, detail="Invalid signature")
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError:
+        logger.error("Stripe webhook: invalid payload")
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        logger.error("Stripe webhook: invalid signature")
+        raise HTTPException(status_code=400, detail="Invalid signature")
 
     event_type = event.get("type", "") if isinstance(event, dict) else event["type"]
     data = event.get("data", {}).get("object", {}) if isinstance(event, dict) else event["data"]["object"]
 
     if event_type == "checkout.session.completed":
-        customer_email = data.get("customer_email", "unknown")
-        subscription_id = data.get("subscription", "")
-        customer_id = data.get("customer", "")
-        logger.info(f"✅ New subscription: {customer_email} (sub: {subscription_id})")
-        # Upsert into Supabase — creates or updates the user's subscription record
-        await supabase_request("POST", "user_subscriptions", {
-            "user_email": customer_email,
-            "stripe_customer_id": customer_id,
-            "stripe_subscription_id": subscription_id,
-            "plan": "pro",
-            "status": "active"
-        })
+        metadata = data.get("metadata", {})
+        if metadata.get("type") == "credits":
+            amount = int(metadata.get("amount", 0))
+            user_email = metadata.get("user_email", "")
+            logger.info(f"💰 Credits purchased: {user_email} (+{amount})")
+            
+            sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=credits")
+            if not sub:
+                await supabase_request("POST", "user_subscriptions", {
+                    "user_email": user_email,
+                    "credits": amount,
+                    "plan": "free",
+                    "status": "active",
+                    "onboarded": False
+                })
+            else:
+                current_credits = sub.get("credits") or 0
+                new_credits = current_credits + amount
+                await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{user_email}", {"credits": new_credits})
+        else:
+            customer_email = data.get("customer_email", "unknown")
+            subscription_id = data.get("subscription", "")
+            customer_id = data.get("customer", "")
+            logger.info(f"✅ New subscription: {customer_email} (sub: {subscription_id})")
+            # Check if this is a brand-new user (no existing subscription row)
+            existing_sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{customer_email}&select=user_email")
+            is_new_user = not existing_sub
+            # Upsert into Supabase — creates or updates the user's subscription record
+            await supabase_request("POST", "user_subscriptions", {
+                "user_email": customer_email,
+                "stripe_customer_id": customer_id,
+                "stripe_subscription_id": subscription_id,
+                "plan": "pro",
+                "status": "active",
+                "onboarded": False
+            })
+            # Send welcome email for brand-new users
+            if is_new_user and customer_email != "unknown":
+                email_service.send_welcome(customer_email)
+            # Always send subscription confirmation for Pro upgrades
+            if customer_email != "unknown":
+                email_service.send_subscription_confirmed(customer_email, "pro")
 
     elif event_type == "customer.subscription.updated":
         status = data.get("status", "unknown")
@@ -832,6 +2054,11 @@ async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, e
     
     return {"status": "success", "message": f"Invited {payload.email}"}
 
+@app.get("/api/sentry-test")
+async def sentry_test():
+    """Test endpoint to trigger a deliberate error for Sentry verification"""
+    return 1 / 0
+
 
 # ── TRANSLATION HISTORY API ──
 # Frontend uses this instead of querying Supabase directly
@@ -884,7 +2111,7 @@ async def create_api_key(payload: ApiKeyCreate, email: str = Depends(get_user_em
         "user_email": email,
         "name": payload.name,
         "key_prefix": raw_key[:8] + "...",
-        "api_key_hash": raw_key,
+        "api_key_hash": hashlib.sha256(raw_key.encode()).hexdigest(),
     }
     if payload.workspace_id:
         data["workspace_id"] = payload.workspace_id

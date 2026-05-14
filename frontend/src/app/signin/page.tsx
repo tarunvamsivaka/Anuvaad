@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/lib/auth-context";
+import { track } from "@/lib/analytics";
 import { Loader2 } from "lucide-react";
 
 export default function SignInPage() {
@@ -22,6 +23,7 @@ export default function SignInPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
+    track("signin_attempted", { method: "email" });
     const { error } = await signInWithEmail(email, password);
     setLoading(false);
     if (error) setError(error);
@@ -29,11 +31,13 @@ export default function SignInPage() {
   }
 
   async function handleGoogle() {
+    track("signin_attempted", { method: "google" });
     const { error } = await signInWithGoogle();
     if (error) setError(error);
   }
 
   async function handleGitHub() {
+    track("signin_attempted", { method: "github" });
     const { error } = await signInWithGitHub();
     if (error) setError(error);
   }
@@ -74,7 +78,10 @@ export default function SignInPage() {
               <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-sm" required />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Password</label>
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-muted-foreground">Password</label>
+                <Link href="/forgot-password" className="text-xs font-medium text-amber-600 hover:text-amber-700">Forgot password?</Link>
+              </div>
               <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 text-sm" required />
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}

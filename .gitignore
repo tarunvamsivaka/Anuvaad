@@ -21,3 +21,8 @@ env/
 # Deprecated monolith (replaced by js/ modules)
 script.js
 TEST_CASES.md
+
+# Internal planning documents (keep in private Notion / separate repo)
+implementation_plan*
+walkthrough*
+task*

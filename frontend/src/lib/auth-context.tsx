@@ -3,6 +3,13 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User, Session } from "@supabase/supabase-js";
+import { identifyUser, resetIdentity } from "@/lib/analytics";
+// Sentry is optional — gracefully degrade when not installed
+const Sentry = {
+  setUser: (_user: { email: string; id: string } | null) => {
+    // no-op: install @sentry/nextjs to enable user tracking
+  },
+};
 
 interface AuthState {
   user: User | null;
@@ -40,6 +47,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user?.email) {
+        Sentry.setUser({ email: session.user.email, id: session.user.id });
+        identifyUser(session.user.email, { plan: "free" });
+      } else {
+        Sentry.setUser(null);
+      }
       if (session) checkProStatus(session.access_token);
     });
 
@@ -48,6 +61,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user?.email) {
+        Sentry.setUser({ email: session.user.email, id: session.user.id });
+      } else {
+        Sentry.setUser(null);
+      }
       if (session) checkProStatus(session.access_token);
       else setIsPro(false);
     });
@@ -66,6 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         setIsPro(data.isPro === true);
+        // Update PostHog traits with actual plan
+        if (user?.email) {
+          identifyUser(user.email, { plan: data.isPro ? "pro" : "free" });
+        }
       }
     } catch {
       // Silently fail — Pro status defaults to false
@@ -100,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    resetIdentity();
   }, []);
 
   return (

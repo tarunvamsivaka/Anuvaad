@@ -26,14 +26,25 @@ export function initAuth() {
     const stripeBtn = document.getElementById('stripe-btn');
 
     // === CRASH-PROOF SUPABASE INITIALIZATION ===
-    // NOTE: The anon key below is PUBLIC by design (Supabase architecture).
+    // NOTE: The anon key is PUBLIC by design (Supabase architecture).
     // It is safe to expose in client-side code. Row Level Security (RLS)
     // policies on the Supabase project enforce data access control.
+    //
+    // Credentials are read from <meta> tags to avoid hardcoding:
+    //   <meta name="supabase-url"      content="https://<ref>.supabase.co">
+    //   <meta name="supabase-anon-key" content="eyJ…">
     function initSupabase() {
         try {
             if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-                const supabaseUrl = 'https://lbqgvehjtbfkxawbznwd.supabase.co';
-                const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxicWd2ZWhqdGJma3hhd2J6bndkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyNTA5ODAsImV4cCI6MjA5MTgyNjk4MH0.Qz8n3jrmnSFfhkLdyAqaQJVR-Yw1Mnr8Y_4QbaZy8vY';
+                const supabaseUrl = document.querySelector('meta[name="supabase-url"]')?.content;
+                const supabaseAnonKey = document.querySelector('meta[name="supabase-anon-key"]')?.content;
+                if (!supabaseUrl || !supabaseAnonKey) {
+                    console.error(
+                        'Missing Supabase config. Add <meta name="supabase-url"> and ' +
+                        '<meta name="supabase-anon-key"> tags to your HTML.'
+                    );
+                    return false;
+                }
                 appState.supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
 
                 appState.supabase.auth.onAuthStateChange(async (event, session) => {

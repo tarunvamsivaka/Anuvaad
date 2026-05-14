@@ -1,19 +1,31 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Editor } from "@monaco-editor/react";
+import dynamic from "next/dynamic";
+import { useDropzone } from "react-dropzone";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+
+const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full min-h-[500px] rounded-lg" />,
+});
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Copy, Download, Loader2, RotateCcw,
-  Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings
+  Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings, Zap,
+  ChevronDown, ChevronUp, X, Upload, FileCode, Github, Link
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { useCredits } from "@/lib/hooks";
+import { track } from "@/lib/analytics";
+import { toast } from "sonner";
 
 const languages: { value: string; label: string; monacoId: string }[] = [
   // Web
@@ -74,10 +86,78 @@ interface TranslationBlock {
   english_translation: string;
 }
 
+function TranslationBlockCard({ block, index, sourceLanguage }: { block: TranslationBlock, index: number, sourceLanguage: string }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedText, setCopiedText] = useState(false);
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(block.code_snippet);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const copyText = () => {
+    navigator.clipboard.writeText(block.english_translation);
+    setCopiedText(true);
+    setTimeout(() => setCopiedText(false), 2000);
+  };
+
+  return (
+    <Card className="mb-4 overflow-hidden border-border/60 shadow-sm transition-all duration-200">
+      <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-4 py-2.5">
+        <Badge variant="outline" className="bg-amber-600/10 text-amber-600 border-amber-600/20 font-medium">
+          Block {index + 1}
+        </Badge>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(!collapsed)}>
+            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+      
+      {!collapsed && (
+        <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="relative border-b border-border/40 bg-[#0d0d0d] p-4 group">
+            <pre className="font-mono text-xs md:text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed">
+              <code>{block.code_snippet}</code>
+            </pre>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={copyCode} 
+              className="absolute right-3 top-3 h-7 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 text-white hover:bg-white/20 border-0 shadow-sm"
+            >
+              {copiedCode ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+              {copiedCode ? "Copied" : "Copy code"}
+            </Button>
+          </div>
+          <div className="relative p-4 md:p-5 bg-background group">
+            <p className="text-sm leading-relaxed text-foreground/90">
+              {block.english_translation}
+            </p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={copyText} 
+              className="absolute right-3 top-3 h-7 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-background shadow-sm"
+            >
+              {copiedText ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+              {copiedText ? "Copied" : "Copy text"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export default function TranslatePage() {
   const { isPro, session } = useAuth();
+  const { credits, isLoading: creditsLoading } = useCredits(session?.access_token);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const searchParams = useSearchParams();
 
   const [mode, setMode] = useState("code-to-english");
   const [sourceLanguage, setSourceLanguage] = useState("python");
@@ -85,11 +165,101 @@ export default function TranslatePage() {
   const [input, setInput] = useState("");
   const [customInstructions, setCustomInstructions] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; size: number } | null>(null);
+  const [gistSource, setGistSource] = useState<{ username: string; filename: string } | null>(null);
+  const [showGistInput, setShowGistInput] = useState(false);
+  const [gistUrl, setGistUrl] = useState("");
+  const [gistLoading, setGistLoading] = useState(false);
+
+  // Extension → language auto-detection map
+  const extToLanguage: Record<string, string> = {
+    ".py": "python", ".js": "javascript", ".ts": "typescript",
+    ".java": "java", ".cpp": "cpp", ".rs": "rust",
+    ".go": "go", ".c": "c", ".cs": "csharp",
+  };
+  const acceptedExtensions = Object.keys(extToLanguage);
+
+  const onFileDrop = useCallback((acceptedFiles: globalThis.File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+    const ext = "." + file.name.split(".").pop()?.toLowerCase();
+    if (!acceptedExtensions.includes(ext)) {
+      toast.error(`Unsupported file type. Allowed: ${acceptedExtensions.join(", ")}`);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string;
+      setInput(text);
+      setUploadedFile({ name: file.name, size: file.size });
+      // Auto-detect language
+      const detectedLang = extToLanguage[ext];
+      if (detectedLang) setSourceLanguage(detectedLang);
+      track("file_uploaded", { extension: ext, size_bytes: file.size, detected_language: detectedLang || "unknown" });
+    };
+    reader.readAsText(file);
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: onFileDrop,
+    accept: { "text/plain": acceptedExtensions },
+    maxFiles: 1,
+    noClick: false,
+    disabled: mode === "english-to-code",
+  });
+
+  const handleClearFile = useCallback(() => {
+    setUploadedFile(null);
+    setGistSource(null);
+    setInput("");
+    setOutputBlocks(null);
+    setStreamText("");
+    setRawError("");
+  }, []);
+
+  const handleGistImport = useCallback(async () => {
+    if (!gistUrl.trim()) return;
+    setGistLoading(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setInput(data.content);
+      setSourceLanguage(data.language);
+      setGistSource({ username: data.username, filename: data.filename });
+      setUploadedFile(null);
+      setShowGistInput(false);
+      setGistUrl("");
+      toast.success(`Imported ${data.filename} (${data.char_count.toLocaleString()} chars)`);
+      track("gist_imported", { language: data.language, char_count: data.char_count, username: data.username });
+    } catch (err: any) {
+      const message = err instanceof Error ? err.message : "Failed to import Gist";
+      toast.error(message);
+    } finally {
+      setGistLoading(false);
+    }
+  }, [gistUrl]);
+
+  // Read ?mode= query param on mount to pre-select translation mode
+  useEffect(() => {
+    const modeParam = searchParams.get("mode");
+    if (modeParam && modes.some(m => m.id === modeParam)) {
+      setMode(modeParam);
+    }
+  }, [searchParams]);
   
   const [outputBlocks, setOutputBlocks] = useState<TranslationBlock[] | null>(null);
+  const [streamText, setStreamText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const [rawError, setRawError] = useState("");
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [modelUsed, setModelUsed] = useState<string | null>(null);
 
   const { activeWorkspace } = useWorkspace();
 
@@ -97,9 +267,30 @@ export default function TranslatePage() {
 
   const handleTranslate = useCallback(async () => {
     if (!input.trim()) return;
+
+    if (isStreaming && readerRef.current) {
+      readerRef.current.cancel();
+      setIsStreaming(false);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
+    setIsStreaming(true);
     setOutputBlocks(null);
+    setStreamText("");
     setRawError("");
+    setModelUsed(null);
+
+    const translateStartTime = Date.now();
+    track("translation_started", {
+      mode,
+      source_language: sourceLanguage,
+      target_language: targetLanguage,
+      char_count: input.length,
+      is_pro: isPro,
+    });
+
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       let endpoint = "";
@@ -132,62 +323,117 @@ export default function TranslatePage() {
         headers,
         body: JSON.stringify(body),
       });
+      
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
-      const data = await res.json();
-      
-      if (Array.isArray(data)) {
-        setOutputBlocks(data);
-      } else {
-        // Fallback for unexpected format
-        setRawError(JSON.stringify(data, null, 2));
-      }
-    } catch (err: unknown) {
-      setRawError(`Error: ${err instanceof Error ? err.message : "Translation failed"}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [input, mode, sourceLanguage, targetLanguage, customInstructions, session, activeWorkspace]);
 
-  const handleCopy = useCallback(() => {
-    if (!outputBlocks) return;
-    const textToCopy = outputBlocks.map(b => 
-      mode === "code-to-english" 
-        ? `${b.code_snippet}\n/* ${b.english_translation} */\n` 
-        : b.code_snippet
-    ).join("\n");
-    
-    navigator.clipboard.writeText(textToCopy);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [outputBlocks, mode]);
+      if (!res.body) throw new Error("No response body");
+      const reader = res.body.getReader();
+      readerRef.current = reader;
+      const decoder = new TextDecoder("utf-8");
+
+      let completeBlocks = null;
+      let streamError = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunkText = decoder.decode(value, { stream: true });
+        const lines = chunkText.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.error) {
+                streamError = data.error;
+                setRawError(`Error: ${data.error}`);
+              } else if (data.chunk) {
+                setStreamText(prev => prev + data.chunk);
+              } else if (data.done && data.blocks) {
+                completeBlocks = data.blocks;
+                if (data.model_used) {
+                  setModelUsed(data.model_used);
+                }
+              }
+            } catch (e) {
+              // Ignore invalid JSON chunks (might be split across packets)
+            }
+          }
+        }
+      }
+
+      if (completeBlocks && !streamError) {
+        setOutputBlocks(completeBlocks);
+        track("translation_completed", {
+          mode,
+          block_count: completeBlocks.length,
+          model_used: completeBlocks[0]?.model_used || "unknown",
+          latency_ms: Date.now() - translateStartTime,
+          from_cache: false,
+        });
+      }
+      
+    } catch (err: any) {
+      if (err.name === "AbortError" || err.message?.includes("abort")) {
+        toast.info("Translation stopped");
+      } else {
+        const message = err instanceof Error ? err.message : "Translation failed";
+        setRawError(`Error: ${message}`);
+        toast.error(message);
+        track("translation_failed", {
+          mode,
+          error_type: err.name || "unknown",
+          status_code: err.status || null,
+        });
+      }
+    } finally {
+      setIsStreaming(false);
+      setLoading(false);
+      readerRef.current = null;
+    }
+  }, [input, mode, sourceLanguage, targetLanguage, customInstructions, session, activeWorkspace, isStreaming]);
+
 
   const handleClear = useCallback(() => { 
     setInput(""); 
     setOutputBlocks(null); 
-    setRawError(""); 
+    setStreamText("");
+    setRawError("");
+    setUploadedFile(null);
+    setGistSource(null);
   }, []);
 
-  const handleDownload = useCallback(() => {
+  const handleCopyMarkdown = useCallback(() => {
     if (!outputBlocks) return;
     let content = "";
     
     if (mode === "code-to-english") {
-      content = outputBlocks.map(b => `### Code\n\`\`\`${sourceLanguage}\n${b.code_snippet}\n\`\`\`\n\n### Explanation\n${b.english_translation}\n`).join("\n---\n\n");
+      content = outputBlocks.map((b, i) => `## Block ${i + 1}\n\n### Code\n\`\`\`${sourceLanguage}\n${b.code_snippet}\n\`\`\`\n\n### Explanation\n${b.english_translation}\n`).join("\n---\n\n");
     } else {
-      content = outputBlocks.map(b => b.code_snippet).join("\n\n");
+      content = outputBlocks.map((b, i) => `## Block ${i + 1}\n\n\`\`\`${targetLanguage}\n${b.code_snippet}\n\`\`\`\n\n**Note**: ${b.english_translation}\n`).join("\n---\n\n");
     }
+    
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    toast.success("Copied Markdown to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  }, [outputBlocks, mode, sourceLanguage, targetLanguage]);
 
-    const blob = new Blob([content], { type: "text/markdown" });
+  const handleDownloadJson = useCallback(() => {
+    if (!outputBlocks) return;
+    const blob = new Blob([JSON.stringify(outputBlocks, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `anuvaad-export.${mode === "code-to-english" ? "md" : "txt"}`;
+    a.download = `anuvaad-blocks.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [outputBlocks, mode, sourceLanguage]);
+  }, [outputBlocks]);
 
   return (
     <div className="min-h-screen pb-20">
@@ -202,6 +448,11 @@ export default function TranslatePage() {
               <Settings className="h-4 w-4" />
               <span className="text-xs">Context & Settings</span>
             </Button>
+            {!isPro && (
+               <Badge variant="outline" className="text-[10px] bg-background border-amber-500 text-amber-600 gap-1 px-2 py-0">
+                 <Zap className="h-3 w-3" /> {creditsLoading ? "..." : credits} Credits
+               </Badge>
+            )}
             <Badge className={cn(
               "text-[10px]",
               isPro
@@ -237,11 +488,17 @@ export default function TranslatePage() {
       <div className="p-6 max-w-[1600px] mx-auto">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Mode tabs */}
-          <div className="flex gap-1 rounded-xl bg-muted/50 p-1 w-fit border border-border/50 shadow-sm">
+          <div role="tablist" aria-label="Translation modes" className="flex gap-1 rounded-xl bg-muted/50 p-1 w-fit border border-border/50 shadow-sm">
             {modes.map((m) => {
               const Icon = m.icon;
               return (
-                <button key={m.id} onClick={() => setMode(m.id)}
+                <button key={m.id} role="tab" aria-selected={mode === m.id} onClick={() => {
+                    const prevMode = mode;
+                    setMode(m.id);
+                    if (prevMode !== m.id) {
+                      track("mode_switched", { from_mode: prevMode, to_mode: m.id });
+                    }
+                  }}
                   className={cn(
                     "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-all duration-200",
                     mode === m.id ? "bg-background text-foreground shadow-sm ring-1 ring-border" : "text-muted-foreground hover:text-foreground hover:bg-background/50"
@@ -256,8 +513,8 @@ export default function TranslatePage() {
           <div className="flex flex-wrap items-center gap-3">
             {mode !== "english-to-code" && (
               <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-1.5 shadow-sm">
-                <label className="text-xs font-medium text-muted-foreground">Source</label>
-                <select value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)}
+                <label htmlFor="source-lang" className="text-xs font-medium text-muted-foreground">Source</label>
+                <select id="source-lang" value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)}
                   className="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
                   {languages.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>
@@ -265,8 +522,8 @@ export default function TranslatePage() {
             )}
             {mode !== "code-to-english" && (
               <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-1.5 shadow-sm">
-                <label className="text-xs font-medium text-muted-foreground">Target</label>
-                <select value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}
+                <label htmlFor="target-lang" className="text-xs font-medium text-muted-foreground">Target</label>
+                <select id="target-lang" value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}
                   className="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
                   {languages.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
                 </select>
@@ -280,9 +537,29 @@ export default function TranslatePage() {
           {/* INPUT PANEL */}
           <Card className="flex flex-col overflow-hidden border-border/60 shadow-md">
             <div className="flex items-center justify-between border-b border-border/60 bg-muted/20 px-4 py-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                {mode === "english-to-code" ? "Requirements (English)" : "Source Code"}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  {mode === "english-to-code" ? "Requirements (English)" : "Source Code"}
+                </p>
+                {uploadedFile && (
+                  <Badge variant="secondary" className="gap-1.5 text-[10px] font-medium">
+                    <FileCode className="h-3 w-3" />
+                    {uploadedFile.name}
+                    <button onClick={handleClearFile} className="ml-1 rounded-full hover:bg-muted p-0.5">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+                {gistSource && (
+                  <Badge variant="secondary" className="gap-1.5 text-[10px] font-medium bg-[#24292e]/10 text-[#24292e] dark:bg-white/10 dark:text-white">
+                    <Github className="h-3 w-3" />
+                    github.com/{gistSource.username} — {gistSource.filename}
+                    <button onClick={() => { setGistSource(null); handleClearFile(); }} className="ml-1 rounded-full hover:bg-muted p-0.5">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <span className="text-[10px] font-mono text-muted-foreground">{input.length.toLocaleString()} chars</span>
                 <Button variant="ghost" size="sm" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-muted"><RotateCcw className="h-3.5 w-3.5" /></Button>
@@ -296,7 +573,7 @@ export default function TranslatePage() {
                 onKeyDown={(e) => { if (e.ctrlKey && e.key === "Enter") handleTranslate(); }}
               />
             ) : (
-              <div className="flex-1 min-h-[500px]">
+              <div className="flex-1 min-h-[500px] relative">
                 <Editor
                   height="100%"
                   language={languages.find(l => l.value === sourceLanguage)?.monacoId || sourceLanguage}
@@ -312,15 +589,91 @@ export default function TranslatePage() {
                     fontFamily: "'JetBrains Mono', 'Geist Mono', monospace",
                   }}
                 />
+                {/* Drag & drop overlay */}
+                {!input && (
+                  <div
+                    {...getRootProps()}
+                    className={cn(
+                      "absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200 z-10",
+                      "bg-background/80 backdrop-blur-sm",
+                      isDragActive && "bg-amber-600/5 ring-2 ring-inset ring-amber-500/40"
+                    )}
+                  >
+                    <input {...getInputProps()} />
+                    <div className={cn(
+                      "flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed transition-colors",
+                      isDragActive ? "border-amber-500 bg-amber-500/10" : "border-border bg-muted/30"
+                    )}>
+                      <Upload className={cn("h-6 w-6", isDragActive ? "text-amber-600" : "text-muted-foreground")} />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium">{isDragActive ? "Drop your file here" : "Drag & drop a code file"}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">or click to browse · .py .js .ts .java .cpp .go .rs .c .cs</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Gist Import UI */}
+                {!input && mode !== "english-to-code" && (
+                  <div className="absolute bottom-4 left-0 right-0 z-20 flex justify-center">
+                    {showGistInput ? (
+                      <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-2 shadow-lg w-[90%] max-w-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        <Github className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <input
+                          type="url"
+                          value={gistUrl}
+                          onChange={(e) => setGistUrl(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleGistImport(); }}
+                          placeholder="https://gist.github.com/username/abc123"
+                          className="flex-1 bg-transparent border-none text-sm focus:outline-none placeholder:text-muted-foreground/60"
+                          autoFocus
+                          disabled={gistLoading}
+                        />
+                        {gistLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                        ) : (
+                          <>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleGistImport} disabled={!gistUrl.trim()}>
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setShowGistInput(false); setGistUrl(""); }}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowGistInput(true)}
+                        className="gap-2 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background text-xs"
+                      >
+                        <Github className="h-3.5 w-3.5" />
+                        Import Gist
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             
             <div className="border-t border-border/60 bg-muted/10 px-4 py-3 flex justify-between items-center">
               <span className="text-xs text-muted-foreground">Press <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Enter</kbd> to translate</span>
-              <Button onClick={handleTranslate} disabled={loading || !input.trim()}
-                className="gap-2 shadow-sm bg-amber-600 hover:bg-amber-700 text-white transition-all">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {loading ? "Processing..." : "Generate Translation"}
+              <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} aria-disabled={!input.trim() && !isStreaming}
+                className={cn(
+                  "gap-2 shadow-sm transition-all text-white",
+                  isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-amber-600 hover:bg-amber-700"
+                )}>
+                {isStreaming ? (
+                  <>
+                    <X className="h-4 w-4" /> Stop
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" /> Generate Translation
+                  </>
+                )}
               </Button>
             </div>
           </Card>
@@ -333,74 +686,59 @@ export default function TranslatePage() {
               </p>
               {outputBlocks && (
                 <div className="flex items-center gap-1">
-                  <Button variant="outline" size="sm" onClick={handleCopy} className="h-7 gap-1.5 px-3 text-[10px] bg-background">
+                  <Button variant="outline" size="sm" onClick={handleCopyMarkdown} className="h-7 gap-1.5 px-3 text-[10px] bg-background">
                     {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                    {copied ? "Copied All" : "Copy All"}
+                    {copied ? "Copied MD" : "Copy as Markdown"}
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleDownload} className="h-7 gap-1.5 px-3 text-[10px] bg-background">
+                  <Button variant="outline" size="sm" onClick={handleDownloadJson} className="h-7 gap-1.5 px-3 text-[10px] bg-background">
                     <Download className="h-3 w-3" />
-                    Export MD
+                    Download JSON
                   </Button>
                 </div>
               )}
             </div>
             
-            <div className="flex-1 overflow-auto bg-background/50">
-              {loading ? (
-                <div className="flex h-full min-h-[500px] flex-col items-center justify-center">
-                  <div className="relative flex h-16 w-16 items-center justify-center">
-                    <div className="absolute inset-0 rounded-full border-4 border-muted"></div>
-                    <div className="absolute inset-0 rounded-full border-4 border-amber-600 border-t-transparent animate-spin"></div>
-                    <Sparkles className="h-6 w-6 text-amber-600 animate-pulse" />
+            <div className="flex-1 overflow-auto bg-background/50 relative">
+              {(isStreaming || (streamText.length > 0 && !outputBlocks)) ? (
+                <div className={cn(
+                  "p-6 m-4 rounded-lg bg-background border shadow-sm min-h-[400px]", 
+                  rawError ? "border-red-500" : "border-border/50"
+                )}>
+                  <div className="flex items-center gap-2 mb-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider" role="status" aria-live="polite" aria-label={isStreaming ? "Translating your code" : ""}>
+                     {isStreaming ? (
+                       <><div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" /> Generating...</>
+                     ) : (
+                       <><div className="h-2 w-2 rounded-full bg-emerald-500" /> Done</>
+                     )}
                   </div>
-                  <p className="mt-4 text-sm font-medium text-foreground">Analyzing code structure...</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Applying corporate standards</p>
+                  {rawError && (
+                     <div className="text-sm text-red-500 whitespace-pre-wrap font-mono mb-4">{rawError}</div>
+                  )}
+                  <pre aria-label="Translation output" className={cn("font-mono text-sm text-foreground/90 whitespace-pre-wrap break-words", isStreaming ? "blinking-cursor" : "")}>
+                    {streamText}
+                  </pre>
                 </div>
-              ) : rawError ? (
-                <div className="p-6 text-sm text-destructive whitespace-pre-wrap font-mono bg-destructive/5 m-4 rounded-lg border border-destructive/20">{rawError}</div>
+              ) : rawError && !streamText ? (
+                <div className="p-6 text-sm text-destructive whitespace-pre-wrap font-mono bg-destructive/5 m-4 rounded-lg border border-red-500">{rawError}</div>
               ) : outputBlocks ? (
-                <div className="p-0">
+                <div className="p-4 flex flex-col gap-2">
                   {outputBlocks.map((block, idx) => (
-                    <div key={block.id || idx} className="border-b border-border/40 last:border-0 hover:bg-muted/10 transition-colors">
-                      {mode === "code-to-english" ? (
-                        <div className="grid md:grid-cols-2 gap-0">
-                          <div className="p-4 border-r border-border/40 bg-muted/5 overflow-x-auto">
-                            <pre className="font-mono text-xs text-foreground/80 leading-relaxed">
-                              {block.code_snippet}
-                            </pre>
-                          </div>
-                          <div className="p-4 flex items-center">
-                            <p className="text-sm leading-relaxed text-foreground">
-                              {block.english_translation}
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-0">
-                           {/* Use Monaco editor for output code snippet */}
-                           <div className="h-[200px] border-b border-border/40">
-                             <Editor
-                                height="100%"
-                                language={languages.find(l => l.value === targetLanguage)?.monacoId || targetLanguage}
-                                theme={isDark ? "vs-dark" : "light"}
-                                value={block.code_snippet}
-                                options={{
-                                  readOnly: true,
-                                  minimap: { enabled: false },
-                                  fontSize: 13,
-                                  lineHeight: 22,
-                                  padding: { top: 12 },
-                                  scrollBeyondLastLine: false,
-                                }}
-                              />
-                           </div>
-                           <div className="p-3 bg-muted/20 text-xs text-muted-foreground border-t border-border/50">
-                             <strong className="text-foreground">AI Note:</strong> {block.english_translation}
-                           </div>
-                        </div>
-                      )}
-                    </div>
+                    <TranslationBlockCard 
+                      key={block.id || idx} 
+                      block={block} 
+                      index={idx} 
+                      sourceLanguage={sourceLanguage}
+                    />
                   ))}
+                  
+                  {modelUsed && (
+                    <div className="mt-4 flex items-center justify-center">
+                      <span className="text-[10px] font-medium tracking-wide text-muted-foreground bg-muted/50 px-3 py-1.5 rounded-full shadow-sm border border-border/50 flex items-center gap-1.5">
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                        Generated by {modelUsed}
+                      </span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex h-full min-h-[500px] items-center justify-center">
