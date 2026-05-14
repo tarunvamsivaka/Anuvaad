@@ -131,7 +131,7 @@
         <h3>Usage Data</h3>
         <ul>
             <li>Code snippets submitted for translation (processed in real-time, not stored permanently)</li>
-            <li>Translation history (stored locally in your browser via localStorage)</li>
+            <li>Translation history (stored server-side in your account)</li>
             <li>Feature usage metrics (translation count, modes used)</li>
         </ul>
 
@@ -158,12 +158,12 @@
         </ul>
 
         <h2>4. Code Data Processing</h2>
-        <p><strong>Your code is not stored on our servers.</strong> Code submitted for translation is sent to Google's Gemini API for processing. The translated response is returned to your browser immediately. We do not maintain a database of submitted code.</p>
-        <p>Translation history is stored <strong>only in your browser's localStorage</strong> and never transmitted to our servers.</p>
+        <p><strong>Your code is not stored on our servers.</strong> Code submitted for translation is sent to Groq and DeepSeek AI for processing. The translated response is returned to your browser immediately. We do not maintain a database of submitted code.</p>
+        <p>Translation history is stored <strong>securely in your account database</strong>.</p>
 
         <h2>5. Third-Party Services</h2>
         <ul>
-            <li><strong>Google Gemini API</strong> — Processes code translations. Subject to <a href="https://policies.google.com/privacy" target="_blank">Google's Privacy Policy</a>.</li>
+            <li><strong>Groq (Llama 3.3 70B) and DeepSeek (V3/R1)</strong> — Processes code translations.</li>
             <li><strong>Supabase</strong> — Authentication and database. Subject to <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy</a>.</li>
             <li><strong>Stripe</strong> — Payment processing. Subject to <a href="https://stripe.com/privacy" target="_blank">Stripe's Privacy Policy</a>.</li>
         </ul>
@@ -172,7 +172,7 @@
         <ul>
             <li>Account data is retained while your account is active.</li>
             <li>Subscription records are retained for billing compliance.</li>
-            <li>Rate limiting data is stored in-memory and cleared on server restart.</li>
+            <li>Rate limiting data is stored in Redis with configurable retention.</li>
             <li>You may request account deletion at any time by contacting us.</li>
         </ul>
 
@@ -201,7 +201,7 @@
             <li><strong>Authentication tokens</strong> (Supabase session) — required for sign-in</li>
             <li><strong>Theme preference</strong> (localStorage) — dark/light mode choice</li>
             <li><strong>Translation history</strong> (localStorage) — your saved translations</li>
-            <li><strong>Usage counter</strong> (localStorage) — daily translation count</li>
+            <li><strong>Usage counter</strong> (server-side) — daily translation count</li>
         </ul>
         <p>We do not use third-party tracking cookies.</p>
 

@@ -39,7 +39,6 @@ def _patched_json(self, **kwargs):
 httpx.Response.json = _patched_json
 
 # ── Ensure env vars are set BEFORE importing main ──
-os.environ.setdefault("GEMINI_API_KEY", "test_key_for_ci")
 os.environ.setdefault("GROQ_API_KEY", "test_key_for_ci")
 os.environ.setdefault("DEEPSEEK_API_KEY", "test_key_for_ci")
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_ci")

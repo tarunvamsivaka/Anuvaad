@@ -219,6 +219,15 @@ See [`frontend/.env.example`](frontend/.env.example) for all variables.
 | `NEXT_PUBLIC_API_URL` | ✅ | Backend API URL (default: `http://localhost:8000`) |
 | `NEXT_PUBLIC_POSTHOG_KEY` | Optional | PostHog project API key for analytics |
 
+## Production Deployment
+
+When deploying to a production environment (e.g., using Docker Compose):
+
+1. **Required Environment Variables**: You must copy `.env.example` to `.env` and fill in all real values. The application will crash at startup if critical variables like `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `SUPABASE_URL`, or `SUPABASE_SERVICE_ROLE_KEY` are missing or contain placeholder values.
+2. **ENV=production**: Ensure `ENV=production` is set (this is the default in `docker-compose.yml`). This enables strict startup validation and locks down CORS to only your `FRONTEND_URL`.
+3. **FRONTEND_URL**: Must be set to your exact deployed frontend domain (e.g., `https://anuvaad.dev`). In production, localhost origins are rejected.
+4. **Redis is Required**: You must provide a valid `REDIS_URL` (or `UPSTASH_REDIS_URL` / `UPSTASH_REDIS_TOKEN`). Relying on the in-memory LRU fallback in production means rate-limiting and caching will reset on container restarts and will not work across multiple backend workers.
+
 ## Docker
 
 ```bash

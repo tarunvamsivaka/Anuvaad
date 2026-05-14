@@ -18,7 +18,7 @@ class TestPayloadLimits:
     def test_code_exceeds_max_length(self, client):
         """raw_code max_length is 10000."""
         res = client.post("/api/code-to-english", json={
-            "raw_code": "x" * 10001,
+            "raw_code": "x" * 50001,
             "language": "python"
         })
         assert res.status_code == 422
@@ -26,7 +26,7 @@ class TestPayloadLimits:
     def test_code_at_max_length(self, client):
         """Exactly 10000 chars should be accepted."""
         res = client.post("/api/code-to-english", json={
-            "raw_code": "x" * 10000,
+            "raw_code": "x" * 50000,
             "language": "python"
         })
         assert res.status_code == 200

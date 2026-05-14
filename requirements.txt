@@ -6,6 +6,7 @@ python-dotenv==1.2.2
 pydantic==2.13.3
 httpx==0.28.1
 upstash-redis==1.7.0
+redis>=5.0.0
 sentry-sdk[fastapi]
 python-multipart>=0.0.9
 resend>=2.0.0

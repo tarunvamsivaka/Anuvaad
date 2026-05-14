@@ -99,15 +99,19 @@ metrics = MetricsCollector()
 # 1. Core Initialization
 app = FastAPI(title="Anuvaad API")
 
+# ── ENVIRONMENT MODE ──
+_is_production = os.getenv("ENV", "development").lower() == "production"
+
 # ── CORS ──
 # FRONTEND_URL must be set in production .env to your actual domain.
 # In development, localhost origins are also allowed.
 _frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
 _allowed_origins = [_frontend_url]
-# Always allow both the legacy port and the Next.js dev server port
-for origin in ["http://localhost:3000", "http://localhost:5500", "http://127.0.0.1:5500"]:
-    if origin not in _allowed_origins:
-        _allowed_origins.append(origin)
+# Only allow localhost origins in development mode
+if not _is_production:
+    for origin in ["http://localhost:3000", "http://localhost:5500", "http://127.0.0.1:5500"]:
+        if origin not in _allowed_origins:
+            _allowed_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -189,15 +193,18 @@ else:
 
 # ── STARTUP ENV VALIDATION ──
 # In production, critical env vars must be present.
-_is_production = os.getenv("ENV", "development").lower() == "production"
+# _is_production is defined above, before CORS setup.
 if _is_production:
     _missing = []
-    for _var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "STRIPE_WEBHOOK_SECRET"]:
+    for _var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY",
+                 "STRIPE_WEBHOOK_SECRET", "FRONTEND_URL"]:
         val = os.getenv(_var, "")
         if not val or val.startswith("your_") or val == "dummy_key":
             _missing.append(_var)
     if _missing:
         raise RuntimeError(f"FATAL: Missing required env vars for production: {', '.join(_missing)}")
+    if _frontend_url.startswith("http://localhost"):
+        raise RuntimeError("FATAL: FRONTEND_URL must not be localhost in production")
     logger.info("Production env validation passed")
 
 FREE_TIER_DAILY_LIMIT = 10
@@ -858,18 +865,54 @@ class LRUCache:
             }
 
 class RedisCache:
+    """Unified cache and rate-limiter backed by Redis.
+
+    Connection priority:
+      1. REDIS_URL  — standard Redis (docker, local, managed)
+      2. UPSTASH_REDIS_URL + UPSTASH_REDIS_TOKEN — Upstash REST (serverless)
+      3. In-memory LRU fallback (development only; logs warning in production)
+    """
+
     def __init__(self):
-        url = os.environ.get("UPSTASH_REDIS_URL")
-        token = os.environ.get("UPSTASH_REDIS_TOKEN")
         self.client = None
-        if url and token:
+        self._backend = "memory"
+
+        # Priority 1: Standard Redis via REDIS_URL
+        redis_url = os.environ.get("REDIS_URL")
+        if redis_url:
             try:
-                from upstash_redis.asyncio import Redis
-                self.client = Redis(url=url, token=token)
+                import redis.asyncio as aioredis
+                self.client = aioredis.from_url(redis_url, decode_responses=True)
+                self._backend = "redis"
             except Exception as e:
-                logger.warning(f"Failed to initialize Upstash Redis: {e}")
+                logger.warning(f"Failed to connect to Redis via REDIS_URL: {e}")
+
+        # Priority 2: Upstash REST (serverless fallback)
+        if not self.client:
+            url = os.environ.get("UPSTASH_REDIS_URL")
+            token = os.environ.get("UPSTASH_REDIS_TOKEN")
+            if url and token:
+                try:
+                    from upstash_redis.asyncio import Redis
+                    self.client = Redis(url=url, token=token)
+                    self._backend = "upstash"
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Upstash Redis: {e}")
+
+        # Fallback: in-memory LRU
         self.fallback = LRUCache(max_size=500)
-    
+
+        if self.client:
+            logger.info(f"Redis cache initialized (backend: {self._backend})")
+        elif _is_production:
+            logger.warning(
+                "⚠ PRODUCTION: No Redis configured — using in-memory LRU fallback. "
+                "Rate limiting will not persist across restarts or workers. "
+                "Set REDIS_URL or UPSTASH_REDIS_URL/UPSTASH_REDIS_TOKEN."
+            )
+        else:
+            logger.info("Redis not configured — using in-memory LRU (development mode)")
+
     async def get(self, key: str):
         if self.client:
             try:
@@ -890,7 +933,7 @@ class RedisCache:
             except Exception as e:
                 logger.error(f"Redis put error: {e}")
         self.fallback.set(key, value)
-        
+
     async def incr_rate_limit(self, key: str, window: int) -> int:
         if self.client:
             try:
@@ -900,8 +943,8 @@ class RedisCache:
                 return count
             except Exception as e:
                 logger.error(f"Redis incr error: {e}")
-        
-        # Simple memory fallback
+
+        # In-memory fallback (dev only)
         val = self.fallback.get(key) or 0
         val += 1
         self.fallback.set(key, val)
@@ -909,10 +952,12 @@ class RedisCache:
 
     async def ping(self):
         if self.client:
-            # upstash_redis ping doesn't exist conventionally or returns 'PONG'
-            # We'll just do a basic get to verify connection
-            await self.client.get("health_ping")
-            return True
+            if self._backend == "redis":
+                return await self.client.ping()
+            else:
+                # Upstash REST — no native ping, use a GET
+                await self.client.get("health_ping")
+                return True
         return False
 
 cache = RedisCache()
