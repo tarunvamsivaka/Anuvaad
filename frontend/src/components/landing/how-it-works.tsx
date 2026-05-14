@@ -13,7 +13,7 @@ const steps = [
     step: "02",
     title: "AI analyzes it",
     description:
-      "Gemini 2.5 Flash breaks your code into logical blocks and generates clear, beginner-friendly explanations for each section.",
+      "Groq and DeepSeek break your code into logical blocks and generate clear, beginner-friendly explanations for each section.",
   },
   {
     icon: FileText,

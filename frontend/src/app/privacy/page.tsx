@@ -34,14 +34,14 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-foreground">2. Code Processing</h2>
-            <p>Your code is sent to our API for translation via Google&apos;s Gemini AI. <strong className="text-foreground">We do not store your code.</strong> It is processed in real-time and the result is returned immediately. No code snippets are logged or retained on our servers.</p>
+            <p>Your code is sent to our API for translation via Groq and DeepSeek AI. <strong className="text-foreground">We do not store your code.</strong> It is processed in real-time and the result is returned immediately. No code snippets are logged or retained on our servers.</p>
           </section>
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-foreground">3. Third-Party Services</h2>
             <ul className="list-disc space-y-2 pl-5">
               <li><strong className="text-foreground">Supabase:</strong> Authentication and database hosting.</li>
-              <li><strong className="text-foreground">Google Gemini:</strong> AI model for code translation.</li>
+              <li><strong className="text-foreground">Groq & DeepSeek:</strong> AI models for code translation.</li>
               <li><strong className="text-foreground">Stripe:</strong> Payment processing for Pro subscriptions.</li>
             </ul>
           </section>

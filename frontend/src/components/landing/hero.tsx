@@ -43,7 +43,7 @@ export function Hero() {
             className="mb-6 gap-1.5 px-3 py-1.5 text-xs font-medium"
           >
             <Sparkles className="h-3 w-3 text-amber-600" />
-            Powered by Gemini 2.5 Flash
+            Powered by Groq and DeepSeek
           </Badge>
 
           {/* Headline */}

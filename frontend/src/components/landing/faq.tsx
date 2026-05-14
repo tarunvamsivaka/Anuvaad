@@ -4,8 +4,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 const faqs = [
   { q: "What programming languages are supported?", a: "Anuvaad supports 35+ languages including Python, JavaScript, TypeScript, Java, C++, C#, Go, Rust, Swift, Kotlin, PHP, Ruby, SQL, HTML, CSS, Dart, Lua, R, Haskell, and more. We're adding new languages regularly." },
-  { q: "Is my code stored on your servers?", a: "No. Your code is processed in real-time by the AI and returned to your browser immediately. We never store code on our servers. Translation history is saved locally in your browser." },
-  { q: "How accurate are the translations?", a: "Anuvaad uses Google's Gemini 2.5 Flash, which provides highly accurate translations. However, AI translations should always be reviewed before use in production environments." },
+  { q: "Is my code stored on your servers?", a: "No. Your code is processed in real-time by the AI and returned to your browser immediately. We never store code on our servers. Translation history is saved securely in your account database." },
+  { q: "How accurate are the translations?", a: "Anuvaad uses Groq and DeepSeek, which provide highly accurate translations. However, AI translations should always be reviewed before use in production environments." },
   { q: "Can I use Anuvaad for free?", a: "Yes! The free plan includes 10 translations per day, all 3 modes, and full export capabilities. No credit card required." },
   { q: "What's the difference between Free and Pro?", a: "Pro gives you unlimited translations, priority processing speed, larger input limits (50K characters), cloud-synced history, and email support." },
   { q: "Can I cancel my subscription anytime?", a: "Absolutely. You can cancel your Pro subscription at any time. Your access continues until the end of your current billing period. We also offer a 7-day refund policy." },

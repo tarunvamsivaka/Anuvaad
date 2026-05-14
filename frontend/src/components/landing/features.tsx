@@ -30,7 +30,7 @@ const features = [
     icon: Zap,
     title: "Instant Results",
     description:
-      "Powered by Gemini 2.5 Flash with intelligent caching. Most translations complete in under 3 seconds.",
+      "Powered by Groq and DeepSeek with intelligent caching. Most translations complete in under 3 seconds.",
   },
   {
     icon: Shield,

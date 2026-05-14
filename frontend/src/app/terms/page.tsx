@@ -25,7 +25,7 @@ export default function TermsPage() {
         <div className="mt-12 space-y-10 text-sm leading-relaxed text-muted-foreground">
           <section>
             <h2 className="mb-3 text-lg font-semibold text-foreground">1. Service Description</h2>
-            <p>Anuvaad is an AI-powered code translation tool. We provide three modes: Code → English, English → Code, and Code → Code. The service uses Google Gemini AI for translations.</p>
+            <p>Anuvaad is an AI-powered code translation tool. We provide three modes: Code → English, English → Code, and Code → Code. The service uses Groq and DeepSeek AI for translations.</p>
           </section>
 
           <section>
