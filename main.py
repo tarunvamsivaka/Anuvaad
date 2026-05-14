@@ -8,6 +8,8 @@ import base64
 import uvicorn
 import stripe
 import httpx
+import re
+import uuid
 import resend
 from collections import OrderedDict, deque
 from dotenv import load_dotenv
@@ -305,7 +307,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def save_translation_background(user_email: str, mode: str, source_language: str, target_language: str, input_text: str, blocks: list, model_used: str, workspace_id: str | None = None):
     if not user_email: return
     try:
-        import uuid
         input_preview = input_text[:80]
         char_count = len(input_text)
         block_count = len(blocks)
@@ -1196,7 +1197,6 @@ async def stream_code_to_english(payload: CodePayload, email: str | None, is_pro
         yield f'data: {json.dumps({"error": str(e), "done": True})}\n\n'
 
 # ── INPUT SANITISATION & VALIDATION ──
-import re
 
 def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
     """Detects and neutralises prompt injection patterns hidden in comments."""
@@ -1599,7 +1599,6 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         logger.error(f"LLM API Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Code translation failed. Please try again.")
 
-import uuid
 
 
 
@@ -1611,7 +1610,6 @@ async def delete_account(authorization: str = Header(None)):
         
     try:
         token = authorization.replace("Bearer ", "")
-        import httpx
         async with httpx.AsyncClient() as client:
             # Get user info
             resp = await client.get(
@@ -1635,7 +1633,6 @@ async def delete_account(authorization: str = Header(None)):
             
             # Note: Cascade deletes in Supabase should handle translation_history automatically 
             # if foreign keys are set up correctly.
-            from fastapi.responses import JSONResponse
             return JSONResponse(content={}, status_code=204)
     except Exception as e:
         logger.error(f"Delete account error: {e}")
@@ -1655,7 +1652,6 @@ async def create_checkout_session(payload: CheckoutPayload):
     Requires a valid Supabase access_token to prevent unauthenticated abuse."""
     # Verify the Supabase JWT by calling the Supabase auth API
     try:
-        import httpx
         async with httpx.AsyncClient() as http_client:
             resp = await http_client.get(
                 f"{SUPABASE_URL}/auth/v1/user",

@@ -4,19 +4,31 @@
 
 # Environment files
 .env
-.env.example
+.env.*
+!.env.example
 
 # Documentation & dev artifacts
 README.md
-TEST_CASES.md
-implementation_plan_1
-walkthrough_1
-audit_report1
+CHANGELOG.md
+product_hunt_launch.md
+startup_application_sheet.md
+test_report.md
+
+# SQL migrations (not needed at runtime)
+supabase_migration*.sql
+
+# Tests (not needed in production image)
+tests/
+frontend/e2e/
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright.config.ts
 
 # Python cache
 __pycache__
 *.pyc
 *.pyo
+.pytest_cache
 
 # IDE/Editor
 .vscode
@@ -27,3 +39,6 @@ __pycache__
 # OS
 .DS_Store
 Thumbs.db
+
+# CI/CD
+.github

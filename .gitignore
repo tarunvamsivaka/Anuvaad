@@ -17,6 +17,12 @@ __pycache__/
 venv/
 env/
 .venv/
+node_modules/
+
+# Next.js build output
+frontend/.next/
+frontend/test-results/
+frontend/playwright-report/
 
 # Deprecated monolith (replaced by js/ modules)
 script.js
@@ -26,3 +32,7 @@ TEST_CASES.md
 implementation_plan*
 walkthrough*
 task*
+
+# OS
+.DS_Store
+Thumbs.db

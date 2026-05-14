@@ -30,7 +30,8 @@ jobs:
 
       - name: Run tests
         env:
-          GEMINI_API_KEY: test_key_for_ci
+          GROQ_API_KEY: test_key_for_ci
+          DEEPSEEK_API_KEY: test_key_for_ci
         run: |
           pytest tests/ -v --tb=short
 
@@ -151,7 +152,8 @@ jobs:
       - name: Verify container health
         run: |
           docker run -d --name anuvaad-test \
-            -e GEMINI_API_KEY=test_key \
+            -e GROQ_API_KEY=test_key \
+            -e DEEPSEEK_API_KEY=test_key \
             -p 8000:8000 \
             anuvaad:latest
           sleep 5

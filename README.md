@@ -17,7 +17,21 @@ Anuvaad is an AI-powered developer tool that translates code into plain English 
 | **English → Code** | Describe what you want, get working code |
 | **Code → Code** | Convert between programming languages |
 
-Powered by **Google Gemini 2.5 Flash** with intelligent caching for instant results.
+Powered by **Groq (Llama 3.3 70B)** and **DeepSeek (V3 / R1)** with intelligent failover, Redis caching, and real-time SSE streaming.
+
+## Key Features
+
+- **35+ Languages** — Web, systems, mobile, scripting, functional, and more
+- **GitHub Gist Import** — Paste a public Gist URL to import code directly
+- **File Upload** — Drag & drop `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.go`, `.rs`, `.c`, `.cs` files
+- **Real-time Streaming** — Server-Sent Events for live translation output
+- **Team Workspaces** — Collaborative translation context with role-based access
+- **API Keys** — Programmatic access via `ak_` prefixed bearer tokens
+- **Pro Tier** — Unlimited translations, DeepSeek R1 reasoning, 200KB file uploads
+- **Translation Credits** — Pay-as-you-go one-time credit purchases
+- **Translation History** — Automatic saving with workspace scoping
+- **Transactional Emails** — Welcome, subscription, and milestone emails via Resend
+- **Observability** — Sentry error tracking, PostHog analytics, Prometheus metrics endpoint
 
 ## Supported Languages (35+)
 
@@ -39,20 +53,30 @@ Powered by **Google Gemini 2.5 Flash** with intelligent caching for instant resu
 │  ├── Landing page with pricing/FAQ      │
 │  ├── Auth (Supabase — Google/GitHub)    │
 │  ├── Dashboard with sidebar nav         │
-│  ├── Translator workspace               │
+│  ├── Translator workspace (Monaco)      │
+│  ├── GitHub Gist import                  │
+│  ├── File drag-and-drop upload           │
 │  └── Billing (Stripe integration)       │
 ├─────────────────────────────────────────┤
 │  Backend (FastAPI + Python)             │
-│  ├── /api/code-to-english               │
+│  ├── /api/code-to-english  (SSE stream) │
 │  ├── /api/generate-from-english         │
 │  ├── /api/code-to-code                  │
+│  ├── /api/import-gist                   │
+│  ├── /api/upload-file                   │
 │  ├── /api/webhook/stripe                │
-│  └── /api/subscription-status           │
+│  ├── /api/workspaces + /api/api-keys    │
+│  └── /api/metrics (Prometheus)          │
 ├─────────────────────────────────────────┤
 │  Services                               │
-│  ├── Google Gemini AI                   │
-│  ├── Supabase (Auth + DB)              │
-│  └── Stripe (Payments)                  │
+│  ├── Groq (Llama 3.3 70B)              │
+│  ├── DeepSeek (V3 + R1 reasoning)      │
+│  ├── Supabase (Auth + PostgreSQL)       │
+│  ├── Stripe (Payments + Webhooks)       │
+│  ├── Upstash Redis (Cache + Rate Limit) │
+│  ├── Resend (Transactional Emails)      │
+│  ├── Sentry (Error Monitoring)          │
+│  └── PostHog (Product Analytics)        │
 └─────────────────────────────────────────┘
 ```
 
@@ -60,13 +84,17 @@ Powered by **Google Gemini 2.5 Flash** with intelligent caching for instant resu
 
 | Layer | Technology |
 |---|---|
-| Frontend | Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion |
+| Frontend | Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, Monaco Editor |
 | Backend | FastAPI, Python 3.11, Uvicorn |
+| AI Models | Groq (Llama 3.3 70B), DeepSeek V3/R1 — dual-model failover |
 | Auth | Supabase (Google + GitHub OAuth) |
-| Payments | Stripe Checkout + Webhooks |
-| AI | Google Gemini 2.5 Flash |
-| CI/CD | GitHub Actions |
-| Deploy | Docker + Nginx |
+| Database | Supabase PostgreSQL with RLS |
+| Payments | Stripe Checkout + Webhooks + Billing Portal |
+| Cache | Upstash Redis (serverless) with LRU memory fallback |
+| Email | Resend (transactional: welcome, subscription, milestones) |
+| Monitoring | Sentry (errors), PostHog (analytics), Prometheus (metrics) |
+| CI/CD | GitHub Actions (pytest, ruff, tsc, Playwright, Docker) |
+| Deploy | Docker multi-stage + Nginx reverse proxy |
 
 ## Quick Start
 
@@ -83,7 +111,7 @@ cd Anuvaad
 
 # Create .env from template
 cp .env.example .env
-# Edit .env with your API keys
+# Edit .env with your API keys (at minimum: GROQ_API_KEY and DEEPSEEK_API_KEY)
 
 # Install Python dependencies
 pip install -r requirements.txt
@@ -96,13 +124,28 @@ python -c "import uvicorn; uvicorn.run('main:app', host='127.0.0.1', port=8000, 
 
 ```bash
 cd frontend
+cp .env.example .env.local
+# Edit .env.local with your Supabase project URL and anon key
+
 npm install
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) — the frontend proxies API calls to `localhost:8000`.
 
-### 3. Run Tests
+### 3. Apply Database Migrations
+
+Run the Supabase migration files in order against your project:
+
+```
+supabase_migration.sql      → Core tables (users, subscriptions, history)
+supabase_migration_v2.sql   → Workspaces & team members
+supabase_migration_v3.sql   → RLS policies & security definer helpers
+supabase_migration_v4.sql   → API keys & enhanced RLS
+supabase_migration_v5.sql   → Schema refinements
+```
+
+### 4. Run Tests
 
 ```bash
 # From project root
@@ -113,14 +156,24 @@ python -m pytest tests/ -v
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/code-to-english` | Translate code to English |
-| `POST` | `/api/generate-from-english` | Generate code from English |
-| `POST` | `/api/code-to-code` | Translate between languages |
+| `POST` | `/api/code-to-english` | Translate code to English (SSE stream) |
+| `POST` | `/api/code-to-english/sync` | Translate code to English (JSON response) |
+| `POST` | `/api/generate-from-english` | Generate code from English description |
+| `POST` | `/api/code-to-code` | Translate between programming languages |
 | `POST` | `/api/english-to-code` | Update code from modified English |
-| `GET` | `/api/health` | Health check |
-| `POST` | `/api/create-checkout-session` | Create Stripe checkout |
+| `POST` | `/api/upload-file` | Upload a code file for translation |
+| `GET` | `/api/import-gist` | Import code from a public GitHub Gist URL |
+| `GET` | `/api/health` | Health check (LLM, Stripe, Redis, Supabase) |
+| `GET` | `/api/usage` | Get today's translation count and limit |
+| `GET` | `/api/cache-stats` | Redis/LRU cache statistics |
+| `GET` | `/api/metrics` | Observability metrics (JSON) |
+| `GET` | `/api/metrics/prometheus` | Prometheus text exposition format |
+| `POST` | `/api/create-checkout-session` | Create Stripe checkout for Pro plan |
+| `POST` | `/api/create-portal-session` | Open Stripe billing portal |
+| `POST` | `/api/create-credit-checkout` | Purchase translation credits |
+| `POST` | `/api/check-credits` | Check remaining translation credits |
 | `POST` | `/api/webhook/stripe` | Stripe webhook handler |
-| `POST` | `/api/subscription-status` | Check Pro subscription |
+| `POST` | `/api/subscription-status` | Check Pro subscription status |
 | `GET` | `/api/history` | Get translation history |
 | `GET` | `/api/workspaces` | List user workspaces |
 | `POST` | `/api/workspaces` | Create a workspace |
@@ -129,18 +182,42 @@ python -m pytest tests/ -v
 | `GET` | `/api/api-keys` | List API keys |
 | `POST` | `/api/api-keys` | Create an API key |
 | `DELETE` | `/api/api-keys/:id` | Revoke an API key |
+| `DELETE` | `/api/account` | Delete user account |
 
 ## Environment Variables
 
-See [`.env.example`](.env.example) for all required variables:
+### Backend (`.env`)
+
+See [`.env.example`](.env.example) for all variables with inline documentation.
 
 | Variable | Required | Description |
 |---|---|---|
-| `GEMINI_API_KEY` | ✅ | Google Gemini API key |
+| `GROQ_API_KEY` | ✅ | Groq API key (Llama 3.3 model access) |
+| `DEEPSEEK_API_KEY` | ✅ | DeepSeek API key (V3 + R1 models) |
+| `SUPABASE_URL` | ✅ | Supabase project URL |
+| `SUPABASE_ANON_KEY` | ✅ | Supabase public anon key (JWT verification) |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side DB writes) |
 | `STRIPE_SECRET_KEY` | For billing | Stripe secret key |
 | `STRIPE_PRO_PRICE_ID` | For billing | Stripe price ID for Pro plan |
 | `STRIPE_WEBHOOK_SECRET` | For billing | Stripe webhook signing secret |
-| `SUPABASE_SERVICE_ROLE_KEY` | For auth | Supabase server-side key |
+| `FRONTEND_URL` | Production | Frontend domain for CORS and redirects |
+| `UPSTASH_REDIS_URL` | Optional | Upstash Redis REST URL (falls back to LRU) |
+| `UPSTASH_REDIS_TOKEN` | Optional | Upstash Redis REST token |
+| `SENTRY_DSN` | Optional | Sentry DSN for error monitoring |
+| `RESEND_API_KEY` | Optional | Resend API key for transactional emails |
+| `METRICS_USERNAME` | Optional | HTTP Basic Auth username for /api/metrics |
+| `METRICS_PASSWORD` | Optional | HTTP Basic Auth password for /api/metrics |
+
+### Frontend (`frontend/.env.local`)
+
+See [`frontend/.env.example`](frontend/.env.example) for all variables.
+
+| Variable | Required | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase public anon key |
+| `NEXT_PUBLIC_API_URL` | ✅ | Backend API URL (default: `http://localhost:8000`) |
+| `NEXT_PUBLIC_POSTHOG_KEY` | Optional | PostHog project API key for analytics |
 
 ## Docker
 
@@ -148,21 +225,29 @@ See [`.env.example`](.env.example) for all required variables:
 docker compose up --build
 ```
 
-This builds the multi-stage image (Next.js + FastAPI) and starts both services behind Nginx.
+This spins up four services:
+- **Redis** — serverless cache and rate limiting
+- **Backend** — FastAPI on port 8000
+- **Frontend** — Next.js on port 3000
+- **Nginx** — reverse proxy on port 80
 
 ## Project Structure
 
 ```
 Anuvaad/
 ├── frontend/               # Next.js 16 app
-│   ├── src/app/            # App Router pages
-│   ├── src/components/     # UI components (landing, shadcn)
-│   └── src/lib/            # Auth context, Supabase client
-├── main.py                 # FastAPI backend (932 lines)
-├── tests/                  # 140+ pytest tests
-├── .github/workflows/      # CI pipeline
+│   ├── src/app/            # App Router pages (dashboard, auth, billing)
+│   ├── src/components/     # UI components (landing, shadcn/ui)
+│   ├── src/lib/            # Auth context, Supabase client, analytics
+│   ├── src/context/        # Workspace context provider
+│   └── e2e/                # Playwright end-to-end tests
+├── main.py                 # FastAPI backend (2100+ lines)
+├── tests/                  # Pytest test suite
+├── js/                     # Legacy vanilla JS modules
+├── supabase_migration*.sql # Database migration files (v1–v5)
+├── .github/workflows/      # CI pipeline (test, lint, build, e2e, docker)
 ├── Dockerfile              # Multi-stage production build
-├── docker-compose.yml      # Full stack orchestration
+├── docker-compose.yml      # Full stack orchestration (4 services)
 └── nginx.conf              # Reverse proxy config
 ```
 
