@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Copy, Download, Loader2, RotateCcw,
   Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings, Zap,
-  ChevronDown, ChevronUp, X, Upload, FileCode, Github, Link
+  ChevronDown, ChevronUp, X, Upload, FileCode, Link
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -26,6 +26,24 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import { useCredits } from "@/lib/hooks";
 import { track } from "@/lib/analytics";
 import { toast } from "sonner";
+
+const GithubIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+    <path d="M9 18c-4.51 2-5-2-7-2" />
+  </svg>
+);
 
 const languages: { value: string; label: string; monacoId: string }[] = [
   // Web
@@ -552,7 +570,7 @@ export default function TranslatePage() {
                 )}
                 {gistSource && (
                   <Badge variant="secondary" className="gap-1.5 text-[10px] font-medium bg-[#24292e]/10 text-[#24292e] dark:bg-white/10 dark:text-white">
-                    <Github className="h-3 w-3" />
+                    <GithubIcon className="h-3 w-3" />
                     github.com/{gistSource.username} — {gistSource.filename}
                     <button onClick={() => { setGistSource(null); handleClearFile(); }} className="ml-1 rounded-full hover:bg-muted p-0.5">
                       <X className="h-2.5 w-2.5" />
@@ -618,7 +636,7 @@ export default function TranslatePage() {
                   <div className="absolute bottom-4 left-0 right-0 z-20 flex justify-center">
                     {showGistInput ? (
                       <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-2 shadow-lg w-[90%] max-w-md animate-in fade-in slide-in-from-bottom-2 duration-200">
-                        <Github className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <GithubIcon className="h-4 w-4 text-muted-foreground shrink-0" />
                         <input
                           type="url"
                           value={gistUrl}
@@ -649,7 +667,7 @@ export default function TranslatePage() {
                         onClick={() => setShowGistInput(true)}
                         className="gap-2 bg-background/80 backdrop-blur-sm shadow-sm hover:bg-background text-xs"
                       >
-                        <Github className="h-3.5 w-3.5" />
+                        <GithubIcon className="h-3.5 w-3.5" />
                         Import Gist
                       </Button>
                     )}
