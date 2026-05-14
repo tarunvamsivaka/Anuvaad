@@ -6,12 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
-import { createBrowserClient } from "@supabase/ssr";
 
 const modeIcons = { "Code → English": FileText, "English → Code": Code2, "Code → Code": ArrowLeftRight };
 
@@ -42,17 +41,11 @@ function getRelativeTimeString(date: Date | string): string {
 }
 
 export default function HistoryPage() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Initialize Supabase client
-  const supabase = useMemo(() => createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  ), []);
 
   // Debounce search input
   useEffect(() => {
@@ -60,31 +53,39 @@ export default function HistoryPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Fetch translations
+  // Fetch translations via backend API (avoids RLS recursion)
   useEffect(() => {
     async function fetchHistory() {
-      if (!user?.email) {
+      if (!session?.access_token) {
         setLoading(false);
         return;
       }
       
       setLoading(true);
       try {
-        let query = supabase
-          .from("translation_history")
-          .select("*")
-          .eq("user_email", user.email)
-          .order("created_at", { ascending: false })
-          .limit(50);
-          
+        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(`${API}/api/history`, {
+          headers: {
+            "Authorization": `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!res.ok) throw new Error("Failed to fetch history");
+        
+        let data: HistoryItem[] = await res.json();
+
+        // Client-side search filter
         if (debouncedSearch) {
-          query = query.ilike("input_preview", `%${debouncedSearch}%`);
+          const q = debouncedSearch.toLowerCase();
+          data = data.filter((item) =>
+            item.input_preview?.toLowerCase().includes(q) ||
+            item.source_language?.toLowerCase().includes(q) ||
+            item.target_language?.toLowerCase().includes(q) ||
+            item.mode?.toLowerCase().includes(q)
+          );
         }
 
-        const { data, error } = await query;
-        if (error) throw error;
-        
-        setHistory(data || []);
+        setHistory(data.slice(0, 50));
       } catch (err) {
         console.error("Error fetching history:", err);
       } finally {
@@ -93,7 +94,7 @@ export default function HistoryPage() {
     }
     
     fetchHistory();
-  }, [user?.email, debouncedSearch, supabase]);
+  }, [session?.access_token, debouncedSearch]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -103,7 +104,13 @@ export default function HistoryPage() {
     setHistory((prev) => prev.filter((item) => item.id !== id));
     
     try {
-      await supabase.from("translation_history").delete().eq("id", id);
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      await fetch(`${API}/api/history/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${session?.access_token}`,
+        },
+      });
     } catch (err) {
       console.error("Error deleting history item:", err);
     }

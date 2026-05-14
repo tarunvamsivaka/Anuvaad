@@ -224,7 +224,6 @@ export default function BillingPage() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
                 {loading ? "Redirecting..." : "Upgrade — $12/month"}
               </Button>
-              <span className="text-xs text-muted-foreground">or $96/year (save 33%)</span>
             </div>
           </Card>
         )}

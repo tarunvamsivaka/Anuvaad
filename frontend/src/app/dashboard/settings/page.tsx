@@ -23,6 +23,14 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
 
+interface ApiKey {
+  id: string;
+  name: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at: string | null;
+}
+
 export default function SettingsPage() {
   const { user, session, isPro, signOut } = useAuth();
   const router = useRouter();
@@ -31,7 +39,7 @@ export default function SettingsPage() {
   
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [apiKeys, setApiKeys] = useState<any[]>([]);
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [newKeyName, setNewKeyName] = useState("");
   const [generatedKey, setGeneratedKey] = useState("");
   const [copied, setCopied] = useState(false);
@@ -54,12 +62,13 @@ export default function SettingsPage() {
   async function fetchApiKeys() {
     if (!session) return;
     try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const params = new URLSearchParams();
       if (activeWorkspace) {
         params.set("workspace_id", activeWorkspace.id);
       }
 
-      const res = await fetch(`/api/api-keys?${params.toString()}`, {
+      const res = await fetch(`${API}/api/api-keys?${params.toString()}`, {
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
         },
@@ -100,7 +109,8 @@ export default function SettingsPage() {
     if (!session || !newKeyName.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/api-keys', {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/api-keys`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -130,7 +140,8 @@ export default function SettingsPage() {
   async function revokeApiKey(id: string) {
     if (!session) return;
     try {
-      await fetch(`/api/api-keys/${id}`, {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      await fetch(`${API}/api/api-keys/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

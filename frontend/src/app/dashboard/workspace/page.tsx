@@ -10,6 +10,13 @@ import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
 
+interface WorkspaceMember {
+  user_email: string;
+  role: string;
+  created_at: string;
+  workspace_id: string;
+}
+
 export default function WorkspacePage() {
   const { session } = useAuth();
   const { activeWorkspace, refreshWorkspaces, loading: workspaceLoading } = useWorkspace();
@@ -20,7 +27,7 @@ export default function WorkspacePage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
   // Fetch members when active workspace changes
@@ -29,7 +36,8 @@ export default function WorkspacePage() {
       if (!session || !activeWorkspace) return;
       setLoadingMembers(true);
       try {
-        const res = await fetch(`/api/workspaces/${activeWorkspace.id}/members`, {
+        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (res.ok) {
@@ -51,7 +59,8 @@ export default function WorkspacePage() {
     
     setCreating(true);
     try {
-      const res = await fetch("/api/workspaces", {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/workspaces`, {
         method: "POST",
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -78,7 +87,8 @@ export default function WorkspacePage() {
     
     setInviting(true);
     try {
-      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/invite`, {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/invite`, {
         method: "POST",
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -96,7 +106,7 @@ export default function WorkspacePage() {
       setInviteEmail("");
       
       // Refresh members list
-      const membersRes = await fetch(`/api/workspaces/${activeWorkspace.id}/members`, {
+      const membersRes = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` }
       });
       if (membersRes.ok) {

@@ -8,12 +8,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, UserPlus, Building, Loader2 } from "lucide-react";
 
+interface WorkspaceMember {
+  user_email: string;
+  role: string;
+  created_at: string;
+}
+
 export default function TeamPage() {
   const { user, session } = useAuth();
   const { workspaces, activeWorkspace, setActiveWorkspace, refreshWorkspaces } = useWorkspace();
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [members, setMembers] = useState<any[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -26,7 +32,8 @@ export default function TeamPage() {
   async function fetchMembers() {
     if (!activeWorkspace || !session) return;
     try {
-      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/members`, {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
       if (res.ok) setMembers(await res.json());
@@ -41,7 +48,8 @@ export default function TeamPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch('/api/workspaces', {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/workspaces`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -69,7 +77,8 @@ export default function TeamPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/invite`, {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/invite`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,

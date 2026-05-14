@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Script from "next/script";
 import Link from "next/link";
+import confetti from "canvas-confetti";
 import { ArrowRight, Code2, BookOpen, Repeat, CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -34,21 +34,18 @@ print(fibonacci(10))`;
   const nextStep = () => {
     if (step === 2) {
       // Trigger confetti when entering step 3
-      if (typeof window !== "undefined" && (window as any).confetti) {
-        (window as any).confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ["#f59e0b", "#d97706", "#b45309"],
-        });
-      }
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ["#f59e0b", "#d97706", "#b45309"],
+      });
     }
     setStep(step + 1);
   };
 
   return (
     <div className="flex flex-col min-h-screen bg-background relative overflow-hidden">
-      <Script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js" strategy="lazyOnload" />
       
       {/* Skip Button */}
       <div className="absolute top-6 right-6 z-10">

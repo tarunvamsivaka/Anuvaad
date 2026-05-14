@@ -10,8 +10,12 @@ import stripe
 import httpx
 import re
 import uuid
+import secrets
+import collections
+import threading
 import resend
 from collections import OrderedDict, deque
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, Header, UploadFile, File, Form
 from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
@@ -25,8 +29,8 @@ from openai import AsyncOpenAI
 import sentry_sdk
 import time
 
-# Gemini API timeout (seconds) — prevents hung requests
-GEMINI_TIMEOUT = 60
+# LLM API timeout (seconds) — prevents hung requests
+LLM_TIMEOUT = 60
 
 # ── STRUCTURED LOGGING ──
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -333,17 +337,19 @@ async def save_translation_background(user_email: str, mode: str, source_languag
             
         await supabase_request("POST", "translation_history", data)
 
-        # ── Milestone email check ──
-        # Count total translations for this user and send milestone emails
+        # ── Welcome email for first-time users + Milestone email check ──
         try:
             all_rows = await supabase_request_list(
                 f"translation_history?user_email=eq.{user_email}&select=id"
             )
             total_count = len(all_rows)
-            if total_count in (10, 100, 500):
+            # Send welcome email on first-ever translation (free-tier onboarding)
+            if total_count == 1:
+                email_service.send_welcome(user_email)
+            elif total_count in (10, 100, 500):
                 email_service.send_translation_milestone(user_email, total_count)
         except Exception as milestone_err:
-            logger.warning(f"Milestone email check failed: {milestone_err}")
+            logger.warning(f"Welcome/milestone email check failed: {milestone_err}")
     except Exception as e:
         logger.warning(f"Failed to save translation history in background: {e}")
 
@@ -351,23 +357,50 @@ async def get_today_usage_count(email: str) -> int:
     """Count how many translations a user has made today (UTC)."""
     if not email or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return 0
-    from datetime import datetime, timezone
     today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00+00:00")
     path = f"translation_history?user_email=eq.{email}&created_at=gte.{today_start}&select=id"
     rows = await supabase_request_list(path)
     return len(rows)
 
+async def get_user_credits(email: str) -> int:
+    """Get the number of translation credits for a user."""
+    if not email:
+        return 0
+    sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{email}&select=credits")
+    if sub and isinstance(sub, dict):
+        return sub.get("credits") or 0
+    return 0
+
+async def deduct_credit(email: str) -> bool:
+    """Deduct one translation credit from a user. Returns True if successful."""
+    if not email:
+        return False
+    sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{email}&select=credits")
+    if not sub or not isinstance(sub, dict):
+        return False
+    current = sub.get("credits") or 0
+    if current <= 0:
+        return False
+    await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{email}", {"credits": current - 1})
+    return True
+
 async def check_free_tier_limit(email: str | None, is_pro: bool) -> None:
-    """Raise 429 if a free-tier user has exceeded their daily translation limit."""
+    """Raise 429 if a free-tier user has exceeded their daily limit and has no credits."""
     if not email:
         return  # Unauthenticated users aren't rate-limited here (IP rate limit still applies)
     if is_pro:
         return  # Pro users have unlimited translations
     count = await get_today_usage_count(email)
     if count >= FREE_TIER_DAILY_LIMIT:
+        # Check if user has credits
+        credits = await get_user_credits(email)
+        if credits > 0:
+            # Deduct a credit and allow the translation
+            await deduct_credit(email)
+            return
         raise HTTPException(
             status_code=429,
-            detail=f"Free tier limit reached ({FREE_TIER_DAILY_LIMIT} translations/day). Upgrade to Pro for unlimited translations."
+            detail=f"Free tier limit reached ({FREE_TIER_DAILY_LIMIT} translations/day). Buy credits or upgrade to Pro for unlimited translations."
         )
 
 async def get_user_pro_status(email: str) -> bool:
@@ -778,8 +811,6 @@ Example for Python code `import os\\npath = os.getcwd()\\nprint(path)`:
 """
 
 # ── REDIS CONNECTION ──
-import collections
-import threading
 
 class LRUCache:
     def __init__(self, max_size: int = 500):
@@ -894,17 +925,25 @@ async def rate_limit_middleware(request: Request, call_next):
     if current_count > RATE_LIMIT_MAX:
         return JSONResponse(
             status_code=429,
-            content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."}
+            content={"detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."},
+            headers={
+                "X-RateLimit-Limit": str(RATE_LIMIT_MAX),
+                "X-RateLimit-Remaining": "0",
+                "Retry-After": str(RATE_LIMIT_WINDOW),
+            }
         )
 
-    return await call_next(request)
+    response = await call_next(request)
+    response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_MAX)
+    response.headers["X-RateLimit-Remaining"] = str(max(0, RATE_LIMIT_MAX - current_count))
+    return response
 
 def cache_key(code: str, language: str, endpoint: str, model: str) -> str:
     return "anuvaad_cache:" + hashlib.sha256(f"{endpoint}:{language}:{code}:{model}".encode()).hexdigest()
 
 # 3. Pydantic Data Models (with validation)
 class CodePayload(BaseModel):
-    raw_code: str = Field(..., min_length=1, max_length=10000)
+    raw_code: str = Field(..., min_length=1, max_length=50000)
     language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
     access_token: str | None = None
@@ -935,7 +974,7 @@ class GeneratePayload(BaseModel):
         return v
 
 class CodeToCodePayload(BaseModel):
-    raw_code: str = Field(..., min_length=1, max_length=10000)
+    raw_code: str = Field(..., min_length=1, max_length=50000)
     source_language: str = Field(..., min_length=1, max_length=30)
     target_language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
@@ -1021,7 +1060,6 @@ async def is_token_pro(access_token: str | None) -> bool:
     if not access_token:
         return False
     try:
-        import httpx
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 f"{SUPABASE_URL}/auth/v1/user",
@@ -1092,7 +1130,7 @@ async def get_completion(prompt: str, system_instruction: str, mode: str, respon
                 messages=messages,
                 **kwargs
             ),
-            timeout=GEMINI_TIMEOUT
+            timeout=LLM_TIMEOUT
         )
         metrics.record_model_call(primary["model"])
         return _clean_json_response(response.choices[0].message.content), primary["name"]
@@ -1110,14 +1148,14 @@ async def get_completion(prompt: str, system_instruction: str, mode: str, respon
                     messages=messages,
                     **fallback_kwargs
                 ),
-                timeout=GEMINI_TIMEOUT
+                timeout=LLM_TIMEOUT
             )
             metrics.record_model_call(fallback["model"])
             return _clean_json_response(response.choices[0].message.content), fallback["name"]
         except asyncio.TimeoutError:
             metrics.record_model_call(fallback["model"], is_error=True)
-            logger.error(f"LLM API Timeout after {GEMINI_TIMEOUT}s on fallback {fallback['name']}")
-            raise HTTPException(status_code=504, detail=f"Translation timed out after {GEMINI_TIMEOUT}s. Please try again.")
+            logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}")
+            raise HTTPException(status_code=504, detail=f"Translation timed out after {LLM_TIMEOUT}s. Please try again.")
         except Exception as fallback_e:
             metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
@@ -1221,8 +1259,8 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
     return raw_code
 
 def validate_code_input(raw_code: str):
-    if len(raw_code) > 10000:
-        raise HTTPException(status_code=422, detail="Input exceeds the maximum allowed length of 10,000 characters.")
+    if len(raw_code) > 50000:
+        raise HTTPException(status_code=422, detail="Input exceeds the maximum allowed length of 50,000 characters.")
         
     if len(raw_code) == 0:
         return
@@ -1888,7 +1926,6 @@ async def stripe_webhook(request: Request):
         db_status = "active" if status in ("active", "trialing") else "past_due" if status == "past_due" else "cancelled"
         update_data = {"status": db_status}
         if period_end:
-            from datetime import datetime, timezone
             update_data["current_period_end"] = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
         await supabase_request("PATCH",
             f"user_subscriptions?stripe_customer_id=eq.{customer_id}",
@@ -2031,6 +2068,73 @@ async def list_workspace_members(workspace_id: str, email: str = Depends(get_use
     members = await supabase_request_list(f"workspace_members?workspace_id=eq.{workspace_id}")
     return members
 
+@app.delete("/api/workspaces/{workspace_id}")
+async def delete_workspace(workspace_id: str, email: str = Depends(get_user_email)):
+    """Delete a workspace. Only the owner can delete it."""
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Verify user is the owner
+    membership = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{email}")
+    if not membership or not isinstance(membership, dict) or membership.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Forbidden: Only the workspace owner can delete it")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+    async with httpx.AsyncClient() as http_client:
+        # Delete all members first
+        await http_client.delete(
+            f"{SUPABASE_URL}/rest/v1/workspace_members?workspace_id=eq.{workspace_id}",
+            headers=headers
+        )
+        # Delete the workspace
+        resp = await http_client.delete(
+            f"{SUPABASE_URL}/rest/v1/workspaces?id=eq.{workspace_id}",
+            headers=headers
+        )
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail="Failed to delete workspace")
+    
+    return {"status": "success"}
+
+@app.delete("/api/workspaces/{workspace_id}/members/{member_email}")
+async def remove_workspace_member(workspace_id: str, member_email: str, email: str = Depends(get_user_email)):
+    """Remove a member from a workspace. Requires admin/owner role."""
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Verify requester is admin or owner
+    membership = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{email}")
+    if not membership or not isinstance(membership, dict) or membership.get("role") not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Forbidden: Admin access required")
+    
+    # Cannot remove the owner
+    target = await supabase_request("GET", f"workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{member_email}")
+    if target and isinstance(target, dict) and target.get("role") == "owner":
+        raise HTTPException(status_code=400, detail="Cannot remove the workspace owner")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+    async with httpx.AsyncClient() as http_client:
+        resp = await http_client.delete(
+            f"{SUPABASE_URL}/rest/v1/workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{member_email}",
+            headers=headers
+        )
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail="Failed to remove member")
+    
+    return {"status": "success", "message": f"Removed {member_email}"}
+
 @app.post("/api/workspaces/{workspace_id}/invite")
 async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, email: str = Depends(get_user_email)):
     if not email:
@@ -2073,6 +2177,34 @@ async def get_translation_history(workspace_id: str = None, email: str = Depends
     history = await supabase_request_list(path)
     return history
 
+@app.delete("/api/history/{item_id}")
+async def delete_history_item(item_id: str, email: str = Depends(get_user_email)):
+    """Delete a single translation history item."""
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    # Verify ownership
+    item = await supabase_request("GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}")
+    if not item:
+        raise HTTPException(status_code=404, detail="History item not found")
+    
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Database not configured")
+    
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+    }
+    async with httpx.AsyncClient() as http_client:
+        resp = await http_client.delete(
+            f"{SUPABASE_URL}/rest/v1/translation_history?id=eq.{item_id}&user_email=eq.{email}",
+            headers=headers
+        )
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail="Failed to delete history item")
+    
+    return {"status": "success"}
+
 
 # ── API KEYS API ──
 # Same pattern — route through the backend to avoid RLS issues.
@@ -2100,7 +2232,6 @@ async def create_api_key(payload: ApiKeyCreate, email: str = Depends(get_user_em
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
-    import secrets
     raw_key = f"ak_{secrets.token_urlsafe(24)}"
     
     data = {

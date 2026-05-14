@@ -30,15 +30,8 @@ COPY --from=frontend-builder /frontend/node_modules ./frontend/node_modules
 COPY --from=frontend-builder /frontend/package.json ./frontend/package.json
 COPY --from=frontend-builder /frontend/public ./frontend/public
 
-# Copy legacy frontend (served by FastAPI for backward compatibility)
-COPY index.html .
-COPY js/ ./js/
-COPY styles.css .
-COPY sw.js .
-COPY manifest.json .
-COPY icon-512.png .
+# Copy static files (served by Nginx or FastAPI)
 COPY robots.txt .
-COPY sitemap.xml .
 COPY privacy.html .
 COPY terms.html .
 

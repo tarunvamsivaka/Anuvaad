@@ -20,7 +20,6 @@ const sidebarLinks = [
   { label: "Workspace", href: "/dashboard/workspace", icon: Users },
   { label: "Translate", href: "/dashboard/translate", icon: Code2 },
   { label: "History", href: "/dashboard/history", icon: History },
-  { label: "Team", href: "/dashboard/team", icon: User },
   { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
 ];
