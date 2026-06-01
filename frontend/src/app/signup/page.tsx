@@ -29,10 +29,20 @@ function SignUpPageContent() {
     setLoading(true);
     const { error } = await signUpWithEmail(email, password);
     setLoading(false);
-    if (error) setError(error);
-    else {
+    if (error) {
+      setError(error);
+    } else {
       track("signup_completed", { method: "email" });
-      setSuccess(true);
+      
+      // Check if Supabase automatically logged them in (meaning email confirmation is turned off)
+      const { supabase } = await import("@/lib/supabase");
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        router.push(redirectTo);
+      } else {
+        setSuccess(true);
+      }
     }
   }
 
