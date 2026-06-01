@@ -1,23 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { initPostHog, posthog } from "@/lib/analytics";
 
-/**
- * PostHogProvider — initialises PostHog on mount and tracks
- * client-side pageviews on route changes.
- *
- * Must be rendered inside the client-side tree (after 'use client').
- */
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
+function PostHogTracker() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  // Initialise PostHog once on mount
-  useEffect(() => {
-    initPostHog();
-  }, []);
 
   // Track pageviews on client-side navigation
   useEffect(() => {
@@ -30,5 +19,27 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pathname, searchParams]);
 
-  return <>{children}</>;
+  return null;
+}
+
+/**
+ * PostHogProvider — initialises PostHog on mount and tracks
+ * client-side pageviews on route changes.
+ *
+ * Must be rendered inside the client-side tree (after 'use client').
+ */
+export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  // Initialise PostHog once on mount
+  useEffect(() => {
+    initPostHog();
+  }, []);
+
+  return (
+    <>
+      <Suspense fallback={null}>
+        <PostHogTracker />
+      </Suspense>
+      {children}
+    </>
+  );
 }

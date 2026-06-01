@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -72,47 +73,53 @@ export default function HistoryPage() {
 
         if (!res.ok) throw new Error("Failed to fetch history");
         
-        let data: HistoryItem[] = await res.json();
-
-        // Client-side search filter
-        if (debouncedSearch) {
-          const q = debouncedSearch.toLowerCase();
-          data = data.filter((item) =>
-            item.input_preview?.toLowerCase().includes(q) ||
-            item.source_language?.toLowerCase().includes(q) ||
-            item.target_language?.toLowerCase().includes(q) ||
-            item.mode?.toLowerCase().includes(q)
-          );
-        }
-
+        const data: HistoryItem[] = await res.json();
         setHistory(data.slice(0, 50));
       } catch (err) {
         console.error("Error fetching history:", err);
+        toast.error("Failed to load translation history.");
       } finally {
         setLoading(false);
       }
     }
     
     fetchHistory();
-  }, [session?.access_token, debouncedSearch]);
+  }, [session?.access_token]);
+
+  // Client-side search filter (no re-fetch)
+  const filteredHistory = useMemo(() => {
+    if (!debouncedSearch) return history;
+    const q = debouncedSearch.toLowerCase();
+    return history.filter((item) =>
+      item.input_preview?.toLowerCase().includes(q) ||
+      item.source_language?.toLowerCase().includes(q) ||
+      item.target_language?.toLowerCase().includes(q) ||
+      item.mode?.toLowerCase().includes(q)
+    );
+  }, [history, debouncedSearch]);
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     e.preventDefault();
     
-    // Optimistically update UI
+    // Optimistically update UI, keep backup for rollback
+    const previousHistory = history;
     setHistory((prev) => prev.filter((item) => item.id !== id));
     
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      await fetch(`${API}/api/history/${id}`, {
+      const res = await fetch(`${API}/api/history/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${session?.access_token}`,
         },
       });
+      if (!res.ok) throw new Error("Delete failed");
     } catch (err) {
       console.error("Error deleting history item:", err);
+      // Rollback on failure
+      setHistory(previousHistory);
+      toast.error("Failed to delete translation. Please try again.");
     }
   };
 
@@ -123,7 +130,7 @@ export default function HistoryPage() {
           <h1 className="text-lg font-semibold">Translation History</h1>
           {!loading && (
             <span className="text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
-              {history.length} {history.length === 50 ? "most recent" : "translations"}
+              {filteredHistory.length} {history.length === 50 ? "most recent" : "translations"}
             </span>
           )}
         </div>
@@ -141,7 +148,7 @@ export default function HistoryPage() {
         </div>
         
         <div aria-live="polite" className="sr-only">
-          {!loading && `${history.length} results found`}
+          {!loading && `${filteredHistory.length} results found`}
         </div>
 
         <div className="space-y-3">
@@ -151,7 +158,7 @@ export default function HistoryPage() {
                  <Skeleton key={i} className="h-20 w-full rounded-xl" />
                ))}
              </div>
-          ) : history.length === 0 ? (
+          ) : filteredHistory.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 text-center border border-dashed border-border/60 rounded-2xl bg-muted/10">
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-background shadow-sm border border-border">
                 <Code2 className="h-7 w-7 text-muted-foreground" />
@@ -170,7 +177,7 @@ export default function HistoryPage() {
               )}
             </div>
           ) : (
-            history.map((item) => {
+            filteredHistory.map((item) => {
               const Icon = modeIcons[item.mode as keyof typeof modeIcons] || FileText;
               const relativeDate = getRelativeTimeString(item.created_at);
               const langLabel = item.mode === "Code → Code" ? `${item.source_language} to ${item.target_language}` : (item.source_language || item.target_language);

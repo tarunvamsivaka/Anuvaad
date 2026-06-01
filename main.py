@@ -281,7 +281,7 @@ async def get_user_email(credentials: HTTPAuthorizationCredentials = Depends(sec
         api_key_data = await supabase_request("GET", f"api_keys?api_key_hash=eq.{token_hash}&select=user_email")
         if api_key_data and isinstance(api_key_data, dict):
             # Update last_used_at
-            await supabase_request("PATCH", f"api_keys?api_key_hash=eq.{token_hash}", {"last_used_at": "now()"})
+            await supabase_request("PATCH", f"api_keys?api_key_hash=eq.{token_hash}", {"last_used_at": datetime.now(timezone.utc).isoformat()})
             return api_key_data.get("user_email")
         return None
     
@@ -388,8 +388,10 @@ async def deduct_credit(email: str) -> bool:
     current = sub.get("credits") or 0
     if current <= 0:
         return False
-    await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{email}", {"credits": current - 1})
-    return True
+    # Conditional update: only applies if credits still equals the value we read
+    # This prevents race conditions where two concurrent requests both decrement
+    result = await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{email}&credits=eq.{current}", {"credits": current - 1})
+    return result is not None
 
 async def check_free_tier_limit(email: str | None, is_pro: bool, request: Request) -> None:
     """Raise 429 if a free-tier user has exceeded their daily limit and has no credits."""
@@ -1188,7 +1190,7 @@ async def get_completion(prompt: str, system_instruction: str, mode: str, respon
         )
         metrics.record_model_call(primary["model"])
         return _clean_json_response(response.choices[0].message.content), primary["name"]
-    except (openai.RateLimitError, Exception) as e:
+    except Exception as e:
         metrics.record_model_call(primary["model"], is_error=True)
         logger.warning(f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}")
         fallback_kwargs = {}
@@ -1727,7 +1729,7 @@ async def delete_account(authorization: str = Header(None)):
             
             # Note: Cascade deletes in Supabase should handle translation_history automatically 
             # if foreign keys are set up correctly.
-            return JSONResponse(content={}, status_code=204)
+            return JSONResponse(status_code=200, content={"status": "deleted"})
     except Exception as e:
         logger.error(f"Delete account error: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete account")
@@ -2213,6 +2215,8 @@ async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, e
 @app.get("/api/sentry-test")
 async def sentry_test():
     """Test endpoint to trigger a deliberate error for Sentry verification"""
+    if _is_production:
+        raise HTTPException(status_code=404, detail="Not found")
     return 1 / 0
 
 

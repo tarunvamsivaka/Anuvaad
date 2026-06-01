@@ -33,6 +33,5 @@ export default analyze(withSentryConfig(nextConfig, {
   silent: !process.env.CI,
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
-  hideSourceMaps: true,
   disableLogger: true,
 }));

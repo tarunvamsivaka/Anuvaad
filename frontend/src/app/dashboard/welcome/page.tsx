@@ -108,12 +108,12 @@ print(fibonacci(10))`;
                 Next step
               </button>
               <Link
-                href={\`/dashboard/translate?code=\${encodeURIComponent(demoCode)}&lang=python&mode=code-to-english\`}
+                href={`/dashboard/translate?code=${encodeURIComponent(demoCode)}&lang=python&mode=code-to-english`}
                 className="inline-flex items-center justify-center rounded-lg bg-amber-500 hover:bg-amber-600 px-6 py-3 text-sm font-medium text-white shadow transition-colors"
                 onClick={async (e) => {
                   e.preventDefault();
                   await supabase.auth.updateUser({ data: { onboarded: true } });
-                  router.push(\`/dashboard/translate?code=\${encodeURIComponent(demoCode)}&lang=python&mode=code-to-english\`);
+                  router.push(`/dashboard/translate?code=${encodeURIComponent(demoCode)}&lang=python&mode=code-to-english`);
                 }}
               >
                 Try it now <ArrowRight className="ml-2 h-4 w-4" />

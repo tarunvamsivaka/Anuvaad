@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Copy, Download, Loader2, RotateCcw,
   Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings, Zap,
-  ChevronDown, ChevronUp, X, Upload, FileCode, Link
+  ChevronDown, ChevronUp, X, Upload, FileCode
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -170,7 +170,7 @@ function TranslationBlockCard({ block, index, sourceLanguage }: { block: Transla
   );
 }
 
-export default function TranslatePage() {
+function TranslatePageContent() {
   const { isPro, session } = useAuth();
   const { credits, isLoading: creditsLoading } = useCredits(session?.access_token);
   const { resolvedTheme } = useTheme();
@@ -588,7 +588,7 @@ export default function TranslatePage() {
               <textarea value={input} onChange={(e) => setInput(e.target.value)}
                 placeholder="Describe the functionality you need. Be as detailed as possible..."
                 className="flex-1 resize-none border-0 bg-background p-6 font-sans text-sm leading-relaxed focus:outline-none"
-                onKeyDown={(e) => { if (e.ctrlKey && e.key === "Enter") handleTranslate(); }}
+                onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleTranslate(); }}
               />
             ) : (
               <div className="flex-1 min-h-[500px] relative">
@@ -677,7 +677,7 @@ export default function TranslatePage() {
             )}
             
             <div className="border-t border-border/60 bg-muted/10 px-4 py-3 flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">Press <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Ctrl</kbd> + <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Enter</kbd> to translate</span>
+              <span className="text-xs text-muted-foreground">Press <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Ctrl/⌘</kbd> + <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Enter</kbd> to translate</span>
               <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} aria-disabled={!input.trim() && !isStreaming}
                 className={cn(
                   "gap-2 shadow-sm transition-all text-white",
@@ -776,5 +776,17 @@ export default function TranslatePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function TranslatePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    }>
+      <TranslatePageContent />
+    </Suspense>
   );
 }
