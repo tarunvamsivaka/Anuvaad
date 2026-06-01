@@ -32,7 +32,7 @@ function SignInPageContent() {
     if (error) {
       setError(error);
     } else {
-      router.push(redirectTo);
+      window.location.href = redirectTo;
     }
   }
 
