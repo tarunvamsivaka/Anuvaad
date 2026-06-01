@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect } from "react";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 import { WorkspaceProvider, useWorkspace } from "@/context/WorkspaceContext";
 
@@ -43,9 +44,9 @@ function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
           }
         }}
       >
-        <option value="personal">Personal Workspace</option>
+        <option value="personal" className="bg-background text-foreground">Personal Workspace</option>
         {workspaces.map(ws => (
-          <option key={ws.id} value={ws.id}>{ws.name}</option>
+          <option key={ws.id} value={ws.id} className="bg-background text-foreground">{ws.name}</option>
         ))}
       </select>
     </div>
@@ -62,7 +63,7 @@ function SidebarContent({
 }: {
   collapsed: boolean;
   pathname: string;
-  user: any;
+  user: SupabaseUser | null;
   isPro: boolean;
   onSignOut: () => void;
   onNavigate?: () => void;
@@ -154,9 +155,10 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Auth redirect is handled server-side by middleware.ts — no flash.
-  // Close mobile sidebar on route change
   useEffect(() => {
-    setMobileOpen(false);
+    requestAnimationFrame(() => {
+      setMobileOpen(false);
+    });
   }, [pathname]);
 
   // Onboarding redirect

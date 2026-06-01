@@ -14,11 +14,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { LogOut, Key, Plus, Copy, Check, Trash2, ShieldAlert, Loader2, Monitor, Moon, Sun } from "lucide-react";
+import { LogOut, Key, Plus, Copy, Check, Trash2, ShieldAlert, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
@@ -53,13 +53,7 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (session) {
-      fetchApiKeys();
-    }
-  }, [session, activeWorkspace]);
-
-  async function fetchApiKeys() {
+  const fetchApiKeys = useCallback(async (signal?: AbortSignal, activeRef?: { active: boolean }) => {
     if (!session) return;
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -69,6 +63,7 @@ export default function SettingsPage() {
       }
 
       const res = await fetch(`${API}/api/api-keys?${params.toString()}`, {
+        signal,
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
         },
@@ -76,12 +71,29 @@ export default function SettingsPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setApiKeys(Array.isArray(data) ? data : []);
+        if (!activeRef || activeRef.active) {
+          setApiKeys(Array.isArray(data) ? data : []);
+        }
       }
     } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") {
+        return;
+      }
       console.error("Error fetching API keys:", e);
     }
-  }
+  }, [session, activeWorkspace]);
+
+  useEffect(() => {
+    const activeRef = { active: true };
+    const controller = new AbortController();
+
+    fetchApiKeys(controller.signal, activeRef);
+
+    return () => {
+      activeRef.active = false;
+      controller.abort();
+    };
+  }, [fetchApiKeys]);
 
   async function handleSaveProfile() {
     if (!displayName.trim()) {
@@ -183,7 +195,7 @@ export default function SettingsPage() {
       } else {
         toast.error("Failed to delete account.");
       }
-    } catch (e) {
+    } catch {
       toast.error("Failed to delete account. Please try again.");
     } finally {
       setDeleting(false);
@@ -237,11 +249,11 @@ export default function SettingsPage() {
             <select
               value={theme || "system"}
               onChange={(e) => setTheme(e.target.value)}
-              className="w-full rounded-md border border-border/60 bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+              className="w-full rounded-md border border-border/60 bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="system" className="bg-background text-foreground">System</option>
+              <option value="light" className="bg-background text-foreground">Light</option>
+              <option value="dark" className="bg-background text-foreground">Dark</option>
             </select>
           </div>
         </Card>
@@ -263,7 +275,7 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="text-sm font-medium text-foreground">Save your new API key</h3>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Please copy this key and save it somewhere secure. For security reasons, you won't be able to see it again.
+                    Please copy this key and save it somewhere secure. For security reasons, you won&apos;t be able to see it again.
                   </p>
                   <div className="mt-3 flex items-center gap-2">
                     <code className="text-xs bg-background border border-border px-3 py-1.5 rounded flex-1 font-mono break-all">

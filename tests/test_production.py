@@ -82,3 +82,82 @@ async def test_supabase_request_fallback():
     with patch("main.SUPABASE_URL", None):
         result = await supabase_request("test_table", "select", {"id": "1"})
         assert result is None
+
+@pytest.mark.asyncio
+async def test_save_translation_background_pruning():
+    import main as app_module
+    from unittest.mock import AsyncMock, patch
+
+    user_email = "free_user@example.com"
+    mock_history = [{"id": f"id_{i}", "created_at": "2026-06-01T12:00:00Z"} for i in range(100)]
+    
+    async def mock_get_user_pro_status(email):
+        return False
+        
+    async def mock_supabase_request_list(path):
+        return mock_history
+        
+    mock_supabase_request = AsyncMock(return_value={"status": "success"})
+    
+    class MockResponse:
+        status_code = 204
+        text = "No Content"
+        
+    mock_delete = AsyncMock(return_value=MockResponse())
+    
+    with patch("main.get_user_pro_status", mock_get_user_pro_status), \
+         patch("main.supabase_request_list", mock_supabase_request_list), \
+         patch("main.supabase_request", mock_supabase_request), \
+         patch("httpx.AsyncClient.delete", mock_delete) as mock_delete_call, \
+         patch("main.SUPABASE_URL", "https://mock.supabase.co"), \
+         patch("main.SUPABASE_SERVICE_KEY", "mock_key"):
+         
+        await app_module.save_translation_background(
+            user_email=user_email,
+            mode="Code → English",
+            source_language="python",
+            target_language="english",
+            input_text="print('test')",
+            blocks=[],
+            model_used="standard"
+        )
+        
+        assert mock_delete_call.called
+        assert mock_supabase_request.called
+
+@pytest.mark.asyncio
+async def test_save_translation_background_pruning_pro():
+    import main as app_module
+    from unittest.mock import AsyncMock, patch
+
+    user_email = "pro_user@example.com"
+    mock_history = [{"id": f"id_{i}", "created_at": "2026-06-01T12:00:00Z"} for i in range(100)]
+    
+    async def mock_get_user_pro_status(email):
+        return True
+        
+    async def mock_supabase_request_list(path):
+        return mock_history
+        
+    mock_supabase_request = AsyncMock(return_value={"status": "success"})
+    mock_delete = AsyncMock()
+    
+    with patch("main.get_user_pro_status", mock_get_user_pro_status), \
+         patch("main.supabase_request_list", mock_supabase_request_list), \
+         patch("main.supabase_request", mock_supabase_request), \
+         patch("httpx.AsyncClient.delete", mock_delete) as mock_delete_call, \
+         patch("main.SUPABASE_URL", "https://mock.supabase.co"), \
+         patch("main.SUPABASE_SERVICE_KEY", "mock_key"):
+         
+        await app_module.save_translation_background(
+            user_email=user_email,
+            mode="Code → English",
+            source_language="python",
+            target_language="english",
+            input_text="print('test')",
+            blocks=[],
+            model_used="standard"
+        )
+        
+        assert not mock_delete_call.called
+        assert mock_supabase_request.called

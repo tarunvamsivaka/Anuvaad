@@ -8,25 +8,25 @@ test.describe('Billing & Subscription Flow', () => {
     await page.goto('/dashboard/billing');
     
     // Check that the page loads correctly
-    await expect(page.locator('h1')).toContainText('Billing & Subscription');
+    await expect(page.locator('h1')).toContainText('Billing');
     
-    // Check for Free Plan text
-    await expect(page.locator('text=Free Plan')).toBeVisible();
+    // Check for Free Plan text in the main card heading (avoids collapsed sidebar element)
+    await expect(page.locator('h2:has-text("Free Plan")')).toBeVisible();
     
-    // Ensure the token/credit usage indicator is visible
-    await expect(page.locator('text=Tokens Used')).toBeVisible();
+    // Ensure the usage indicator is visible
+    await expect(page.locator('text=Usage this billing period')).toBeVisible();
   });
 
   test('upgrade button is visible for free users and hidden for pro users', async ({ page }) => {
     await page.goto('/dashboard/billing');
     
-    // The "Upgrade to Pro" button should be visible for our test free user
-    const upgradeBtn = page.locator('button:has-text("Upgrade to Pro")').first();
+    // The "Upgrade — $12/month" button should be visible for our test free user
+    const upgradeBtn = page.locator('button:has-text("Upgrade — $12/month")').first();
     await expect(upgradeBtn).toBeVisible();
 
-    // To test the "hidden for pro users" part, we would typically:
-    // 1. Intercept the network request to mock the subscription status
-    await page.route('/api/subscription-status', async route => {
+    // To test the "hidden for pro users" part, we mock the backend subscription-status endpoint
+    // Use '**' to match cross-origin API calls on port 8000
+    await page.route('**/api/subscription-status', async route => {
       const json = { plan: 'pro', status: 'active', isPro: true };
       await route.fulfill({ json });
     });
@@ -35,7 +35,7 @@ test.describe('Billing & Subscription Flow', () => {
     await page.goto('/dashboard/billing');
 
     // The button should now be hidden or changed to "Manage Subscription"
-    await expect(page.locator('button:has-text("Upgrade to Pro")')).toBeHidden();
+    await expect(page.locator('button:has-text("Upgrade — $12/month")')).toBeHidden();
     
     // Optional: check for Manage Subscription
     // await expect(page.locator('button:has-text("Manage Subscription")')).toBeVisible();

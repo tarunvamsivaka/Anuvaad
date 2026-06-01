@@ -1,15 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User, Session } from "@supabase/supabase-js";
 import { identifyUser, resetIdentity } from "@/lib/analytics";
-// Sentry is optional — gracefully degrade when not installed
-const Sentry = {
-  setUser: (_user: { email: string; id: string } | null) => {
-    // no-op: install @sentry/nextjs to enable user tracking
-  },
-};
+
 
 interface AuthState {
   user: User | null;
@@ -42,18 +37,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
+    async function checkProStatus(accessToken: string, email?: string) {
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const res = await fetch(`${API}/api/subscription-status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ access_token: accessToken }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setIsPro(data.isPro === true);
+          if (email) {
+            identifyUser(email, { plan: data.isPro ? "pro" : "free" });
+          }
+        }
+      } catch {
+        // Silently fail — Pro status defaults to false
+      }
+    }
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user?.email) {
-        Sentry.setUser({ email: session.user.email, id: session.user.id });
         identifyUser(session.user.email, { plan: "free" });
-      } else {
-        Sentry.setUser(null);
       }
-      if (session) checkProStatus(session.access_token);
+      if (session) checkProStatus(session.access_token, session.user?.email);
     });
 
     // Listen for auth changes
@@ -61,38 +73,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session?.user?.email) {
-        Sentry.setUser({ email: session.user.email, id: session.user.id });
-      } else {
-        Sentry.setUser(null);
-      }
-      if (session) checkProStatus(session.access_token);
+      if (session) checkProStatus(session.access_token, session.user?.email);
       else setIsPro(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-
-  async function checkProStatus(accessToken: string) {
-    try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/subscription-status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ access_token: accessToken }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setIsPro(data.isPro === true);
-        // Update PostHog traits with actual plan
-        if (user?.email) {
-          identifyUser(user.email, { plan: data.isPro ? "pro" : "free" });
-        }
-      }
-    } catch {
-      // Silently fail — Pro status defaults to false
-    }
-  }
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -125,8 +111,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     resetIdentity();
   }, []);
 
+  const value = useMemo(() => ({
+    user,
+    session,
+    loading,
+    isPro,
+    signInWithEmail,
+    signUpWithEmail,
+    signInWithGoogle,
+    signInWithGitHub,
+    signOut
+  }), [user, session, loading, isPro, signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithGitHub, signOut]);
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, isPro, signInWithEmail, signUpWithEmail, signInWithGoogle, signInWithGitHub, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

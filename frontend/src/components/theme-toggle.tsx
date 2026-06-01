@@ -9,7 +9,9 @@ export function ThemeToggle({ className }: { className?: string }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    requestAnimationFrame(() => setMounted(true));
+  }, []);
   if (!mounted) return <div className={cn("h-8 w-8", className)} />;
 
   return (

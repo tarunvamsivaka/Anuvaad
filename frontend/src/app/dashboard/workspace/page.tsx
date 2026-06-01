@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Mail, User, Shield, Users } from "lucide-react";
+import { Loader2, Plus, Mail, Shield, Users } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
@@ -32,25 +32,40 @@ export default function WorkspacePage() {
 
   // Fetch members when active workspace changes
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
     async function fetchMembers() {
       if (!session || !activeWorkspace) return;
       setLoadingMembers(true);
       try {
         const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
+          signal: controller.signal,
           headers: { 'Authorization': `Bearer ${session.access_token}` }
         });
         if (res.ok) {
           const data = await res.json();
-          setMembers(Array.isArray(data) ? data : []);
+          if (active) {
+            setMembers(Array.isArray(data) ? data : []);
+          }
         }
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
         console.error("Failed to fetch members", err);
       } finally {
-        setLoadingMembers(false);
+        if (active) {
+          setLoadingMembers(false);
+        }
       }
     }
     fetchMembers();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [session, activeWorkspace]);
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
@@ -74,8 +89,9 @@ export default function WorkspacePage() {
       toast.success("Workspace created successfully");
       setNewWorkspaceName("");
       await refreshWorkspaces();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create workspace");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to create workspace";
+      toast.error(message);
     } finally {
       setCreating(false);
     }
@@ -112,8 +128,9 @@ export default function WorkspacePage() {
       if (membersRes.ok) {
         setMembers(await membersRes.json());
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to invite member");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to invite member";
+      toast.error(message);
     } finally {
       setInviting(false);
     }

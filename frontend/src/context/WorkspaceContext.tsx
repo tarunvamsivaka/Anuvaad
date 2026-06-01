@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 
 export interface Workspace {
@@ -25,7 +25,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshWorkspaces = async () => {
+  const refreshWorkspaces = useCallback(async () => {
     try {
       const { data: session } = await supabase.auth.getSession();
       if (!session.session?.access_token) {
@@ -49,14 +49,24 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    refreshWorkspaces();
   }, []);
 
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      refreshWorkspaces();
+    });
+  }, []);
+
+  const value = useMemo(() => ({
+    workspaces,
+    activeWorkspace,
+    setActiveWorkspace,
+    refreshWorkspaces,
+    loading
+  }), [workspaces, activeWorkspace, refreshWorkspaces, loading]);
+
   return (
-    <WorkspaceContext.Provider value={{ workspaces, activeWorkspace, setActiveWorkspace, refreshWorkspaces, loading }}>
+    <WorkspaceContext.Provider value={value}>
       {children}
     </WorkspaceContext.Provider>
   );

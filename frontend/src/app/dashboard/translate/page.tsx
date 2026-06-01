@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Copy, Download, Loader2, RotateCcw,
   Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings, Zap,
-  ChevronDown, ChevronUp, X, Upload, FileCode
+  ChevronDown, ChevronUp, X, Upload, FileCode, Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -104,10 +104,16 @@ interface TranslationBlock {
   english_translation: string;
 }
 
-function TranslationBlockCard({ block, index, sourceLanguage }: { block: TranslationBlock, index: number, sourceLanguage: string }) {
+function TranslationBlockCard({ block, index, onEditBlock }: { block: TranslationBlock; index: number; onEditBlock?: (newEnglish: string) => void }) {
   const [collapsed, setCollapsed] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(block.english_translation);
+
+  useEffect(() => {
+    setEditedText(block.english_translation);
+  }, [block.english_translation]);
 
   const copyCode = () => {
     navigator.clipboard.writeText(block.code_snippet);
@@ -151,18 +157,67 @@ function TranslationBlockCard({ block, index, sourceLanguage }: { block: Transla
             </Button>
           </div>
           <div className="relative p-4 md:p-5 bg-background group">
-            <p className="text-sm leading-relaxed text-foreground/90">
-              {block.english_translation}
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={copyText} 
-              className="absolute right-3 top-3 h-7 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-background shadow-sm"
-            >
-              {copiedText ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-              {copiedText ? "Copied" : "Copy text"}
-            </Button>
+            {isEditing ? (
+              <div className="flex flex-col gap-2 w-full animate-in fade-in duration-200">
+                <textarea
+                  value={editedText}
+                  onChange={(e) => setEditedText(e.target.value)}
+                  className="w-full text-sm leading-relaxed p-2.5 border border-border/80 rounded-md bg-background focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[80px] font-sans"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground hover:bg-muted"
+                    onClick={() => {
+                      setEditedText(block.english_translation);
+                      setIsEditing(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1"
+                    onClick={() => {
+                      onEditBlock?.(editedText);
+                      setIsEditing(false);
+                    }}
+                  >
+                    <Check className="h-3 w-3" />
+                    Save
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm leading-relaxed text-foreground/90 pr-24 whitespace-pre-wrap">
+                  {block.english_translation}
+                </p>
+                <div className="absolute right-3 top-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditing(true)} 
+                    className="h-7 gap-1 bg-background shadow-sm hover:bg-muted"
+                  >
+                    <Pencil className="h-3 w-3" />
+                    Edit
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={copyText} 
+                    className="h-7 gap-1.5 bg-background shadow-sm"
+                  >
+                    {copiedText ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                    {copiedText ? "Copied" : "Copy text"}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -181,6 +236,7 @@ function TranslatePageContent() {
   const [sourceLanguage, setSourceLanguage] = useState("python");
   const [targetLanguage, setTargetLanguage] = useState("javascript");
   const [input, setInput] = useState("");
+  const [isTypingManually, setIsTypingManually] = useState(false);
   const [customInstructions, setCustomInstructions] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: number } | null>(null);
@@ -197,7 +253,7 @@ function TranslatePageContent() {
   };
   const acceptedExtensions = Object.keys(extToLanguage);
 
-  const onFileDrop = useCallback((acceptedFiles: globalThis.File[]) => {
+  const onFileDrop = (acceptedFiles: globalThis.File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
@@ -216,7 +272,7 @@ function TranslatePageContent() {
       track("file_uploaded", { extension: ext, size_bytes: file.size, detected_language: detectedLang || "unknown" });
     };
     reader.readAsText(file);
-  }, []);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onFileDrop,
@@ -226,16 +282,18 @@ function TranslatePageContent() {
     disabled: mode === "english-to-code",
   });
 
-  const handleClearFile = useCallback(() => {
+  const handleClearFile = () => {
     setUploadedFile(null);
     setGistSource(null);
     setInput("");
+    setIsTypingManually(false);
     setOutputBlocks(null);
+    setOriginalBlocks(null);
     setStreamText("");
     setRawError("");
-  }, []);
+  };
 
-  const handleGistImport = useCallback(async () => {
+  const handleGistImport = async () => {
     if (!gistUrl.trim()) return;
     setGistLoading(true);
     try {
@@ -254,28 +312,31 @@ function TranslatePageContent() {
       setGistUrl("");
       toast.success(`Imported ${data.filename} (${data.char_count.toLocaleString()} chars)`);
       track("gist_imported", { language: data.language, char_count: data.char_count, username: data.username });
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to import Gist";
       toast.error(message);
     } finally {
       setGistLoading(false);
     }
-  }, [gistUrl]);
+  };
 
   // Read ?mode= query param on mount to pre-select translation mode
   useEffect(() => {
     const modeParam = searchParams.get("mode");
     if (modeParam && modes.some(m => m.id === modeParam)) {
-      setMode(modeParam);
+      requestAnimationFrame(() => {
+        setMode(modeParam);
+      });
     }
   }, [searchParams]);
   
   const [outputBlocks, setOutputBlocks] = useState<TranslationBlock[] | null>(null);
+  const [originalBlocks, setOriginalBlocks] = useState<TranslationBlock[] | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const [rawError, setRawError] = useState("");
-  const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [modelUsed, setModelUsed] = useState<string | null>(null);
 
@@ -283,17 +344,15 @@ function TranslatePageContent() {
 
   const currentMode = modes.find((m) => m.id === mode)!;
 
-  const handleTranslate = useCallback(async () => {
+  const handleTranslate = async () => {
     if (!input.trim()) return;
 
     if (isStreaming && readerRef.current) {
       readerRef.current.cancel();
       setIsStreaming(false);
-      setLoading(false);
       return;
     }
 
-    setLoading(true);
     setIsStreaming(true);
     setOutputBlocks(null);
     setStreamText("");
@@ -378,7 +437,7 @@ function TranslatePageContent() {
                   setModelUsed(data.model_used);
                 }
               }
-            } catch (e) {
+            } catch {
               // Ignore invalid JSON chunks (might be split across packets)
             }
           }
@@ -387,6 +446,7 @@ function TranslatePageContent() {
 
       if (completeBlocks && !streamError) {
         setOutputBlocks(completeBlocks);
+        setOriginalBlocks(JSON.parse(JSON.stringify(completeBlocks)));
         track("translation_completed", {
           mode,
           block_count: completeBlocks.length,
@@ -396,8 +456,9 @@ function TranslatePageContent() {
         });
       }
       
-    } catch (err: any) {
-      if (err.name === "AbortError" || err.message?.includes("abort")) {
+    } catch (err: unknown) {
+      const errorObj = err as Error & { name?: string; status?: number };
+      if (errorObj?.name === "AbortError" || errorObj?.message?.includes("abort")) {
         toast.info("Translation stopped");
       } else {
         const message = err instanceof Error ? err.message : "Translation failed";
@@ -405,28 +466,28 @@ function TranslatePageContent() {
         toast.error(message);
         track("translation_failed", {
           mode,
-          error_type: err.name || "unknown",
-          status_code: err.status || null,
+          error_type: errorObj?.name || "unknown",
+          status_code: errorObj?.status || null,
         });
       }
     } finally {
       setIsStreaming(false);
-      setLoading(false);
       readerRef.current = null;
     }
-  }, [input, mode, sourceLanguage, targetLanguage, customInstructions, session, activeWorkspace, isStreaming]);
+  };
 
-
-  const handleClear = useCallback(() => { 
+  const handleClear = () => { 
     setInput(""); 
+    setIsTypingManually(false);
     setOutputBlocks(null); 
+    setOriginalBlocks(null);
     setStreamText("");
     setRawError("");
     setUploadedFile(null);
     setGistSource(null);
-  }, []);
+  };
 
-  const handleCopyMarkdown = useCallback(() => {
+  const handleCopyMarkdown = () => {
     if (!outputBlocks) return;
     let content = "";
     
@@ -440,9 +501,9 @@ function TranslatePageContent() {
     setCopied(true);
     toast.success("Copied Markdown to clipboard");
     setTimeout(() => setCopied(false), 2000);
-  }, [outputBlocks, mode, sourceLanguage, targetLanguage]);
+  };
 
-  const handleDownloadJson = useCallback(() => {
+  const handleDownloadJson = () => {
     if (!outputBlocks) return;
     const blob = new Blob([JSON.stringify(outputBlocks, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -451,7 +512,71 @@ function TranslatePageContent() {
     a.download = `anuvaad-blocks.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [outputBlocks]);
+  };
+
+  const handleSyncEnglishToCode = async () => {
+    if (!outputBlocks || !outputBlocks.length || isSyncing) return;
+    setIsSyncing(true);
+    setRawError("");
+    
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      
+      const payload: Record<string, any> = {
+        blocks: outputBlocks.map(b => ({
+          id: b.id,
+          code_snippet: b.code_snippet,
+          english_translation: b.english_translation
+        })),
+        language: sourceLanguage,
+        custom_instructions: customInstructions.trim() || null
+      };
+
+      if (session?.access_token) {
+        payload.access_token = session.access_token;
+      }
+      if (activeWorkspace) {
+        payload.workspace_id = activeWorkspace.id;
+      }
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch(`${API}/api/sync-english-to-code`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (data.status === "success" && data.updated_code) {
+        setInput(data.updated_code);
+        setOutputBlocks(data.blocks);
+        setOriginalBlocks(JSON.parse(JSON.stringify(data.blocks)));
+        if (data.model_used) {
+          setModelUsed(data.model_used);
+        }
+        toast.success("Synchronized successfully! Code has been updated.");
+      } else {
+        throw new Error("No updated code returned from engine.");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Sync failed";
+      setRawError(`Error: ${message}`);
+      toast.error(message);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const hasEdits = !!(originalBlocks && outputBlocks && JSON.stringify(originalBlocks) !== JSON.stringify(outputBlocks));
 
   return (
     <div className="min-h-screen pb-20">
@@ -533,8 +658,8 @@ function TranslatePageContent() {
               <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-1.5 shadow-sm">
                 <label htmlFor="source-lang" className="text-xs font-medium text-muted-foreground">Source</label>
                 <select id="source-lang" value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)}
-                  className="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
-                  {languages.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                  className="bg-background text-foreground border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
+                  {languages.map((l) => <option key={l.value} value={l.value} className="bg-background text-foreground">{l.label}</option>)}
                 </select>
               </div>
             )}
@@ -542,8 +667,8 @@ function TranslatePageContent() {
               <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-1.5 shadow-sm">
                 <label htmlFor="target-lang" className="text-xs font-medium text-muted-foreground">Target</label>
                 <select id="target-lang" value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}
-                  className="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
-                  {languages.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+                  className="bg-background text-foreground border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
+                  {languages.map((l) => <option key={l.value} value={l.value} className="bg-background text-foreground">{l.label}</option>)}
                 </select>
               </div>
             )}
@@ -581,6 +706,18 @@ function TranslatePageContent() {
               <div className="flex items-center gap-3">
                 <span className="text-[10px] font-mono text-muted-foreground">{input.length.toLocaleString()} chars</span>
                 <Button variant="ghost" size="sm" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-muted"><RotateCcw className="h-3.5 w-3.5" /></Button>
+                <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} aria-disabled={!input.trim() && !isStreaming}
+                  size="sm"
+                  className={cn(
+                    "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs",
+                    isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-amber-600 hover:bg-amber-700"
+                  )}>
+                  {isStreaming ? (
+                    <><X className="h-3.5 w-3.5" /> Stop</>
+                  ) : (
+                    <><Sparkles className="h-3.5 w-3.5" /> Generate Translation</>
+                  )}
+                </Button>
               </div>
             </div>
             
@@ -598,6 +735,12 @@ function TranslatePageContent() {
                   theme={isDark ? "vs-dark" : "light"}
                   value={input}
                   onChange={(val) => setInput(val || "")}
+                  onMount={(editor) => {
+                    // Expose editor instance for E2E tests
+                    if (typeof window !== "undefined") {
+                      (window as unknown as Record<string, unknown>).__monacoEditor = editor;
+                    }
+                  }}
                   options={{
                     minimap: { enabled: false },
                     fontSize: 14,
@@ -608,7 +751,7 @@ function TranslatePageContent() {
                   }}
                 />
                 {/* Drag & drop overlay */}
-                {!input && (
+                {!input && !isTypingManually && (
                   <div
                     {...getRootProps()}
                     className={cn(
@@ -627,6 +770,20 @@ function TranslatePageContent() {
                     <div className="text-center">
                       <p className="text-sm font-medium">{isDragActive ? "Drop your file here" : "Drag & drop a code file"}</p>
                       <p className="mt-1 text-xs text-muted-foreground">or click to browse · .py .js .ts .java .cpp .go .rs .c .cs</p>
+                    </div>
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsTypingManually(true);
+                        }}
+                        className="text-xs bg-background shadow-sm hover:bg-muted"
+                      >
+                        Type Code Manually
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -676,23 +833,8 @@ function TranslatePageContent() {
               </div>
             )}
             
-            <div className="border-t border-border/60 bg-muted/10 px-4 py-3 flex justify-between items-center">
-              <span className="text-xs text-muted-foreground">Press <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Ctrl/⌘</kbd> + <kbd className="px-1.5 py-0.5 bg-muted rounded border border-border">Enter</kbd> to translate</span>
-              <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} aria-disabled={!input.trim() && !isStreaming}
-                className={cn(
-                  "gap-2 shadow-sm transition-all text-white",
-                  isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-amber-600 hover:bg-amber-700"
-                )}>
-                {isStreaming ? (
-                  <>
-                    <X className="h-4 w-4" /> Stop
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" /> Generate Translation
-                  </>
-                )}
-              </Button>
+            <div className="border-t border-border/60 bg-muted/10 px-4 py-2 flex justify-end items-center">
+              <span className="text-[10px] text-muted-foreground">Press <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[10px]">Ctrl/⌘</kbd> + <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[10px]">Enter</kbd> to translate</span>
             </div>
           </Card>
 
@@ -716,6 +858,39 @@ function TranslatePageContent() {
               )}
             </div>
             
+            {hasEdits && mode === "code-to-english" && (
+              <div className="bg-amber-600/10 border-b border-amber-600/20 px-4 py-2.5 flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-200">
+                <span className="text-xs font-medium text-amber-800 dark:text-amber-400 flex items-center gap-1.5 pr-4">
+                  <Sparkles className="h-3.5 w-3.5 animate-pulse text-amber-500 shrink-0" />
+                  Modified English lines detected. Sync these modifications back to your program code?
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground hover:bg-muted"
+                    onClick={() => setOutputBlocks(JSON.parse(JSON.stringify(originalBlocks)))}
+                    disabled={isSyncing}
+                  >
+                    Reset Edits
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1.5 shadow-sm"
+                    onClick={handleSyncEnglishToCode}
+                    disabled={isSyncing}
+                  >
+                    {isSyncing ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <ArrowLeftRight className="h-3 w-3" />
+                    )}
+                    Sync to Code
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="flex-1 overflow-auto bg-background/50 relative">
               {(isStreaming || (streamText.length > 0 && !outputBlocks)) ? (
                 <div className={cn(
@@ -745,7 +920,11 @@ function TranslatePageContent() {
                       key={block.id || idx} 
                       block={block} 
                       index={idx} 
-                      sourceLanguage={sourceLanguage}
+                      onEditBlock={(newEnglish) => {
+                        const updated = [...outputBlocks];
+                        updated[idx] = { ...updated[idx], english_translation: newEnglish };
+                        setOutputBlocks(updated);
+                      }}
                     />
                   ))}
                   

@@ -36,13 +36,13 @@ function getRelativeTimeString(date: Date | string): string {
     const divider = unitIndex ? cutoffs[unitIndex - 1] : 1;
     const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
     return rtf.format(Math.floor(deltaSeconds / divider), units[unitIndex]);
-  } catch (e) {
+  } catch {
     return "Just now";
   }
 }
 
 export default function HistoryPage() {
-  const { user, session } = useAuth();
+  const { session } = useAuth();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -56,9 +56,12 @@ export default function HistoryPage() {
 
   // Fetch translations via backend API (avoids RLS recursion)
   useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
     async function fetchHistory() {
       if (!session?.access_token) {
-        setLoading(false);
+        if (active) setLoading(false);
         return;
       }
       
@@ -66,6 +69,7 @@ export default function HistoryPage() {
       try {
         const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         const res = await fetch(`${API}/api/history`, {
+          signal: controller.signal,
           headers: {
             "Authorization": `Bearer ${session.access_token}`,
           },
@@ -74,16 +78,29 @@ export default function HistoryPage() {
         if (!res.ok) throw new Error("Failed to fetch history");
         
         const data: HistoryItem[] = await res.json();
-        setHistory(data.slice(0, 50));
+        if (active) {
+          setHistory(data.slice(0, 50));
+        }
       } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          return;
+        }
         console.error("Error fetching history:", err);
-        toast.error("Failed to load translation history.");
+        if (active) {
+          toast.error("Failed to load translation history.");
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
     
     fetchHistory();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [session?.access_token]);
 
   // Client-side search filter (no re-fetch)

@@ -9,7 +9,6 @@ import {
   Code2,
   ArrowRight,
   Zap,
-  Clock,
   FileText,
   TrendingUp,
 } from "lucide-react";
@@ -18,10 +17,10 @@ import { useTranslationStats } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function DashboardPage() {
-  const { user, isPro, session } = useAuth();
+  const { user, session, isPro } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
 
-  const { stats, recentTranslations, isLoading } = useTranslationStats(user?.email);
+  const { stats, recentTranslations, isLoading } = useTranslationStats(user?.email, session?.access_token);
 
   const statCards = [
     {

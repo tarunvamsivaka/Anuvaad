@@ -17,7 +17,9 @@ export function Hero() {
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduceMotion(mediaQuery.matches);
+    requestAnimationFrame(() => {
+      setReduceMotion(mediaQuery.matches);
+    });
     const handler = (e: MediaQueryListEvent) => setReduceMotion(e.matches);
     mediaQuery.addEventListener("change", handler);
     return () => mediaQuery.removeEventListener("change", handler);

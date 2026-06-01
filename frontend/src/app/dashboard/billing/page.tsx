@@ -21,18 +21,24 @@ function BillingPageContent() {
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
 
-  const { subscription, isLoading: subLoading } = useSubscriptionStatus(session?.access_token);
-  const { stats, isLoading: statsLoading } = useTranslationStats(session?.user?.email);
+  const { subscription } = useSubscriptionStatus(session?.access_token);
+  const { stats, isLoading: statsLoading } = useTranslationStats(session?.user?.email, session?.access_token);
   const { credits, isLoading: creditsLoading } = useCredits(session?.access_token);
 
   useEffect(() => {
     const payment = searchParams.get("payment");
     if (payment === "success" || payment === "cancel") {
-      setPaymentStatus(payment);
+      requestAnimationFrame(() => {
+        setPaymentStatus(payment);
+      });
       // Clear the query param from URL without reload
       window.history.replaceState({}, "", "/dashboard/billing");
       // Auto-dismiss after 8 seconds
-      const timer = setTimeout(() => setPaymentStatus(null), 8000);
+      const timer = setTimeout(() => {
+        requestAnimationFrame(() => {
+          setPaymentStatus(null);
+        });
+      }, 8000);
       return () => clearTimeout(timer);
     }
   }, [searchParams]);
@@ -58,7 +64,7 @@ function BillingPageContent() {
         const err = await res.json().catch(() => null);
         toast.error(err?.detail || "Failed to create checkout session.");
       }
-    } catch (e) {
+    } catch {
       toast.error("Could not connect to billing service. Please try again.");
     } finally {
       setLoading(false);

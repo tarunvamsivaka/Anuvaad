@@ -129,7 +129,7 @@ METRICS_PASSWORD = os.getenv("METRICS_PASSWORD", "")
 async def metrics_middleware(request: Request, call_next):
     """Track request count, latency, and errors for all /api/ endpoints."""
     path = request.url.path
-    if not path.startswith("/api/"):
+    if not path.startswith("/api/") or request.method == "OPTIONS":
         return await call_next(request)
 
     # Normalise endpoint name for grouping (strip /api/ prefix, replace slashes)
@@ -341,15 +341,42 @@ async def save_translation_background(user_email: str, mode: str, source_languag
         
         if workspace_id:
             data["workspace_id"] = workspace_id
+
+        # ── Storage Allocation & Pruning ──
+        is_pro = await get_user_pro_status(user_email)
+        limit = 1000 if is_pro else 100
+
+        # Fetch current history records ordered by creation date (oldest first)
+        all_rows = await supabase_request_list(
+            f"translation_history?user_email=eq.{user_email}&select=id,created_at&order=created_at.asc"
+        )
+
+        current_count = len(all_rows)
+        pruned_count = 0
+
+        if current_count >= limit:
+            pruned_count = (current_count + 1) - limit
+            to_delete_ids = [row["id"] for row in all_rows[:pruned_count] if isinstance(row, dict) and "id" in row]
+
+            if to_delete_ids and SUPABASE_URL and SUPABASE_SERVICE_KEY:
+                headers = {
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                }
+                ids_param = ",".join(to_delete_ids)
+                url = f"{SUPABASE_URL}/rest/v1/translation_history?id=in.({ids_param})"
+                async with httpx.AsyncClient() as http_client:
+                    resp = await http_client.delete(url, headers=headers)
+                    if resp.status_code not in (200, 204):
+                        logger.warning(f"Failed to prune old translation history items: {resp.status_code} {resp.text}")
+                    else:
+                        logger.info(f"Pruned {len(to_delete_ids)} oldest translation history rows for {user_email} to enforce limit of {limit}.")
             
         await supabase_request("POST", "translation_history", data)
 
         # ── Welcome email for first-time users + Milestone email check ──
         try:
-            all_rows = await supabase_request_list(
-                f"translation_history?user_email=eq.{user_email}&select=id"
-            )
-            total_count = len(all_rows)
+            total_count = current_count + 1 - pruned_count
             # Send welcome email on first-ever translation (free-tier onboarding)
             if total_count == 1:
                 email_service.send_welcome(user_email)
@@ -364,7 +391,7 @@ async def get_today_usage_count(email: str) -> int:
     """Count how many translations a user has made today (UTC)."""
     if not email or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return 0
-    today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00+00:00")
+    today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
     path = f"translation_history?user_email=eq.{email}&created_at=gte.{today_start}&select=id"
     rows = await supabase_request_list(path)
     return len(rows)
@@ -825,7 +852,30 @@ Example for Python code `import os\\npath = os.getcwd()\\nprint(path)`:
     {"id": "block_2", "code_snippet": "path = os.getcwd()", "english_translation": "Calls `os.getcwd()` to get the current working directory path as a string, and stores it in the variable `path`."},
     {"id": "block_3", "code_snippet": "print(path)", "english_translation": "Prints the value of `path` (the current working directory) to the console."}
   ]
-}
+"""
+
+SYNC_SYSTEM_INSTRUCTION = """
+You are an expert code synchronizer. You are given a program broken down into logical blocks. The user has modified some of the English translations/explanations of these blocks.
+
+Your task is to:
+1. Synthesize the new, updated program code by modifying the code snippets of the blocks whose explanations were changed, ensuring the changes align with the modified English explanations.
+2. Keep the overall syntax, logic, and unmodified code segments completely intact and structurally sound.
+3. Return a JSON object with two keys:
+   - "updated_code": a single string representing the complete, unified, syntactically correct program code.
+   - "blocks": an array of objects representing the updated logical blocks of the program, preserving the original block structures as much as possible. Each object must have:
+     - "id": the block ID (preserve IDs from the input where applicable)
+     - "code_snippet": the updated/current code lines for this block
+     - "english_translation": a precise, updated plain-English explanation of what this block does (keep it clean and precise)
+
+Ensure that "updated_code" represents a valid, complete program in the requested programming language (no placeholders, no missing statements, fully functional).
+Ensure the JSON output is strictly formatted.
+
+Example:
+If a block has:
+"id": "block_3"
+"code_snippet": "print(path)"
+"english_translation": "Prints the value of path in uppercase to the console."
+You should update the code_snippet to "print(path.upper())" or language equivalent, and compile the final "updated_code" with this change.
 """
 
 # ── REDIS CONNECTION ──
@@ -841,15 +891,21 @@ class LRUCache:
     def get(self, key: str):
         with self.lock:
             if key in self.cache:
+                val, expires_at = self.cache[key]
+                if expires_at is not None and time.time() > expires_at:
+                    del self.cache[key]
+                    self.misses += 1
+                    return None
                 self.cache.move_to_end(key)
                 self.hits += 1
-                return self.cache[key]
+                return val
             self.misses += 1
             return None
             
-    def set(self, key: str, value: any):
+    def set(self, key: str, value: any, ttl: int = None):
         with self.lock:
-            self.cache[key] = value
+            expires_at = time.time() + ttl if ttl is not None else None
+            self.cache[key] = (value, expires_at)
             self.cache.move_to_end(key)
             if len(self.cache) > self.max_size:
                 self.cache.popitem(last=False)
@@ -934,7 +990,7 @@ class RedisCache:
                 return
             except Exception as e:
                 logger.error(f"Redis put error: {e}")
-        self.fallback.set(key, value)
+        self.fallback.set(key, value, ttl)
 
     async def incr_rate_limit(self, key: str, window: int) -> int:
         if self.client:
@@ -949,7 +1005,7 @@ class RedisCache:
         # In-memory fallback (dev only)
         val = self.fallback.get(key) or 0
         val += 1
-        self.fallback.set(key, val)
+        self.fallback.set(key, val, window)
         return val
 
     async def ping(self):
@@ -973,9 +1029,14 @@ async def rate_limit_middleware(request: Request, call_next):
     if not request.url.path.startswith("/api/"):
         return await call_next(request)
 
+    if request.method == "OPTIONS":
+        return await call_next(request)
+
     client_ip = request.client.host if request.client else "unknown"
+    if client_ip == "127.0.0.1":
+        return await call_next(request)
+        
     redis_key = f"rate_limit:{client_ip}"
-    
     current_count = await cache.incr_rate_limit(redis_key, RATE_LIMIT_WINDOW)
     
     if current_count > RATE_LIMIT_MAX:
@@ -1058,6 +1119,18 @@ class SaveTranslationPayload(BaseModel):
         if not v.strip():
             raise ValueError('Input cannot be empty or whitespace only')
         return v
+
+class BlockItem(BaseModel):
+    id: str
+    code_snippet: str
+    english_translation: str
+
+class SyncEnglishToCodePayload(BaseModel):
+    blocks: list[BlockItem]
+    language: str
+    custom_instructions: str | None = None
+    access_token: str | None = None
+    workspace_id: str | None = None
 
 # ── RESPONSE NORMALIZATION ──
 def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> list:
@@ -1233,7 +1306,7 @@ async def stream_code_to_english(payload: CodePayload, email: str | None, is_pro
         yield f'data: {json.dumps({"done": True, "blocks": cached, "model_used": model})}\n\n'
         
         if email:
-            background_tasks.add_task(save_translation_background, email, "Code → English", payload.language, "english", payload.raw_code, cached, model_name, payload.workspace_id)
+            asyncio.create_task(save_translation_background(email, "Code → English", payload.language, "english", payload.raw_code, cached, model_name, payload.workspace_id))
         return
 
     metrics.record_cache_miss()
@@ -1251,7 +1324,7 @@ async def stream_code_to_english(payload: CodePayload, email: str | None, is_pro
         
     messages = [
         {"role": "system", "content": SYSTEM_INSTRUCTION},
-        {"role": "user", "content": f"Programming Language: {payload.language}\\n\\nCode to Analyze/Translate:\\n{payload.raw_code}"}
+        {"role": "user", "content": f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}"}
     ]
     
     kwargs = {"stream": True}
@@ -1284,7 +1357,7 @@ async def stream_code_to_english(payload: CodePayload, email: str | None, is_pro
         yield f'data: {json.dumps({"done": True, "blocks": result, "model_used": model})}\n\n'
         
         if email:
-            background_tasks.add_task(save_translation_background, email, "Code → English", payload.language, "english", payload.raw_code, result, model, payload.workspace_id)
+            asyncio.create_task(save_translation_background(email, "Code → English", payload.language, "english", payload.raw_code, result, model, payload.workspace_id))
             
     except Exception as e:
         logger.error(f"Streaming error: {str(e)}")
@@ -1626,6 +1699,80 @@ async def function_update_to_code(request: Request, payload: EnglishUpdatePayloa
             raise e
         logger.error(f"LLM API Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Code update failed. Please try again.")
+
+@app.post("/api/sync-english-to-code")
+async def function_sync_english_to_code(request: Request, payload: SyncEnglishToCodePayload, background_tasks: BackgroundTasks, email: str | None = Depends(get_user_email)):
+    tier = "free"
+    use_r1 = False
+    is_pro = False
+    if email:
+        is_pro = await get_user_pro_status(email)
+    await check_free_tier_limit(email, is_pro, request)
+        
+    if payload.access_token:
+        if await is_token_pro(payload.access_token):
+            tier = "pro"
+            use_r1 = True
+    elif is_pro:
+        tier = "pro"
+        use_r1 = True
+
+    blocks_formatted = []
+    for b in payload.blocks:
+        blocks_formatted.append({
+            "id": b.id,
+            "code_snippet": b.code_snippet,
+            "english_translation": b.english_translation
+        })
+        
+    instructions_suffix = f"\n\n[CORPORATE STANDARDS / CUSTOM INSTRUCTIONS: {payload.custom_instructions}]" if payload.custom_instructions else ""
+    user_prompt = f"Programming Language: {payload.language}\n\nBlocks to Sync:\n{json.dumps(blocks_formatted, indent=2)}{instructions_suffix}"
+    
+    try:
+        response_text, model_used = await get_completion(
+            prompt=user_prompt,
+            system_instruction=SYNC_SYSTEM_INSTRUCTION,
+            mode="translation",
+            response_format="json_object",
+            use_r1=use_r1
+        )
+        
+        raw = json.loads(response_text)
+        updated_code = raw.get("updated_code", "")
+        raw_blocks = raw.get("blocks", [])
+        
+        normalized_blocks = normalize_blocks(raw_blocks, model_used=model_used, tier=tier)
+        
+        if email:
+            background_tasks.add_task(
+                save_translation_background,
+                email,
+                "Two-Way Sync",
+                payload.language,
+                "english",
+                updated_code,
+                normalized_blocks,
+                model_used,
+                payload.workspace_id
+            )
+            
+        return {
+            "status": "success",
+            "updated_code": updated_code,
+            "blocks": normalized_blocks,
+            "model_used": model_used
+        }
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON Parse Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Synchronization engine returned invalid JSON. Please try again.")
+    except ValueError as e:
+        logger.error(f"Normalization Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Synchronization engine returned an unexpected format. Please try again.")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        logger.error(f"LLM API Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Synchronization failed. Please try again.")
 
 # NEW: Code-to-Code Translation
 @app.post("/api/code-to-code")

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { Card } from "@/components/ui/card";
@@ -15,32 +15,47 @@ interface WorkspaceMember {
 }
 
 export default function TeamPage() {
-  const { user, session } = useAuth();
-  const { workspaces, activeWorkspace, setActiveWorkspace, refreshWorkspaces } = useWorkspace();
+  const { session } = useAuth();
+  const { activeWorkspace, refreshWorkspaces } = useWorkspace();
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (activeWorkspace && session) {
-      fetchMembers();
-    }
-  }, [activeWorkspace, session]);
-
-  async function fetchMembers() {
+  const fetchMembers = useCallback(async (signal?: AbortSignal, activeRef?: { active: boolean }) => {
     if (!activeWorkspace || !session) return;
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
+        signal,
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
-      if (res.ok) setMembers(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        if (!activeRef || activeRef.active) {
+          setMembers(data);
+        }
+      }
     } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") {
+        return;
+      }
       console.error(e);
     }
-  }
+  }, [activeWorkspace, session]);
+
+  useEffect(() => {
+    const activeRef = { active: true };
+    const controller = new AbortController();
+
+    fetchMembers(controller.signal, activeRef);
+
+    return () => {
+      activeRef.active = false;
+      controller.abort();
+    };
+  }, [fetchMembers]);
 
   async function handleCreateWorkspace(e: React.FormEvent) {
     e.preventDefault();
@@ -64,7 +79,7 @@ export default function TeamPage() {
         const err = await res.json();
         setError(err.detail || "Failed to create workspace");
       }
-    } catch (e) {
+    } catch {
       setError("An error occurred");
     } finally {
       setLoading(false);
@@ -93,7 +108,7 @@ export default function TeamPage() {
         const err = await res.json();
         setError(err.detail || "Failed to invite user");
       }
-    } catch (e) {
+    } catch {
       setError("An error occurred");
     } finally {
       setLoading(false);

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { useState, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,6 @@ import { track } from "@/lib/analytics";
 import { Loader2 } from "lucide-react";
 
 function SignInPageContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { signInWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
   const [email, setEmail] = useState("");

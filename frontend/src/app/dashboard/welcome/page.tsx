@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import confetti from "canvas-confetti";
@@ -129,7 +129,7 @@ print(fibonacci(10))`;
               Try all three modes
             </h1>
             <p className="text-muted-foreground max-w-xl mb-12 text-lg">
-              Anuvaad is versatile. Whether you're learning, writing, or migrating, we have a tool for you.
+              Anuvaad is versatile. Whether you&apos;re learning, writing, or migrating, we have a tool for you.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-12">
