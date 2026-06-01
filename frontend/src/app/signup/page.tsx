@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react";
 function SignUpPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, signUpWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
+  const { signUpWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,13 +22,6 @@ function SignUpPageContent() {
   const [success, setSuccess] = useState(false);
 
   const redirectTo = searchParams.get("redirectTo") || "/dashboard";
-
-  // Automatically redirect when successfully logged in
-  useEffect(() => {
-    if (user) {
-      router.push(redirectTo);
-    }
-  }, [user, router, redirectTo]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

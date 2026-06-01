@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGoogle = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
     });
     return { error: error?.message ?? null };
   }, []);
@@ -115,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithGitHub = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
     });
     return { error: error?.message ?? null };
   }, []);
