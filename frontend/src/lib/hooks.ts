@@ -30,14 +30,14 @@ export function useTranslationStats(userEmail: string | undefined, accessToken: 
         const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         
         // Fetch history and usage count from backend APIs concurrently
-        const [historyRes, usageRes] = await Promise.all([
-          fetch(`${API}/api/history`, {
+        const [historyRes, statsRes] = await Promise.all([
+          fetch(`${API}/api/history?limit=5`, {
             signal: controller.signal,
             headers: {
               'Authorization': `Bearer ${accessToken}`,
             },
           }),
-          fetch(`${API}/api/usage`, {
+          fetch(`${API}/api/stats`, {
             signal: controller.signal,
             headers: {
               'Authorization': `Bearer ${accessToken}`,
@@ -45,40 +45,20 @@ export function useTranslationStats(userEmail: string | undefined, accessToken: 
           }),
         ]);
 
-        if (!historyRes.ok || !usageRes.ok) {
+        if (!historyRes.ok || !statsRes.ok) {
           throw new Error('Failed to fetch stats from API');
         }
 
         const historyData: TranslationHistoryItem[] = await historyRes.json();
-        const usageData = await usageRes.json();
+        const statsData = await statsRes.json();
 
         if (active) {
-          // 1. Total translations
-          const totalCount = historyData.length;
-
-          // 2. Today translations from usage API
-          const todayCount = usageData.translations_today || 0;
-
-          // 3. This week translations (calculated from history)
-          const weekStart = new Date();
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-          weekStart.setHours(0, 0, 0, 0);
-          const weekStartMs = weekStart.getTime();
-
-          const weekCount = historyData.filter((item) => {
-            const itemTime = new Date(item.created_at).getTime();
-            return itemTime >= weekStartMs;
-          }).length;
-
-          // 4. Recent translations (first 5)
-          const recent = historyData.slice(0, 5);
-
           setStats({
-            today: todayCount,
-            week: weekCount,
-            total: totalCount,
+            today: statsData.today || 0,
+            week: statsData.week || 0,
+            total: statsData.total || 0,
           });
-          setRecentTranslations(recent);
+          setRecentTranslations(historyData);
         }
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {

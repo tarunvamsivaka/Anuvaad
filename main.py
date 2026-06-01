@@ -15,7 +15,7 @@ import collections
 import threading
 import resend
 from collections import OrderedDict, deque
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, Header, UploadFile, File, Form
 from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
@@ -2372,17 +2372,75 @@ async def sentry_test():
 # (avoids RLS infinite recursion on workspace_members)
 
 @app.get("/api/history")
-async def get_translation_history(workspace_id: str = None, email: str = Depends(get_user_email)):
+async def get_translation_history(workspace_id: str = None, limit: int = 100, email: str = Depends(get_user_email)):
+    """Return translation history for the authenticated user.
+    Use `limit` to control how many rows are returned (max 1000, default 100).
+    """
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    
+
+    # Clamp limit to a safe maximum
+    limit = max(1, min(limit, 1000))
+
     if workspace_id:
-        path = f"translation_history?workspace_id=eq.{workspace_id}&order=created_at.desc"
+        path = f"translation_history?workspace_id=eq.{workspace_id}&order=created_at.desc&limit={limit}"
     else:
-        path = f"translation_history?user_email=eq.{email}&workspace_id=is.null&order=created_at.desc"
-    
+        path = f"translation_history?user_email=eq.{email}&workspace_id=is.null&order=created_at.desc&limit={limit}"
+
     history = await supabase_request_list(path)
     return history
+
+
+@app.get("/api/stats")
+async def get_translation_stats(email: str = Depends(get_user_email)):
+    """Return accurate translation counts (total, this week, today) for the dashboard.
+    Uses HEAD/count queries so it never fetches full row data for totals.
+    """
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return {"total": 0, "week": 0, "today": 0}
+
+    base_headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Prefer": "count=exact",
+        "Range-Unit": "items",
+        "Range": "0-0",
+    }
+
+    now_utc = datetime.now(timezone.utc)
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%dT00:00:00Z")
+    # Use timedelta to safely subtract days across month/year boundaries
+    week_start_dt = (now_utc - timedelta(days=now_utc.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    week_start = week_start_dt.strftime("%Y-%m-%dT00:00:00Z")
+
+    base_filter = f"user_email=eq.{email}&workspace_id=is.null"
+
+    async def count_rows(extra_filter: str) -> int:
+        url = f"{SUPABASE_URL}/rest/v1/translation_history?{base_filter}&{extra_filter}"
+        try:
+            async with httpx.AsyncClient() as http_client:
+                resp = await http_client.get(url, headers=base_headers)
+                if resp.status_code in (200, 206):
+                    # Supabase returns count in Content-Range: 0-0/COUNT
+                    content_range = resp.headers.get("Content-Range", "")
+                    if "/" in content_range:
+                        return int(content_range.split("/")[1])
+        except Exception as e:
+            logger.warning(f"Count query failed: {e}")
+        return 0
+
+    total, week, today = await asyncio.gather(
+        count_rows("select=id"),
+        count_rows(f"created_at=gte.{week_start}&select=id"),
+        count_rows(f"created_at=gte.{today_start}&select=id"),
+    )
+
+    return {"total": total, "week": week, "today": today}
 
 @app.delete("/api/history/{item_id}")
 async def delete_history_item(item_id: str, email: str = Depends(get_user_email)):
