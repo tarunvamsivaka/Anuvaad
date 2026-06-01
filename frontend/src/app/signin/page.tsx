@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,13 +11,23 @@ import { useAuth } from "@/lib/auth-context";
 import { track } from "@/lib/analytics";
 import { Loader2 } from "lucide-react";
 
-export default function SignInPage() {
+function SignInPageContent() {
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
+  const searchParams = useSearchParams();
+  const { user, signInWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+
+  // Automatically redirect when successfully logged in
+  useEffect(() => {
+    if (user) {
+      router.push(redirectTo);
+    }
+  }, [user, router, redirectTo]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,7 +37,6 @@ export default function SignInPage() {
     const { error } = await signInWithEmail(email, password);
     setLoading(false);
     if (error) setError(error);
-    else router.push("/dashboard");
   }
 
   async function handleGoogle() {
@@ -104,5 +113,17 @@ export default function SignInPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+      </div>
+    }>
+      <SignInPageContent />
+    </Suspense>
   );
 }
