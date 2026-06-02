@@ -247,6 +247,24 @@ if _is_production:
         raise RuntimeError("FATAL: FRONTEND_URL must not be localhost in production")
     logger.info("Production env validation passed")
 
+_global_http_client: httpx.AsyncClient = None
+
+def get_http_client() -> httpx.AsyncClient:
+    global _global_http_client
+    if _global_http_client is None:
+        _global_http_client = httpx.AsyncClient(
+            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+            timeout=httpx.Timeout(30.0)
+        )
+    return _global_http_client
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global _global_http_client
+    if _global_http_client is not None:
+        await _global_http_client.aclose()
+        logger.info("Closed global HTTP client")
+
 FREE_TIER_DAILY_LIMIT = 10
 
 async def supabase_request(method: str, path: str, data: dict = None) -> dict | None:
@@ -263,22 +281,22 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
         "Prefer": "return=representation"
     }
     try:
-        async with httpx.AsyncClient() as http_client:
-            if method == "GET":
-                resp = await http_client.get(url, headers=headers)
-            elif method == "POST":
-                headers["Prefer"] = "resolution=merge-duplicates,return=representation"
-                resp = await http_client.post(url, headers=headers, json=data)
-            elif method == "PATCH":
-                resp = await http_client.patch(url, headers=headers, json=data)
-            else:
-                return None
-            if resp.status_code in (200, 201):
-                result = resp.json()
-                return result[0] if isinstance(result, list) and result else result
-            else:
-                logger.error(f"Supabase {method} {path} failed: {resp.status_code} {resp.text}")
-                return None
+        http_client = get_http_client()
+        if method == "GET":
+            resp = await http_client.get(url, headers=headers)
+        elif method == "POST":
+            headers["Prefer"] = "resolution=merge-duplicates,return=representation"
+            resp = await http_client.post(url, headers=headers, json=data)
+        elif method == "PATCH":
+            resp = await http_client.patch(url, headers=headers, json=data)
+        else:
+            return None
+        if resp.status_code in (200, 201):
+            result = resp.json()
+            return result[0] if isinstance(result, list) and result else result
+        else:
+            logger.error(f"Supabase {method} {path} failed: {resp.status_code} {resp.text}")
+            return None
     except Exception as e:
         logger.error(f"Supabase request error: {e}")
         return None
@@ -295,14 +313,14 @@ async def supabase_request_list(path: str) -> list:
         "Content-Type": "application/json",
     }
     try:
-        async with httpx.AsyncClient() as http_client:
-            resp = await http_client.get(url, headers=headers)
-            if resp.status_code == 200:
-                result = resp.json()
-                return result if isinstance(result, list) else [result] if result else []
-            else:
-                logger.error(f"Supabase GET {path} failed: {resp.status_code} {resp.text}")
-                return []
+        http_client = get_http_client()
+        resp = await http_client.get(url, headers=headers)
+        if resp.status_code == 200:
+            result = resp.json()
+            return result if isinstance(result, list) else [result] if result else []
+        else:
+            logger.error(f"Supabase GET {path} failed: {resp.status_code} {resp.text}")
+            return []
     except Exception as e:
         logger.error(f"Supabase list request error: {e}")
         return []
@@ -327,13 +345,13 @@ async def get_user_email(credentials: HTTPAuthorizationCredentials = Depends(sec
     
     # 2. Otherwise assume it's a Supabase JWT
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{SUPABASE_URL}/auth/v1/user",
-                headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY}
-            )
-            if resp.status_code == 200:
-                return resp.json().get("email")
+        client = get_http_client()
+        resp = await client.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY}
+        )
+        if resp.status_code == 200:
+            return resp.json().get("email")
     except Exception as e:
         logger.error(f"JWT verification error: {e}")
     return None
@@ -406,14 +424,20 @@ async def save_translation_background(user_email: str, mode: str, source_languag
                 }
                 ids_param = ",".join(to_delete_ids)
                 url = f"{SUPABASE_URL}/rest/v1/translation_history?id=in.({ids_param})"
-                async with httpx.AsyncClient() as http_client:
+                try:
+                    http_client = get_http_client()
                     resp = await http_client.delete(url, headers=headers)
                     if resp.status_code not in (200, 204):
                         logger.warning(f"Failed to prune old translation history items: {resp.status_code} {resp.text}")
                     else:
                         logger.info(f"Pruned {len(to_delete_ids)} oldest translation history rows for {user_email} to enforce limit of {limit}.")
+                except Exception as prune_err:
+                    logger.warning(f"Prune delete failed: {prune_err}")
             
         await supabase_request("POST", "translation_history", data)
+        # Invalidate stats and history caches
+        await cache.delete(f"user_stats:{user_email}")
+        await cache.delete_prefix(f"user_history:{user_email}")
 
         # ── Welcome email for first-time users + Milestone email check ──
         try:
@@ -962,6 +986,11 @@ class LRUCache:
                 "hits": self.hits,
                 "misses": self.misses
             }
+            
+    def delete(self, key: str):
+        with self.lock:
+            if key in self.cache:
+                del self.cache[key]
 
 class RedisCache:
     """Unified cache and rate-limiter backed by Redis.
@@ -1032,6 +1061,27 @@ class RedisCache:
             except Exception as e:
                 logger.error(f"Redis put error: {e}")
         self.fallback.set(key, value, ttl)
+
+    async def delete(self, key: str):
+        if self.client:
+            try:
+                await self.client.delete(key)
+            except Exception as e:
+                logger.error(f"Redis delete error: {e}")
+        self.fallback.delete(key)
+
+    async def delete_prefix(self, prefix: str):
+        if self.client:
+            try:
+                keys = await self.client.keys(prefix + "*")
+                if keys:
+                    await self.client.delete(*keys)
+            except Exception as e:
+                logger.error(f"Redis delete_prefix error: {e}")
+        with self.fallback.lock:
+            to_del = [k for k in self.fallback.cache.keys() if k.startswith(prefix)]
+            for k in to_del:
+                del self.fallback.cache[k]
 
     async def incr_rate_limit(self, key: str, window: int) -> int:
         if self.client:
@@ -2342,6 +2392,9 @@ async def create_workspace(payload: WorkspaceCreate, email: str = Depends(get_us
         "role": "owner"
     })
     
+    # Invalidate workspaces cache for the creator
+    await cache.delete(f"user_workspaces:{email}")
+    
     return workspace
 
 @app.get("/api/workspaces")
@@ -2349,19 +2402,29 @@ async def list_workspaces(email: str = Depends(get_user_email)):
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
         
+    cache_key = f"user_workspaces:{email}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        metrics.record_cache_hit()
+        return cached
+    metrics.record_cache_miss()
+        
     # Get all memberships for the user — always returns a list
     memberships = await supabase_request_list(f"workspace_members?user_email=eq.{email}&select=workspace_id,role")
     
     if not memberships:
+        await cache.put(cache_key, [], ttl=300)
         return []
         
     workspace_ids = [m["workspace_id"] for m in memberships if isinstance(m, dict) and "workspace_id" in m]
     if not workspace_ids:
+        await cache.put(cache_key, [], ttl=300)
         return []
         
     # Fetch workspace details — always returns a list
     ids_param = ",".join(workspace_ids)
     workspaces = await supabase_request_list(f"workspaces?id=in.({ids_param})")
+    await cache.put(cache_key, workspaces, ttl=300)
     return workspaces
 
 @app.get("/api/workspaces/{workspace_id}/members")
@@ -2391,11 +2454,15 @@ async def delete_workspace(workspace_id: str, email: str = Depends(get_user_emai
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         raise HTTPException(status_code=500, detail="Database not configured")
     
+    # Get members first to invalidate their workspace caches
+    members = await supabase_request_list(f"workspace_members?workspace_id=eq.{workspace_id}&select=user_email")
+    
     headers = {
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
     }
-    async with httpx.AsyncClient() as http_client:
+    try:
+        http_client = get_http_client()
         # Delete all members first
         await http_client.delete(
             f"{SUPABASE_URL}/rest/v1/workspace_members?workspace_id=eq.{workspace_id}",
@@ -2408,7 +2475,15 @@ async def delete_workspace(workspace_id: str, email: str = Depends(get_user_emai
         )
         if resp.status_code not in (200, 204):
             raise HTTPException(status_code=500, detail="Failed to delete workspace")
-    
+    except Exception as e:
+        logger.error(f"Failed to delete workspace from DB: {e}")
+        raise HTTPException(status_code=500, detail="Database error during workspace deletion")
+        
+    # Invalidate workspaces cache for all members
+    for member in members:
+        if isinstance(member, dict) and "user_email" in member:
+            await cache.delete(f"user_workspaces:{member['user_email']}")
+            
     return {"status": "success"}
 
 @app.delete("/api/workspaces/{workspace_id}/members/{member_email}")
@@ -2434,13 +2509,20 @@ async def remove_workspace_member(workspace_id: str, member_email: str, email: s
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
     }
-    async with httpx.AsyncClient() as http_client:
+    try:
+        http_client = get_http_client()
         resp = await http_client.delete(
             f"{SUPABASE_URL}/rest/v1/workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{member_email}",
             headers=headers
         )
         if resp.status_code not in (200, 204):
             raise HTTPException(status_code=500, detail="Failed to remove member")
+    except Exception as e:
+        logger.error(f"Failed to remove workspace member: {e}")
+        raise HTTPException(status_code=500, detail="Database error during member removal")
+        
+    # Invalidate workspaces cache for the removed member
+    await cache.delete(f"user_workspaces:{member_email}")
     
     return {"status": "success", "message": f"Removed {member_email}"}
 
@@ -2460,6 +2542,9 @@ async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, e
         "user_email": payload.email,
         "role": payload.role
     })
+    
+    # Invalidate workspaces cache for the invited member
+    await cache.delete(f"user_workspaces:{payload.email}")
     
     return {"status": "success", "message": f"Invited {payload.email}"}
 @app.get("/api/sentry-test")
@@ -2485,12 +2570,20 @@ async def get_translation_history(workspace_id: str = None, limit: int = 100, em
     # Clamp limit to a safe maximum
     limit = max(1, min(limit, 1000))
 
+    cache_key = f"user_history:{email}:{workspace_id}:{limit}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        metrics.record_cache_hit()
+        return cached
+    metrics.record_cache_miss()
+
     if workspace_id:
         path = f"translation_history?workspace_id=eq.{workspace_id}&order=created_at.desc&limit={limit}"
     else:
         path = f"translation_history?user_email=eq.{email}&workspace_id=is.null&order=created_at.desc&limit={limit}"
 
     history = await supabase_request_list(path)
+    await cache.put(cache_key, history, ttl=300)
     return history
 
 
@@ -2501,6 +2594,13 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
     """
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+    cache_key = f"user_stats:{email}"
+    cached = await cache.get(cache_key)
+    if cached is not None:
+        metrics.record_cache_hit()
+        return cached
+    metrics.record_cache_miss()
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return {"total": 0, "week": 0, "today": 0}
@@ -2526,13 +2626,13 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
     async def count_rows(extra_filter: str) -> int:
         url = f"{SUPABASE_URL}/rest/v1/translation_history?{base_filter}&{extra_filter}"
         try:
-            async with httpx.AsyncClient() as http_client:
-                resp = await http_client.get(url, headers=base_headers)
-                if resp.status_code in (200, 206):
-                    # Supabase returns count in Content-Range: 0-0/COUNT
-                    content_range = resp.headers.get("Content-Range", "")
-                    if "/" in content_range:
-                        return int(content_range.split("/")[1])
+            http_client = get_http_client()
+            resp = await http_client.get(url, headers=base_headers)
+            if resp.status_code in (200, 206):
+                # Supabase returns count in Content-Range: 0-0/COUNT
+                content_range = resp.headers.get("Content-Range", "")
+                if "/" in content_range:
+                    return int(content_range.split("/")[1])
         except Exception as e:
             logger.warning(f"Count query failed: {e}")
         return 0
@@ -2543,7 +2643,9 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
         count_rows(f"created_at=gte.{today_start}&select=id"),
     )
 
-    return {"total": total, "week": week, "today": today}
+    res = {"total": total, "week": week, "today": today}
+    await cache.put(cache_key, res, ttl=300)
+    return res
 
 @app.delete("/api/history/{item_id}")
 async def delete_history_item(item_id: str, email: str = Depends(get_user_email)):
@@ -2563,13 +2665,21 @@ async def delete_history_item(item_id: str, email: str = Depends(get_user_email)
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
     }
-    async with httpx.AsyncClient() as http_client:
+    try:
+        http_client = get_http_client()
         resp = await http_client.delete(
             f"{SUPABASE_URL}/rest/v1/translation_history?id=eq.{item_id}&user_email=eq.{email}",
             headers=headers
         )
         if resp.status_code not in (200, 204):
             raise HTTPException(status_code=500, detail="Failed to delete history item")
+    except Exception as e:
+        logger.error(f"Failed to delete history item from DB: {e}")
+        raise HTTPException(status_code=500, detail="Database error during deletion")
+        
+    # Invalidate stats and history caches
+    await cache.delete(f"user_stats:{email}")
+    await cache.delete_prefix(f"user_history:{email}")
     
     return {"status": "success"}
 
