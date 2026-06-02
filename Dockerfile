@@ -5,6 +5,16 @@ COPY frontend/package*.json ./
 RUN npm ci --production=false
 COPY frontend/ .
 ENV NEXT_TELEMETRY_DISABLED=1
+
+# Build-time placeholders — real values are injected at runtime via env vars.
+# These allow `npm run build` to succeed in CI/Docker without live Supabase credentials.
+ARG NEXT_PUBLIC_SUPABASE_URL=https://placeholder.supabase.co
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder_anon_key_for_build
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build
 
 # ── Stage 2: Production image ──
