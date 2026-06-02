@@ -16,6 +16,40 @@ async function setMonacoValue(page: any, code: string) {
 
 test('Perform real translation and verify results in the website', async ({ page }) => {
   test.setTimeout(120000);
+
+  // Mock API routes to prevent calling real LLMs or requiring the backend in CI
+  await page.route('**/api/code-to-english', async route => {
+    await route.fulfill({
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+      body: [
+        'data: {"chunk": "Defines", "done": false}\n\n',
+        'data: {"chunk": " a function", "done": false}\n\n',
+        `data: {"done": true, "blocks": [{"id": "block_1", "code_snippet": "#include <stdio.h>", "english_translation": "Imports the standard input/output library."}, {"id": "block_2", "code_snippet": "int main() {\\n    printf(\\"Hello, Anuvaad!\\\\n\\");\\n    return 0;\\n}", "english_translation": "Prints hello world."}], "model_used": "llama-3"}\n\n`
+      ].join('')
+    });
+  });
+
+  await page.route('**/api/sync-english-to-code', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: "success",
+        updated_code: `#include <stdio.h>\n\nint main() {\n    printf("Hello, Anuvaad!\\n");\n    return 0;\n}`,
+        blocks: [
+          { "id": "block_1", "code_snippet": "#include <stdio.h>", "english_translation": "Imports the standard input/output library." },
+          { "id": "block_2", "code_snippet": "int main() {\n    printf(\"Hello, Anuvaad!\\n\");\n    return 0;\n}", "english_translation": "Prints hello world." }
+        ],
+        model_used: "llama-3"
+      })
+    });
+  });
+
   console.log('Navigating to translate page...');
   await page.goto('/dashboard/translate');
 

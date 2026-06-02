@@ -14,20 +14,19 @@ import secrets
 import collections
 import threading
 import resend
-from collections import OrderedDict, deque
+from collections import deque
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, Header, UploadFile, File, Form
 from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
-import openai
 from openai import AsyncOpenAI
 import sentry_sdk
 import time
+
+load_dotenv()
 
 # LLM API timeout (seconds) — prevents hung requests
 LLM_TIMEOUT = 60
@@ -357,7 +356,8 @@ async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 async def save_translation_background(user_email: str, mode: str, source_language: str, target_language: str, input_text: str, blocks: list, model_used: str, workspace_id: str | None = None):
-    if not user_email: return
+    if not user_email:
+        return
     try:
         input_preview = input_text[:80]
         char_count = len(input_text)

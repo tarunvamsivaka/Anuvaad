@@ -10,8 +10,8 @@ Provides:
 
 import json
 import os
-import time
-from unittest.mock import patch
+import razorpay
+from unittest.mock import patch, MagicMock
 import pytest
 import httpx
 
@@ -46,8 +46,6 @@ os.environ.setdefault("RAZORPAY_KEY_SECRET", "test_secret_for_ci")
 os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test_webhook_secret_for_ci"
 
 # ── Patch Razorpay Webhook Verification ──
-import razorpay
-from unittest.mock import MagicMock
 
 # Create a mock utility with verify methods that do nothing (signifying success)
 mock_utility = MagicMock()
