@@ -96,7 +96,7 @@ class TestStreamingEndpoint:
         import asyncio
         cached_blocks = [{"id": "b1", "code_snippet": "z = 3", "english_translation": "Assigns 3 to z"}]
         cache_key = app_module.cache_key("z = 3", "python", "code-to-english", "standard")
-        asyncio.get_event_loop().run_until_complete(fake_redis.put(cache_key, cached_blocks))
+        asyncio.run(fake_redis.put(cache_key, cached_blocks))
 
         # Track whether AsyncOpenAI was instantiated
         calls = []
