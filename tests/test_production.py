@@ -1,6 +1,5 @@
-import os
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Define tests for production behavior
 def test_production_flag_detection():

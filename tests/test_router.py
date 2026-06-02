@@ -5,8 +5,6 @@ Verifies model selection based on mode, R1 pro routing,
 and fallback behaviour when a provider returns a rate limit error.
 """
 
-import asyncio
-import json
 import os
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch

@@ -5,7 +5,6 @@ Uses the monkey-patched Gemini client from conftest.py
 so no real API calls are made.
 """
 
-import json
 
 
 class TestHealthEndpoint:
