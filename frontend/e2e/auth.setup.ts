@@ -5,6 +5,9 @@ import { mockSupabaseAuth } from './mock-auth';
 const authFile = path.join(__dirname, '../playwright/.auth/user.json');
 
 setup('authenticate', async ({ page }) => {
+  page.on('console', msg => console.log('[BROWSER CONSOLE]', msg.text()));
+  page.on('pageerror', err => console.error('[BROWSER ERROR]', err));
+
   // Mock Supabase auth endpoints for offline E2E testing
   await mockSupabaseAuth(page);
 

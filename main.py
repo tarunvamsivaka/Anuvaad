@@ -485,10 +485,17 @@ async def deduct_credit(email: str) -> bool:
     result = await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{email}&credits=eq.{current}", {"credits": current - 1})
     return result is not None
 
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from X-Forwarded-For header if behind a reverse proxy, fallback to client host."""
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        return x_forwarded_for.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
 async def check_free_tier_limit(email: str | None, is_pro: bool, request: Request) -> None:
     """Raise 429 if a free-tier user has exceeded their daily limit and has no credits."""
     if not email:
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = get_client_ip(request)
         redis_key = f"anon_daily_usage:{client_ip}"
         # Track anonymous usage by IP per 24 hours (86400 seconds)
         count = await cache.incr_rate_limit(redis_key, 86400)
@@ -1123,7 +1130,7 @@ async def rate_limit_middleware(request: Request, call_next):
     if request.method == "OPTIONS":
         return await call_next(request)
 
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     if client_ip == "127.0.0.1":
         return await call_next(request)
         

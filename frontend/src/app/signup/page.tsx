@@ -39,7 +39,9 @@ function SignUpPageContent() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
-        window.location.href = redirectTo;
+        setTimeout(() => {
+          window.location.href = redirectTo;
+        }, 500);
       } else {
         setSuccess(true);
       }

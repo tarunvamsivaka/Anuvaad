@@ -1,7 +1,7 @@
 """
 API endpoint tests for Anuvaad backend.
 
-Uses the monkey-patched Gemini client from conftest.py
+Uses the monkey-patched LLM client from conftest.py
 so no real API calls are made.
 """
 

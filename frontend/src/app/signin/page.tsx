@@ -32,7 +32,9 @@ function SignInPageContent() {
     if (error) {
       setError(error);
     } else {
-      window.location.href = redirectTo;
+      setTimeout(() => {
+        window.location.href = redirectTo;
+      }, 500);
     }
   }
 

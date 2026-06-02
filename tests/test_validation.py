@@ -48,7 +48,7 @@ class TestPayloadLimits:
 
 
 class TestResponseNormalization:
-    """Test the normalize_blocks function handles various Gemini response shapes."""
+    """Test the normalize_blocks function handles various LLM response shapes."""
 
     def test_normalize_standard_response(self):
         from main import normalize_blocks

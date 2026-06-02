@@ -2,7 +2,7 @@
 Comprehensive functional tests for all Anuvaad features.
 Covers: translation APIs, error handling, auth gating, workspaces,
 Pydantic models, normalization edge cases, caching, rate limiting,
-CORS, Stripe webhooks, and checkout validation.
+CORS, Razorpay webhooks, and checkout validation.
 """
 import sys
 import os
@@ -15,7 +15,7 @@ import pytest
 # ═══════════════════════════════════════════════════════════════
 
 class TestMultiBlockResponses:
-    """Verify the API correctly handles multi-block Gemini output."""
+    """Verify the API correctly handles multi-block LLM output."""
 
     def test_code_to_english_returns_multiple_blocks(self, client_multi_block):
         res = client_multi_block.post("/api/code-to-english", json={
@@ -61,21 +61,21 @@ class TestMultiBlockResponses:
 
 
 # ═══════════════════════════════════════════════════════════════
-# 2. GEMINI ERROR HANDLING
+# 2. AI ERROR HANDLING
 # ═══════════════════════════════════════════════════════════════
 
-class TestGeminiErrorHandling:
-    """Verify graceful handling of Gemini API failures."""
+class TestAIErrorHandling:
+    """Verify graceful handling of AI API failures."""
 
-    def test_invalid_json_returns_500(self, client_gemini_error):
-        res = client_gemini_error.post("/api/code-to-english", json={
+    def test_invalid_json_returns_500(self, client_ai_error):
+        res = client_ai_error.post("/api/code-to-english", json={
             "raw_code": "x = 999", "language": "python"
         })
         assert res.status_code == 200
         assert "detail" in res.json()
 
-    def test_code_to_code_invalid_json(self, client_gemini_error):
-        res = client_gemini_error.post("/api/code-to-code", json={
+    def test_code_to_code_invalid_json(self, client_ai_error):
+        res = client_ai_error.post("/api/code-to-code", json={
             "raw_code": "x = 1",
             "source_language": "python",
             "target_language": "javascript"
@@ -83,8 +83,8 @@ class TestGeminiErrorHandling:
         assert res.status_code == 200
         assert "detail" in res.json()
 
-    def test_generate_invalid_json(self, client_gemini_error):
-        res = client_gemini_error.post("/api/generate-from-english", json={
+    def test_generate_invalid_json(self, client_ai_error):
+        res = client_ai_error.post("/api/generate-from-english", json={
             "prompt": "hello world function", "language": "python"
         })
         assert res.status_code == 500

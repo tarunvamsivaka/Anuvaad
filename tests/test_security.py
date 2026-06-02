@@ -4,7 +4,7 @@ Security tests for the Anuvaad backend.
 Covers:
 - Prompt injection sanitisation
 - Binary input rejection
-- Stripe webhook signature verification
+- Razorpay webhook signature verification
 """
 
 import json

@@ -229,7 +229,7 @@ def client_multi_block():
 
 
 @pytest.fixture()
-def client_gemini_error():
+def client_ai_error():
     import main as app_module
 
     fake_redis = MockRedisCache()
