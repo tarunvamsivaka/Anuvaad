@@ -55,7 +55,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     requestAnimationFrame(() => {
       refreshWorkspaces();
     });
-  }, []);
+  }, [refreshWorkspaces]);
 
   const value = useMemo(() => ({
     workspaces,

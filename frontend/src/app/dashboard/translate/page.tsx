@@ -382,6 +382,19 @@ function TranslatePageContent() {
   const [gistLoading, setGistLoading] = useState(false);
   const [detectedLang, setDetectedLang] = useState<string | null>(null);
 
+  const [outputBlocks, setOutputBlocks] = useState<TranslationBlock[] | null>(null);
+  const [originalBlocks, setOriginalBlocks] = useState<TranslationBlock[] | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [streamText, setStreamText] = useState("");
+  const [isStreaming, setIsStreaming] = useState(false);
+  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
+  // Buffer SSE chunks; flush at rAF cadence (~60 Hz) instead of per-chunk setState
+  const streamBufferRef = useRef("");
+  const rafIdRef = useRef<number | null>(null);
+  const [rawError, setRawError] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [modelUsed, setModelUsed] = useState<string | null>(null);
+
   const onFileDrop = useCallback((acceptedFiles: globalThis.File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
@@ -459,19 +472,6 @@ function TranslatePageContent() {
     }
   }, [searchParams]);
   
-  const [outputBlocks, setOutputBlocks] = useState<TranslationBlock[] | null>(null);
-  const [originalBlocks, setOriginalBlocks] = useState<TranslationBlock[] | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [streamText, setStreamText] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
-  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
-  // Buffer SSE chunks; flush at rAF cadence (~60 Hz) instead of per-chunk setState
-  const streamBufferRef = useRef("");
-  const rafIdRef = useRef<number | null>(null);
-  const [rawError, setRawError] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [modelUsed, setModelUsed] = useState<string | null>(null);
-
   const { activeWorkspace } = useWorkspace();
 
   const currentMode = useMemo(() => modes.find((m) => m.id === mode)!, [mode]);
@@ -776,7 +776,6 @@ function TranslatePageContent() {
     };
     window.addEventListener("keydown", handleKeyDown, { passive: true });
     return () => window.removeEventListener("keydown", handleKeyDown);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Client-side language auto-detection — debounced 400 ms to avoid regex on every keystroke

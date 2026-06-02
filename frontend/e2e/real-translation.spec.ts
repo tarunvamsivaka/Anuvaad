@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import * as path from 'path';
 
 async function setMonacoValue(page: any, code: string) {
   await page.waitForFunction(
