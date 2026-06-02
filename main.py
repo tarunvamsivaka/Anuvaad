@@ -238,7 +238,7 @@ else:
 if _is_production:
     _missing = []
     for _var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY",
-                 "RAZORPAY_WEBHOOK_SECRET", "FRONTEND_URL"]:
+                 "FRONTEND_URL"]:
         val = os.getenv(_var, "")
         if not val or val.startswith("your_") or val == "dummy_key":
             _missing.append(_var)

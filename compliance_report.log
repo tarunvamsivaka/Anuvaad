@@ -80,3 +80,46 @@
 [2026-06-02T15:00:22.362752] [SUMMARY] Audit completed: 10 passed checks, 0 failures, 9 warnings.
 [2026-06-02T15:00:22.363179] [SUMMARY] Operational status: HEALTHY
 [2026-06-02T15:00:22.363595] [SUMMARY] Report saved to compliance_report.json
+[2026-06-02T15:30:04.928966] [START] Starting automated Anuvaad site audit and compliance subagent...
+[2026-06-02T15:30:04.929903] [HEALTH] Auditing endpoint /api/health...
+[2026-06-02T15:30:09.776613] [INFO] Backend API is healthy (status 200). Config checks:
+[2026-06-02T15:30:09.777150] [INFO]   [93m[WARN][0m Redis connected: False (using in-memory caching fallback)
+[2026-06-02T15:30:09.777510] [INFO]   [92m[OK][0m Supabase connection: Active
+[2026-06-02T15:30:09.777913] [INFO]   [92m[OK][0m LLM API Keys (Groq/DeepSeek): Configured
+[2026-06-02T15:30:09.778795] [METRICS] Auditing system errors and latency metrics...
+[2026-06-02T15:30:10.341835] [INFO] Uptime: 9016 seconds (2.50 hours)
+[2026-06-02T15:30:10.342271] [INFO] Observability Metrics Snapshot:
+[2026-06-02T15:30:10.342623] [INFO]   - Total API Requests: 58
+[2026-06-02T15:30:10.342951] [INFO]   - Total API Errors (4xx/5xx): 2
+[2026-06-02T15:30:10.343302] [INFO]   - Error Rate: 3.45%
+[2026-06-02T15:30:10.343632] [INFO]   - Average latencies:
+[2026-06-02T15:30:10.343940] [INFO]     * subscription-status: 3385.0 ms
+[2026-06-02T15:30:10.344224] [INFO]       [93m[WARN][0m Latency is above 2.0s limit
+[2026-06-02T15:30:10.344578] [INFO]     * workspaces: 3522.3 ms
+[2026-06-02T15:30:10.344876] [INFO]       [93m[WARN][0m Latency is above 2.0s limit
+[2026-06-02T15:30:10.345292] [INFO]     * history: 2757.46 ms
+[2026-06-02T15:30:10.345800] [INFO]       [93m[WARN][0m Latency is above 2.0s limit
+[2026-06-02T15:30:10.346128] [INFO]     * stats: 3750.1 ms
+[2026-06-02T15:30:10.346508] [INFO]       [93m[WARN][0m Latency is above 2.0s limit
+[2026-06-02T15:30:10.346775] [INFO]     * check-credits: 2737.29 ms
+[2026-06-02T15:30:10.347097] [INFO]       [93m[WARN][0m Latency is above 2.0s limit
+[2026-06-02T15:30:10.347364] [INFO]     * code-to-english: 2396.19 ms
+[2026-06-02T15:30:10.347649] [INFO]       [93m[WARN][0m Latency is above 2.0s limit
+[2026-06-02T15:30:10.347911] [INFO]     * health: 4101.68 ms
+[2026-06-02T15:30:10.348225] [INFO]       [93m[WARN][0m Latency is above 2.0s limit
+[2026-06-02T15:30:10.348553] [INFO]     * metrics: 79.5 ms
+[2026-06-02T15:30:10.348881] [INFO]     * api-keys: 1376.0 ms
+[2026-06-02T15:30:10.349182] [INFO]     * create-credit-checkout: 13.21 ms
+[2026-06-02T15:30:10.349457] [INFO]     * create-checkout-session: 4.58 ms
+[2026-06-02T15:30:10.350181] [LINKS] Auditing Content & Link Integrity of static legal pages...
+[2026-06-02T15:30:10.353329] [INFO]   [92m[OK][0m privacy.html link integrity scan passed (no legacy static HTML extensions)
+[2026-06-02T15:30:10.354381] [INFO]   [92m[OK][0m terms.html link integrity scan passed (no legacy static HTML extensions)
+[2026-06-02T15:30:10.354666] [SECURITY] Auditing Security Gating and Configuration...
+[2026-06-02T15:30:10.355323] [INFO]   [92m[OK][0m Secret configuration (.env) is properly listed in .gitignore
+[2026-06-02T15:30:15.693668] [DEPENDENCIES] Auditing frontend dependencies using npm audit...
+[2026-06-02T15:30:31.408897] [INFO] NPM Vulnerabilities: 24 total (2 High/Critical)
+[2026-06-02T15:30:31.409512] [INFO]   [93m[WARN][0m Action recommended: run 'npm audit fix'
+[2026-06-02T15:30:31.410635] [SUMMARY] ----------------------------------------------------------------
+[2026-06-02T15:30:31.411010] [SUMMARY] Audit completed: 10 passed checks, 0 failures, 9 warnings.
+[2026-06-02T15:30:31.411378] [SUMMARY] Operational status: HEALTHY
+[2026-06-02T15:30:31.411730] [SUMMARY] Report saved to compliance_report.json

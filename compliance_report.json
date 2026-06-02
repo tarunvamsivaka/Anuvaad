@@ -1,47 +1,56 @@
 {
-  "timestamp": "2026-06-02T15:00:22.361382",
+  "timestamp": "2026-06-02T15:30:31.409898",
   "passed_checks": 10,
   "failed_checks": 0,
   "warnings_count": 9,
   "status": "HEALTHY",
   "findings": [
     "WARNING: Redis connection is currently inactive.",
-    "WARNING: Latency for endpoint subscription-status is high (3640.47ms)",
-    "WARNING: Latency for endpoint workspaces is high (4870.41ms)",
-    "WARNING: Latency for endpoint history is high (3692.09ms)",
-    "WARNING: Latency for endpoint stats is high (6126.43ms)",
-    "WARNING: Latency for endpoint check-credits is high (3051.35ms)",
+    "WARNING: Latency for endpoint subscription-status is high (3385.0ms)",
+    "WARNING: Latency for endpoint workspaces is high (3522.3ms)",
+    "WARNING: Latency for endpoint history is high (2757.46ms)",
+    "WARNING: Latency for endpoint stats is high (3750.1ms)",
+    "WARNING: Latency for endpoint check-credits is high (2737.29ms)",
     "WARNING: Latency for endpoint code-to-english is high (2396.19ms)",
-    "WARNING: Latency for endpoint health is high (4122.31ms)",
+    "WARNING: Latency for endpoint health is high (4101.68ms)",
     "WARNING: Frontend has 2 High/Critical package vulnerabilities. Run 'npm audit fix'."
   ],
   "metrics": {
-    "uptime_seconds": 7216,
+    "uptime_seconds": 9016,
     "python_version": "3.13.9 (tags/v3.13.9:8183fa5, Oct 14 2025, 14:09:13) [MSC v.1944 64 bit (AMD64)]",
     "total_requests": {
-      "subscription-status": 9,
-      "workspaces": 1,
-      "history": 2,
-      "stats": 1,
-      "check-credits": 4,
+      "subscription-status": 17,
+      "workspaces": 4,
+      "history": 7,
+      "stats": 4,
+      "check-credits": 12,
       "code-to-english": 1,
-      "health": 4,
-      "metrics": 1
+      "health": 6,
+      "metrics": 2,
+      "api-keys": 3,
+      "create-credit-checkout": 1,
+      "create-checkout-session": 1
     },
-    "total_errors": {},
+    "total_errors": {
+      "create-credit-checkout": 1,
+      "create-checkout-session": 1
+    },
     "model_calls": {},
     "model_errors": {},
     "cache_hits": 0,
     "cache_misses": 1,
     "average_latency_ms": {
-      "subscription-status": 3640.47,
-      "workspaces": 4870.41,
-      "history": 3692.09,
-      "stats": 6126.43,
-      "check-credits": 3051.35,
+      "subscription-status": 3385.0,
+      "workspaces": 3522.3,
+      "history": 2757.46,
+      "stats": 3750.1,
+      "check-credits": 2737.29,
       "code-to-english": 2396.19,
-      "health": 4122.31,
-      "metrics": 158.36
+      "health": 4101.68,
+      "metrics": 79.5,
+      "api-keys": 1376.0,
+      "create-credit-checkout": 13.21,
+      "create-checkout-session": 4.58
     }
   }
 }
