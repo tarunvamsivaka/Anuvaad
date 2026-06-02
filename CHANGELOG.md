@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - PostHog product analytics integration in the frontend with custom event tracking.
 - Sentry error monitoring for both frontend (client, server, edge configs) and backend.
 - Upstash Redis caching with automatic LRU memory fallback when Redis is unavailable.
-- Translation credits system with one-time Stripe checkout purchase flow.
+- Translation credits system with one-time Razorpay checkout purchase flow.
 - `/api/metrics` and `/api/metrics/prometheus` observability endpoints with HTTP Basic Auth.
 - Rate limiting middleware (15 requests/minute per IP) backed by Redis.
 - File upload endpoint (`/api/upload-file`) with extension-based language detection.
@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Next.js frontend built with App Router, shadcn/ui components, and persistent next-themes support.
 - Three specialized translation modes: Code → English, English → Code, and Code → Code.
 - Supabase Authentication (Google + GitHub OAuth) and robust PostgreSQL integration for user profiles and history.
-- Stripe billing portal with automated webhooks, subscription gating, and Pro-tier functionality.
+- Razorpay billing portal with automated webhooks, subscription gating, and Pro-tier functionality.
 - Team Workspaces for collaborative sharing of translation context and custom coding standards.
 - Production-ready Docker multi-stage build orchestration and NGINX reverse proxy configuration.
 - Comprehensive suite of 50+ Pytest tests validating core endpoints, cache performance, and AI fallback logic.

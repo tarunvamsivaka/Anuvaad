@@ -24,12 +24,12 @@ class TestRedisCache:
 
     def test_different_code_not_cached(self, client):
         """Different code should not hit the cache."""
-        res1 = client.post("/api/code-to-english", json={
-            "raw_code": "x = 1", "language": "python"
-        })
-        res2 = client.post("/api/code-to-english", json={
-            "raw_code": "y = 2", "language": "python"
-        })
+        res1 = client.post(
+            "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
+        )
+        res2 = client.post(
+            "/api/code-to-english", json={"raw_code": "y = 2", "language": "python"}
+        )
         assert res1.status_code == 200
         assert res2.status_code == 200
         # Both succeed (cache miss for second, but still processes)
@@ -39,7 +39,7 @@ class TestRedisCache:
         payload = {
             "block_id": "block_1",
             "modified_english": "Print goodbye",
-            "full_context": "print('hello')"
+            "full_context": "print('hello')",
         }
         res1 = client.post("/api/english-to-code", json=payload)
         res2 = client.post("/api/english-to-code", json=payload)
@@ -54,24 +54,28 @@ class TestCacheKey:
 
     def test_same_inputs_same_key(self):
         from main import cache_key
+
         k1 = cache_key("print('hello')", "python", "code-to-english", "llama-3")
         k2 = cache_key("print('hello')", "python", "code-to-english", "llama-3")
         assert k1 == k2
 
     def test_different_code_different_key(self):
         from main import cache_key
+
         k1 = cache_key("print('hello')", "python", "code-to-english", "llama-3")
         k2 = cache_key("print('world')", "python", "code-to-english", "llama-3")
         assert k1 != k2
 
     def test_different_language_different_key(self):
         from main import cache_key
+
         k1 = cache_key("console.log('hi')", "javascript", "code-to-english", "llama-3")
         k2 = cache_key("console.log('hi')", "python", "code-to-english", "llama-3")
         assert k1 != k2
 
     def test_different_endpoint_different_key(self):
         from main import cache_key
+
         k1 = cache_key("x = 1", "python", "code-to-english", "llama-3")
         k2 = cache_key("x = 1", "python", "generate-from-english", "llama-3")
         assert k1 != k2
@@ -82,9 +86,9 @@ class TestRateLimiting:
 
     def test_rate_limit_triggers(self, client_rate_limited):
         """After max requests, should return 429."""
-        res = client_rate_limited.post("/api/code-to-english", json={
-            "raw_code": "x = 1", "language": "python"
-        })
+        res = client_rate_limited.post(
+            "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
+        )
         assert res.status_code == 429
         assert "Rate limit exceeded" in res.json()["detail"]
 
@@ -96,7 +100,7 @@ class TestRateLimiting:
     def test_within_rate_limit(self, client):
         """Requests within the limit should succeed."""
         for _ in range(3):
-            res = client.post("/api/code-to-english", json={
-                "raw_code": "x = 1", "language": "python"
-            })
+            res = client.post(
+                "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
+            )
             assert res.status_code == 200

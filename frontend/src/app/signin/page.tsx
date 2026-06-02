@@ -18,12 +18,17 @@ function SignInPageContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
 
   const rawRedirect = searchParams.get("redirectTo") || "/dashboard";
   const redirectTo = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/dashboard";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (honeypot) {
+      setError("Authentication failed. Please check your inputs.");
+      return;
+    }
     setError("");
     setLoading(true);
     track("signin_attempted", { method: "email" });
@@ -81,6 +86,18 @@ function SignInPageContent() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="absolute overflow-hidden h-0 w-0 -z-50 opacity-0" aria-hidden="true">
+              <label htmlFor="signin-website">Website</label>
+              <input
+                id="signin-website"
+                type="text"
+                name="website"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
             <div>
               <label htmlFor="signin-email" className="text-xs font-medium text-muted-foreground">Email</label>
               <Input id="signin-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-sm" required />

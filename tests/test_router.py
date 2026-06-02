@@ -19,20 +19,25 @@ import main as app_module
 
 # ── Helpers ──
 
+
 class FakeMessage:
     def __init__(self, content: str):
         self.content = content
 
+
 class FakeChoice:
     def __init__(self, content: str):
         self.message = FakeMessage(content)
+
 
 class FakeResponse:
     def __init__(self, content: str):
         self.choices = [FakeChoice(content)]
 
 
-def _ok_response(content: str = '[{"id":"b1","code_snippet":"x","english_translation":"desc"}]'):
+def _ok_response(
+    content: str = '[{"id":"b1","code_snippet":"x","english_translation":"desc"}]',
+):
     """Return a coroutine that resolves to a FakeResponse."""
     return FakeResponse(content)
 

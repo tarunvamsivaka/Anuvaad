@@ -1009,6 +1009,57 @@ function TranslatePageContent() {
                         Type Code Manually
                       </Button>
                     </div>
+                    
+                    <div className="mt-4 flex flex-col items-center gap-2 max-w-sm px-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Or load a sample snippet</p>
+                      <div className="flex flex-wrap gap-1.5 justify-center">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInput(`def fibonacci(n):\n    if n <= 0:\n        return []\n    elif n == 1:\n        return [0]\n    \n    fib = [0, 1]\n    while len(fib) < n:\n        fib.append(fib[-1] + fib[-2])\n    return fib\n\n# Example usage:\nprint(fibonacci(10))`);
+                            setSourceLanguage("python");
+                            setIsTypingManually(true);
+                            toast.success("Loaded Python Fibonacci example!");
+                            track("sample_loaded", { sample: "python_fibonacci" });
+                          }}
+                          className="h-7 text-[10px] px-2.5 rounded-md"
+                        >
+                          Python Fibonacci
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInput(`// JS Promise retry helper\nfunction retryWithDelay(fn, retries = 3, delay = 1000) {\n  return new Promise((resolve, reject) => {\n    fn()\n      .then(resolve)\n      .catch((error) => {\n        if (retries === 0) {\n          return reject(error);\n        }\n        setTimeout(() => {\n          retryWithDelay(fn, retries - 1, delay).then(resolve, reject);\n        }, delay);\n      });\n  });\n}`);
+                            setSourceLanguage("javascript");
+                            setIsTypingManually(true);
+                            toast.success("Loaded JS Retry Promise example!");
+                            track("sample_loaded", { sample: "js_retry" });
+                          }}
+                          className="h-7 text-[10px] px-2.5 rounded-md"
+                        >
+                          JS Retry Promise
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInput(`-- SQL: Calculate active user monthly retention\nWITH UserMonths AS (\n  SELECT DISTINCT user_id, DATE_TRUNC('month', created_at) AS active_month\n  FROM translation_history\n)\nSELECT \n  m1.active_month AS month,\n  COUNT(DISTINCT m1.user_id) AS active_users,\n  COUNT(DISTINCT m2.user_id) AS retained_users,\n  ROUND(COUNT(DISTINCT m2.user_id)::DECIMAL / COUNT(DISTINCT m1.user_id) * 100, 2) AS retention_rate\nFROM UserMonths m1\nLEFT JOIN UserMonths m2 \n  ON m1.user_id = m2.user_id \n  AND m2.active_month = m1.active_month + INTERVAL '1' month\nGROUP BY 1\nORDER BY 1 DESC;`);
+                            setSourceLanguage("sql");
+                            setIsTypingManually(true);
+                            toast.success("Loaded SQL Retention example!");
+                            track("sample_loaded", { sample: "sql_retention" });
+                          }}
+                          className="h-7 text-[10px] px-2.5 rounded-md"
+                        >
+                          SQL Monthly Retention
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 )}
 

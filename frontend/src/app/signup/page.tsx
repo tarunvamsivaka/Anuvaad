@@ -19,12 +19,18 @@ function SignUpPageContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [honeypot, setHoneypot] = useState("");
 
   const rawRedirect = searchParams.get("redirectTo") || "/dashboard";
   const redirectTo = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/dashboard";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (honeypot) {
+      // Fail quietly or return a confusing bot error
+      setError("Registration failed. Please check your inputs.");
+      return;
+    }
     setError("");
     setLoading(true);
     const { error } = await signUpWithEmail(email, password);
@@ -106,6 +112,18 @@ function SignUpPageContent() {
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="absolute overflow-hidden h-0 w-0 -z-50 opacity-0" aria-hidden="true">
+              <label htmlFor="signup-website">Website</label>
+              <input
+                id="signup-website"
+                type="text"
+                name="website"
+                value={honeypot}
+                onChange={(e) => setHoneypot(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
             <div>
               <label htmlFor="signup-email" className="text-xs font-medium text-muted-foreground">Email</label>
               <Input id="signup-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-sm" required />

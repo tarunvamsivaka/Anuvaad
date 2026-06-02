@@ -30,6 +30,9 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-foreground">2. Plans & Pricing</h2>
+            <div className="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/20 p-4 text-sm text-foreground">
+              <strong>NOTICE:</strong> Billing and payment registration are temporarily paused during our launch phase. Users can enjoy the complimentary free tier and onboarding template features without charge.
+            </div>
             <div className="mt-3 overflow-hidden rounded-lg border border-border">
               <table className="w-full text-left">
                 <thead><tr className="border-b border-border bg-muted/50"><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Plan</th><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Price</th><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Limit</th></tr></thead>

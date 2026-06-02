@@ -52,7 +52,13 @@ function BillingPageContent() {
     }
   }, [searchParams]);
 
+  const enableBilling = process.env.NEXT_PUBLIC_ENABLE_BILLING === "true";
+
   async function handleUpgrade() {
+    if (!enableBilling) {
+      toast.info("Upgrades are temporarily paused during our launch. Enjoy all features!");
+      return;
+    }
     if (!session?.access_token || !session?.user?.email) return;
     setLoading(true);
     track("upgrade_clicked", { current_plan: isActuallyPro ? "pro" : "free", target_plan: "pro" });
@@ -128,6 +134,10 @@ function BillingPageContent() {
   }
 
   async function handleManageBilling() {
+    if (!enableBilling) {
+      toast.info("Subscription management is currently offline since billing is paused.");
+      return;
+    }
     if (!session?.access_token) return;
     setPortalLoading(true);
     track("portal_opened", {});
@@ -153,6 +163,10 @@ function BillingPageContent() {
   }
 
   async function handleBuyCredits() {
+    if (!enableBilling) {
+      toast.info("Credit purchases are temporarily paused during our launch.");
+      return;
+    }
     if (!session?.access_token) return;
     setCreditLoading(true);
     try {
@@ -332,15 +346,20 @@ function BillingPageContent() {
                 </div>
               ))}
             </div>
-            <div className="mt-6 flex items-center gap-4">
-              <Button className="gap-2 bg-amber-600 hover:bg-amber-700" onClick={handleUpgrade} disabled={loading}>
+            <div className="mt-6 flex flex-col gap-2">
+              <Button className="gap-2 bg-amber-600 hover:bg-amber-700 w-fit" onClick={handleUpgrade} disabled={loading || !enableBilling}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                {loading ? "Opening Checkout..." : "Upgrade — ₹499/month"}
+                {loading ? "Opening Checkout..." : enableBilling ? "Upgrade — ₹499/month" : "Upgrades Paused"}
               </Button>
+              {!enableBilling && (
+                <p className="text-xs text-amber-600 font-medium">
+                  * Credit card upgrades are temporarily paused during launch. Enjoy the free features!
+                </p>
+              )}
             </div>
           </Card>
         )}
-
+ 
         {/* Pro success state */}
         {isActuallyPro && (
           <Card className="mt-6 border-emerald-600/20 bg-gradient-to-r from-emerald-600/5 to-emerald-500/5 p-6">
@@ -353,7 +372,7 @@ function BillingPageContent() {
             </p>
           </Card>
         )}
-
+ 
         {/* Credits section */}
         <Card className="mt-6 p-6">
           <div className="flex items-start justify-between">
@@ -381,10 +400,15 @@ function BillingPageContent() {
             <div>
               <p className="text-sm font-medium">Buy more credits</p>
               <p className="mt-1 text-xs text-muted-foreground">Never expire. Use anytime.</p>
+              {!enableBilling && (
+                <p className="text-xs text-amber-600 font-medium mt-1">
+                  * Credit purchases are temporarily paused.
+                </p>
+              )}
             </div>
-            <Button onClick={handleBuyCredits} disabled={creditLoading} variant="outline" className="gap-2">
+            <Button onClick={handleBuyCredits} disabled={creditLoading || !enableBilling} variant="outline" className="gap-2">
               {creditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-600" />}
-              {creditLoading ? "Processing..." : "Buy 100 Credits — ₹100"}
+              {creditLoading ? "Processing..." : enableBilling ? "Buy 100 Credits — ₹100" : "Paused"}
             </Button>
           </div>
         </Card>

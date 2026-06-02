@@ -43,12 +43,14 @@ export default function PrivacyPage() {
               <li><strong className="text-foreground">Supabase:</strong> Authentication and database hosting.</li>
               <li><strong className="text-foreground">Groq & DeepSeek:</strong> AI models for code translation.</li>
               <li><strong className="text-foreground">Razorpay:</strong> Payment processing for Pro subscriptions.</li>
+              <li><strong className="text-foreground">PostHog:</strong> Product usage and behavior analytics to help us improve the platform experience.</li>
+              <li><strong className="text-foreground">Sentry:</strong> Real-time error monitoring and application performance diagnostics.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">4. Cookies</h2>
-            <p>We use essential cookies for authentication session management (Supabase auth tokens). We do not use tracking cookies or third-party analytics cookies.</p>
+            <h2 className="mb-3 text-lg font-semibold text-foreground">4. Cookies and Local Storage</h2>
+            <p>We use essential cookies and local storage tokens for authentication session management (Supabase auth tokens). Additionally, PostHog utilizes local storage and minimal cookies to track application performance and features utilized in a privacy-safe, non-identifiable manner. No code snippets or private user data are ever sent to PostHog.</p>
           </section>
 
           <section>

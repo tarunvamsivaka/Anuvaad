@@ -18,20 +18,19 @@ class TestStreamingEndpoint:
 
     def test_streaming_returns_text_event_stream_content_type(self, client):
         """The streaming endpoint must respond with text/event-stream."""
-        res = client.post("/api/code-to-english", json={
-            "raw_code": "print('hello')",
-            "language": "python"
-        })
+        res = client.post(
+            "/api/code-to-english",
+            json={"raw_code": "print('hello')", "language": "python"},
+        )
         assert res.status_code == 200
         content_type = res.headers.get("content-type", "")
         assert "text/event-stream" in content_type
 
     def test_stream_contains_done_true_event(self, client):
         """The SSE stream should contain at least one event with done:true."""
-        res = client.post("/api/code-to-english", json={
-            "raw_code": "x = 1",
-            "language": "python"
-        })
+        res = client.post(
+            "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
+        )
         assert res.status_code == 200
         # The response body contains SSE lines: "data: {...}\n\n"
         raw_text = res.text
@@ -40,10 +39,10 @@ class TestStreamingEndpoint:
             for line in raw_text.strip().split("\n\n")
             if line.startswith("data: ")
         ]
-        
+
         # At least one event must exist
         assert len(events) > 0
-        
+
         # Find a done:true event
         done_found = False
         for event_str in events:
@@ -58,10 +57,9 @@ class TestStreamingEndpoint:
 
     def test_stream_done_event_contains_blocks(self, client):
         """The final done:true SSE event should contain a 'blocks' array."""
-        res = client.post("/api/code-to-english", json={
-            "raw_code": "y = 2",
-            "language": "python"
-        })
+        res = client.post(
+            "/api/code-to-english", json={"raw_code": "y = 2", "language": "python"}
+        )
         assert res.status_code == 200
         raw_text = res.text
         events = [
@@ -69,7 +67,7 @@ class TestStreamingEndpoint:
             for line in raw_text.strip().split("\n\n")
             if line.startswith("data: ")
         ]
-        
+
         done_event = None
         for event_str in events:
             try:
@@ -91,11 +89,20 @@ class TestStreamingEndpoint:
         from tests.conftest import MockAsyncOpenAI, MockRedisCache
 
         fake_redis = MockRedisCache()
-        
+
         # Pre-seed the cache with a known response
         import asyncio
-        cached_blocks = [{"id": "b1", "code_snippet": "z = 3", "english_translation": "Assigns 3 to z"}]
-        cache_key = app_module.cache_key("z = 3", "python", "code-to-english", "standard")
+
+        cached_blocks = [
+            {
+                "id": "b1",
+                "code_snippet": "z = 3",
+                "english_translation": "Assigns 3 to z",
+            }
+        ]
+        cache_key = app_module.cache_key(
+            "z = 3", "python", "code-to-english", "standard"
+        )
         asyncio.run(fake_redis.put(cache_key, cached_blocks))
 
         # Track whether AsyncOpenAI was instantiated
@@ -107,17 +114,27 @@ class TestStreamingEndpoint:
                 calls.append(kwargs)
                 super().__init__(*args, **kwargs)
 
-        with patch.object(app_module, 'cache', fake_redis):
-            with patch.object(app_module, 'AsyncOpenAI', TrackingMock):
-                from fastapi.testclient import TestClient
-                with TestClient(app_module.app) as tc:
-                    res = tc.post("/api/code-to-english", json={
-                        "raw_code": "z = 3",
-                        "language": "python"
-                    })
+        async def fake_get_user_email():
+            return "testuser@example.com"
+
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        try:
+            with patch.object(app_module, "cache", fake_redis):
+                with patch.object(app_module, "AsyncOpenAI", TrackingMock):
+                    from fastapi.testclient import TestClient
+
+                    with TestClient(app_module.app) as tc:
+                        res = tc.post(
+                            "/api/code-to-english",
+                            json={"raw_code": "z = 3", "language": "python"},
+                        )
+        finally:
+            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
         assert res.status_code == 200
-        
+
         # Parse the SSE to find the done event
         raw_text = res.text
         events = [
@@ -125,7 +142,7 @@ class TestStreamingEndpoint:
             for line in raw_text.strip().split("\n\n")
             if line.startswith("data: ")
         ]
-        
+
         done_event = None
         for event_str in events:
             try:

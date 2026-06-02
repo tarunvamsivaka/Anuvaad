@@ -16,7 +16,6 @@ import re
 import json
 import asyncio
 import base64
-import time
 import subprocess
 from datetime import datetime
 
@@ -115,7 +114,7 @@ class ComplianceSubagent:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
-                    log_output(f"Backend API is healthy (status 200). Config checks:")
+                    log_output("Backend API is healthy (status 200). Config checks:")
                     
                     # Verify Redis connection status
                     if data.get("redis_connected"):
@@ -175,7 +174,7 @@ class ComplianceSubagent:
                     total_errors = sum(data.get("total_errors", {}).values())
                     total_reqs = sum(data.get("total_requests", {}).values())
                     
-                    log_output(f"Observability Metrics Snapshot:")
+                    log_output("Observability Metrics Snapshot:")
                     log_output(f"  - Total API Requests: {total_reqs}")
                     log_output(f"  - Total API Errors (4xx/5xx): {total_errors}")
                     
@@ -188,7 +187,7 @@ class ComplianceSubagent:
                     
                     # Latencies
                     avg_latencies = data.get("average_latency_ms", {})
-                    log_output(f"  - Average latencies:")
+                    log_output("  - Average latencies:")
                     for ep, lat in avg_latencies.items():
                         log_output(f"    · {ep}: {lat} ms")
                         if lat > 2000:
@@ -352,7 +351,7 @@ class ComplianceSubagent:
         log_output("----------------------------------------------------------------", "SUMMARY")
         log_output(f"Audit completed: {self.passed_checks} passed checks, {self.failed_checks} failures, {self.warnings} warnings.", "SUMMARY")
         log_output(f"Operational status: {report['status']}", "SUMMARY")
-        log_output(f"Report saved to compliance_report.json", "SUMMARY")
+        log_output("Report saved to compliance_report.json", "SUMMARY")
         
         if self.failed_checks > 0:
             sys.exit(1)
