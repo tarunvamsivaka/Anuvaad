@@ -1,9 +1,13 @@
 import { test as setup } from '@playwright/test';
 import * as path from 'path';
+import { mockSupabaseAuth } from './mock-auth';
 
 const signupAuthFile = path.join(__dirname, '../playwright/.auth/signup-user.json');
 
 setup('signup-new-user', async ({ page }) => {
+  // Mock Supabase auth endpoints for offline E2E testing
+  await mockSupabaseAuth(page);
+
   // Use a unique random email for signup to ensure no unique constraint violations
   const randomId = Math.random().toString(36).substring(7);
   const email = `test_signup_${randomId}@example.com`;

@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockSupabaseAuth } from './mock-auth';
+
+test.beforeEach(async ({ page }) => {
+  await mockSupabaseAuth(page);
+});
 
 test.describe('Billing & Subscription Flow', () => {
   // Uses the auth.setup.ts storageState by default (authenticated user)
@@ -20,8 +25,8 @@ test.describe('Billing & Subscription Flow', () => {
   test('upgrade button is visible for free users and hidden for pro users', async ({ page }) => {
     await page.goto('/dashboard/billing');
     
-    // The "Upgrade — $12/month" button should be visible for our test free user
-    const upgradeBtn = page.locator('button:has-text("Upgrade — $12/month")').first();
+    // The "Upgrade — ₹499/month" button should be visible for our test free user
+    const upgradeBtn = page.locator('button:has-text("Upgrade — ₹499/month")').first();
     await expect(upgradeBtn).toBeVisible();
 
     // To test the "hidden for pro users" part, we mock the backend subscription-status endpoint
@@ -35,7 +40,7 @@ test.describe('Billing & Subscription Flow', () => {
     await page.goto('/dashboard/billing');
 
     // The button should now be hidden or changed to "Manage Subscription"
-    await expect(page.locator('button:has-text("Upgrade — $12/month")')).toBeHidden();
+    await expect(page.locator('button:has-text("Upgrade — ₹499/month")')).toBeHidden();
     
     // Optional: check for Manage Subscription
     // await expect(page.locator('button:has-text("Manage Subscription")')).toBeVisible();

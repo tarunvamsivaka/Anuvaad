@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockSupabaseAuth } from './mock-auth';
+
+test.beforeEach(async ({ page }) => {
+  await mockSupabaseAuth(page);
+});
 
 async function setMonacoValue(page: any, code: string) {
   await page.waitForFunction(

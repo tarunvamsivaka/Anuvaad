@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockSupabaseAuth } from './mock-auth';
+
+test.beforeEach(async ({ page }) => {
+  await mockSupabaseAuth(page);
+});
 
 // Helper: set Monaco editor value via the exposed editor instance on window.__monacoEditor.
 // page.keyboard.type() hits the DOM textarea but does NOT fire Monaco's onChange → React never

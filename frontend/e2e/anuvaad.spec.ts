@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockSupabaseAuth } from './mock-auth';
+
+test.beforeEach(async ({ page }) => {
+  await mockSupabaseAuth(page);
+});
 
 /**
  * ANUVAAD E2E TEST SUITE
@@ -329,17 +334,25 @@ test.describe('Translation Workspace', () => {
   test('Code→Code: switching mode shows source and target language selectors', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await page.click('button[role="tab"]:has-text("Code → Code")');
-    await expect(page.locator('label:has-text("Source")')).toBeVisible();
-    await expect(page.locator('label:has-text("Target")')).toBeVisible();
+    await expect(page.locator('span:has-text("Source:")')).toBeVisible();
+    await expect(page.locator('span:has-text("Target:")')).toBeVisible();
   });
 
   test('Code→Code: can change source and target languages', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await page.click('button[role="tab"]:has-text("Code → Code")');
-    await page.selectOption('#source-lang', 'javascript');
-    await page.selectOption('#target-lang', 'python');
-    await expect(page.locator('#source-lang')).toHaveValue('javascript');
-    await expect(page.locator('#target-lang')).toHaveValue('python');
+    
+    // Open Source dropdown and select JavaScript
+    await page.click('span:has-text("Source:")');
+    await page.click('div.max-h-48 div:has-text("JavaScript")');
+    
+    // Open Target dropdown and select Python
+    await page.click('span:has-text("Target:")');
+    await page.click('div.max-h-48 div:has-text("Python")');
+    
+    // Verify changes (the sibling span carries the selected name)
+    await expect(page.locator('span:has-text("Source:") + span')).toHaveText('JavaScript');
+    await expect(page.locator('span:has-text("Target:") + span')).toHaveText('Python');
   });
 
   test('Reset button clears editor and hides output', async ({ page }) => {

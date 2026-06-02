@@ -1,4 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { mockSupabaseAuth } from './mock-auth';
+
+test.beforeEach(async ({ page }) => {
+  await mockSupabaseAuth(page);
+});
 
 test.describe('Sign Up Form Validation and Flow', () => {
   // Clear storage state to test authentication in isolation

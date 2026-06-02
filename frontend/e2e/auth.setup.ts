@@ -1,9 +1,13 @@
 import { test as setup } from '@playwright/test';
 import * as path from 'path';
+import { mockSupabaseAuth } from './mock-auth';
 
 const authFile = path.join(__dirname, '../playwright/.auth/user.json');
 
 setup('authenticate', async ({ page }) => {
+  // Mock Supabase auth endpoints for offline E2E testing
+  await mockSupabaseAuth(page);
+
   // Use environment variables for test credentials
   const email = process.env.PLAYWRIGHT_TEST_EMAIL || 'test_user@example.com';
   const password = process.env.PLAYWRIGHT_TEST_PASSWORD || 'password123';
