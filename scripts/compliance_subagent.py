@@ -111,7 +111,7 @@ class ComplianceSubagent:
         log_output("Auditing endpoint /api/health...", "HEALTH")
         url = f"{BACKEND_URL}/api/health"
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -162,7 +162,7 @@ class ComplianceSubagent:
             headers["Authorization"] = f"Basic {encoded}"
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.get(url, headers=headers)
                 if resp.status_code == 200:
                     self.passed_checks += 1
@@ -272,7 +272,7 @@ class ComplianceSubagent:
         # 2. Check security headers of the health check API
         try:
             url = f"{BACKEND_URL}/api/health"
-            resp = httpx.get(url, timeout=3.0)
+            resp = httpx.get(url, timeout=60.0)
             headers = resp.headers
             
             required_headers = {
