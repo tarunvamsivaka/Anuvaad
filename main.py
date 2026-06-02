@@ -2462,13 +2462,12 @@ async def invite_workspace_member(workspace_id: str, payload: WorkspaceInvite, e
     })
     
     return {"status": "success", "message": f"Invited {payload.email}"}
-
 @app.get("/api/sentry-test")
 async def sentry_test():
     """Test endpoint to trigger a deliberate error for Sentry verification"""
     if _is_production:
         raise HTTPException(status_code=404, detail="Not found")
-    return 1 / 0
+    raise ZeroDivisionError("Deliberate error for Sentry verification")
 
 
 # ── TRANSLATION HISTORY API ──
