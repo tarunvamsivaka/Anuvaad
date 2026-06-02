@@ -369,8 +369,6 @@ async def supabase_request_list(path: str) -> list:
 # ── API KEY / JWT AUTHENTICATION ──
 security = HTTPBearer(auto_error=False)
 
-_user_created_at_cache = {}
-
 
 async def get_user_email(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -393,11 +391,6 @@ async def get_user_email(
                 {"last_used_at": datetime.now(timezone.utc).isoformat()},
             )
             email = api_key_data.get("user_email")
-            if email:
-                # Treat API key users as established accounts (age > 7 days)
-                _user_created_at_cache[email] = (
-                    datetime.now(timezone.utc) - timedelta(days=10)
-                ).isoformat()
             return email
         return None
 
@@ -411,9 +404,6 @@ async def get_user_email(
         if resp.status_code == 200:
             user_data = resp.json()
             email = user_data.get("email")
-            created_at = user_data.get("created_at")
-            if email and created_at:
-                _user_created_at_cache[email] = created_at
             return email
     except Exception as e:
         logger.error(f"JWT verification error: {e}")
@@ -1379,9 +1369,9 @@ You should update the code_snippet to "print(path.upper())" or language equivale
 
 
 class LRUCache:
-    def __init__(self, max_size: int = 500):
+    def __init__(self, max_size: int = None):
         self.cache = collections.OrderedDict()
-        self.max_size = max_size
+        self.max_size = max_size if max_size is not None else int(os.getenv("CACHE_LRU_MAX_SIZE", "100"))
         self.hits = 0
         self.misses = 0
         self.lock = threading.Lock()
@@ -1464,7 +1454,7 @@ class RedisCache:
                     logger.warning(f"Failed to initialize Upstash Redis: {e}")
 
         # Fallback: in-memory LRU
-        self.fallback = LRUCache(max_size=500)
+        self.fallback = LRUCache()
 
         if self.client:
             logger.info(f"Redis cache initialized (backend: {self._backend})")

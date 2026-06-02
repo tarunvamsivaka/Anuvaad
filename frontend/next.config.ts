@@ -23,7 +23,7 @@ const nextConfig: NextConfig = {
   // Performance & security
   compress: true,          // Brotli/gzip at Next.js layer
   poweredByHeader: false,  // Remove X-Powered-By fingerprinting header
-  // output: "standalone",  // Uncomment for production Docker (smaller image). Disable for local dev.
+  output: "standalone",  // Enable standalone production build for smaller memory footprint
 };
 
 

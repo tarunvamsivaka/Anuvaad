@@ -1,12 +1,12 @@
 {
-  "timestamp": "2026-06-03T05:13:10.386181",
+  "timestamp": "2026-06-03T05:19:55.449538",
   "passed_checks": 15,
   "failed_checks": 0,
   "warnings_count": 0,
   "status": "HEALTHY",
   "findings": [],
   "metrics": {
-    "uptime_seconds": 12,
+    "uptime_seconds": 314,
     "python_version": "3.14.3 (main, Feb  9 2026, 23:06:03) [GCC 12.2.0]",
     "total_requests": {
       "health": 1
@@ -17,7 +17,7 @@
     "cache_hits": 0,
     "cache_misses": 0,
     "average_latency_ms": {
-      "health": 234.74
+      "health": 237.88
     }
   }
 }
