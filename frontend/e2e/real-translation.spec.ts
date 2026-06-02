@@ -85,8 +85,8 @@ int main() {
   // Wait a small moment for animations to settle
   await page.waitForTimeout(1000);
 
-  // Take full page screenshot and save to artifacts directory
-  const screenshotPath = 'C:\\Users\\Dell\\.gemini\\antigravity-ide\\brain\\90a1acd1-c11a-4ec6-bbdb-396fcb3cc671\\media__real_translation.png';
+  // Take full page screenshot and save to a safe relative path
+  const screenshotPath = 'playwright/media__real_translation.png';
   await page.screenshot({ path: screenshotPath, fullPage: true });
   console.log(`Proof screenshot saved to ${screenshotPath}`);
 
