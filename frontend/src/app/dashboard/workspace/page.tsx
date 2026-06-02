@@ -206,8 +206,9 @@ export default function WorkspacePage() {
           </p>
           <form onSubmit={handleInviteMember} className="flex items-end gap-3 max-w-md">
             <div className="flex-1">
-              <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1 block">Email Address</label>
+              <label htmlFor="invite-email" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1 block">Email Address</label>
               <Input
+                id="invite-email"
                 type="email"
                 placeholder="colleague@company.com"
                 value={inviteEmail}

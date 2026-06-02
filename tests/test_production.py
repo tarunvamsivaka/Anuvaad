@@ -47,7 +47,7 @@ def test_production_env_validation():
         return ""
         
     with patch("os.getenv", side_effect=mock_getenv):
-        for var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "STRIPE_WEBHOOK_SECRET", "FRONTEND_URL"]:
+        for var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY", "RAZORPAY_WEBHOOK_SECRET", "FRONTEND_URL"]:
             val = mock_getenv(var)
             if not val or val.startswith("your_") or val == "dummy_key":
                 missing_vars.append(var)

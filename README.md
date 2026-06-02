@@ -56,7 +56,7 @@ Powered by **Groq (Llama 3.3 70B)** and **DeepSeek (V3 / R1)** with intelligent 
 │  ├── Translator workspace (Monaco)      │
 │  ├── GitHub Gist import                  │
 │  ├── File drag-and-drop upload           │
-│  └── Billing (Stripe integration)       │
+│  └── Billing (Razorpay integration)     │
 ├─────────────────────────────────────────┤
 │  Backend (FastAPI + Python)             │
 │  ├── /api/code-to-english  (SSE stream) │
@@ -64,7 +64,7 @@ Powered by **Groq (Llama 3.3 70B)** and **DeepSeek (V3 / R1)** with intelligent 
 │  ├── /api/code-to-code                  │
 │  ├── /api/import-gist                   │
 │  ├── /api/upload-file                   │
-│  ├── /api/webhook/stripe                │
+│  ├── /api/webhook/razorpay              │
 │  ├── /api/workspaces + /api/api-keys    │
 │  └── /api/metrics (Prometheus)          │
 ├─────────────────────────────────────────┤
@@ -72,7 +72,7 @@ Powered by **Groq (Llama 3.3 70B)** and **DeepSeek (V3 / R1)** with intelligent 
 │  ├── Groq (Llama 3.3 70B)              │
 │  ├── DeepSeek (V3 + R1 reasoning)      │
 │  ├── Supabase (Auth + PostgreSQL)       │
-│  ├── Stripe (Payments + Webhooks)       │
+│  ├── Razorpay (Payments + Webhooks)     │
 │  ├── Upstash Redis (Cache + Rate Limit) │
 │  ├── Resend (Transactional Emails)      │
 │  ├── Sentry (Error Monitoring)          │
@@ -89,7 +89,7 @@ Powered by **Groq (Llama 3.3 70B)** and **DeepSeek (V3 / R1)** with intelligent 
 | AI Models | Groq (Llama 3.3 70B), DeepSeek V3/R1 — dual-model failover |
 | Auth | Supabase (Google + GitHub OAuth) |
 | Database | Supabase PostgreSQL with RLS |
-| Payments | Stripe Checkout + Webhooks + Billing Portal |
+| Payments | Razorpay Checkout + Webhooks + Self-service Modal |
 | Cache | Upstash Redis (serverless) with LRU memory fallback |
 | Email | Resend (transactional: welcome, subscription, milestones) |
 | Monitoring | Sentry (errors), PostHog (analytics), Prometheus (metrics) |
@@ -163,16 +163,16 @@ python -m pytest tests/ -v
 | `POST` | `/api/english-to-code` | Update code from modified English |
 | `POST` | `/api/upload-file` | Upload a code file for translation |
 | `GET` | `/api/import-gist` | Import code from a public GitHub Gist URL |
-| `GET` | `/api/health` | Health check (LLM, Stripe, Redis, Supabase) |
+| `GET` | `/api/health` | Health check (LLM, Razorpay, Redis, Supabase) |
 | `GET` | `/api/usage` | Get today's translation count and limit |
 | `GET` | `/api/cache-stats` | Redis/LRU cache statistics |
 | `GET` | `/api/metrics` | Observability metrics (JSON) |
 | `GET` | `/api/metrics/prometheus` | Prometheus text exposition format |
-| `POST` | `/api/create-checkout-session` | Create Stripe checkout for Pro plan |
-| `POST` | `/api/create-portal-session` | Open Stripe billing portal |
+| `POST` | `/api/create-checkout-session` | Create Razorpay checkout for Pro plan |
+| `POST` | `/api/create-portal-session` | Get active Razorpay subscription details |
 | `POST` | `/api/create-credit-checkout` | Purchase translation credits |
 | `POST` | `/api/check-credits` | Check remaining translation credits |
-| `POST` | `/api/webhook/stripe` | Stripe webhook handler |
+| `POST` | `/api/webhook/razorpay` | Razorpay webhook handler |
 | `POST` | `/api/subscription-status` | Check Pro subscription status |
 | `GET` | `/api/history` | Get translation history |
 | `GET` | `/api/workspaces` | List user workspaces |
@@ -197,9 +197,10 @@ See [`.env.example`](.env.example) for all variables with inline documentation.
 | `SUPABASE_URL` | ✅ | Supabase project URL |
 | `SUPABASE_ANON_KEY` | ✅ | Supabase public anon key (JWT verification) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side DB writes) |
-| `STRIPE_SECRET_KEY` | For billing | Stripe secret key |
-| `STRIPE_PRO_PRICE_ID` | For billing | Stripe price ID for Pro plan |
-| `STRIPE_WEBHOOK_SECRET` | For billing | Stripe webhook signing secret |
+| `RAZORPAY_KEY_ID` | For billing | Razorpay API key ID |
+| `RAZORPAY_KEY_SECRET` | For billing | Razorpay API key secret |
+| `RAZORPAY_PRO_PLAN_ID` | For billing | Razorpay plan ID for Pro |
+| `RAZORPAY_WEBHOOK_SECRET` | For billing | Razorpay webhook signature secret |
 | `FRONTEND_URL` | Production | Frontend domain for CORS and redirects |
 | `UPSTASH_REDIS_URL` | Optional | Upstash Redis REST URL (falls back to LRU) |
 | `UPSTASH_REDIS_TOKEN` | Optional | Upstash Redis REST token |

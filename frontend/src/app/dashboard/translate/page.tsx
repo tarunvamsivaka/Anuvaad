@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
 import dynamic from "next/dynamic";
@@ -11,6 +11,9 @@ import { Button } from "@/components/ui/button";
 const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
   loading: () => <Skeleton className="h-full w-full min-h-[500px] rounded-lg" />,
+});
+const MotionDiv = dynamic(() => import("framer-motion").then((mod) => mod.motion.div), {
+  ssr: false,
 });
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -98,6 +101,133 @@ const modes = [
   { id: "code-to-code", label: "Code → Code", icon: ArrowLeftRight },
 ];
 
+// Module-level constants — created once, never cause re-renders
+const EXT_TO_LANGUAGE: Record<string, string> = {
+  ".py": "python", ".js": "javascript", ".ts": "typescript",
+  ".java": "java", ".cpp": "cpp", ".rs": "rust",
+  ".go": "go", ".c": "c", ".cs": "csharp",
+};
+const ACCEPTED_EXTENSIONS = Object.keys(EXT_TO_LANGUAGE);
+
+function detectLanguage(code: string): string | null {
+  if (!code || code.trim().length < 15) return null;
+  
+  // 1. Python: def statement, import, print statement without semicolons, snake_case
+  if (/def\s+[a-zA-Z_]\w*\s*\(|import\s+[a-zA-Z_]\w*(?:\s*,\s*[a-zA-Z_]\w*)*\n|#\s+.*|elif\s+|if\s+__name__\s*==\s*['"]__main__['"]/.test(code)) {
+    return "python";
+  }
+  
+  // 2. TypeScript / JavaScript React: import React, interface / type (TS), const [x, setX] = useState
+  if (/import\s+.*\s+from\s+['"]react['"]|const\s+\[\w+,\s*set\w+\]\s*=\s*useState|export\s+default\s+function|interface\s+[A-Z]\w*\s*\{|type\s+[A-Z]\w*\s*=/.test(code)) {
+    return "typescript";
+  }
+  
+  // 3. JavaScript: console.log, function, let/const, arrow functions
+  if (/console\.log\(|const\s+\w+\s*=\s*\(.*\)\s*=>|let\s+\w+\s*=|var\s+\w+\s*=/.test(code)) {
+    return "javascript";
+  }
+
+  // 4. Rust: fn main, pub struct, impl, let mut, use std
+  if (/fn\s+main\(\)|pub\s+struct\s+[A-Z]|impl\s+[A-Z]|let\s+mut\s+\w+|use\s+std::/.test(code)) {
+    return "rust";
+  }
+
+  // 5. C++: #include, std::cout, int main, class, namespace
+  if (/#include\s*<[a-z]+>|std::cout|int\s+main\(\s*\)|using\s+namespace\s+std;/.test(code)) {
+    return "cpp";
+  }
+
+  // 6. Go: package main, func main, import (, fmt.Println
+  if (/package\s+main|func\s+main\(\)|import\s*\(\n|fmt\.Println/.test(code)) {
+    return "go";
+  }
+
+  // 7. Java: public class, public static void main, System.out.println
+  if (/public\s+class\s+[A-Z]|public\s+static\s+void\s+main|System\.out\.println/.test(code)) {
+    return "java";
+  }
+
+  return null;
+}
+
+function SearchableLanguageSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selected = languages.find((l) => l.value === value);
+  const filtered = languages.filter((l) =>
+    l.label.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <div 
+        onClick={() => { setOpen(!open); setSearch(""); }}
+        className="flex items-center gap-2 bg-background border border-border hover:border-amber-600/40 rounded-lg px-3 py-1.5 shadow-sm cursor-pointer select-none transition-colors"
+      >
+        <span className="text-xs font-medium text-muted-foreground">{label}:</span>
+        <span className="text-sm font-medium text-foreground">{selected?.label || value}</span>
+        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", open && "rotate-180")} />
+      </div>
+
+      {open && (
+        <Card className="absolute right-0 top-full mt-1.5 z-45 w-56 p-1.5 shadow-xl border border-border/80 bg-popover text-popover-foreground animate-in fade-in slide-in-from-top-1 duration-150">
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search language..."
+            className="h-8 text-xs mb-1.5 bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-amber-500"
+            autoFocus
+          />
+          <div className="max-h-48 overflow-y-auto space-y-0.5">
+            {filtered.length > 0 ? (
+              filtered.map((l) => (
+                <div
+                  key={l.value}
+                  onClick={() => {
+                    onChange(l.value);
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    "flex items-center justify-between px-2 py-1.5 rounded text-xs cursor-pointer select-none transition-all",
+                    l.value === value 
+                      ? "bg-amber-600/10 text-amber-700 dark:text-amber-500 font-medium" 
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <span>{l.label}</span>
+                  {l.value === value && <Check className="h-3 w-3 text-amber-600 shrink-0" />}
+                </div>
+              ))
+            ) : (
+              <p className="p-2 text-center text-[10px] text-muted-foreground">No matches found</p>
+            )}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 interface TranslationBlock {
   id: string;
   code_snippet: string;
@@ -128,100 +258,106 @@ function TranslationBlockCard({ block, index, onEditBlock }: { block: Translatio
   };
 
   return (
-    <Card className="mb-4 overflow-hidden border-border/60 shadow-sm transition-all duration-200">
-      <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-4 py-2.5">
-        <Badge variant="outline" className="bg-amber-600/10 text-amber-600 border-amber-600/20 font-medium">
-          Block {index + 1}
-        </Badge>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(!collapsed)}>
-            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
-      
-      {!collapsed && (
-        <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-200">
-          <div className="relative border-b border-border/40 bg-[#0d0d0d] p-4 group">
-            <pre className="font-mono text-xs md:text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed">
-              <code>{block.code_snippet}</code>
-            </pre>
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              onClick={copyCode} 
-              className="absolute right-3 top-3 h-7 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 text-white hover:bg-white/20 border-0 shadow-sm"
-            >
-              {copiedCode ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-              {copiedCode ? "Copied" : "Copy code"}
+    <MotionDiv
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut", delay: Math.min(index * 0.05, 0.4) }}
+    >
+      <Card className="mb-4 overflow-hidden border-border/60 shadow-sm transition-all duration-200 hover:border-amber-600/35 hover:shadow-md dark:hover:shadow-amber-950/5">
+        <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-4 py-2.5">
+          <Badge variant="outline" className="bg-amber-600/10 text-amber-600 border-amber-600/20 font-medium">
+            Block {index + 1}
+          </Badge>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(!collapsed)}>
+              {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </Button>
           </div>
-          <div className="relative p-4 md:p-5 bg-background group">
-            {isEditing ? (
-              <div className="flex flex-col gap-2 w-full animate-in fade-in duration-200">
-                <textarea
-                  value={editedText}
-                  onChange={(e) => setEditedText(e.target.value)}
-                  className="w-full text-sm leading-relaxed p-2.5 border border-border/80 rounded-md bg-background focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[80px] font-sans"
-                  autoFocus
-                />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 text-xs text-muted-foreground hover:bg-muted"
-                    onClick={() => {
-                      setEditedText(block.english_translation);
-                      setIsEditing(false);
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1"
-                    onClick={() => {
-                      onEditBlock?.(editedText);
-                      setIsEditing(false);
-                    }}
-                  >
-                    <Check className="h-3 w-3" />
-                    Save
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p className="text-sm leading-relaxed text-foreground/90 pr-24 whitespace-pre-wrap">
-                  {block.english_translation}
-                </p>
-                <div className="absolute right-3 top-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setIsEditing(true)} 
-                    className="h-7 gap-1 bg-background shadow-sm hover:bg-muted"
-                  >
-                    <Pencil className="h-3 w-3" />
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={copyText} 
-                    className="h-7 gap-1.5 bg-background shadow-sm"
-                  >
-                    {copiedText ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                    {copiedText ? "Copied" : "Copy text"}
-                  </Button>
-                </div>
-              </>
-            )}
-          </div>
         </div>
-      )}
-    </Card>
+        
+        {!collapsed && (
+          <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="relative border-b border-border/40 bg-[#0d0d0d] p-4 group">
+              <pre className="font-mono text-xs md:text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed">
+                <code>{block.code_snippet}</code>
+              </pre>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={copyCode} 
+                className="absolute right-3 top-3 h-7 gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 text-white hover:bg-white/20 border-0 shadow-sm"
+              >
+                {copiedCode ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                {copiedCode ? "Copied" : "Copy code"}
+              </Button>
+            </div>
+            <div className="relative p-4 md:p-5 bg-background group">
+              {isEditing ? (
+                <div className="flex flex-col gap-2 w-full animate-in fade-in duration-200">
+                  <textarea
+                    value={editedText}
+                    onChange={(e) => setEditedText(e.target.value)}
+                    className="w-full text-sm leading-relaxed p-2.5 border border-border/80 rounded-md bg-background focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[80px] font-sans"
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-muted-foreground hover:bg-muted"
+                      onClick={() => {
+                        setEditedText(block.english_translation);
+                        setIsEditing(false);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1"
+                      onClick={() => {
+                        onEditBlock?.(editedText);
+                        setIsEditing(false);
+                      }}
+                    >
+                      <Check className="h-3 w-3" />
+                      Save
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm leading-relaxed text-foreground/90 pr-24 whitespace-pre-wrap">
+                    {block.english_translation}
+                  </p>
+                  <div className="absolute right-3 top-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setIsEditing(true)} 
+                      className="h-7 gap-1 bg-background shadow-sm hover:bg-muted"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={copyText} 
+                      className="h-7 gap-1.5 bg-background shadow-sm"
+                    >
+                      {copiedText ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+                      {copiedText ? "Copied" : "Copy text"}
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+    </MotionDiv>
   );
 }
 
@@ -244,21 +380,14 @@ function TranslatePageContent() {
   const [showGistInput, setShowGistInput] = useState(false);
   const [gistUrl, setGistUrl] = useState("");
   const [gistLoading, setGistLoading] = useState(false);
+  const [detectedLang, setDetectedLang] = useState<string | null>(null);
 
-  // Extension → language auto-detection map
-  const extToLanguage: Record<string, string> = {
-    ".py": "python", ".js": "javascript", ".ts": "typescript",
-    ".java": "java", ".cpp": "cpp", ".rs": "rust",
-    ".go": "go", ".c": "c", ".cs": "csharp",
-  };
-  const acceptedExtensions = Object.keys(extToLanguage);
-
-  const onFileDrop = (acceptedFiles: globalThis.File[]) => {
+  const onFileDrop = useCallback((acceptedFiles: globalThis.File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
     const ext = "." + file.name.split(".").pop()?.toLowerCase();
-    if (!acceptedExtensions.includes(ext)) {
-      toast.error(`Unsupported file type. Allowed: ${acceptedExtensions.join(", ")}`);
+    if (!EXT_TO_LANGUAGE[ext]) {
+      toast.error(`Unsupported file type. Allowed: ${ACCEPTED_EXTENSIONS.join(", ")}`);
       return;
     }
     const reader = new FileReader();
@@ -267,22 +396,22 @@ function TranslatePageContent() {
       setInput(text);
       setUploadedFile({ name: file.name, size: file.size });
       // Auto-detect language
-      const detectedLang = extToLanguage[ext];
+      const detectedLang = EXT_TO_LANGUAGE[ext];
       if (detectedLang) setSourceLanguage(detectedLang);
       track("file_uploaded", { extension: ext, size_bytes: file.size, detected_language: detectedLang || "unknown" });
     };
     reader.readAsText(file);
-  };
+  }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: onFileDrop,
-    accept: { "text/plain": acceptedExtensions },
+    accept: { "text/plain": ACCEPTED_EXTENSIONS },
     maxFiles: 1,
     noClick: false,
     disabled: mode === "english-to-code",
   });
 
-  const handleClearFile = () => {
+  const handleClearFile = useCallback(() => {
     setUploadedFile(null);
     setGistSource(null);
     setInput("");
@@ -291,7 +420,7 @@ function TranslatePageContent() {
     setOriginalBlocks(null);
     setStreamText("");
     setRawError("");
-  };
+  }, []);
 
   const handleGistImport = async () => {
     if (!gistUrl.trim()) return;
@@ -336,15 +465,28 @@ function TranslatePageContent() {
   const [streamText, setStreamText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
+  // Buffer SSE chunks; flush at rAF cadence (~60 Hz) instead of per-chunk setState
+  const streamBufferRef = useRef("");
+  const rafIdRef = useRef<number | null>(null);
   const [rawError, setRawError] = useState("");
   const [copied, setCopied] = useState(false);
   const [modelUsed, setModelUsed] = useState<string | null>(null);
 
   const { activeWorkspace } = useWorkspace();
 
-  const currentMode = modes.find((m) => m.id === mode)!;
+  const currentMode = useMemo(() => modes.find((m) => m.id === mode)!, [mode]);
 
-  const handleTranslate = async () => {
+  // Stable Monaco options object — prevents Monaco re-applying settings on every render
+  const monacoOptions = useMemo(() => ({
+    minimap: { enabled: false },
+    fontSize: 14,
+    lineHeight: 24,
+    padding: { top: 20 },
+    scrollBeyondLastLine: false,
+    fontFamily: "'JetBrains Mono', 'Geist Mono', monospace",
+  }), []);
+
+  const handleTranslate = useCallback(async () => {
     if (!input.trim()) return;
 
     if (isStreaming && readerRef.current) {
@@ -414,6 +556,19 @@ function TranslatePageContent() {
       let completeBlocks = null;
       let streamError = null;
 
+      // Flush the rAF buffer to React state at display refresh cadence
+      const scheduleFlush = () => {
+        if (rafIdRef.current !== null) return;
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          if (streamBufferRef.current) {
+            const pending = streamBufferRef.current;
+            streamBufferRef.current = "";
+            setStreamText(prev => prev + pending);
+          }
+        });
+      };
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -430,7 +585,9 @@ function TranslatePageContent() {
                 streamError = data.error;
                 setRawError(`Error: ${data.error}`);
               } else if (data.chunk) {
-                setStreamText(prev => prev + data.chunk);
+                // Buffer; flush asynchronously at rAF cadence
+                streamBufferRef.current += data.chunk;
+                scheduleFlush();
               } else if (data.done && data.blocks) {
                 completeBlocks = data.blocks;
                 if (data.model_used) {
@@ -442,6 +599,16 @@ function TranslatePageContent() {
             }
           }
         }
+      }
+
+      // Final flush
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      if (streamBufferRef.current) {
+        setStreamText(prev => prev + streamBufferRef.current);
+        streamBufferRef.current = "";
       }
 
       if (completeBlocks && !streamError) {
@@ -474,9 +641,10 @@ function TranslatePageContent() {
       setIsStreaming(false);
       readerRef.current = null;
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session]);
 
-  const handleClear = () => { 
+  const handleClear = useCallback(() => { 
     setInput(""); 
     setIsTypingManually(false);
     setOutputBlocks(null); 
@@ -485,9 +653,9 @@ function TranslatePageContent() {
     setRawError("");
     setUploadedFile(null);
     setGistSource(null);
-  };
+  }, []);
 
-  const handleCopyMarkdown = () => {
+  const handleCopyMarkdown = useCallback(() => {
     if (!outputBlocks) return;
     let content = "";
     
@@ -501,9 +669,9 @@ function TranslatePageContent() {
     setCopied(true);
     toast.success("Copied Markdown to clipboard");
     setTimeout(() => setCopied(false), 2000);
-  };
+  }, [outputBlocks, mode, sourceLanguage, targetLanguage]);
 
-  const handleDownloadJson = () => {
+  const handleDownloadJson = useCallback(() => {
     if (!outputBlocks) return;
     const blob = new Blob([JSON.stringify(outputBlocks, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -512,7 +680,7 @@ function TranslatePageContent() {
     a.download = `anuvaad-blocks.json`;
     a.click();
     URL.revokeObjectURL(url);
-  };
+  }, [outputBlocks]);
 
   const handleSyncEnglishToCode = async () => {
     if (!outputBlocks || !outputBlocks.length || isSyncing) return;
@@ -578,6 +746,56 @@ function TranslatePageContent() {
 
   const hasEdits = !!(originalBlocks && outputBlocks && JSON.stringify(originalBlocks) !== JSON.stringify(outputBlocks));
 
+  // Refs so keyboard shortcut handler never captures stale closures
+  const handleTranslateRef = useRef(handleTranslate);
+  const handleClearRef = useRef(handleClear);
+  const handleCopyMarkdownRef = useRef(handleCopyMarkdown);
+  useEffect(() => { handleTranslateRef.current = handleTranslate; }, [handleTranslate]);
+  useEffect(() => { handleClearRef.current = handleClear; }, [handleClear]);
+  useEffect(() => { handleCopyMarkdownRef.current = handleCopyMarkdown; }, [handleCopyMarkdown]);
+
+  // Global keyboard shortcuts — deps=[] so listener is registered once
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 1. Ctrl+Enter or Cmd+Enter to translate
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleTranslateRef.current();
+      }
+      // 2. Ctrl+Alt+C to clear
+      if (e.ctrlKey && e.altKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        handleClearRef.current();
+        toast.info("Workspace cleared");
+      }
+      // 3. Ctrl+Shift+C to copy
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        handleCopyMarkdownRef.current();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown, { passive: true });
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Client-side language auto-detection — debounced 400 ms to avoid regex on every keystroke
+  useEffect(() => {
+    if (!input || input.trim().length < 15 || mode === "english-to-code") {
+      setDetectedLang(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      const detected = detectLanguage(input);
+      if (detected && detected !== sourceLanguage) {
+        setDetectedLang(detected);
+      } else {
+        setDetectedLang(null);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [input, sourceLanguage, mode]);
+
   return (
     <div className="min-h-screen pb-20">
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -612,10 +830,11 @@ function TranslatePageContent() {
       {showSettings && (
         <div className="border-b border-border bg-muted/30 px-6 py-4">
           <div className="max-w-3xl">
-            <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            <label htmlFor="custom-instructions" className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Corporate Standards / Custom Instructions
             </label>
             <Input 
+              id="custom-instructions"
               value={customInstructions}
               onChange={(e) => setCustomInstructions(e.target.value)}
               placeholder="e.g. Strictly enforce JSDoc comments. Use functional components only."
@@ -655,22 +874,18 @@ function TranslatePageContent() {
           {/* Language selectors */}
           <div className="flex flex-wrap items-center gap-3">
             {mode !== "english-to-code" && (
-              <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-1.5 shadow-sm">
-                <label htmlFor="source-lang" className="text-xs font-medium text-muted-foreground">Source</label>
-                <select id="source-lang" value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)}
-                  className="bg-background text-foreground border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
-                  {languages.map((l) => <option key={l.value} value={l.value} className="bg-background text-foreground">{l.label}</option>)}
-                </select>
-              </div>
+              <SearchableLanguageSelect
+                label="Source"
+                value={sourceLanguage}
+                onChange={setSourceLanguage}
+              />
             )}
             {mode !== "code-to-english" && (
-              <div className="flex items-center gap-2 bg-background border border-border rounded-lg px-3 py-1.5 shadow-sm">
-                <label htmlFor="target-lang" className="text-xs font-medium text-muted-foreground">Target</label>
-                <select id="target-lang" value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)}
-                  className="bg-background text-foreground border-none text-sm font-medium focus:ring-0 cursor-pointer outline-none">
-                  {languages.map((l) => <option key={l.value} value={l.value} className="bg-background text-foreground">{l.label}</option>)}
-                </select>
-              </div>
+              <SearchableLanguageSelect
+                label="Target"
+                value={targetLanguage}
+                onChange={setTargetLanguage}
+              />
             )}
           </div>
         </div>
@@ -729,7 +944,7 @@ function TranslatePageContent() {
               />
             ) : (
               <div className="flex-1 min-h-[500px] relative">
-                <Editor
+  <Editor
                   height="100%"
                   language={languages.find(l => l.value === sourceLanguage)?.monacoId || sourceLanguage}
                   theme={isDark ? "vs-dark" : "light"}
@@ -741,15 +956,25 @@ function TranslatePageContent() {
                       (window as unknown as Record<string, unknown>).__monacoEditor = editor;
                     }
                   }}
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineHeight: 24,
-                    padding: { top: 20 },
-                    scrollBeyondLastLine: false,
-                    fontFamily: "'JetBrains Mono', 'Geist Mono', monospace",
-                  }}
+                  options={monacoOptions}
                 />
+                
+                {detectedLang && (
+                  <div className="absolute bottom-3 right-3 z-30 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <Button 
+                      size="sm" 
+                      onClick={() => {
+                        setSourceLanguage(detectedLang);
+                        setDetectedLang(null);
+                        toast.success(`Language switched to ${languages.find(l => l.value === detectedLang)?.label}!`);
+                      }}
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-medium text-xs gap-1.5 shadow-lg border border-amber-500/20 px-3 h-8 rounded-full"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 animate-pulse text-amber-300" />
+                      Switch to {languages.find(l => l.value === detectedLang)?.label}?
+                    </Button>
+                  </div>
+                )}
                 {/* Drag & drop overlay */}
                 {!input && !isTypingManually && (
                   <div
@@ -833,8 +1058,14 @@ function TranslatePageContent() {
               </div>
             )}
             
-            <div className="border-t border-border/60 bg-muted/10 px-4 py-2 flex justify-end items-center">
-              <span className="text-[10px] text-muted-foreground">Press <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[10px]">Ctrl/⌘</kbd> + <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[10px]">Enter</kbd> to translate</span>
+            <div className="border-t border-border/60 bg-muted/10 px-4 py-2.5 flex justify-between items-center text-[10px] text-muted-foreground">
+              <div className="flex gap-4">
+                <span><kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">Alt</kbd> + <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">C</kbd> Clear</span>
+                {outputBlocks && (
+                  <span><kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">Shift</kbd> + <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">C</kbd> Copy Markdown</span>
+                )}
+              </div>
+              <span>Press <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">Ctrl/⌘</kbd> + <kbd className="px-1 py-0.5 bg-muted rounded border border-border text-[9px]">Enter</kbd> to translate</span>
             </div>
           </Card>
 

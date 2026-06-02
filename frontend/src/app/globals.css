@@ -46,6 +46,9 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --color-amber-500: #d97706;
+  --color-amber-600: #b45309;
+  --color-amber-700: #78350f;
 }
 
 :root {
@@ -60,7 +63,7 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.42 0 0);
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
@@ -162,4 +165,32 @@
     animation-duration: 0.01ms !important; 
     transition-duration: 0.01ms !important;
   } 
+}
+
+/* ── PERFORMANCE ── */
+
+/* Defer GPU paint for long output lists until they scroll into view */
+.output-panel-content {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Reserve GPU composite layer only for explicitly animated sidebar */
+.sidebar-animated {
+  will-change: transform;
+}
+/* Remove will-change once transition is done to free GPU memory */
+.sidebar-animated.transition-done {
+  will-change: auto;
+}
+
+/* Smooth momentum scrolling on iOS for scroll containers */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Faster text rendering for code blocks — prioritize speed over legibility micro-optimizations */
+pre, code, .font-mono {
+  text-rendering: optimizeSpeed;
 }

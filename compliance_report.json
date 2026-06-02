@@ -1,0 +1,47 @@
+{
+  "timestamp": "2026-06-02T15:00:22.361382",
+  "passed_checks": 10,
+  "failed_checks": 0,
+  "warnings_count": 9,
+  "status": "HEALTHY",
+  "findings": [
+    "WARNING: Redis connection is currently inactive.",
+    "WARNING: Latency for endpoint subscription-status is high (3640.47ms)",
+    "WARNING: Latency for endpoint workspaces is high (4870.41ms)",
+    "WARNING: Latency for endpoint history is high (3692.09ms)",
+    "WARNING: Latency for endpoint stats is high (6126.43ms)",
+    "WARNING: Latency for endpoint check-credits is high (3051.35ms)",
+    "WARNING: Latency for endpoint code-to-english is high (2396.19ms)",
+    "WARNING: Latency for endpoint health is high (4122.31ms)",
+    "WARNING: Frontend has 2 High/Critical package vulnerabilities. Run 'npm audit fix'."
+  ],
+  "metrics": {
+    "uptime_seconds": 7216,
+    "python_version": "3.13.9 (tags/v3.13.9:8183fa5, Oct 14 2025, 14:09:13) [MSC v.1944 64 bit (AMD64)]",
+    "total_requests": {
+      "subscription-status": 9,
+      "workspaces": 1,
+      "history": 2,
+      "stats": 1,
+      "check-credits": 4,
+      "code-to-english": 1,
+      "health": 4,
+      "metrics": 1
+    },
+    "total_errors": {},
+    "model_calls": {},
+    "model_errors": {},
+    "cache_hits": 0,
+    "cache_misses": 1,
+    "average_latency_ms": {
+      "subscription-status": 3640.47,
+      "workspaces": 4870.41,
+      "history": 3692.09,
+      "stats": 6126.43,
+      "check-credits": 3051.35,
+      "code-to-english": 2396.19,
+      "health": 4122.31,
+      "metrics": 158.36
+    }
+  }
+}

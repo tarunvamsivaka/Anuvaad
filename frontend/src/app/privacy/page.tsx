@@ -28,7 +28,7 @@ export default function PrivacyPage() {
             <ul className="list-disc space-y-2 pl-5">
               <li><strong className="text-foreground">Account information:</strong> Email address and authentication provider (Google, GitHub, or email/password).</li>
               <li><strong className="text-foreground">Usage data:</strong> Translation count, mode used, and timestamps for rate limiting.</li>
-              <li><strong className="text-foreground">Payment data:</strong> Managed entirely by Stripe. We never store card numbers.</li>
+              <li><strong className="text-foreground">Payment data:</strong> Managed entirely by Razorpay. We never store card or payment details.</li>
             </ul>
           </section>
 
@@ -42,7 +42,7 @@ export default function PrivacyPage() {
             <ul className="list-disc space-y-2 pl-5">
               <li><strong className="text-foreground">Supabase:</strong> Authentication and database hosting.</li>
               <li><strong className="text-foreground">Groq & DeepSeek:</strong> AI models for code translation.</li>
-              <li><strong className="text-foreground">Stripe:</strong> Payment processing for Pro subscriptions.</li>
+              <li><strong className="text-foreground">Razorpay:</strong> Payment processing for Pro subscriptions.</li>
             </ul>
           </section>
 

@@ -155,6 +155,13 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Auth redirect is handled server-side by middleware.ts — no flash.
+  // We also have a client-side safety fallback for defense-in-depth.
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/signin");
+    }
+  }, [user, loading, router]);
+
   useEffect(() => {
     requestAnimationFrame(() => {
       setMobileOpen(false);

@@ -1,5 +1,21 @@
 import { useState, useEffect } from 'react';
 
+// Lightweight in-memory cache (SWR-style) to avoid redundant API calls during navigation
+// Keyed by "<endpoint>:<accessToken>"; values expire after CACHE_TTL_MS
+const CACHE_TTL_MS = 30_000; // 30 seconds
+const _cache = new Map<string, { value: unknown; expiresAt: number }>();
+
+function getCached<T>(key: string): T | null {
+  const entry = _cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { _cache.delete(key); return null; }
+  return entry.value as T;
+}
+function setCache<T>(key: string, value: T): void {
+  _cache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+
 export interface TranslationHistoryItem {
   id: string;
   user_email: string;
@@ -25,6 +41,16 @@ export function useTranslationStats(userEmail: string | undefined, accessToken: 
     const controller = new AbortController();
 
     async function fetchStats() {
+      const cacheKey = `stats:${accessToken}`;
+      const cached = getCached<{ stats: { today: number; week: number; total: number }; history: TranslationHistoryItem[] }>(cacheKey);
+      if (cached) {
+        if (active) {
+          setStats(cached.stats);
+          setRecentTranslations(cached.history);
+          setIsLoading(false);
+        }
+        return;
+      }
       setIsLoading(true);
       try {
         const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -51,13 +77,17 @@ export function useTranslationStats(userEmail: string | undefined, accessToken: 
 
         const historyData: TranslationHistoryItem[] = await historyRes.json();
         const statsData = await statsRes.json();
+        const newStats = {
+          today: statsData.today || 0,
+          week: statsData.week || 0,
+          total: statsData.total || 0,
+        };
+
+        // Populate cache before setting state
+        setCache(cacheKey, { stats: newStats, history: historyData });
 
         if (active) {
-          setStats({
-            today: statsData.today || 0,
-            week: statsData.week || 0,
-            total: statsData.total || 0,
-          });
+          setStats(newStats);
           setRecentTranslations(historyData);
         }
       } catch (error) {
@@ -152,6 +182,12 @@ export function useCredits(accessToken: string | undefined) {
     const controller = new AbortController();
 
     async function fetchCredits() {
+      const cacheKey = `credits:${accessToken}`;
+      const cached = getCached<number>(cacheKey);
+      if (cached !== null) {
+        if (active) { setCredits(cached); setIsLoading(false); }
+        return;
+      }
       setIsLoading(true);
       try {
         const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -163,8 +199,10 @@ export function useCredits(accessToken: string | undefined) {
         });
         if (res.ok) {
           const data = await res.json();
+          const creditsValue = data.credits || 0;
+          setCache(cacheKey, creditsValue);
           if (active) {
-            setCredits(data.credits || 0);
+            setCredits(creditsValue);
           }
         }
       } catch (err) {

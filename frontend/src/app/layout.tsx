@@ -10,17 +10,19 @@ import "./globals.css";
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",  // Prevent FOIT — show fallback font while Inter loads
 });
 
 const jetbrains = JetBrains_Mono({
   variable: "--font-mono",
   subsets: ["latin"],
+  display: "swap",  // Prevent FOIT
+  preload: true,    // Critical path — Monaco editor uses this font
 });
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   themeColor: "#c8860a",
 };
 
@@ -97,6 +99,8 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        {/* DNS prefetch for critical API domains */}
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://api.groq.com" />
         <link rel="dns-prefetch" href="https://api.groq.com" />
         <link rel="preconnect" href="https://api.deepseek.com" />

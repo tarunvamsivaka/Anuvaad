@@ -41,17 +41,27 @@ httpx.Response.json = _patched_json
 # ── Ensure env vars are set BEFORE importing main ──
 os.environ.setdefault("GROQ_API_KEY", "test_key_for_ci")
 os.environ.setdefault("DEEPSEEK_API_KEY", "test_key_for_ci")
-os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_ci")
-os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_ci"
+os.environ.setdefault("RAZORPAY_KEY_ID", "rzp_test_real_key_for_ci")
+os.environ.setdefault("RAZORPAY_KEY_SECRET", "test_secret_for_ci")
+os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test_webhook_secret_for_ci"
 
-# ── Patch Stripe Webhook Verification ──
-import stripe
-import json
+# ── Patch Razorpay Webhook Verification ──
+import razorpay
+from unittest.mock import MagicMock
 
-def mock_construct_event(payload, sig_header, secret, **kwargs):
-    return json.loads(payload)
+# Create a mock utility with verify methods that do nothing (signifying success)
+mock_utility = MagicMock()
+mock_utility.verify_webhook_signature.return_value = True
+mock_utility.verify_subscription_payment_signature.return_value = True
+mock_utility.verify_payment_signature.return_value = True
 
-stripe.Webhook.construct_event = mock_construct_event
+# Patch Client so that its utility is mocked
+original_init = razorpay.Client.__init__
+def patched_init(self, *args, **kwargs):
+    original_init(self, *args, **kwargs)
+    self.utility = mock_utility
+
+razorpay.Client.__init__ = patched_init
 
 # ── Fake AsyncOpenAI classes ──
 class MockDelta:

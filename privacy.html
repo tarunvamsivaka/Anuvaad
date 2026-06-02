@@ -111,7 +111,7 @@
 
 <body>
     <header class="legal-header">
-        <a href="index.html">Anuvaad</a>
+        <a href="/">Anuvaad</a>
         <h1>Privacy Policy</h1>
         <p class="date">Last updated: April 26, 2026</p>
     </header>
@@ -137,7 +137,7 @@
 
         <h3>Payment Information</h3>
         <ul>
-            <li>Stripe handles all payment processing. We never see or store your full credit card number.</li>
+            <li>Razorpay handles all payment processing. We never see or store your full credit card number.</li>
             <li>We store your subscription status (plan type, active/cancelled) in our database.</li>
         </ul>
 
@@ -151,7 +151,7 @@
         <h2>3. How We Use Your Information</h2>
         <ul>
             <li><strong>Provide the service:</strong> Translate code, generate code, and manage your account.</li>
-            <li><strong>Process payments:</strong> Manage Pro subscriptions via Stripe.</li>
+            <li><strong>Process payments:</strong> Manage Pro subscriptions via Razorpay.</li>
             <li><strong>Rate limiting:</strong> Prevent abuse and ensure fair usage for all users.</li>
             <li><strong>Improve the service:</strong> Analyze usage patterns to enhance features.</li>
             <li><strong>Communication:</strong> Send account-related emails (e.g., payment receipts, subscription changes).</li>
@@ -165,13 +165,15 @@
         <ul>
             <li><strong>Groq (Llama 3.3 70B) and DeepSeek (V3/R1)</strong> — Processes code translations.</li>
             <li><strong>Supabase</strong> — Authentication and database. Subject to <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy</a>.</li>
-            <li><strong>Stripe</strong> — Payment processing. Subject to <a href="https://stripe.com/privacy" target="_blank">Stripe's Privacy Policy</a>.</li>
+            <li><strong>Razorpay</strong> — Payment processing. Subject to <a href="https://razorpay.com/privacy" target="_blank">Razorpay's Privacy Policy</a>.</li>
+            <li><strong>PostHog</strong> — Product usage and behavior analytics. Subject to <a href="https://posthog.com/privacy" target="_blank">PostHog Privacy Policy</a>.</li>
+            <li><strong>Sentry</strong> — Error monitoring and diagnostic log capture. Subject to <a href="https://sentry.io/privacy" target="_blank">Sentry Privacy Policy</a>.</li>
         </ul>
 
         <h2>6. Data Retention</h2>
         <ul>
             <li>Account data is retained while your account is active.</li>
-            <li>Subscription records are retained for billing compliance.</li>
+            <li>Subscription, payment, and transaction records are retained for a minimum of 7 years in accordance with Indian tax (GST) and accounting compliance laws.</li>
             <li>Rate limiting data is stored in Redis with configurable retention.</li>
             <li>You may request account deletion at any time by contacting us.</li>
         </ul>
@@ -181,7 +183,7 @@
         <ul>
             <li>HTTPS encryption for all data in transit</li>
             <li>Supabase Row Level Security (RLS) for database access control</li>
-            <li>Stripe PCI-DSS compliant payment handling</li>
+            <li>Razorpay PCI-DSS compliant payment handling</li>
             <li>Environment variables for all secret keys (never hardcoded)</li>
         </ul>
 
@@ -218,8 +220,8 @@
 
     <footer class="legal-footer">
         <p>
-            <a href="index.html">← Back to Anuvaad</a>
-            <a href="terms.html">Terms of Service</a>
+            <a href="/">← Back to Anuvaad</a>
+            <a href="/terms">Terms of Service</a>
         </p>
         <p style="margin-top: 0.5rem;">© 2026 Anuvaad. All rights reserved.</p>
     </footer>

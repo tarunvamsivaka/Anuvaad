@@ -15,13 +15,13 @@ const plans = [
     cta: "Start Free", href: "/signup", highlighted: false,
   },
   {
-    name: "Pro", price: { monthly: 12, yearly: 96 },
+    name: "Pro", price: { monthly: 499, yearly: 3999 },
     description: "For power users who need unlimited access.",
     features: ["Unlimited translations", "Priority processing", "Large inputs (50K chars)", "Cloud-synced history", "Early access to features", "Email support"],
     cta: "Upgrade to Pro", href: "/signup?plan=pro", highlighted: true, badge: "Most Popular",
   },
   {
-    name: "Team", price: { monthly: 29, yearly: 228 },
+    name: "Team", price: { monthly: 1200, yearly: 9999 },
     description: "For teams that need shared access.",
     features: ["Everything in Pro", "5 team members", "Shared workspace", "Admin billing", "Priority support", "Custom onboarding"],
     cta: "Contact Sales", href: "/signup?plan=team", highlighted: false,
@@ -39,7 +39,7 @@ export function Pricing() {
           <p className="mt-4 text-lg text-muted-foreground">Start free. Upgrade when you need more.</p>
           <div className="mt-8 inline-flex items-center gap-3 rounded-full border border-border bg-muted/50 p-1">
             <button onClick={() => setYearly(false)} className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${!yearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Monthly</button>
-            <button onClick={() => setYearly(true)} className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${yearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Yearly <span className="ml-1.5 text-xs text-amber-600">Save 33%</span></button>
+            <button onClick={() => setYearly(true)} className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${yearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"}`}>Yearly <span className="ml-1.5 text-xs text-amber-600">Save ~33%</span></button>
           </div>
         </div>
         <div className="mt-12 grid gap-8 lg:grid-cols-3">
@@ -49,10 +49,10 @@ export function Pricing() {
               <h3 className="text-lg font-semibold">{plan.name}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{plan.description}</p>
               <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-bold">${yearly ? Math.round(plan.price.yearly / 12) : plan.price.monthly}</span>
+                <span className="text-4xl font-bold">₹{yearly ? Math.round(plan.price.yearly / 12) : plan.price.monthly}</span>
                 {plan.price.monthly > 0 && <span className="text-sm text-muted-foreground">/month</span>}
               </div>
-              {yearly && plan.price.yearly > 0 && <p className="mt-1 text-xs text-muted-foreground">Billed ${plan.price.yearly}/year</p>}
+              {yearly && plan.price.yearly > 0 && <p className="mt-1 text-xs text-muted-foreground">Billed ₹{plan.price.yearly}/year</p>}
               <Link href={plan.href} className={cn(
                 buttonVariants({ variant: plan.highlighted ? "default" : "outline" }),
                 "mt-6 w-full text-center",

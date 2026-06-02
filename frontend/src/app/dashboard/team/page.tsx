@@ -195,8 +195,9 @@ export default function TeamPage() {
             </h3>
             <form onSubmit={handleInvite} className="flex gap-3 items-end">
               <div className="flex-1 space-y-1">
-                <label className="text-xs text-muted-foreground">Email Address</label>
+                <label htmlFor="invite-email-team" className="text-xs text-muted-foreground">Email Address</label>
                 <Input 
+                  id="invite-email-team"
                   type="email"
                   placeholder="colleague@company.com" 
                   value={inviteEmail} 

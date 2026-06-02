@@ -20,7 +20,7 @@ class TestHealthEndpoint:
         assert data["status"] == "healthy"
         assert data["service"] == "anuvaad-api"
         assert "llm_configured" in data
-        assert "stripe_configured" in data
+        assert "razorpay_configured" in data
 
 
 class TestCodeToEnglish:
@@ -145,75 +145,90 @@ class TestCodeToCode:
         assert res.status_code == 422
 
 
-class TestStripeWebhook:
-    """Tests for POST /api/webhook/stripe."""
+class TestRazorpayWebhook:
+    """Tests for POST /api/webhook/razorpay."""
 
-    def test_checkout_completed(self, client):
+    def test_subscription_activated(self, client):
         event = {
-            "type": "checkout.session.completed",
-            "data": {
-                "object": {
-                    "customer_email": "test@example.com",
-                    "subscription": "sub_12345"
+            "event": "subscription.activated",
+            "payload": {
+                "subscription": {
+                    "entity": {
+                        "id": "sub_12345",
+                        "notes": {
+                            "user_email": "test@example.com"
+                        }
+                    }
                 }
             }
         }
-        res = client.post("/api/webhook/stripe", json=event)
+        res = client.post("/api/webhook/razorpay", json=event)
         assert res.status_code == 200
         assert res.json()["received"] is True
 
-    def test_subscription_updated(self, client):
+    def test_subscription_charged(self, client):
         event = {
-            "type": "customer.subscription.updated",
-            "data": {
-                "object": {
-                    "customer": "cus_12345",
-                    "status": "active"
+            "event": "subscription.charged",
+            "payload": {
+                "subscription": {
+                    "entity": {
+                        "id": "sub_12345",
+                        "notes": {
+                            "user_email": "test@example.com"
+                        }
+                    }
                 }
             }
         }
-        res = client.post("/api/webhook/stripe", json=event)
+        res = client.post("/api/webhook/razorpay", json=event)
         assert res.status_code == 200
 
-    def test_subscription_deleted(self, client):
+    def test_subscription_cancelled(self, client):
         event = {
-            "type": "customer.subscription.deleted",
-            "data": {
-                "object": {
-                    "customer": "cus_12345"
+            "event": "subscription.cancelled",
+            "payload": {
+                "subscription": {
+                    "entity": {
+                        "id": "sub_12345",
+                        "notes": {
+                            "user_email": "test@example.com"
+                        }
+                    }
                 }
             }
         }
-        res = client.post("/api/webhook/stripe", json=event)
+        res = client.post("/api/webhook/razorpay", json=event)
         assert res.status_code == 200
 
     def test_payment_failed(self, client):
         event = {
-            "type": "invoice.payment_failed",
-            "data": {
-                "object": {
-                    "customer_email": "test@example.com",
-                    "attempt_count": 2
+            "event": "payment.failed",
+            "payload": {
+                "payment": {
+                    "entity": {
+                        "email": "test@example.com"
+                    }
                 }
             }
         }
-        res = client.post("/api/webhook/stripe", json=event)
+        res = client.post("/api/webhook/razorpay", json=event)
         assert res.status_code == 200
 
     def test_unhandled_event(self, client):
         event = {
-            "type": "some.future.event",
-            "data": {"object": {}}
+            "event": "some.future.event",
+            "payload": {}
         }
-        res = client.post("/api/webhook/stripe", json=event)
+        res = client.post("/api/webhook/razorpay", json=event)
         assert res.status_code == 200
         assert res.json()["received"] is True
 
     def test_invalid_payload(self, client):
         res = client.post(
-            "/api/webhook/stripe",
+            "/api/webhook/razorpay",
             content=b"not json",
             headers={"Content-Type": "application/json"}
         )
-        assert res.status_code == 422 or res.status_code == 400
+        assert res.status_code in (400, 422)
+
 

@@ -26,14 +26,14 @@ const jsonLd = {
     {
       "@type": "Offer",
       price: "0",
-      priceCurrency: "USD",
+      priceCurrency: "INR",
       name: "Free Plan",
       description: "10 translations per day, 35+ languages",
     },
     {
       "@type": "Offer",
-      price: "12",
-      priceCurrency: "USD",
+      price: "499",
+      priceCurrency: "INR",
       name: "Pro Plan",
       description: "Unlimited translations, priority processing",
     },

@@ -19,7 +19,8 @@ function SignInPageContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+  const rawRedirect = searchParams.get("redirectTo") || "/dashboard";
+  const redirectTo = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/dashboard";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,15 +80,15 @@ function SignInPageContent() {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Email</label>
-              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-sm" required />
+              <label htmlFor="signin-email" className="text-xs font-medium text-muted-foreground">Email</label>
+              <Input id="signin-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-sm" required />
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-muted-foreground">Password</label>
+                <label htmlFor="signin-password" className="text-xs font-medium text-muted-foreground">Password</label>
                 <Link href="/forgot-password" className="text-xs font-medium text-amber-600 hover:text-amber-700">Forgot password?</Link>
               </div>
-              <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 text-sm" required />
+              <Input id="signin-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 text-sm" required />
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}
             <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-sm" disabled={loading}>

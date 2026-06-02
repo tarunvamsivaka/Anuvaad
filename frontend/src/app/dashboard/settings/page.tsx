@@ -217,12 +217,13 @@ export default function SettingsPage() {
           <h2 className="text-sm font-semibold">Profile</h2>
           <div className="mt-4 space-y-4">
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Email</label>
-              <Input value={user?.email || ""} disabled className="mt-1 text-sm bg-muted/50" />
+              <label htmlFor="settings-email" className="text-xs font-medium text-muted-foreground">Email</label>
+              <Input id="settings-email" value={user?.email || ""} disabled className="mt-1 text-sm bg-muted/50" />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Display Name</label>
+              <label htmlFor="settings-display-name" className="text-xs font-medium text-muted-foreground">Display Name</label>
               <Input
+                id="settings-display-name"
                 placeholder="Your name"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -295,8 +296,9 @@ export default function SettingsPage() {
 
           <div className="flex items-end gap-3 mb-6">
             <div className="flex-1">
-              <label className="text-xs font-medium text-muted-foreground">Key Name</label>
+              <label htmlFor="settings-key-name" className="text-xs font-medium text-muted-foreground">Key Name</label>
               <Input 
+                id="settings-key-name"
                 placeholder="e.g. CI Pipeline, Backend Script" 
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}

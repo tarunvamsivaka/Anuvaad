@@ -20,7 +20,8 @@ function SignUpPageContent() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+  const rawRedirect = searchParams.get("redirectTo") || "/dashboard";
+  const redirectTo = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/dashboard";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,12 +105,12 @@ function SignUpPageContent() {
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Email</label>
-              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-sm" required />
+              <label htmlFor="signup-email" className="text-xs font-medium text-muted-foreground">Email</label>
+              <Input id="signup-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 text-sm" required />
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Password</label>
-              <Input type="password" placeholder="Min. 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 text-sm" required minLength={8} />
+              <label htmlFor="signup-password" className="text-xs font-medium text-muted-foreground">Password</label>
+              <Input id="signup-password" type="password" placeholder="Min. 8 characters" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 text-sm" required minLength={8} />
             </div>
             {error && <p className="text-xs text-destructive">{error}</p>}
             <Button type="submit" className="w-full bg-amber-600 hover:bg-amber-700 text-sm" disabled={loading}>

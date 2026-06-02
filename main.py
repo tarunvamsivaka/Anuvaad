@@ -6,7 +6,7 @@ import logging
 import sys
 import base64
 import uvicorn
-import stripe
+import razorpay
 import httpx
 import re
 import uuid
@@ -121,6 +121,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── SECURITY HEADERS & CSRF MIDDLEWARE ──
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Add secure HTTP headers to every API response."""
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
+    return response
+
+@app.middleware("http")
+async def csrf_origin_middleware(request: Request, call_next):
+    """Enforce Origin/Referer matching on mutating POST/PATCH/DELETE API requests in production."""
+    if _is_production and request.method in ("POST", "PATCH", "DELETE"):
+        # Exclude webhook endpoints as they come from trusted payment platforms (Razorpay)
+        # and carry signature-level authentication.
+        if not request.url.path.startswith("/api/webhook/"):
+            origin = request.headers.get("Origin")
+            referer = request.headers.get("Referer")
+            
+            authorized = False
+            if origin:
+                if origin == _frontend_url:
+                    authorized = True
+            elif referer:
+                if referer.startswith(_frontend_url):
+                    authorized = True
+            
+            if not authorized:
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Forbidden: CSRF Origin validation failed."}
+                )
+    return await call_next(request)
+
 # ── METRICS MIDDLEWARE ──
 METRICS_USERNAME = os.getenv("METRICS_USERNAME", "")
 METRICS_PASSWORD = os.getenv("METRICS_PASSWORD", "")
@@ -171,12 +209,15 @@ if not DEEPSEEK_API_KEY or DEEPSEEK_API_KEY.startswith("your_"):
     logger.warning("DEEPSEEK_API_KEY is not set or still default!")
 
 # Startup validation
-STRIPE_KEY = os.getenv("STRIPE_SECRET_KEY", "")
-if STRIPE_KEY and STRIPE_KEY != "sk_test_your_stripe_secret_key_here":
-    stripe.api_key = STRIPE_KEY
-    logger.info("Stripe configured")
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
+
+if RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your"):
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+    logger.info("Razorpay configured")
 else:
-    logger.info("Stripe not configured (Pro tier disabled)")
+    razorpay_client = None
+    logger.info("Razorpay not configured (Pro tier disabled)")
 
 # ── SUPABASE SERVER-SIDE CLIENT ──
 # Uses the SERVICE ROLE KEY (not anon key) for privileged DB writes.
@@ -197,7 +238,7 @@ else:
 if _is_production:
     _missing = []
     for _var in ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "GROQ_API_KEY", "DEEPSEEK_API_KEY",
-                 "STRIPE_WEBHOOK_SECRET", "FRONTEND_URL"]:
+                 "RAZORPAY_WEBHOOK_SECRET", "FRONTEND_URL"]:
         val = os.getenv(_var, "")
         if not val or val.startswith("your_") or val == "dummy_key":
             _missing.append(_var)
@@ -624,7 +665,7 @@ async def health_check():
         "status": "healthy",
         "service": "anuvaad-api",
         "llm_configured": bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY),
-        "stripe_configured": bool(STRIPE_KEY and STRIPE_KEY != "sk_test_your_stripe_secret_key_here"),
+        "razorpay_configured": bool(RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")),
         "redis_connected": redis_ok,
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
     }
@@ -1881,9 +1922,10 @@ async def delete_account(authorization: str = Header(None)):
         logger.error(f"Delete account error: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete account")
 
-# 6. Stripe Config & Routes
+# 6. Razorpay Config & Routes
 
-PRO_PRICE_ID = os.getenv("STRIPE_PRO_PRICE_ID", "price_ID")
+RAZORPAY_PRO_PLAN_ID = os.getenv("RAZORPAY_PRO_PLAN_ID", "")
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
 
 class CheckoutPayload(BaseModel):
     user_email: str = Field(..., min_length=5, max_length=254)
@@ -1891,50 +1933,49 @@ class CheckoutPayload(BaseModel):
 
 @app.post("/api/create-checkout-session")
 async def create_checkout_session(payload: CheckoutPayload):
-    """Create a Stripe checkout session.
-    Requires a valid Supabase access_token to prevent unauthenticated abuse."""
-    # Verify the Supabase JWT by calling the Supabase auth API
+    """Create a Razorpay subscription checkout.
+    Returns subscription_id + key_id for the frontend Razorpay popup."""
+    if not razorpay_client:
+        raise HTTPException(status_code=503, detail="Payment service not configured. Please contact support.")
     try:
         async with httpx.AsyncClient() as http_client:
             resp = await http_client.get(
                 f"{SUPABASE_URL}/auth/v1/user",
-                headers={"Authorization": f"Bearer {payload.access_token}",
-                         "apikey": SUPABASE_ANON_KEY}
+                headers={"Authorization": f"Bearer {payload.access_token}", "apikey": SUPABASE_ANON_KEY}
             )
             if resp.status_code != 200:
                 raise HTTPException(status_code=401, detail="Invalid or expired authentication token.")
-            user_data = resp.json()
-            verified_email = user_data.get("email", "")
-            # Ensure the token's email matches the requested email
+            verified_email = resp.json().get("email", "")
             if verified_email.lower() != payload.user_email.lower():
                 raise HTTPException(status_code=403, detail="Email mismatch: token does not belong to this user.")
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Could not verify authentication. Please try again.")
-
     try:
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{'price': PRO_PRICE_ID, 'quantity': 1}],
-            mode='subscription',
-            success_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=success',
-            cancel_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=cancel',
-            customer_email=verified_email,
-        )
-        return {"url": session.url}
+        subscription = razorpay_client.subscription.create({
+            "plan_id": RAZORPAY_PRO_PLAN_ID,
+            "total_count": 12,
+            "quantity": 1,
+            "customer_notify": 1,
+            "notes": {"user_email": verified_email}
+        })
+        return {
+            "subscription_id": subscription["id"],
+            "key_id": RAZORPAY_KEY_ID,
+            "name": "Anuvaad Pro",
+            "description": "Unlimited translations · DeepSeek R1 · Priority processing",
+        }
     except Exception as e:
-        logger.error(f"Stripe Error: {str(e)}")
+        logger.error(f"Razorpay subscription creation error: {e}")
         raise HTTPException(status_code=500, detail="Payment session creation failed. Please try again later.")
 
 
-# ── STRIPE BILLING PORTAL ──
+# ── RAZORPAY BILLING PORTAL ──
 class PortalPayload(BaseModel):
     access_token: str = Field(..., min_length=10)
 
 @app.post("/api/create-portal-session")
 async def create_portal_session(payload: PortalPayload):
-    """Create a Stripe Billing Portal session for the authenticated user.
-    Lets Pro users update payment methods, view invoices, and cancel."""
-    # Verify the JWT
+    """Return the user's active Razorpay subscription details for self-service management."""
     try:
         async with httpx.AsyncClient() as http_client:
             resp = await http_client.get(
@@ -1946,31 +1987,26 @@ async def create_portal_session(payload: PortalPayload):
             user_email = resp.json().get("email", "")
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Could not verify authentication")
+    sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=stripe_subscription_id,plan,status")
+    if not sub or not isinstance(sub, dict) or sub.get("plan") != "pro":
+        raise HTTPException(status_code=404, detail="No active Pro subscription found.")
+    return {
+        "subscription_id": sub.get("stripe_subscription_id", ""),
+        "plan": sub.get("plan", "free"),
+        "status": sub.get("status", ""),
+        "message": "To cancel your subscription, email support@anuvaad.dev with your subscription ID."
+    }
 
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Could not determine user email")
 
-    # Look up stripe_customer_id from subscription record
-    sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=stripe_customer_id")
-    if not sub or not isinstance(sub, dict) or not sub.get("stripe_customer_id"):
-        raise HTTPException(status_code=404, detail="No active subscription found. Please subscribe first.")
-
-    try:
-        session = stripe.billing_portal.Session.create(
-            customer=sub["stripe_customer_id"],
-            return_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing',
-        )
-        return {"url": session.url}
-    except Exception as e:
-        logger.error(f"Stripe Portal Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Could not open billing portal. Please try again.")
-
-# ── STRIPE CREDIT CHECKOUT ──
+# ── RAZORPAY CREDIT CHECKOUT ──
 class CreditCheckoutPayload(BaseModel):
     access_token: str = Field(..., min_length=10)
 
 @app.post("/api/create-credit-checkout")
 async def create_credit_checkout(payload: CreditCheckoutPayload):
+    """Create a Razorpay one-time order for buying 100 translation credits (₹100)."""
+    if not razorpay_client:
+        raise HTTPException(status_code=503, detail="Payment service not configured.")
     try:
         async with httpx.AsyncClient() as http_client:
             resp = await http_client.get(
@@ -1982,38 +2018,26 @@ async def create_credit_checkout(payload: CreditCheckoutPayload):
             user_email = resp.json().get("email", "")
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Could not verify authentication")
-
     if not user_email:
         raise HTTPException(status_code=401, detail="Could not determine email")
-
     try:
-        session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[{
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': '100 Translation Credits',
-                        'description': 'One-time purchase of 100 translation credits for Anuvaad.'
-                    },
-                    'unit_amount': 100, # $1.00
-                },
-                'quantity': 1,
-            }],
-            mode='payment',
-            metadata={
-                'type': 'credits',
-                'amount': 100,
-                'user_email': user_email
-            },
-            success_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=success',
-            cancel_url=f'{os.getenv("FRONTEND_URL", "http://localhost:3000")}/dashboard/billing?payment=cancel',
-            customer_email=user_email,
-        )
-        return {"url": session.url}
+        order = razorpay_client.order.create({
+            "amount": 10000,   # ₹100 in paise (100 × 100)
+            "currency": "INR",
+            "notes": {"type": "credits", "amount": 100, "user_email": user_email}
+        })
+        return {
+            "order_id": order["id"],
+            "amount": order["amount"],
+            "currency": order["currency"],
+            "key_id": RAZORPAY_KEY_ID,
+            "name": "Anuvaad Translation Credits",
+            "description": "100 Translation Credits — never expire",
+        }
     except Exception as e:
-        logger.error(f"Credit Checkout Error: {str(e)}")
+        logger.error(f"Razorpay order creation error: {e}")
         raise HTTPException(status_code=500, detail="Could not create checkout session")
+
 
 # ── CHECK CREDITS ──
 @app.post("/api/check-credits")
@@ -2029,62 +2053,69 @@ async def check_credits(payload: CreditCheckoutPayload):
             user_email = resp.json().get("email", "")
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Could not verify authentication")
-
     sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=credits")
     if sub and isinstance(sub, dict):
         return {"credits": sub.get("credits") or 0}
     return {"credits": 0}
 
 
-# ── STRIPE WEBHOOKS ──
-# Handles the full subscription lifecycle and updates the Supabase
-# user_subscriptions table so the frontend can gate Pro features.
+# ── RAZORPAY PAYMENT VERIFICATION ──
+# Called by the frontend popup after Razorpay returns payment details.
+# Verifies the HMAC signature and activates the subscription or credits.
 
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+class VerifyPaymentPayload(BaseModel):
+    razorpay_payment_id: str = Field(..., min_length=5)
+    razorpay_order_id: str | None = None
+    razorpay_subscription_id: str | None = None
+    razorpay_signature: str = Field(..., min_length=5)
+    access_token: str = Field(..., min_length=10)
+    payment_type: str = Field(..., pattern="^(subscription|credits)$")
 
-@app.post("/api/webhook/stripe")
-async def stripe_webhook(request: Request):
-    """Handle Stripe webhook events and update user_subscriptions in Supabase.
-
-    SECURITY: Every incoming event MUST be verified against STRIPE_WEBHOOK_SECRET.
-    If the secret is not configured, this endpoint refuses to process any events
-    to prevent forged payloads from granting unauthorized Pro access.
-    """
-    # ── Guard: refuse to operate without a signing secret ──
-    if not STRIPE_WEBHOOK_SECRET:
-        logger.error(
-            "STRIPE_WEBHOOK_SECRET is not set — rejecting webhook request. "
-            "Set it in .env from Stripe Dashboard → Developers → Webhooks → Signing secret."
-        )
-        return JSONResponse(
-            status_code=503,
-            content={"error": "Webhook endpoint not configured"}
-        )
-
-    payload = await request.body()
-    sig_header = request.headers.get("stripe-signature", "")
-
+@app.post("/api/verify-payment")
+async def verify_payment(payload: VerifyPaymentPayload):
+    """Verify Razorpay HMAC signature then activate Pro or top up credits."""
+    if not razorpay_client:
+        raise HTTPException(status_code=503, detail="Payment service not configured.")
     try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
-        )
-    except ValueError:
-        logger.error("Stripe webhook: invalid payload")
-        raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError:
-        logger.error("Stripe webhook: invalid signature")
-        raise HTTPException(status_code=400, detail="Invalid signature")
-
-    event_type = event.get("type", "") if isinstance(event, dict) else event["type"]
-    data = event.get("data", {}).get("object", {}) if isinstance(event, dict) else event["data"]["object"]
-
-    if event_type == "checkout.session.completed":
-        metadata = data.get("metadata", {})
-        if metadata.get("type") == "credits":
-            amount = int(metadata.get("amount", 0))
-            user_email = metadata.get("user_email", "")
-            logger.info(f"💰 Credits purchased: {user_email} (+{amount})")
-            
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(
+                f"{SUPABASE_URL}/auth/v1/user",
+                headers={"Authorization": f"Bearer {payload.access_token}", "apikey": SUPABASE_ANON_KEY}
+            )
+            if resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            user_email = resp.json().get("email", "")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Could not verify authentication")
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Could not determine user email")
+    try:
+        if payload.payment_type == "subscription":
+            razorpay_client.utility.verify_subscription_payment_signature({
+                "razorpay_payment_id": payload.razorpay_payment_id,
+                "razorpay_subscription_id": payload.razorpay_subscription_id,
+                "razorpay_signature": payload.razorpay_signature,
+            })
+            existing = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=user_email")
+            await supabase_request("POST", "user_subscriptions", {
+                "user_email": user_email,
+                "stripe_subscription_id": payload.razorpay_subscription_id,
+                "plan": "pro",
+                "status": "active",
+                "onboarded": False
+            })
+            if not existing:
+                email_service.send_welcome(user_email)
+            email_service.send_subscription_confirmed(user_email, "pro")
+            logger.info(f"✅ Razorpay subscription verified & activated: {user_email}")
+            return {"status": "success", "plan": "pro"}
+        else:  # credits
+            razorpay_client.utility.verify_payment_signature({
+                "razorpay_order_id": payload.razorpay_order_id,
+                "razorpay_payment_id": payload.razorpay_payment_id,
+                "razorpay_signature": payload.razorpay_signature,
+            })
+            amount = 100
             sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=credits")
             if not sub:
                 await supabase_request("POST", "user_subscriptions", {
@@ -2095,60 +2126,97 @@ async def stripe_webhook(request: Request):
                     "onboarded": False
                 })
             else:
-                current_credits = sub.get("credits") or 0
-                new_credits = current_credits + amount
-                await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{user_email}", {"credits": new_credits})
-        else:
-            customer_email = data.get("customer_email", "unknown")
-            subscription_id = data.get("subscription", "")
-            customer_id = data.get("customer", "")
-            logger.info(f"✅ New subscription: {customer_email} (sub: {subscription_id})")
-            # Check if this is a brand-new user (no existing subscription row)
-            existing_sub = await supabase_request("GET", f"user_subscriptions?user_email=eq.{customer_email}&select=user_email")
-            is_new_user = not existing_sub
-            # Upsert into Supabase — creates or updates the user's subscription record
+                current = sub.get("credits") or 0 if isinstance(sub, dict) else 0
+                await supabase_request("PATCH", f"user_subscriptions?user_email=eq.{user_email}", {"credits": current + amount})
+            logger.info(f"💰 Credits verified & added: {user_email} (+{amount})")
+            return {"status": "success", "credits_added": amount}
+    except Exception as e:
+        logger.error(f"Payment verification failed: {e}")
+        raise HTTPException(status_code=400, detail="Payment verification failed. Please contact support.")
+
+
+# ── RAZORPAY WEBHOOKS ──
+# Handles the full subscription lifecycle and updates the Supabase
+# user_subscriptions table so the frontend can gate Pro features.
+
+@app.post("/api/webhook/razorpay")
+async def razorpay_webhook(request: Request):
+    """Handle Razorpay webhook events and update user_subscriptions in Supabase.
+
+    SECURITY: Every incoming event MUST be verified against RAZORPAY_WEBHOOK_SECRET.
+    If the secret is not configured, this endpoint refuses to process any events
+    to prevent forged payloads from granting unauthorized Pro access.
+    """
+    if not RAZORPAY_WEBHOOK_SECRET:
+        logger.error(
+            "RAZORPAY_WEBHOOK_SECRET is not set — rejecting webhook request. "
+            "Set it in .env from Razorpay Dashboard → Webhooks → Signing secret."
+        )
+        return JSONResponse(status_code=503, content={"error": "Webhook endpoint not configured"})
+
+    body = await request.body()
+    signature = request.headers.get("x-razorpay-signature", "")
+
+    try:
+        razorpay_client.utility.verify_webhook_signature(body.decode(), signature, RAZORPAY_WEBHOOK_SECRET)
+    except Exception:
+        logger.error("Razorpay webhook: invalid signature")
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    try:
+        event = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    event_type = event.get("event", "")
+    payload_data = event.get("payload", {})
+
+    if event_type == "subscription.activated":
+        subscription = payload_data.get("subscription", {}).get("entity", {})
+        notes = subscription.get("notes", {})
+        user_email = notes.get("user_email", "")
+        subscription_id = subscription.get("id", "")
+        if user_email:
+            logger.info(f"✅ Razorpay subscription activated: {user_email} (sub: {subscription_id})")
+            existing = await supabase_request("GET", f"user_subscriptions?user_email=eq.{user_email}&select=user_email")
+            is_new = not existing
             await supabase_request("POST", "user_subscriptions", {
-                "user_email": customer_email,
-                "stripe_customer_id": customer_id,
+                "user_email": user_email,
                 "stripe_subscription_id": subscription_id,
                 "plan": "pro",
                 "status": "active",
                 "onboarded": False
             })
-            # Send welcome email for brand-new users
-            if is_new_user and customer_email != "unknown":
-                email_service.send_welcome(customer_email)
-            # Always send subscription confirmation for Pro upgrades
-            if customer_email != "unknown":
-                email_service.send_subscription_confirmed(customer_email, "pro")
+            if is_new:
+                email_service.send_welcome(user_email)
+            email_service.send_subscription_confirmed(user_email, "pro")
 
-    elif event_type == "customer.subscription.updated":
-        status = data.get("status", "unknown")
-        customer_id = data.get("customer", "")
-        period_end = data.get("current_period_end")
-        logger.info(f"🔄 Subscription updated: customer={customer_id} status={status}")
-        # Map Stripe status to our simplified status
-        db_status = "active" if status in ("active", "trialing") else "past_due" if status == "past_due" else "cancelled"
-        update_data = {"status": db_status}
-        if period_end:
-            update_data["current_period_end"] = datetime.fromtimestamp(period_end, tz=timezone.utc).isoformat()
-        await supabase_request("PATCH",
-            f"user_subscriptions?stripe_customer_id=eq.{customer_id}",
-            update_data
-        )
+    elif event_type == "subscription.charged":
+        subscription = payload_data.get("subscription", {}).get("entity", {})
+        subscription_id = subscription.get("id", "")
+        notes = subscription.get("notes", {})
+        user_email = notes.get("user_email", "")
+        logger.info(f"🔄 Razorpay subscription charged: {user_email} (sub: {subscription_id})")
+        if subscription_id:
+            await supabase_request("PATCH",
+                f"user_subscriptions?stripe_subscription_id=eq.{subscription_id}",
+                {"status": "active", "plan": "pro"}
+            )
 
-    elif event_type == "customer.subscription.deleted":
-        customer_id = data.get("customer", "")
-        logger.info(f"❌ Subscription cancelled: customer={customer_id}")
+    elif event_type in ("subscription.cancelled", "subscription.completed"):
+        subscription = payload_data.get("subscription", {}).get("entity", {})
+        subscription_id = subscription.get("id", "")
+        notes = subscription.get("notes", {})
+        user_email = notes.get("user_email", "")
+        logger.info(f"❌ Razorpay subscription ended: {user_email} (sub: {subscription_id})")
         await supabase_request("PATCH",
-            f"user_subscriptions?stripe_customer_id=eq.{customer_id}",
+            f"user_subscriptions?stripe_subscription_id=eq.{subscription_id}",
             {"plan": "free", "status": "cancelled"}
         )
 
-    elif event_type == "invoice.payment_failed":
-        customer_email = data.get("customer_email", "unknown")
-        attempt_count = data.get("attempt_count", 0)
-        logger.warning(f"⚠ Payment failed: {customer_email} (attempt #{attempt_count})")
+    elif event_type == "payment.failed":
+        payment = payload_data.get("payment", {}).get("entity", {})
+        customer_email = payment.get("email", "unknown")
+        logger.warning(f"⚠ Razorpay payment failed: {customer_email}")
         if customer_email and customer_email != "unknown":
             await supabase_request("PATCH",
                 f"user_subscriptions?user_email=eq.{customer_email}",
@@ -2156,7 +2224,7 @@ async def stripe_webhook(request: Request):
             )
 
     else:
-        logger.info(f"Stripe webhook received: {event_type} (unhandled)")
+        logger.info(f"Razorpay webhook received: {event_type} (unhandled)")
 
     return {"received": True}
 

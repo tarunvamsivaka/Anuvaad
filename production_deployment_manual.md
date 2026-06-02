@@ -25,10 +25,11 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key    # [REQUIRED] - Never expose t
 FRONTEND_URL=https://anuvaad.dev                   # [REQUIRED] - Must exactly match domain
 REDIS_URL=redis://redis:6379                       # [REQUIRED] - Or UPSTASH_REDIS_URL
 
-# Stripe Payments
-STRIPE_SECRET_KEY=sk_live_...                      # [REQUIRED for billing]
-STRIPE_PRO_PRICE_ID=price_...                      # [REQUIRED for billing]
-STRIPE_WEBHOOK_SECRET=whsec_...                    # [REQUIRED for billing]
+# Razorpay Payments
+RAZORPAY_KEY_ID=rzp_live_...                       # [REQUIRED for billing]
+RAZORPAY_KEY_SECRET=your_key_secret                # [REQUIRED for billing]
+RAZORPAY_PRO_PLAN_ID=plan_...                      # [REQUIRED for billing]
+RAZORPAY_WEBHOOK_SECRET=your_webhook_secret        # [REQUIRED for billing]
 
 # Observability (Optional but Recommended)
 SENTRY_DSN=your_sentry_dsn
@@ -130,7 +131,7 @@ The hardened architecture consists of a 4-tier Dockerized setup routed through a
 
 1. **Nginx Edge:** Terminates SSL, enforces strict security headers (CSP, HSTS), handles CORS preflights, and proxies traffic to the Next.js frontend or FastAPI backend.
 2. **Next.js App Router (Frontend):** Serves the React application. Communicates exclusively with the FastAPI backend and the public Supabase API.
-3. **FastAPI (Backend):** The core engine. It manages rate-limiting via Redis, validates Stripe Webhooks, handles authentication verifications, and orchestrates dual-model (Groq/DeepSeek) intelligent failover for SSE streams. Runs strictly in `ENV=production` mode.
+3. **FastAPI (Backend):** The core engine. It manages rate-limiting via Redis, validates Razorpay Webhooks, handles authentication verifications, and orchestrates dual-model (Groq/DeepSeek) intelligent failover for SSE streams. Runs strictly in `ENV=production` mode.
 4. **Redis:** A local container (or managed Upstash REST) that tracks usage credits and rate limits, completely replacing the legacy in-memory LRU fallback.
 
 ---
@@ -150,10 +151,10 @@ The backend exposes `/api/metrics/prometheus`. Configure your Prometheus server 
 Set `SENTRY_DSN` in `.env`.
 **Key Alerts to set:**
 - "Unhandled Exception in FastAPI"
-- "Stripe Webhook Signature Verification Failed" (Potential attack)
+- "Razorpay Webhook Signature Verification Failed" (Potential attack)
 
 ### 3. PostHog (Product Analytics)
-Set `NEXT_PUBLIC_POSTHOG_KEY`. Use this to track drop-off rates on the Stripe Checkout flow and the success rate of the "Import Gist" feature.
+Set `NEXT_PUBLIC_POSTHOG_KEY`. Use this to track drop-off rates on the Razorpay Checkout flow and the success rate of the "Import Gist" feature.
 
 ---
 

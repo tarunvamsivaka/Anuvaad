@@ -19,12 +19,15 @@ let _initialised = false;
 export function initPostHog() {
   if (_initialised || typeof window === "undefined" || !POSTHOG_KEY) return;
 
+  const hasConsent = localStorage.getItem("analytics_consent") === "true";
+
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
-    // Respect user privacy — autocapture only clicks & page views
-    autocapture: true,
-    capture_pageview: true,
-    capture_pageleave: true,
+    // Respect user privacy — autocapture only if consent is true
+    autocapture: hasConsent,
+    capture_pageview: hasConsent,
+    capture_pageleave: hasConsent,
+    opt_out_capturing_by_default: !hasConsent,
     // Disable session recording by default (enable via PostHog dashboard)
     disable_session_recording: true,
     // Don't send PII in autocaptured events
@@ -43,6 +46,10 @@ export function initPostHog() {
       if (process.env.NODE_ENV === "development" && !process.env.NEXT_PUBLIC_POSTHOG_DEBUG) {
         ph.opt_out_capturing();
       }
+      // If consent is not explicitly true, ensure capturing is disabled
+      if (localStorage.getItem("analytics_consent") !== "true") {
+        ph.opt_out_capturing();
+      }
     },
   });
 
@@ -50,11 +57,37 @@ export function initPostHog() {
 }
 
 /**
+ * Opt-in user to PostHog analytics and start capturing.
+ */
+export function optInPostHog() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("analytics_consent", "true");
+  if (!_initialised) {
+    initPostHog();
+  } else {
+    posthog.opt_in_capturing();
+  }
+}
+
+/**
+ * Opt-out user from PostHog analytics and stop capturing.
+ */
+export function optOutPostHog() {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("analytics_consent", "false");
+  if (_initialised) {
+    posthog.opt_out_capturing();
+  }
+}
+
+/**
  * Track a named event with optional metadata properties.
- * Silently no-ops if PostHog is not initialised.
+ * Silently no-ops if PostHog is not initialised or user hasn't consented.
  */
 export function track(event: string, properties?: Record<string, unknown>) {
   if (typeof window === "undefined" || !_initialised) return;
+  // Double check consent before capturing custom track events
+  if (localStorage.getItem("analytics_consent") !== "true") return;
   posthog.capture(event, properties);
 }
 
@@ -64,6 +97,7 @@ export function track(event: string, properties?: Record<string, unknown>) {
  */
 export function identifyUser(email: string, traits?: Record<string, unknown>) {
   if (typeof window === "undefined" || !_initialised) return;
+  if (localStorage.getItem("analytics_consent") !== "true") return;
   posthog.identify(email, traits);
 }
 

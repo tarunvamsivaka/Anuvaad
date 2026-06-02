@@ -12,6 +12,14 @@ import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import { useSubscriptionStatus, useTranslationStats, useCredits } from "@/lib/hooks";
+import Script from "next/script";
+
+interface PortalInfo {
+  subscription_id: string;
+  plan: string;
+  status: string;
+  message: string;
+}
 
 function BillingPageContent() {
   const { isPro, session } = useAuth();
@@ -20,6 +28,7 @@ function BillingPageContent() {
   const [creditLoading, setCreditLoading] = useState(false);
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
+  const [portalInfo, setPortalInfo] = useState<PortalInfo | null>(null);
 
   const { subscription } = useSubscriptionStatus(session?.access_token);
   const { stats, isLoading: statsLoading } = useTranslationStats(session?.user?.email, session?.access_token);
@@ -59,14 +68,61 @@ function BillingPageContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.url) window.location.href = data.url;
+        
+        // Open Razorpay Checkout modal
+        const options = {
+          key: data.key_id,
+          subscription_id: data.subscription_id,
+          name: data.name,
+          description: data.description,
+          prefill: {
+            email: session.user.email,
+          },
+          theme: {
+            color: "#d97706", // amber-600
+          },
+          handler: async function (response: any) {
+            setLoading(true);
+            try {
+              const verifyRes = await fetch(`${API}/api/verify-payment`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_subscription_id: response.razorpay_subscription_id || data.subscription_id,
+                  razorpay_signature: response.razorpay_signature,
+                  access_token: session.access_token,
+                  payment_type: "subscription",
+                }),
+              });
+              if (verifyRes.ok) {
+                toast.success("Payment verified! Welcome to Pro.");
+                window.location.href = "/dashboard/billing?payment=success";
+              } else {
+                const err = await verifyRes.json().catch(() => null);
+                toast.error(err?.detail || "Payment verification failed. Please contact support.");
+              }
+            } catch {
+              toast.error("Could not connect to payment verification service.");
+            } finally {
+              setLoading(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setLoading(false);
+            }
+          }
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
       } else {
         const err = await res.json().catch(() => null);
         toast.error(err?.detail || "Failed to create checkout session.");
+        setLoading(false);
       }
     } catch {
       toast.error("Could not connect to billing service. Please try again.");
-    } finally {
       setLoading(false);
     }
   }
@@ -84,10 +140,10 @@ function BillingPageContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.url) window.location.href = data.url;
+        setPortalInfo(data);
       } else {
         const err = await res.json().catch(() => null);
-        toast.error(err?.detail || "Could not open billing portal.");
+        toast.error(err?.detail || "Could not retrieve subscription details.");
       }
     } catch {
       toast.error("Could not connect to billing service. Please try again.");
@@ -108,14 +164,63 @@ function BillingPageContent() {
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.url) window.location.href = data.url;
+        
+        // Open Razorpay Checkout modal for order payment
+        const options = {
+          key: data.key_id,
+          amount: data.amount,
+          currency: data.currency,
+          name: data.name,
+          description: data.description,
+          order_id: data.order_id,
+          prefill: {
+            email: session.user.email || "",
+          },
+          theme: {
+            color: "#d97706", // amber-600
+          },
+          handler: async function (response: any) {
+            setCreditLoading(true);
+            try {
+              const verifyRes = await fetch(`${API}/api/verify-payment`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_order_id: response.razorpay_order_id || data.order_id,
+                  razorpay_signature: response.razorpay_signature,
+                  access_token: session.access_token,
+                  payment_type: "credits",
+                }),
+              });
+              if (verifyRes.ok) {
+                toast.success("Credits added successfully!");
+                window.location.reload();
+              } else {
+                const err = await verifyRes.json().catch(() => null);
+                toast.error(err?.detail || "Credits verification failed. Please contact support.");
+              }
+            } catch {
+              toast.error("Could not verify credits. Please contact support.");
+            } finally {
+              setCreditLoading(false);
+            }
+          },
+          modal: {
+            ondismiss: function () {
+              setCreditLoading(false);
+            }
+          }
+        };
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
       } else {
         const err = await res.json().catch(() => null);
         toast.error(err?.detail || "Could not open credit checkout.");
+        setCreditLoading(false);
       }
     } catch {
       toast.error("Could not connect to billing service. Please try again.");
-    } finally {
       setCreditLoading(false);
     }
   }
@@ -127,6 +232,8 @@ function BillingPageContent() {
 
   return (
     <div className="min-h-screen">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+      
       <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="flex h-14 items-center px-6">
           <h1 className="text-lg font-semibold">Billing</h1>
@@ -184,7 +291,7 @@ function BillingPageContent() {
               )}
             </div>
             <p className="text-3xl font-bold">
-              {isActuallyPro ? "$12" : "$0"}<span className="text-sm font-normal text-muted-foreground">/mo</span>
+              {isActuallyPro ? "₹499" : "₹0"}<span className="text-sm font-normal text-muted-foreground">/mo</span>
             </p>
           </div>
           {!isActuallyPro && (
@@ -228,7 +335,7 @@ function BillingPageContent() {
             <div className="mt-6 flex items-center gap-4">
               <Button className="gap-2 bg-amber-600 hover:bg-amber-700" onClick={handleUpgrade} disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                {loading ? "Redirecting..." : "Upgrade — $12/month"}
+                {loading ? "Opening Checkout..." : "Upgrade — ₹499/month"}
               </Button>
             </div>
           </Card>
@@ -277,7 +384,7 @@ function BillingPageContent() {
             </div>
             <Button onClick={handleBuyCredits} disabled={creditLoading} variant="outline" className="gap-2">
               {creditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-600" />}
-              {creditLoading ? "Processing..." : "Buy 100 Credits — $1"}
+              {creditLoading ? "Processing..." : "Buy 100 Credits — ₹100"}
             </Button>
           </div>
         </Card>
@@ -286,7 +393,7 @@ function BillingPageContent() {
         <Card className="mt-6 p-6">
           <h2 className="text-sm font-semibold">Payment Method</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isActuallyPro ? "Managed via Stripe." : "No payment method on file."}
+            {isActuallyPro ? "Managed via Razorpay." : "No payment method on file."}
           </p>
           <Button
             variant="outline"
@@ -296,10 +403,52 @@ function BillingPageContent() {
             disabled={portalLoading || !isActuallyPro}
           >
             {portalLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
-            {portalLoading ? "Opening..." : "Manage in Stripe"}
+            {portalLoading ? "Retrieving..." : "Manage Subscription"}
           </Button>
         </Card>
       </div>
+
+      {/* Subscription details / self-service cancellation instructions modal */}
+      {portalInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <Card className="w-full max-w-md p-6 relative border-border/80 bg-popover text-popover-foreground shadow-2xl">
+            <button 
+              onClick={() => setPortalInfo(null)} 
+              className="absolute top-4 right-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-amber-600" />
+              Subscription Details
+            </h3>
+            <Separator className="my-4" />
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Plan:</span>
+                <span className="font-medium uppercase text-amber-600">{portalInfo.plan}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status:</span>
+                <span className="font-medium capitalize text-emerald-600">{portalInfo.status}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground">Subscription ID:</span>
+                <span className="font-mono text-[11px] select-all bg-muted px-2 py-1.5 rounded break-all">{portalInfo.subscription_id}</span>
+              </div>
+            </div>
+            <Separator className="my-4" />
+            <div className="text-xs text-muted-foreground bg-amber-500/10 border border-amber-500/20 rounded p-3 leading-relaxed">
+              {portalInfo.message}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <Button onClick={() => setPortalInfo(null)} size="sm">
+                Close
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

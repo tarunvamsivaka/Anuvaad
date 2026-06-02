@@ -34,9 +34,9 @@ export default function TermsPage() {
               <table className="w-full text-left">
                 <thead><tr className="border-b border-border bg-muted/50"><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Plan</th><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Price</th><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Limit</th></tr></thead>
                 <tbody>
-                  <tr className="border-b border-border"><td className="px-4 py-2.5">Free</td><td className="px-4 py-2.5">$0</td><td className="px-4 py-2.5">10/day</td></tr>
-                  <tr className="border-b border-border"><td className="px-4 py-2.5">Pro</td><td className="px-4 py-2.5">$12/mo or $96/yr</td><td className="px-4 py-2.5">Unlimited</td></tr>
-                  <tr><td className="px-4 py-2.5">Team</td><td className="px-4 py-2.5">$29/mo or $228/yr</td><td className="px-4 py-2.5">Unlimited + 5 seats</td></tr>
+                  <tr className="border-b border-border"><td className="px-4 py-2.5">Free</td><td className="px-4 py-2.5">₹0</td><td className="px-4 py-2.5">10/day</td></tr>
+                  <tr className="border-b border-border"><td className="px-4 py-2.5">Pro</td><td className="px-4 py-2.5">₹499/mo or ₹3,999/yr</td><td className="px-4 py-2.5">Unlimited</td></tr>
+                  <tr><td className="px-4 py-2.5">Team</td><td className="px-4 py-2.5">₹1,200/mo or ₹9,999/yr</td><td className="px-4 py-2.5">Unlimited + 5 seats</td></tr>
                 </tbody>
               </table>
             </div>

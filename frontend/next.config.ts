@@ -20,7 +20,12 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,
   },
+  // Performance & security
+  compress: true,          // Brotli/gzip at Next.js layer
+  poweredByHeader: false,  // Remove X-Powered-By fingerprinting header
+  // output: "standalone",  // Uncomment for production Docker (smaller image). Disable for local dev.
 };
+
 
 import { withSentryConfig } from "@sentry/nextjs";
 import withBundleAnalyzer from "@next/bundle-analyzer";
@@ -33,5 +38,4 @@ export default analyze(withSentryConfig(nextConfig, {
   silent: !process.env.CI,
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
-  disableLogger: true,
 }));
