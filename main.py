@@ -1404,6 +1404,84 @@ async def stream_code_to_english(payload: CodePayload, email: str | None, is_pro
         logger.error(f"Streaming error: {str(e)}")
         yield f'data: {json.dumps({"error": str(e), "done": True})}\n\n'
 
+async def stream_code_to_code(payload: CodeToCodePayload, email: str | None, is_pro: bool, use_r1: bool, tier: str, background_tasks: BackgroundTasks):
+    model_name = "deepseek-reasoner" if use_r1 else "standard"
+    model = "deepseek-reasoner" if use_r1 else "llama-3.3-70b-versatile"
+    key = cache_key(payload.raw_code, f"{payload.source_language}->{payload.target_language}", "code-to-code", model_name)
+    
+    # Check Cache
+    cached = await cache.get(key)
+            
+    if cached:
+        metrics.record_cache_hit()
+        # Stream fake SSE chunks for UI consistency
+        yield f'data: {json.dumps({"chunk": "", "done": False})}\n\n'
+        yield f'data: {json.dumps({"done": True, "blocks": cached, "model_used": model})}\n\n'
+        
+        if email:
+            asyncio.create_task(save_translation_background(email, "Code → Code", payload.source_language, payload.target_language, payload.raw_code, cached, model_name, payload.workspace_id))
+        return
+
+    metrics.record_cache_miss()
+    groq_api_key = os.getenv("GROQ_API_KEY")
+    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
+    groq_client = AsyncOpenAI(api_key=groq_api_key, base_url="https://api.groq.com/openai/v1")
+    deepseek_client = AsyncOpenAI(api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1")
+    
+    if use_r1:
+        client = deepseek_client
+        model = "deepseek-reasoner"
+    else:
+        client = groq_client
+        model = "llama-3.3-70b-versatile"
+        
+    system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
+Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
+Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
+
+    user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
+    
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user_prompt}
+    ]
+    
+    kwargs = {"stream": True}
+    if model != "deepseek-reasoner":
+        kwargs["response_format"] = {"type": "json_object"}
+        
+    try:
+        stream = await client.chat.completions.create(
+            model=model,
+            messages=messages,
+            **kwargs
+        )
+        
+        full_content = ""
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content
+            if content:
+                full_content += content
+                # Stream each chunk
+                yield f'data: {json.dumps({"chunk": content, "done": False})}\n\n'
+                
+        # Process and normalize the full JSON result
+        cleaned = _clean_json_response(full_content)
+        raw = json.loads(cleaned)
+        result = normalize_blocks(raw, model_used=model, tier=tier)
+        
+        await cache.put(key, result, 86400 * 7)
+        
+        # Send final complete blocks
+        yield f'data: {json.dumps({"done": True, "blocks": result, "model_used": model})}\n\n'
+        
+        if email:
+            asyncio.create_task(save_translation_background(email, "Code → Code", payload.source_language, payload.target_language, payload.raw_code, result, model, payload.workspace_id))
+            
+    except Exception as e:
+        logger.error(f"Streaming error: {str(e)}")
+        yield f'data: {json.dumps({"error": str(e), "done": True})}\n\n'
+
 # ── INPUT SANITISATION & VALIDATION ──
 
 def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
@@ -1836,52 +1914,10 @@ async def function_code_to_code(request: Request, payload: CodeToCodePayload, ba
         tier = "pro"
         use_r1 = True
 
-    model_name = "deepseek-reasoner" if use_r1 else "standard"
-    key = cache_key(payload.raw_code, f"{payload.source_language}->{payload.target_language}", "code-to-code", model_name)
-    
-    cached = await cache.get(key)
-    if cached:
-        metrics.record_cache_hit()
-        if email:
-            background_tasks.add_task(save_translation_background, email, "Code → Code", payload.source_language, payload.target_language, payload.raw_code, cached, model_name, payload.workspace_id)
-        return cached
-
-    metrics.record_cache_miss()
-
-    system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
-Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
-Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
-
-    user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
-
-    try:
-        response_text, model_used = await get_completion(
-            prompt=user_prompt,
-            system_instruction=system,
-            mode="translation",
-            response_format="json_object",
-            use_r1=use_r1
-        )
-        raw = json.loads(response_text)
-        result = normalize_blocks(raw, model_used=model_used, tier=tier)
-        
-        await cache.put(key, result, 86400 * 7)
-        
-        if email:
-            background_tasks.add_task(save_translation_background, email, "Code → Code", payload.source_language, payload.target_language, payload.raw_code, result, model_used, payload.workspace_id)
-            
-        return result
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON Parse Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Code translation returned invalid JSON. Please try again.")
-    except ValueError as e:
-        logger.error(f"Normalization Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Code translation returned an unexpected format. Please try again.")
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        logger.error(f"LLM API Error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Code translation failed. Please try again.")
+    return StreamingResponse(
+        stream_code_to_code(payload, email, is_pro, use_r1, tier, background_tasks),
+        media_type="text/event-stream"
+    )
 
 
 

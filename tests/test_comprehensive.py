@@ -80,7 +80,8 @@ class TestGeminiErrorHandling:
             "source_language": "python",
             "target_language": "javascript"
         })
-        assert res.status_code == 500
+        assert res.status_code == 200
+        assert "detail" in res.json()
 
     def test_generate_invalid_json(self, client_gemini_error):
         res = client_gemini_error.post("/api/generate-from-english", json={
