@@ -262,7 +262,7 @@ test.describe('Translation Workspace', () => {
   test('translate page loads with correct heading and controls', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await expect(page.locator('h1')).toContainText('Workspace');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeVisible();
+    await expect(page.locator('button:has-text("Translate")')).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("Code → English")')).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("English → Code")')).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("Code → Code")')).toBeVisible();

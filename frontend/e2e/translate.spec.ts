@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
 
 // Helper: set Monaco editor value via the exposed editor instance on window.__monacoEditor.
 // page.keyboard.type() hits the DOM textarea but does NOT fire Monaco's onChange → React never
-// updates the `input` state → the "Generate Translation" button stays disabled.
+// updates the `input` state → the "Translate" button stays disabled.
 async function setMonacoValue(page: import('@playwright/test').Page, code: string) {
   // Wait for Monaco to mount and expose itself via onMount handler
   await page.waitForFunction(
@@ -84,7 +84,7 @@ test.describe('Authenticated Translation Flow', () => {
   test('authenticated user can see the translate page', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await expect(page.locator('h1')).toContainText('Workspace');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeVisible();
+    await expect(page.locator('button:has-text("Translate")')).toBeVisible();
   });
 
   test('pasting Python code and clicking Translate shows output blocks', async ({ page }) => {
@@ -100,7 +100,7 @@ test.describe('Authenticated Translation Flow', () => {
     await setMonacoValue(page, 'print("Hello world")');
 
     // The button should now be enabled
-    const translateBtn = page.locator('button:has-text("Generate Translation")');
+    const translateBtn = page.locator('button:has-text("Translate")');
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
     await translateBtn.click();
     

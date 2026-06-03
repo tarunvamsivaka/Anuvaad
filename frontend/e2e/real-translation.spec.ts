@@ -73,11 +73,11 @@ int main() {
   await setMonacoValue(page, cCode);
 
   // Verify Translate button is enabled
-  const translateBtn = page.locator('button:has-text("Generate Translation")');
+  const translateBtn = page.locator('button:has-text("Translate")');
   await expect(translateBtn).toBeEnabled({ timeout: 5000 });
 
   // Click Translate
-  console.log('Clicking "Generate Translation" button...');
+  console.log('Clicking "Translate" button...');
   await translateBtn.click();
 
   // Wait for the translation to complete by waiting for "Copy as Markdown" or output block items
