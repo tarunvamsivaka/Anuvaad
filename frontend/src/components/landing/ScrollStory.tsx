@@ -6,50 +6,60 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cn } from "@/lib/utils";
 import { Code, RefreshCw, Sparkles, User, Zap } from "lucide-react";
 
+// ── SCENE DEFINITIONS ───────────────────────────────────────────────────────
+// Each scene maps directly to the 6 story beats from the Anuvaad TASK.md spec.
+// `narration` is Riya's exact story text — rendered word-by-word in Lora italic
+// as scroll progresses through that scene.
+const steps = [
+  {
+    scene: "The Abyss",
+    title: "The code was never\nthe problem.",
+    subtitle: "The language was.",
+    narration:
+      "Day one at Helix Corp. Riya opened the legacy repository. 40,000 lines. No comments. No docs. Just code — ancient, dense, and completely foreign.",
+  },
+  {
+    scene: "The Weight",
+    title: "She scrolled.\nAnd scrolled.",
+    subtitle: "Each function a riddle.",
+    narration:
+      "She scrolled. And scrolled. Each function a riddle. Each class a locked room. Four hours in, she had touched nothing, changed nothing, understood nothing.",
+  },
+  {
+    scene: "The First Translation",
+    title: "And then Anuvaad spoke.",
+    subtitle: "Not in code. In language.",
+    narration:
+      "And then Anuvaad spoke. Not in code. In language. Riya read it — once, twice. The fog lifted. She finally saw not just what the code did, but why it existed.",
+  },
+  {
+    scene: "The Ripple",
+    title: "Understanding one function\nchanged everything.",
+    subtitle: "Code became a conversation across time.",
+    narration:
+      "Understanding one function changed everything. She began to see the patterns. The intentions. The decisions made by engineers she'd never meet. Code became a conversation across time.",
+  },
+  {
+    scene: "The Build",
+    title: "Three modules refactored.\nTwo services written.",
+    subtitle: "Not by memorizing — by understanding.",
+    narration:
+      "By week's end, Riya had refactored three modules, written two new services, and taught the entire team how to read the legacy codebase. Not by memorizing it — by understanding it.",
+  },
+  {
+    scene: "The Translator",
+    title: "Code is language.",
+    subtitle: "Anuvaad speaks both.",
+    narration:
+      "Stop struggling with legacy code. Translate any codebase to plain English or any language, instantly. This is not a tool. This is a new way to read code.",
+  },
+];
+
 export function ScrollStory() {
   const containerRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef<HTMLDivElement>(null);
   const [activeStep, setActiveStep] = useState(0);
   const [progress, setProgress] = useState(0);
-
-  const steps = [
-    {
-      title: "The code was never the problem.",
-      subtitle: "The language was.",
-      description: "Codebases arrive as walls of syntax. Dense. Unforgiving. Obscure.",
-      copy: "The code was never the problem. The language was.",
-    },
-    {
-      title: "One block at a time,",
-      subtitle: "the meaning appears.",
-      description: "Anuvaad splits the wall into logical blocks, mapping structure to intent.",
-      copy: "One block at a time, the meaning appears.",
-    },
-    {
-      title: "Clarity on demand.",
-      subtitle: "From syntax to structure.",
-      description: "Each code block is paired with a clear, concise plain-English explanation.",
-      copy: "What looked like syntax becomes structure. What looked like structure becomes meaning.",
-    },
-    {
-      title: "Change the explanation.",
-      subtitle: "Change the code.",
-      description: "Two-way synchronization allows you to edit the explanation to automatically refactor the code.",
-      copy: "Change the explanation. Change the code.",
-    },
-    {
-      title: "Not just one language.",
-      subtitle: "Not just one direction.",
-      description: "Translate from Python to JavaScript, Go, or Rust seamlessly with a click.",
-      copy: "Not just one language. Not just one direction.",
-    },
-    {
-      title: "This is not a one-time answer.",
-      subtitle: "It is a workspace.",
-      description: "A stable, persistent environment designed for launch survival and long-term exploration.",
-      copy: "This is not a one-time answer. It is a workspace.",
-    },
-  ];
 
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
@@ -86,7 +96,7 @@ export function ScrollStory() {
     tl.to(".guide-line", { strokeDashoffset: 0, opacity: 1, duration: 1 }, 1);
     tl.to(".code-chaos", { opacity: 0, scale: 0.9, y: -30, filter: "blur(10px)", duration: 0.8 }, 1.2);
     tl.fromTo(".code-blocks-container", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 1 }, 1.3);
-    
+
     // Spread out blocks
     tl.fromTo(".code-block-1", { y: 20 }, { y: 0, duration: 0.8 }, 1.4);
     tl.fromTo(".code-block-2", { y: 40 }, { y: 0, duration: 0.8 }, 1.5);
@@ -102,7 +112,7 @@ export function ScrollStory() {
     // ── STEP 4: Two-Way Sync Editor Mock and typing (3 to 4) ──
     tl.to([".code-blocks-container", ".explanations-container", ".guide-line"], { opacity: 0, scale: 0.92, duration: 0.8 }, 3);
     tl.fromTo(".sync-editor-pane", { opacity: 0, y: 40, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 1 }, 3.2);
-    
+
     // Typewriter clip reveal
     tl.fromTo(".sync-editor-text", { clipPath: "polygon(0 0, 0 0, 0 100%, 0% 100%)" }, { clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)", duration: 1.2 }, 3.5);
     // Code update refactor transition
@@ -126,7 +136,21 @@ export function ScrollStory() {
     return () => {
       tl.scrollTrigger?.kill();
     };
-  }, [steps.length]);
+  }, []);
+
+  // ── WORD-BY-WORD REVEAL ─────────────────────────────────────────────────
+  // `progress` (0→1) spans all 6 steps. Each step owns 1/6 of that range.
+  // `stepLocalProgress` is 0→1 within the current step only.
+  // Words are revealed proportionally as the user scrolls through each step.
+  const stepLocalProgress = Math.min(
+    1,
+    Math.max(0, progress * steps.length - activeStep)
+  );
+  const narrationWords = steps[activeStep].narration.split(" ");
+  // Start revealing at 10% step progress so the title can settle first,
+  // and complete at ~85% so the last few words are visible before the next step.
+  const revealProgress = Math.min(1, Math.max(0, (stepLocalProgress - 0.1) / 0.75));
+  const visibleWordCount = Math.ceil(revealProgress * narrationWords.length);
 
   return (
     <div ref={containerRef} className="relative w-full h-[600vh] bg-transparent">
@@ -137,7 +161,7 @@ export function ScrollStory() {
       >
         {/* Subtle grid pattern background */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(99,102,241,0.05),rgba(255,255,255,0))]" />
-        
+
         {/* Progress indicator at the top */}
         <div className="absolute top-24 left-0 w-full h-[2px] bg-white/5 z-30">
           <div
@@ -149,53 +173,85 @@ export function ScrollStory() {
         <div className="container mx-auto px-6 h-full flex flex-col justify-between py-24 relative z-10">
           {/* Main Story Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center my-auto w-full">
-            
-            {/* Left Column: Narrative Copy */}
+
+            {/* ── LEFT COLUMN: Scene Header + Riya Narration ── */}
             <div className="lg:col-span-5 flex flex-col justify-center space-y-6 text-left">
-              {/* Step indicator */}
+
+              {/* Scene indicator */}
               <div className="flex items-center gap-2">
                 <span className="text-[10px] tracking-widest font-extrabold text-indigo-400 uppercase bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full shadow-[0_0_12px_rgba(99,102,241,0.15)]">
-                  Chapter 02 : Translation Story
+                  {steps[activeStep].scene}
                 </span>
                 <span className="text-xs text-white/40 font-mono">
                   0{activeStep + 1} / 0{steps.length}
                 </span>
               </div>
 
-              {/* Animated Text Content */}
-              <div className="space-y-4">
-                <h3 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight min-h-[120px] lg:min-h-[150px] transition-all duration-500">
-                  <span className="bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent block">
-                    {steps[activeStep].title}
-                  </span>
-                  <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent block mt-1">
-                    {steps[activeStep].subtitle}
-                  </span>
+              {/* Scene Title */}
+              <div className="space-y-2">
+                <h3 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight min-h-[100px] lg:min-h-[130px] transition-all duration-500">
+                  {steps[activeStep].title.split("\n").map((line, i) => (
+                    <span key={i} className={cn(
+                      "block",
+                      i === 0
+                        ? "bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent"
+                        : "bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent mt-1"
+                    )}>
+                      {line}
+                    </span>
+                  ))}
                 </h3>
-                
-                <p className="text-base text-slate-400 max-w-md leading-relaxed min-h-[80px]">
-                  {steps[activeStep].description}
+                <p className="text-sm font-medium text-indigo-300/70 tracking-wide">
+                  {steps[activeStep].subtitle}
                 </p>
               </div>
 
-              {/* On-screen cinematic subtitle strip */}
-              <div className="pt-4 border-t border-white/5 flex items-center gap-3">
-                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                <span className="text-xs font-medium tracking-wide text-indigo-300/80 italic">
-                  &ldquo;{steps[activeStep].copy}&rdquo;
+              {/* ── RIYA'S NARRATION — Lora italic, word-by-word reveal ── */}
+              <div className="relative min-h-[100px]">
+                {/* Opening quote mark */}
+                <span
+                  className="absolute -top-3 -left-1 text-4xl text-indigo-500/20 select-none leading-none"
+                  aria-hidden="true"
+                  style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+                >
+                  &ldquo;
                 </span>
+
+                <p
+                  className="text-base leading-[1.85] pl-3"
+                  style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+                >
+                  {narrationWords.map((word, i) => (
+                    <span
+                      key={`${activeStep}-${i}`}
+                      className="transition-all duration-200"
+                      style={{
+                        color: i < visibleWordCount ? "rgba(226,232,240,0.9)" : "rgba(100,116,139,0.3)",
+                        opacity: i < visibleWordCount ? 1 : 0.3,
+                        // Add a subtle forward-shimmer on the reveal frontier
+                        filter:
+                          i === visibleWordCount - 1 && visibleWordCount < narrationWords.length
+                            ? "drop-shadow(0 0 6px rgba(99,102,241,0.5))"
+                            : "none",
+                      }}
+                    >
+                      {word}
+                      {i < narrationWords.length - 1 ? " " : ""}
+                    </span>
+                  ))}
+                </p>
               </div>
             </div>
 
             {/* Right Column: Visual Metaphor Canvas */}
             <div className="lg:col-span-7 flex justify-center items-center relative w-full h-[400px] lg:h-[500px]">
-              
+
               {/* Backdrop glow filter */}
               <div className="absolute inset-0 bg-radial-gradient from-indigo-500/10 via-transparent to-transparent blur-3xl -z-10" />
 
               {/* Pinned container wrapper */}
               <div className="relative w-full h-full max-w-[550px] border border-white/5 bg-slate-950/40 backdrop-blur-xl rounded-2xl p-6 shadow-[0_24px_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col justify-between">
-                
+
                 {/* Mock IDE Header */}
                 <div className="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
                   <div className="flex items-center gap-2">
@@ -229,7 +285,7 @@ export function ScrollStory() {
                   </svg>
 
                   {/* ── THE SEEKER FORCE (Left Side) ── */}
-                  <div 
+                  <div
                     className="seeker-entity absolute left-2 top-1/2 -translate-y-1/2 w-24 h-24 flex items-center justify-center opacity-0"
                     style={{ zIndex: 15 }}
                   >
@@ -408,9 +464,10 @@ export function ScrollStory() {
 
           {/* Bottom chapter navigator/progress dots */}
           <div className="flex justify-center gap-2 lg:gap-3 z-30">
-            {steps.map((_, i) => (
+            {steps.map((step, i) => (
               <div
                 key={i}
+                title={step.scene}
                 className={cn(
                   "h-1.5 rounded-full transition-all duration-500",
                   activeStep === i
