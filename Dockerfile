@@ -2,7 +2,7 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /frontend
 COPY frontend/package*.json ./
-RUN npm ci --production=false
+RUN npm ci --production=false --legacy-peer-deps
 COPY frontend/ .
 ENV NEXT_TELEMETRY_DISABLED=1
 
