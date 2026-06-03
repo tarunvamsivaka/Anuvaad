@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Script from "next/script";
 import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
+import { ScrollStory } from "@/components/landing/ScrollStory";
 import { Features } from "@/components/landing/features";
 import { HowItWorks } from "@/components/landing/how-it-works";
 import { UseCases } from "@/components/landing/use-cases";
@@ -9,7 +10,6 @@ import { Pricing } from "@/components/landing/pricing";
 import { FAQ } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
 import { WebGLScrollProvider } from "@/components/landing/WebGLScrollProvider";
-
 export const metadata: Metadata = {
   title: "Anuvaad — The AI Code Translator for Modern Teams",
   description: "Stop struggling with legacy code. Anuvaad instantly translates obscure logic into plain English or generates perfect code from your human specifications.",
@@ -60,6 +60,10 @@ export default function Home() {
           {/* Main sections structured with IDs for smooth scroll snapping */}
           <div id="hero" className="w-full">
             <Hero />
+          </div>
+          
+          <div id="story" className="w-full">
+            <ScrollStory />
           </div>
           
           <div id="features" className="w-full">

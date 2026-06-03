@@ -6,6 +6,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const sections = [
   { id: "hero", label: "INTRO" },
+  { id: "story", label: "STORY" },
   { id: "features", label: "FEATURES" },
   { id: "how-it-works", label: "PROCESS" },
   { id: "pricing", label: "PRICING" },
