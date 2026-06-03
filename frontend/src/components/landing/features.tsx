@@ -6,6 +6,7 @@ import {
   Download,
   BookOpen,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const features = [
   {
@@ -48,32 +49,34 @@ const features = [
 
 export function Features() {
   return (
-    <section id="features" className="border-t border-border/40 py-24">
+    <section className="relative border-t border-white/5 py-32 bg-transparent">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-amber-600">
+        <div className="cinematic-reveal mx-auto max-w-2xl text-center">
+          <Badge
+            variant="secondary"
+            className="mb-4 border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-indigo-400"
+          >
             Features
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-white">
             Everything you need to understand code
           </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Three powerful modes, 35+ languages, and instant AI-powered
-            results.
+          <p className="mt-4 text-base text-slate-400">
+            Three powerful modes, 35+ languages, and instant AI-powered results.
           </p>
         </div>
 
-        <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-20 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
               key={feature.title}
-              className="group rounded-xl border border-border/60 bg-card p-6 transition-all hover:border-border hover:shadow-md"
+              className="cinematic-reveal group rounded-2xl border border-white/5 bg-[#060613]/60 p-8 shadow-xl shadow-black/40 backdrop-blur-md transition-all duration-300 hover:border-indigo-500/20 hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(99,102,241,0.05)]"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-600/10">
-                <feature.icon className="h-5 w-5 text-amber-600" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 transition-all duration-300 group-hover:bg-indigo-500/20 group-hover:shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+                <feature.icon className="h-6 w-6 text-indigo-400 transition-colors" />
               </div>
-              <h3 className="mt-4 text-base font-semibold">{feature.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              <h3 className="mt-6 text-lg font-bold text-white tracking-tight">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-slate-400">
                 {feature.description}
               </p>
             </div>

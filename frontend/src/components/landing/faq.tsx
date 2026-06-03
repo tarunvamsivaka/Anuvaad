@@ -1,6 +1,7 @@
 "use client";
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
 
 const faqs = [
   { q: "What programming languages are supported?", a: "Anuvaad supports 35+ languages including Python, JavaScript, TypeScript, Java, C++, C#, Go, Rust, Swift, Kotlin, PHP, Ruby, SQL, HTML, CSS, Dart, Lua, R, Haskell, and more. We're adding new languages regularly." },
@@ -13,20 +14,34 @@ const faqs = [
 
 export function FAQ() {
   return (
-    <section id="faq" className="border-t border-border/40 bg-muted/30 py-24">
+    <section className="relative border-t border-white/5 py-32 bg-transparent">
       <div className="mx-auto max-w-3xl px-6">
-        <div className="text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-amber-600">FAQ</p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Frequently asked questions</h2>
+        <div className="cinematic-reveal text-center">
+          <Badge
+            variant="secondary"
+            className="mb-4 border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-indigo-400"
+          >
+            FAQ
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-white">
+            Frequently asked questions
+          </h2>
         </div>
-        <Accordion className="mt-12">
-          {faqs.map((faq, i) => (
-            <AccordionItem key={i} value={`item-${i}`}>
-              <AccordionTrigger className="text-left text-base font-medium">{faq.q}</AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        
+        <div className="cinematic-reveal mt-16 rounded-2xl border border-white/5 bg-[#060613]/50 p-6 backdrop-blur-md shadow-2xl shadow-black/40">
+          <Accordion className="w-full">
+            {faqs.map((faq, i) => (
+              <AccordionItem key={i} value={`item-${i}`} className="border-b border-white/5 last:border-b-0">
+                <AccordionTrigger className="text-left text-sm font-semibold tracking-wide text-slate-200 hover:text-white hover:no-underline transition-colors py-4">
+                  {faq.q}
+                </AccordionTrigger>
+                <AccordionContent className="text-slate-400 text-xs leading-relaxed pb-4">
+                  {faq.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
       </div>
     </section>
   );

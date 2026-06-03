@@ -8,6 +8,7 @@ import { UseCases } from "@/components/landing/use-cases";
 import { Pricing } from "@/components/landing/pricing";
 import { FAQ } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
+import { WebGLScrollProvider } from "@/components/landing/WebGLScrollProvider";
 
 export const metadata: Metadata = {
   title: "Anuvaad — The AI Code Translator for Modern Teams",
@@ -48,16 +49,39 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <Navbar />
-      <main className="flex-1">
-        <Hero />
-        <Features />
-        <HowItWorks />
-        <UseCases />
-        <Pricing />
-        <FAQ />
-      </main>
-      <Footer />
+      
+      {/* 3D WebGL background + GSAP Scroll animations (loaded client-side) */}
+      <WebGLScrollProvider />
+
+      <div className="relative z-10 flex min-h-screen flex-col overflow-hidden bg-transparent text-slate-100 selection:bg-indigo-500/30 selection:text-indigo-200">
+        <Navbar />
+        
+        <main className="flex-1">
+          {/* Main sections structured with IDs for smooth scroll snapping */}
+          <div id="hero" className="w-full">
+            <Hero />
+          </div>
+          
+          <div id="features" className="w-full">
+            <Features />
+          </div>
+          
+          <div id="how-it-works" className="w-full">
+            <HowItWorks />
+            <UseCases />
+          </div>
+          
+          <div id="pricing" className="w-full">
+            <Pricing />
+          </div>
+          
+          <div id="faq" className="w-full">
+            <FAQ />
+          </div>
+        </main>
+        
+        <Footer />
+      </div>
     </>
   );
 }

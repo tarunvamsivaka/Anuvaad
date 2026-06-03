@@ -1,4 +1,5 @@
 import { ClipboardPaste, Cpu, FileText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 const steps = [
   {
@@ -26,28 +27,38 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <section className="border-t border-border/40 bg-muted/30 py-24">
+    <section className="relative border-t border-white/5 py-32 bg-transparent">
+      {/* Soft gradient background glow */}
+      <div className="pointer-events-none absolute right-10 bottom-10 -z-10 h-[300px] w-[500px] rounded-full bg-indigo-500/5 blur-3xl" />
+
       <div className="mx-auto max-w-6xl px-6">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-amber-600">
+        <div className="cinematic-reveal mx-auto max-w-2xl text-center">
+          <Badge
+            variant="secondary"
+            className="mb-4 border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-indigo-400"
+          >
             How It Works
-          </p>
-          <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+          </Badge>
+          <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-white">
             Three steps to clarity
           </h2>
         </div>
 
-        <div className="mt-16 grid gap-12 md:grid-cols-3">
+        <div className="mt-20 grid gap-12 md:grid-cols-3">
           {steps.map((item) => (
-            <div key={item.step} className="relative text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
-                <item.icon className="h-6 w-6 text-amber-600" />
+            <div key={item.step} className="cinematic-reveal relative text-center group">
+              {/* Outer glow ring around icon */}
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-white/5 bg-[#060613]/70 backdrop-blur-md shadow-lg transition-all duration-300 group-hover:border-indigo-500/25 group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(99,102,241,0.15)]">
+                <item.icon className="h-7 w-7 text-indigo-400" />
               </div>
-              <p className="mt-5 font-mono text-xs font-bold uppercase tracking-wider text-amber-600">
+              
+              {/* Step number badge */}
+              <p className="mt-6 font-mono text-[10px] font-extrabold uppercase tracking-widest text-indigo-400/80">
                 Step {item.step}
               </p>
-              <h3 className="mt-2 text-lg font-semibold">{item.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              
+              <h3 className="mt-3 text-lg font-bold text-white tracking-tight">{item.title}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-slate-400 max-w-xs mx-auto">
                 {item.description}
               </p>
             </div>
