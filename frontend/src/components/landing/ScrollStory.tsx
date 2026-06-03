@@ -136,7 +136,7 @@ export function ScrollStory() {
               <div className="pt-4 border-t border-white/5 flex items-center gap-3">
                 <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
                 <span className="text-xs font-medium tracking-wide text-indigo-300/80 italic">
-                  "{steps[activeStep].copy}"
+                  &ldquo;{steps[activeStep].copy}&rdquo;
                 </span>
               </div>
             </div>
@@ -180,13 +180,13 @@ export function ScrollStory() {
                     <div className="w-full max-w-[420px] font-mono text-[11px] leading-relaxed text-indigo-300/40 bg-indigo-950/10 border border-indigo-500/10 p-5 rounded-lg relative overflow-hidden select-none">
                       {/* Chaos glimmers */}
                       <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-indigo-500/5 to-transparent animate-pulse" />
-                      <p className="text-red-400/60 font-bold">// TANGLED ABSTRACT NOISE</p>
+                      <p className="text-red-400/60 font-bold">{"// TANGLED ABSTRACT NOISE"}</p>
                       <p>def _process(d, *args, **kwargs):</p>
                       <p className="pl-4">if not d or not isinstance(d, dict): return None</p>
                       <p className="pl-4">{"r = {k.upper(): v for k, v in d.items() if len(k) > 2}"}</p>
                       <p className="pl-4">x = list(filter(lambda y: y % 2 == 0, [x for x in r.values() if isinstance(x, int)]))</p>
                       <p className="pl-4">return lambda z: [y * z for y in x]</p>
-                      <p className="text-indigo-400/50">// Unreadable logic. High memory footprint. Unstructured.</p>
+                      <p className="text-indigo-400/50">{"// Unreadable logic. High memory footprint. Unstructured."}</p>
                     </div>
                     {/* Symbolic Guide and Seeker forces */}
                     <div className="flex gap-12 mt-4 items-center">
@@ -291,7 +291,7 @@ export function ScrollStory() {
                             <span className="inline-block w-1.5 h-3.5 bg-amber-500 ml-0.5 animate-pulse" />
                           </div>
                           
-                          <div className="text-[10px] text-slate-500 font-mono">// AUTO-GENERATED CODE UPDATE:</div>
+                          <div className="text-[10px] text-slate-500 font-mono">{"// AUTO-GENERATED CODE UPDATE:"}</div>
                           <div className="bg-slate-950/80 border border-indigo-500/20 p-2.5 rounded font-mono text-[11px] text-indigo-300">
                             if not d or not isinstance(d, dict):
                             <br />
@@ -334,7 +334,7 @@ export function ScrollStory() {
                           &nbsp;&nbsp;return a + b
                         </div>
                         <div className="bg-slate-900/80 border border-pink-500/10 p-3 rounded-lg font-mono text-[10px] text-pink-300">
-                          <p className="text-slate-500 font-semibold mb-1">// JAVASCRIPT</p>
+                          <p className="text-slate-500 font-semibold mb-1">{"// JAVASCRIPT"}</p>
                           function add(a, b) {"{"}
                           <br />
                           &nbsp;&nbsp;return a + b;
