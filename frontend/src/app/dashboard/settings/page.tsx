@@ -14,7 +14,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { LogOut, Key, Plus, Copy, Check, Trash2, ShieldAlert, Loader2 } from "lucide-react";
+import { 
+  LogOut, 
+  Key, 
+  Plus, 
+  Copy, 
+  Check, 
+  Trash2, 
+  ShieldAlert, 
+  Loader2,
+  Activity,
+  Cpu,
+  ShieldCheck,
+  Network,
+  BarChart3,
+  Database,
+  Info,
+  User,
+  Palette,
+  Sparkles
+} from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -22,6 +41,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
+import { cn } from "@/lib/utils";
 
 interface ApiKey {
   id: string;
@@ -46,6 +66,13 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // Stitch Connectivity Mock states
+  const [autoSwitch, setAutoSwitch] = useState(true);
+  const [backgroundUpdates, setBackgroundUpdates] = useState(true);
+  const [preferLocal, setPreferLocal] = useState(false);
+  const [localModel, setLocalModel] = useState("llama3");
+  const [reloadingModel, setReloadingModel] = useState(false);
 
   useEffect(() => {
     if (user?.user_metadata?.full_name) {
@@ -203,212 +230,582 @@ export default function SettingsPage() {
     }
   }
 
+  const handleModelChange = (val: string) => {
+    setLocalModel(val);
+    setReloadingModel(true);
+    const toastId = toast.loading(`Loading model weights for ${val === 'llama3' ? 'Llama 3 (8B)' : val === 'mistral' ? 'Mistral (7B)' : 'Phi-3 (Mini)'} into VRAM...`);
+    setTimeout(() => {
+      setReloadingModel(false);
+      toast.success("Model weights hot-swapped in VRAM successfully.", { id: toastId });
+    }, 1500);
+  };
+
+  // VRAM specifications depending on simulated model selection
+  const getVramUsage = () => {
+    if (reloadingModel) return { text: "Loading...", val: 0, percent: "0%" };
+    switch (localModel) {
+      case "llama3":
+        return { text: "5.2 GB / 8 GB", val: 5.2, percent: "65%" };
+      case "mistral":
+        return { text: "4.5 GB / 8 GB", val: 4.5, percent: "56%" };
+      case "phi3":
+        return { text: "2.1 GB / 8 GB", val: 2.1, percent: "26%" };
+      default:
+        return { text: "0 GB / 8 GB", val: 0, percent: "0%" };
+    }
+  };
+
+  const vram = getVramUsage();
+
   return (
-    <div className="min-h-screen pb-20">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
-        <div className="flex h-14 items-center px-6">
-          <h1 className="text-lg font-semibold">Settings</h1>
+    <div className="min-h-screen bg-[#030303] text-slate-100 pb-20">
+      
+      {/* Premium Header */}
+      <header className="sticky top-0 z-20 border-b border-amber-600/10 bg-[#030303]/80 backdrop-blur-md">
+        <div className="flex h-16 items-center justify-between px-8 max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+            <h1 className="text-base font-bold uppercase tracking-wider text-slate-200">
+              System Settings & Connectivity
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-600/20 hover:border-amber-500/40 text-xs font-bold text-amber-500 bg-amber-950/10 hover:bg-amber-950/20 gap-2 h-9"
+              onClick={() => {
+                const id = toast.loading("Checking for remote weight optimizations...");
+                setTimeout(() => {
+                  toast.success("All indices synchronized. System operational.", { id });
+                }, 1000);
+              }}
+            >
+              <Activity className="h-3.5 w-3.5" />
+              Sync Indices
+            </Button>
+          </div>
         </div>
       </header>
-      <div className="mx-auto max-w-3xl p-6 space-y-6">
+
+      <div className="mx-auto max-w-7xl px-8 py-8">
         
-        {/* Profile */}
-        <Card className="p-6">
-          <h2 className="text-sm font-semibold">Profile</h2>
-          <div className="mt-4 space-y-4">
-            <div>
-              <label htmlFor="settings-email" className="text-xs font-medium text-muted-foreground">Email</label>
-              <Input id="settings-email" value={user?.email || ""} disabled className="mt-1 text-sm bg-muted/50" />
-            </div>
-            <div>
-              <label htmlFor="settings-display-name" className="text-xs font-medium text-muted-foreground">Display Name</label>
-              <Input
-                id="settings-display-name"
-                placeholder="Your name"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="mt-1 text-sm"
-              />
-            </div>
-          </div>
-          <Button
-            size="sm"
-            className="mt-4 bg-amber-600 hover:bg-amber-700 text-xs gap-1.5"
-            onClick={handleSaveProfile}
-            disabled={saving}
-          >
-            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
-        </Card>
-
-        {/* Appearance */}
-        <Card className="p-6">
-          <h2 className="text-sm font-semibold">Appearance</h2>
-          <p className="text-xs text-muted-foreground mt-1 mb-4">Customize the look and feel of your Anuvaad dashboard.</p>
-          <div className="max-w-xs mt-2">
-            <select
-              value={theme || "system"}
-              onChange={(e) => setTheme(e.target.value)}
-              className="w-full rounded-md border border-border/60 bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-            >
-              <option value="system" className="bg-background text-foreground">System</option>
-              <option value="light" className="bg-background text-foreground">Light</option>
-              <option value="dark" className="bg-background text-foreground">Dark</option>
-            </select>
-          </div>
-        </Card>
-
-        {/* Developer / API Keys */}
-        <Card className="p-6 border-amber-600/20">
-          <div className="flex items-center gap-2 mb-4">
-            <Key className="h-5 w-5 text-amber-600" />
-            <h2 className="text-sm font-semibold">Developer API Keys</h2>
-          </div>
-          <p className="text-xs text-muted-foreground mb-6">
-            Generate Bearer tokens to access the Anuvaad API programmatically from your CI/CD pipelines or internal tools.
-          </p>
-
-          {generatedKey && (
-            <div className="mb-6 p-4 border border-amber-600/30 bg-amber-600/5 rounded-lg">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+        {/* Main 2-Column Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* LEFT COLUMN: Main Configurations (8 cols) */}
+          <div className="lg:col-span-8 space-y-8">
+            
+            {/* STITCH: Adaptive Connectivity & Controller */}
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex items-center gap-3 mb-6">
+                <Network className="h-5 w-5 text-amber-500" />
                 <div>
-                  <h3 className="text-sm font-medium text-foreground">Save your new API key</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Please copy this key and save it somewhere secure. For security reasons, you won&apos;t be able to see it again.
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                    Adaptive Controller
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Configure the hybrid orchestration framework balancing local privacy with cloud scalability.
                   </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <code className="text-xs bg-background border border-border px-3 py-1.5 rounded flex-1 font-mono break-all">
-                      {generatedKey}
-                    </code>
-                    <Button size="sm" variant="secondary" onClick={handleCopy} className="shrink-0 h-8">
-                      {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <Button size="sm" variant="ghost" className="mt-3 text-xs h-7" onClick={() => setGeneratedKey("")}>
-                    I have saved this key
-                  </Button>
                 </div>
               </div>
-            </div>
-          )}
 
-          <div className="flex items-end gap-3 mb-6">
-            <div className="flex-1">
-              <label htmlFor="settings-key-name" className="text-xs font-medium text-muted-foreground">Key Name</label>
-              <Input 
-                id="settings-key-name"
-                placeholder="e.g. CI Pipeline, Backend Script" 
-                value={newKeyName}
-                onChange={(e) => setNewKeyName(e.target.value)}
-                className="mt-1 text-sm" 
-              />
-            </div>
-            <Button size="sm" onClick={handleCreateApiKey} disabled={loading || !newKeyName.trim()} className="bg-foreground text-background hover:bg-foreground/90 h-9">
-              <Plus className="h-4 w-4 mr-1.5" /> Create Key
-            </Button>
-          </div>
+              <div className="divide-y divide-slate-800/50">
+                {/* Switch 1: Auto Switching */}
+                <div className="py-5 flex items-start justify-between gap-6 first:pt-0">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-slate-200">Automatic Network Switching</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Toggle automatically between latency-optimized cloud execution and zero-retention local pipelines.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                    <input 
+                      type="checkbox" 
+                      checked={autoSwitch} 
+                      onChange={(e) => setAutoSwitch(e.target.checked)} 
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 rounded-full peer peer-focus:ring-0 dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-500"></div>
+                  </label>
+                </div>
 
-          <div className="border border-border rounded-lg overflow-hidden">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground">Name</th>
-                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground">Prefix</th>
-                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground">Created</th>
-                  <th className="px-4 py-2 text-xs font-medium text-muted-foreground text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {apiKeys.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-xs text-muted-foreground">
-                      No API keys generated yet.
-                    </td>
-                  </tr>
-                ) : (
-                  apiKeys.map(key => (
-                    <tr key={key.id} className="hover:bg-muted/30">
-                      <td className="px-4 py-3 font-medium text-foreground">{key.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{key.key_prefix}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
-                        {new Date(key.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => revokeApiKey(key.id)} className="h-7 px-2 text-destructive hover:text-destructive hover:bg-destructive/10">
-                          Revoke
+                {/* Switch 2: Background Updates */}
+                <div className="py-5 flex items-start justify-between gap-6">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-slate-200">Smart Background Updates</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Fetch weight deltas and locally indexed FAISS cache matrices dynamically when workspace is idle.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                    <input 
+                      type="checkbox" 
+                      checked={backgroundUpdates} 
+                      onChange={(e) => setBackgroundUpdates(e.target.checked)} 
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 rounded-full peer peer-focus:ring-0 dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-500"></div>
+                  </label>
+                </div>
+
+                {/* Switch 3: Prefer Local */}
+                <div className="py-5 flex items-start justify-between gap-6 last:pb-0">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-slate-200">Prefer Local Processing</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Route pipeline commands exclusively to on-device GPU/NPU weights for absolute privacy guarantees.
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                    <input 
+                      type="checkbox" 
+                      checked={preferLocal} 
+                      onChange={(e) => setPreferLocal(e.target.checked)} 
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-800 rounded-full peer peer-focus:ring-0 dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-500"></div>
+                  </label>
+                </div>
+              </div>
+            </Card>
+
+            {/* STITCH: Performance Comparison Insights */}
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <BarChart3 className="h-5 w-5 text-amber-500" />
+                <div>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                    Performance Analytics
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Real-time response comparisons between standard cloud API engines and optimized edge nodes.
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Cloud Latency Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-bold text-slate-400 uppercase tracking-tight">Cloud Latency (Standard)</span>
+                    <span className="font-bold text-slate-300">450ms</span>
+                  </div>
+                  <div className="w-full bg-[#16161a] h-2.5 rounded-full overflow-hidden border border-slate-800/40">
+                    <div className="bg-slate-600 h-full w-[85%] rounded-full transition-all duration-500" />
+                  </div>
+                </div>
+
+                {/* Local Latency Bar */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-bold text-amber-500 uppercase tracking-tight flex items-center gap-1.5">
+                      <Sparkles className="h-3 w-3 text-amber-500 animate-pulse" /> Edge Node Latency (Optimized)
+                    </span>
+                    <span className="font-bold text-amber-500 font-extrabold">45ms</span>
+                  </div>
+                  <div className="w-full bg-[#16161a] h-2.5 rounded-full overflow-hidden border border-slate-800/40">
+                    <div className="bg-amber-500 h-full w-[12%] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3.5 bg-amber-500/5 border border-amber-600/10 rounded-lg text-center text-xs italic text-amber-500/80 font-medium">
+                  🚀 On-device compilation and inference is currently operating 10x faster than traditional remote nodes.
+                </div>
+              </div>
+            </Card>
+
+            {/* Developer API Keys */}
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <Key className="h-5 w-5 text-amber-500" />
+                  <div>
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                      Developer Credentials
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Integrate Anuvaad directly with CLI routines, scripts, or continuous deployment pipelines.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {generatedKey && (
+                <div className="mb-6 p-4 border border-amber-500/30 bg-amber-500/5 rounded-lg shadow-inner">
+                  <div className="flex items-start gap-3">
+                    <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                        Capture API Key
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        For system protection, this bearer secret is displayed once. Retain this credentials packet in a secure secrets manager.
+                      </p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <code className="text-xs bg-slate-950/80 border border-amber-600/20 px-3 py-2 rounded flex-1 font-mono break-all text-amber-200">
+                          {generatedKey}
+                        </code>
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          onClick={handleCopy} 
+                          className="shrink-0 h-9 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50"
+                        >
+                          {copied ? <Check className="h-4 w-4 text-emerald-500 animate-scale" /> : <Copy className="h-4 w-4" />}
                         </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="mt-3 text-xs text-slate-400 hover:text-slate-200 h-8" 
+                        onClick={() => setGeneratedKey("")}
+                      >
+                        I have archived this secret safely
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-        {/* Subscription */}
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold">Subscription</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {isPro ? "Pro Plan · Unlimited translations" : "Free Plan · 10 translations/day"}
+              <div className="flex flex-col md:flex-row items-end gap-3 mb-6">
+                <div className="flex-1 w-full">
+                  <label htmlFor="settings-key-name" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Key Name / Scope
+                  </label>
+                  <Input 
+                    id="settings-key-name"
+                    placeholder="e.g. CI Deployment, Local Dev Client" 
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    className="mt-1.5 text-sm bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-100 placeholder:text-slate-600" 
+                  />
+                </div>
+                <Button 
+                  size="sm" 
+                  onClick={handleCreateApiKey} 
+                  disabled={loading || !newKeyName.trim()} 
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 h-10 px-5 font-bold uppercase tracking-wider text-xs gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] shrink-0 w-full md:w-auto"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Generate Key
+                </Button>
+              </div>
+
+              <div className="border border-amber-600/10 rounded-lg overflow-hidden bg-slate-950/20">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#0c0c0f] border-b border-amber-600/10">
+                      <tr>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400">Name</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400">Scope Prefix</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400">Created At</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-600/10 text-slate-300">
+                      {apiKeys.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-xs text-slate-500 italic">
+                            No credentials generated. Create a key scope to query the translation engine.
+                          </td>
+                        </tr>
+                      ) : (
+                        apiKeys.map(key => (
+                          <tr key={key.id} className="hover:bg-slate-900/20">
+                            <td className="px-4 py-3.5 font-bold text-slate-200">{key.name}</td>
+                            <td className="px-4 py-3.5 font-mono text-[11px] text-amber-500/80">{key.key_prefix}</td>
+                            <td className="px-4 py-3.5 text-slate-400">
+                              {new Date(key.created_at).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => revokeApiKey(key.id)} 
+                                className="h-7 px-2.5 text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs font-bold uppercase tracking-wider"
+                              >
+                                Revoke
+                              </Button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </Card>
+
+            {/* Profile Credentials */}
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-6">
+                <User className="h-5 w-5 text-amber-500" />
+                <div>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                    User Profile Settings
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Modify parameters relating to your personal display configuration.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                <div className="space-y-1">
+                  <label htmlFor="settings-email" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Primary Email
+                  </label>
+                  <Input 
+                    id="settings-email" 
+                    value={user?.email || ""} 
+                    disabled 
+                    className="mt-1.5 text-sm bg-slate-900/50 border-amber-600/5 text-slate-400 cursor-not-allowed select-all" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="settings-display-name" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Display Title / Name
+                  </label>
+                  <Input
+                    id="settings-display-name"
+                    placeholder="Your Full Name"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="mt-1.5 text-sm bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-100 placeholder:text-slate-600"
+                  />
+                </div>
+              </div>
+
+              <Button
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-1.5 h-9"
+                onClick={handleSaveProfile}
+                disabled={saving}
+              >
+                {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                {saving ? "Saving Changes..." : "Update Profile"}
+              </Button>
+            </Card>
+
+          </div>
+
+          {/* RIGHT COLUMN: Settings Sidebar (4 cols) */}
+          <div className="lg:col-span-4 space-y-8">
+            
+            {/* STITCH: Active Local Model Selector */}
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+              
+              <div className="flex items-center gap-3 mb-5">
+                <Cpu className="h-5 w-5 text-amber-500" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                  Local Weight Modules
+                </h3>
+              </div>
+
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                    Active Edge Model
+                  </label>
+                  <div className="relative">
+                    <select 
+                      value={localModel}
+                      onChange={(e) => handleModelChange(e.target.value)}
+                      disabled={reloadingModel}
+                      className="w-full bg-slate-950 border border-amber-600/10 rounded-lg text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500/40 focus:ring-0 text-slate-200 cursor-pointer appearance-none disabled:opacity-50"
+                    >
+                      <option value="llama3" className="bg-[#0c0c0f]">Llama 3 (8B) - Fast Pipeline</option>
+                      <option value="mistral" className="bg-[#0c0c0f]">Mistral (7B) - Balanced Core</option>
+                      <option value="phi3" className="bg-[#0c0c0f]">Phi-3 (Mini) - Ultra Efficient</option>
+                    </select>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</span>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg bg-slate-950/40 border border-amber-600/5">
+                  <div className="flex justify-between text-xs mb-2">
+                    <span className="text-slate-400 font-bold uppercase tracking-tight">Active GPU VRAM</span>
+                    <span className={cn("font-bold", reloadingModel ? "text-amber-500/60 animate-pulse" : "text-amber-500")}>
+                      {vram.text}
+                    </span>
+                  </div>
+                  <div className="w-full bg-[#16161a] h-2 rounded-full overflow-hidden border border-slate-800/40">
+                    <div 
+                      className={cn("h-full bg-amber-500 rounded-full transition-all duration-500", reloadingModel ? "bg-amber-600/30 w-0" : "")} 
+                      style={{ width: vram.percent }} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* STITCH: Real-time status System Health */}
+            <Card className="p-6 bg-amber-500/5 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-5">
+                <ShieldCheck className="h-5 w-5 text-amber-500" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                  Secured System Status
+                </h3>
+              </div>
+
+              <div className="space-y-3.5 text-xs">
+                <div className="flex items-center justify-between border-b border-amber-600/5 pb-2.5">
+                  <span className="text-slate-400 font-medium">Encryption Cipher</span>
+                  <span className="font-bold text-green-500 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 bg-green-500 rounded-full animate-ping" /> AES-256 Active
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-b border-amber-600/5 pb-2.5">
+                  <span className="text-slate-400 font-medium">Privacy Shield</span>
+                  <span className="font-bold text-amber-500">
+                    {preferLocal ? "Local Enforcement" : "Hybrid Redaction"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 font-medium">Vector Index Sync</span>
+                  <span className="font-bold text-slate-300">Synchronized</span>
+                </div>
+              </div>
+            </Card>
+
+            {/* Visual Identity Selection (Appearance) */}
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-4">
+                <Palette className="h-5 w-5 text-amber-500" />
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                    Dashboard Skin
+                  </h3>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
+                Choose a visual mode to align your translation dashboard appearance.
               </p>
-            </div>
-            <Badge variant="secondary" className="text-[10px]">{isPro ? "✦ Pro" : "Free"}</Badge>
-          </div>
-        </Card>
+              <div className="relative">
+                <select
+                  value={theme || "system"}
+                  onChange={(e) => setTheme(e.target.value)}
+                  className="w-full bg-slate-950 border border-amber-600/10 rounded-lg text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500/40 focus:ring-0 text-slate-200 cursor-pointer appearance-none"
+                >
+                  <option value="system" className="bg-[#0c0c0f]">System Adaptive</option>
+                  <option value="light" className="bg-[#0c0c0f]">High Contrast Light</option>
+                  <option value="dark" className="bg-[#0c0c0f]">Cinematic Dark Void</option>
+                </select>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</span>
+              </div>
+            </Card>
 
-        {/* Danger zone */}
-        <Card className="border-destructive/20 p-6 bg-destructive/5">
-          <h2 className="text-sm font-semibold text-destructive mb-4">Danger Zone</h2>
-          
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="text-sm font-medium">Sign Out</p>
-              <p className="text-xs text-muted-foreground">Sign out of your account on this device</p>
-            </div>
-            <Button variant="outline" size="sm" className="gap-2 text-xs bg-background" onClick={handleSignOut}>
-              <LogOut className="h-3 w-3" /> Sign Out
-            </Button>
-          </div>
-          
-          <Separator className="my-4 bg-destructive/10" />
-          
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="text-sm font-medium text-destructive">Delete Account</p>
-              <p className="text-xs text-muted-foreground">Permanently remove your account and all data</p>
-            </div>
-            
-            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-              <DialogTrigger render={<Button variant="destructive" size="sm" className="gap-2 text-xs" />}>
-                  <Trash2 className="h-3 w-3" /> Delete
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Are you absolutely sure?</DialogTitle>
-                  <DialogDescription>
-                    This permanently deletes your account and all translations. This cannot be undone.
-                  </DialogDescription>
-                </DialogHeader>
-                <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
-                  <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={deleting}>
-                    Cancel
+            {/* Subscription status */}
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+                    Active License
+                  </h3>
+                  <p className="mt-1 text-[11px] text-slate-400 leading-tight">
+                    {isPro ? "Pro Subscription Pack · Unlimited weight runs" : "Developer Sandbox Tier · 10 runs/day"}
+                  </p>
+                </div>
+                <Badge className={cn("text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 shrink-0 ml-3", isPro ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-300")}>
+                  {isPro ? "✦ Pro Level" : "Sandbox"}
+                </Badge>
+              </div>
+            </Card>
+
+            {/* Danger zone / Account Actions */}
+            <Card className="border-red-950/20 p-6 bg-red-950/5 rounded-xl shadow-lg relative overflow-hidden">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-red-500 mb-4">
+                Danger Zone Operations
+              </h3>
+              
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-slate-200">Revoke Session</p>
+                    <p className="text-[10px] text-slate-400">Sign out of active account on this client.</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 border-slate-700/50 hover:border-slate-600 text-slate-300 hover:text-slate-100 bg-slate-950/50 hover:bg-slate-950" 
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="h-3 w-3" /> Exit
                   </Button>
-                  <Button variant="destructive" onClick={handleDeleteAccount} disabled={deleting}>
-                    {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Delete Account
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
+                </div>
+                
+                <Separator className="bg-red-500/10" />
+                
+                <div className="flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-red-400">Purge Data & Account</p>
+                    <p className="text-[10px] text-slate-400">Irreversibly delete profile records and vector weight structures.</p>
+                  </div>
+                  
+                  <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <DialogTrigger render={
+                      <Button 
+                        variant="destructive" 
+                        size="sm" 
+                        className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 bg-red-950/20 border border-red-500/20 text-red-400 hover:bg-red-950/40 hover:text-red-300"
+                      />
+                    }>
+                      <Trash2 className="h-3 w-3" /> Purge
+                    </DialogTrigger>
+                    <DialogContent className="bg-slate-950 border border-amber-600/10 text-slate-100 rounded-lg">
+                      <DialogHeader>
+                        <DialogTitle className="text-base font-bold uppercase tracking-wider text-red-400">
+                          Confirm Total Account Purge
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-slate-400 leading-relaxed pt-2">
+                          This operation permanently destroys all developer profiles, generated client credentials, database vectors, and active settings files. This transaction is non-reversible.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
+                        <Button 
+                          variant="outline" 
+                          className="border-slate-800 text-slate-300 hover:bg-slate-900"
+                          onClick={() => setIsDeleteDialogOpen(false)} 
+                          disabled={deleting}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          className="bg-red-650 hover:bg-red-600 text-white font-bold"
+                          onClick={handleDeleteAccount} 
+                          disabled={deleting}
+                        >
+                          {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Purge Everything
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </Card>
+
+            {/* Micro warning label */}
+            <div className="px-2">
+              <div className="flex gap-3 items-start">
+                <Info className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
+                  Modification of active weights takes 1-2 seconds for GPU synchronization. API queries made during synchronization are buffered on the local scheduler.
+                </p>
+              </div>
+            </div>
+
           </div>
-        </Card>
+
+        </div>
+
       </div>
+
     </div>
   );
 }

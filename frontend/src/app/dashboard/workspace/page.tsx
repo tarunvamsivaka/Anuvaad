@@ -5,10 +5,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Mail, Shield, Users } from "lucide-react";
+import { Loader2, Plus, Mail, Shield, Users, Crown, Building2, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface WorkspaceMember {
   user_email: string;
@@ -17,20 +18,62 @@ interface WorkspaceMember {
   workspace_id: string;
 }
 
+function MemberAvatar({ email, role }: { email: string; role: string }) {
+  const letter = email ? email[0].toUpperCase() : "?";
+  const colorMap: Record<string, string> = {
+    owner: "from-amber-500 to-orange-500",
+    admin: "from-violet-500 to-purple-500",
+    member: "from-blue-500 to-indigo-500",
+  };
+  const gradient = colorMap[role] || colorMap.member;
+  return (
+    <div className={cn(
+      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-sm font-bold text-white shadow-md",
+      gradient
+    )}>
+      {letter}
+    </div>
+  );
+}
+
+function RoleBadge({ role }: { role: string }) {
+  const map: Record<string, { icon: React.ReactNode; cls: string; label: string }> = {
+    owner: {
+      icon: <Crown className="h-2.5 w-2.5" />,
+      cls: "bg-amber-500 text-slate-950 border-amber-600",
+      label: "Owner",
+    },
+    admin: {
+      icon: <Shield className="h-2.5 w-2.5" />,
+      cls: "bg-violet-500/15 text-violet-400 border-violet-500/25",
+      label: "Admin",
+    },
+    member: {
+      icon: <Users className="h-2.5 w-2.5" />,
+      cls: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+      label: "Member",
+    },
+  };
+  const config = map[role] || map.member;
+  return (
+    <Badge className={cn("flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 border rounded-lg", config.cls)}>
+      {config.icon}
+      {config.label}
+    </Badge>
+  );
+}
+
 export default function WorkspacePage() {
   const { session } = useAuth();
   const { activeWorkspace, refreshWorkspaces, loading: workspaceLoading } = useWorkspace();
-  
+
   const [newWorkspaceName, setNewWorkspaceName] = useState("");
   const [creating, setCreating] = useState(false);
-  
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
-  
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
 
-  // Fetch members when active workspace changes
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
@@ -42,56 +85,39 @@ export default function WorkspacePage() {
         const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
         const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
           signal: controller.signal,
-          headers: { 'Authorization': `Bearer ${session.access_token}` }
+          headers: { Authorization: `Bearer ${session.access_token}` },
         });
         if (res.ok) {
           const data = await res.json();
-          if (active) {
-            setMembers(Array.isArray(data) ? data : []);
-          }
+          if (active) setMembers(Array.isArray(data) ? data : []);
         }
       } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") {
-          return;
-        }
-        console.error("Failed to fetch members", err);
+        if (err instanceof Error && err.name === "AbortError") return;
       } finally {
-        if (active) {
-          setLoadingMembers(false);
-        }
+        if (active) setLoadingMembers(false);
       }
     }
     fetchMembers();
-    return () => {
-      active = false;
-      controller.abort();
-    };
+    return () => { active = false; controller.abort(); };
   }, [session, activeWorkspace]);
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkspaceName.trim() || !session) return;
-    
     setCreating(true);
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const res = await fetch(`${API}/api/workspaces`, {
         method: "POST",
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name: newWorkspaceName.trim() })
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newWorkspaceName.trim() }),
       });
-      
       if (!res.ok) throw new Error("Failed to create workspace");
-      
       toast.success("Workspace created successfully");
       setNewWorkspaceName("");
       await refreshWorkspaces();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to create workspace";
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : "Failed to create workspace");
     } finally {
       setCreating(false);
     }
@@ -100,37 +126,26 @@ export default function WorkspacePage() {
   const handleInviteMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim() || !session || !activeWorkspace) return;
-    
     setInviting(true);
     try {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/invite`, {
         method: "POST",
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email: inviteEmail.trim(), role: "member" })
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), role: "member" }),
       });
-      
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.detail || "Failed to invite member");
       }
-      
       toast.success(`Invited ${inviteEmail} to workspace`);
       setInviteEmail("");
-      
-      // Refresh members list
       const membersRes = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` }
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (membersRes.ok) {
-        setMembers(await membersRes.json());
-      }
+      if (membersRes.ok) setMembers(await membersRes.json());
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to invite member";
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : "Failed to invite member");
     } finally {
       setInviting(false);
     }
@@ -138,146 +153,202 @@ export default function WorkspacePage() {
 
   if (workspaceLoading) {
     return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
       </div>
     );
   }
 
-  // NO WORKSPACE VIEW
+  // No workspace — creation UI
   if (!activeWorkspace) {
     return (
-      <div className="min-h-screen pb-20">
-        <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#080c14]">
+        <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-500/8 bg-white/80 dark:bg-[#080c14]/90 backdrop-blur-md">
           <div className="flex h-14 items-center px-6">
-            <h1 className="text-lg font-semibold">Workspace</h1>
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-amber-500" />
+              <h1 className="text-sm font-bold text-slate-800 dark:text-slate-200">Workspace</h1>
+            </div>
           </div>
         </header>
-        <div className="mx-auto max-w-2xl p-6 pt-12">
-          <Card className="p-8 text-center border-dashed">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted border border-border shadow-sm mb-6">
-              <Users className="h-8 w-8 text-muted-foreground" />
+
+        <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6">
+          <div className="w-full max-w-md text-center">
+            {/* Icon */}
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-500/8 border border-amber-500/15 shadow-lg shadow-amber-500/10">
+              <Building2 className="h-9 w-9 text-amber-500/70" />
             </div>
-            <h2 className="text-xl font-bold tracking-tight mb-2">Create a Team Workspace</h2>
-            <p className="text-sm text-muted-foreground mb-8 max-w-md mx-auto">
-              Collaborate with your team, share translation history, and manage API keys in a unified workspace.
+
+            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Create your workspace</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-500 mb-8 leading-relaxed max-w-sm mx-auto">
+              Collaborate with your team, share translation history, and manage API access under one workspace.
             </p>
-            <form onSubmit={handleCreateWorkspace} className="flex max-w-sm mx-auto items-center gap-3">
+
+            {/* Features list */}
+            <div className="grid grid-cols-3 gap-3 mb-8">
+              {[
+                { icon: Users, label: "Team Access" },
+                { icon: Sparkles, label: "Shared History" },
+                { icon: Shield, label: "Role Controls" },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="flex flex-col items-center gap-2 rounded-xl border border-amber-500/10 bg-amber-500/4 p-3">
+                  <Icon className="h-4 w-4 text-amber-500/70" />
+                  <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">{label}</span>
+                </div>
+              ))}
+            </div>
+
+            <form onSubmit={handleCreateWorkspace} className="space-y-3">
               <Input
-                placeholder="Workspace Name (e.g. Acme Corp)"
+                placeholder="e.g. Acme Engineering"
                 value={newWorkspaceName}
-                onChange={(e) => setNewWorkspaceName(e.target.value)}
-                className="flex-1"
+                onChange={e => setNewWorkspaceName(e.target.value)}
+                className="h-11 rounded-xl bg-white dark:bg-white/5 border-slate-200 dark:border-amber-500/10 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-amber-500/40"
                 required
               />
-              <Button type="submit" disabled={creating} className="bg-amber-600 hover:bg-amber-700 text-white">
-                {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                Create
+              <Button
+                type="submit"
+                disabled={creating}
+                className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-lg shadow-amber-500/20"
+              >
+                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Create Workspace
               </Button>
             </form>
-          </Card>
+          </div>
         </div>
       </div>
     );
   }
 
-  // ACTIVE WORKSPACE VIEW
+  // Active workspace view
+  const ownerCount = members.filter(m => m.role === "owner").length;
+  const memberCount = members.length;
+
   return (
-    <div className="min-h-screen pb-20">
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#080c14]">
+      {/* Header */}
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-500/8 bg-white/80 dark:bg-[#080c14]/90 backdrop-blur-md">
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold">{activeWorkspace.name}</h1>
-            <Badge variant="secondary" className="text-[10px]">Team Workspace</Badge>
+            <Building2 className="h-4 w-4 text-amber-500" />
+            <h1 className="text-sm font-bold text-slate-800 dark:text-slate-200">{activeWorkspace.name}</h1>
+            <Badge className="text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2">
+              Active
+            </Badge>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-600">
+              <Users className="h-3.5 w-3.5" />
+              {memberCount} {memberCount === 1 ? "member" : "members"}
+            </div>
           </div>
         </div>
       </header>
-      
-      <div className="mx-auto max-w-5xl p-6 space-y-6">
-        
-        {/* Invite Member Section */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Mail className="h-5 w-5 text-amber-600" />
-            <h2 className="text-sm font-semibold">Invite Team Member</h2>
-          </div>
-          <p className="text-xs text-muted-foreground mb-4 max-w-2xl">
-            Invite colleagues to join <strong>{activeWorkspace.name}</strong>. They will have access to the shared translation history and API keys.
-          </p>
-          <form onSubmit={handleInviteMember} className="flex items-end gap-3 max-w-md">
-            <div className="flex-1">
-              <label htmlFor="invite-email" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-1 block">Email Address</label>
-              <Input
-                id="invite-email"
-                type="email"
-                placeholder="colleague@company.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                required
-                className="h-9 text-sm"
-              />
+
+      <div className="p-5 lg:p-6 max-w-4xl mx-auto space-y-5">
+        {/* Workspace stats */}
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Members", value: memberCount, icon: Users, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
+            { label: "Owners", value: ownerCount, icon: Crown, color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
+            { label: "Role Levels", value: 3, icon: Shield, color: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
+          ].map(({ label, value, icon: Icon, color }) => (
+            <Card key={label} className="dark:bg-[#0c0f1a] border border-slate-100 dark:border-amber-500/8 p-4">
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border mb-3", color)}>
+                <Icon className="h-4 w-4" />
+              </div>
+              <p className="text-2xl font-black text-slate-800 dark:text-white">{value}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 dark:text-slate-600 mt-0.5">{label}</p>
+            </Card>
+          ))}
+        </div>
+
+        {/* Invite form */}
+        <Card className="dark:bg-[#0c0f1a] border border-slate-100 dark:border-amber-500/8 overflow-hidden">
+          <div className="relative p-5">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/4 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/15">
+                  <Mail className="h-3.5 w-3.5 text-amber-500" />
+                </div>
+                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">Invite Team Member</h2>
+              </div>
+              <p className="text-xs text-slate-400 dark:text-slate-600 mb-5 ml-9">
+                Invite colleagues to collaborate in <strong className="text-slate-600 dark:text-slate-400">{activeWorkspace.name}</strong>.
+              </p>
+
+              <form onSubmit={handleInviteMember} className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1">
+                  <label htmlFor="invite-email" className="sr-only">Email address</label>
+                  <Input
+                    id="invite-email"
+                    type="email"
+                    placeholder="colleague@company.com"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    required
+                    className="h-10 rounded-xl bg-white dark:bg-white/4 border-slate-200 dark:border-amber-500/10 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-amber-500/40"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  disabled={inviting}
+                  className="h-10 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 px-5 shadow-md shadow-amber-500/15"
+                >
+                  {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                  Send Invite
+                </Button>
+              </form>
             </div>
-            <Button type="submit" disabled={inviting} size="sm" className="h-9">
-              {inviting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <Plus className="h-4 w-4 mr-1.5" />}
-              Invite
-            </Button>
-          </form>
+          </div>
         </Card>
 
-        {/* Members List */}
-        <Card className="overflow-hidden border-border/60">
-          <div className="bg-muted/30 px-6 py-4 border-b border-border/60 flex items-center justify-between">
-            <h2 className="text-sm font-semibold flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              Workspace Members
-            </h2>
-            <Badge variant="outline" className="text-xs font-normal">
-              {members.length} {members.length === 1 ? 'member' : 'members'}
+        {/* Members list */}
+        <Card className="dark:bg-[#0c0f1a] border border-slate-100 dark:border-amber-500/8 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-amber-500/8">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-amber-500" />
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">Members</h2>
+            </div>
+            <Badge className="text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-500 border-0 px-2">
+              {memberCount} total
             </Badge>
           </div>
-          
-          <div className="divide-y divide-border/60">
+
+          <div className="divide-y divide-slate-50 dark:divide-amber-500/5">
             {loadingMembers ? (
-              <div className="p-8 flex justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <div className="flex justify-center p-10">
+                <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
               </div>
             ) : members.length === 0 ? (
-              <div className="p-8 text-center text-sm text-muted-foreground">
-                No members found.
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <Users className="h-8 w-8 text-slate-300 dark:text-slate-700 mb-3" />
+                <p className="text-sm font-medium text-slate-400 dark:text-slate-600">No members yet</p>
+                <p className="text-xs text-slate-300 dark:text-slate-700 mt-1">Invite someone above to get started.</p>
               </div>
             ) : (
-              members.map((member, idx) => {
-                const isOwner = member.role === 'owner';
-                const isAdmin = member.role === 'admin';
-                const initial = member.user_email ? member.user_email.charAt(0).toUpperCase() : '?';
-                
-                return (
-                  <div key={`${member.user_email}-${idx}`} className="flex items-center justify-between p-4 px-6 hover:bg-muted/10 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/20 text-amber-700 dark:text-amber-500 font-semibold text-sm">
-                        {initial}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{member.user_email}</p>
-                        <p className="text-xs text-muted-foreground">Joined {new Date(member.created_at).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge 
-                        variant={isOwner ? "default" : isAdmin ? "secondary" : "outline"} 
-                        className="text-[10px] capitalize"
-                      >
-                        {isOwner && <Shield className="h-3 w-3 mr-1" />}
-                        {member.role}
-                      </Badge>
+              members.map((member, idx) => (
+                <div
+                  key={`${member.user_email}-${idx}`}
+                  className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-white/2 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <MemberAvatar email={member.user_email} role={member.role} />
+                    <div>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">{member.user_email}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">
+                        Joined {new Date(member.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
                     </div>
                   </div>
-                );
-              })
+                  <RoleBadge role={member.role} />
+                </div>
+              ))
             )}
           </div>
         </Card>
-
       </div>
     </div>
   );

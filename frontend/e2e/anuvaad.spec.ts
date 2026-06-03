@@ -114,7 +114,7 @@ test.describe('Public Pages', () => {
 
   test('sign-in page renders correctly', async ({ page }) => {
     await page.goto('/signin');
-    await expect(page.locator('h1')).toContainText('Sign in');
+    await expect(page.locator('h1')).toContainText('Welcome back');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.locator('button:has-text("Continue with Google")')).toBeVisible();
@@ -146,7 +146,7 @@ test.describe('Public Pages', () => {
     await page.goto('/signup');
     await page.click('a[href="/signin"]');
     await expect(page).toHaveURL(/\/signin/);
-    await expect(page.locator('h1')).toContainText('Sign in');
+    await expect(page.locator('h1')).toContainText('Welcome back');
   });
 });
 
@@ -210,11 +210,11 @@ test.describe('Dashboard Home', () => {
   test('dashboard shows all 4 stat cards', async ({ page }) => {
     await page.goto('/dashboard');
     // Wait for stats to load (async fetch)
-    await expect(page.locator('text=Translations Today')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator("text=Today's Translations")).toBeVisible({ timeout: 10000 });
     await expect(page.locator('text=This Week')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=Total Translations')).toBeVisible({ timeout: 5000 });
-    // "Plan" stat card
-    await expect(page.locator('p.text-xs:has-text("Plan")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 5000 });
+    // "Current Plan" stat card
+    await expect(page.locator('p.text-xs:has-text("Current Plan")')).toBeVisible({ timeout: 5000 });
   });
 
   test('dashboard Quick Actions section has 3 translation mode links', async ({ page }) => {
@@ -270,7 +270,7 @@ test.describe('Translation Workspace', () => {
 
   test('Generate Translation button is disabled when editor is empty', async ({ page }) => {
     await page.goto('/dashboard/translate');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeDisabled();
+    await expect(page.locator('button:has-text("Translate")')).toBeDisabled();
   });
 
   test('"Type Code Manually" button dismisses drag-and-drop overlay', async ({ page }) => {
@@ -285,8 +285,8 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'print("Hello")');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Generate Translation")');
+    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await page.click('button:has-text("Translate")');
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
   });
 
@@ -295,8 +295,8 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'x = 42');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Generate Translation")');
+    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await page.click('button:has-text("Translate")');
     await expect(page.locator('button:has-text("Copy as Markdown")')).toBeVisible({ timeout: 10000 });
   });
 
@@ -305,8 +305,8 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'y = 2');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Generate Translation")');
+    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await page.click('button:has-text("Translate")');
     const downloadBtn = page.locator('button:has-text("Download JSON")');
     await expect(downloadBtn).toBeVisible({ timeout: 10000 });
     const downloadPromise = page.waitForEvent('download');
@@ -326,8 +326,8 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button[role="tab"]:has-text("English → Code")');
     await page.fill('textarea', 'Write a function that adds two numbers');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Generate Translation")');
+    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await page.click('button:has-text("Translate")');
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
   });
 
@@ -360,8 +360,8 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'z = 3');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Generate Translation")');
+    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await page.click('button:has-text("Translate")');
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
     // Click the reset/clear button (rotate-ccw icon)
     await page.locator('button').filter({ has: page.locator('.lucide-rotate-ccw') }).click();
@@ -371,9 +371,9 @@ test.describe('Translation Workspace', () => {
   test('Context & Settings panel toggles open/closed', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await expect(page.locator('text=Corporate Standards / Custom Instructions')).not.toBeVisible();
-    await page.click('button:has-text("Context & Settings")');
+    await page.click('button:has-text("Instructions")');
     await expect(page.locator('text=Corporate Standards / Custom Instructions')).toBeVisible();
-    await page.click('button:has-text("Context & Settings")');
+    await page.click('button:has-text("Instructions")');
     await expect(page.locator('text=Corporate Standards / Custom Instructions')).not.toBeVisible();
   });
 
@@ -382,8 +382,8 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'a = 1');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Generate Translation")');
+    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await page.click('button:has-text("Translate")');
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
     // Collapse block (chevron-up → click → chevron-down)
     const collapseBtn = page.locator('.lucide-chevron-up').first();
@@ -398,8 +398,8 @@ test.describe('Translation Workspace', () => {
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'b = 2');
-    await expect(page.locator('button:has-text("Generate Translation")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Generate Translation")');
+    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await page.click('button:has-text("Translate")');
     await expect(page.locator('button:has-text("Copy as Markdown")')).toBeVisible({ timeout: 10000 });
     await page.click('button:has-text("Copy as Markdown")');
     // Button should briefly change text to confirm copy

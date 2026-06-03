@@ -1,8 +1,7 @@
 "use client";
 
 import { buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, Zap } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -18,20 +17,23 @@ const plans = [
       "All 3 translation modes",
       "Export as MD, JSON, PDF",
       "Syntax highlighted editor",
+      "Translation history",
     ],
     cta: "Start Free",
     href: "/signup",
     highlighted: false,
+    badge: null,
   },
   {
     name: "Pro",
     price: { monthly: 499, yearly: 3999 },
-    description: "For power users who need unlimited access.",
+    description: "For power users who need unlimited access and larger inputs.",
     features: [
       "Unlimited translations",
-      "Priority processing",
+      "Priority AI processing",
       "Large inputs (50K chars)",
       "Cloud-synced history",
+      "Team workspace (5 members)",
       "Early access to features",
       "Email support",
     ],
@@ -43,51 +45,55 @@ const plans = [
   {
     name: "Team",
     price: { monthly: 1200, yearly: 9999 },
-    description: "For teams that need shared access.",
+    description: "For engineering teams that need shared access and admin controls.",
     features: [
       "Everything in Pro",
-      "5 team members",
-      "Shared workspace",
-      "Admin billing",
+      "Up to 20 team members",
+      "Shared workspace history",
+      "Admin billing & controls",
       "Priority support",
       "Custom onboarding",
     ],
     cta: "Contact Sales",
     href: "/signup?plan=team",
     highlighted: false,
+    badge: null,
   },
 ];
 
 export function Pricing() {
   const [yearly, setYearly] = useState(false);
+
   return (
-    <section className="relative border-t border-white/5 py-32 overflow-hidden bg-transparent">
-      {/* Light glow behind pricing */}
-      <div className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[400px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500/5 blur-3xl" />
+    <section id="pricing" className="landing-section relative border-t border-amber-500/8 py-32 overflow-hidden">
+      {/* Ambient glow */}
+      <div
+        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 h-[600px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-30"
+        style={{ background: "radial-gradient(ellipse, rgba(245,158,11,0.08) 0%, transparent 60%)" }}
+      />
 
       <div className="mx-auto max-w-6xl px-6">
-        <div className="cinematic-reveal mx-auto max-w-2xl text-center">
-          <Badge
-            variant="secondary"
-            className="mb-4 border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-indigo-400"
-          >
+        {/* Header */}
+        <div className="mx-auto max-w-2xl text-center mb-16">
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-400/80">
+            <Zap className="h-3 w-3" />
             Pricing
-          </Badge>
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-white">
+          </div>
+          <h2 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
             Simple, transparent pricing
           </h2>
-          <p className="mt-4 text-base text-slate-400">
-            Start free. Upgrade when you need more power and collaboration.
+          <p className="mt-4 text-base text-slate-400 leading-relaxed">
+            Start free. Upgrade when you need more power. Cancel anytime.
           </p>
 
-          {/* Pricing Toggle */}
-          <div className="mt-10 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-[#060613]/80 p-1.5 backdrop-blur-md">
+          {/* Billing toggle */}
+          <div className="mt-10 inline-flex items-center gap-1.5 rounded-full border border-amber-500/15 bg-[#0c0c0f]/90 p-1.5 backdrop-blur-md">
             <button
               onClick={() => setYearly(false)}
               className={cn(
                 "rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300",
                 !yearly
-                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30"
+                  ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
                   : "text-slate-400 hover:text-white"
               )}
             >
@@ -96,70 +102,85 @@ export function Pricing() {
             <button
               onClick={() => setYearly(true)}
               className={cn(
-                "rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300",
+                "rounded-full px-5 py-2 text-xs font-bold uppercase tracking-wider transition-all duration-300 flex items-center gap-2",
                 yearly
-                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/30"
+                  ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30"
                   : "text-slate-400 hover:text-white"
               )}
             >
-              Yearly <span className="ml-1.5 text-[10px] text-pink-400 lowercase font-medium">Save ~33%</span>
+              Yearly
+              <span className={cn(
+                "text-[10px] font-bold lowercase px-1.5 py-0.5 rounded-full transition-colors",
+                yearly ? "bg-slate-950/20 text-slate-950" : "bg-emerald-500/15 text-emerald-400"
+              )}>
+                Save 33%
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Pricing Cards Grid */}
-        <div className="mt-16 grid gap-8 lg:grid-cols-3 items-stretch">
+        {/* Cards */}
+        <div className="grid gap-6 lg:grid-cols-3 items-stretch">
           {plans.map((plan) => (
             <div
               key={plan.name}
               className={cn(
-                "cinematic-reveal relative rounded-2xl border p-8 flex flex-col justify-between transition-all duration-500 bg-[#060613]/70 backdrop-blur-md hover:scale-[1.03]",
+                "relative rounded-2xl border p-8 flex flex-col transition-all duration-400 overflow-hidden group",
                 plan.highlighted
-                  ? "border-indigo-500/40 shadow-[0_0_35px_rgba(99,102,241,0.15)] bg-gradient-to-b from-[#0a0724]/90 to-[#050314]/90"
-                  : "border-white/5 shadow-2xl shadow-black/40 hover:border-indigo-500/20 hover:shadow-[0_0_25px_rgba(99,102,241,0.05)]"
+                  ? "border-amber-500/30 bg-gradient-to-b from-amber-500/8 via-[#0c0c0f] to-[#0c0c0f] shadow-[0_0_60px_rgba(245,158,11,0.12)] scale-[1.02]"
+                  : "border-white/5 bg-[#0c0c0f]/80 shadow-2xl shadow-black/40 backdrop-blur-sm hover:border-amber-500/15 hover:shadow-[0_0_40px_rgba(0,0,0,0.5)]"
               )}
             >
+              {/* Shimmer on hover */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 via-amber-500/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+
               {plan.badge && (
-                <Badge className="absolute -top-3 left-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 border-none font-bold uppercase tracking-wider text-[9px] px-3 py-1 shadow-[0_0_10px_rgba(99,102,241,0.4)]">
-                  <Sparkles className="h-2.5 w-2.5 mr-1" />
-                  {plan.badge}
-                </Badge>
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-950 shadow-[0_0_16px_rgba(245,158,11,0.4)]">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    {plan.badge}
+                  </span>
+                </div>
               )}
-              
-              <div>
+
+              <div className="relative z-10">
                 <h3 className="text-xl font-bold tracking-tight text-white">{plan.name}</h3>
-                <p className="mt-2 text-sm text-slate-400">{plan.description}</p>
-                
-                <div className="mt-8 flex items-baseline gap-1">
+                <p className="mt-1.5 text-sm text-slate-400">{plan.description}</p>
+
+                <div className="mt-8 flex items-baseline gap-1.5">
                   <span className="text-5xl font-black text-white">
                     ₹{yearly ? Math.round(plan.price.yearly / 12) : plan.price.monthly}
                   </span>
-                  {plan.price.monthly > 0 && <span className="text-sm text-slate-400">/month</span>}
+                  {plan.price.monthly > 0 && (
+                    <span className="text-sm text-slate-500">/month</span>
+                  )}
                 </div>
                 {yearly && plan.price.yearly > 0 && (
-                  <p className="mt-2 text-xs text-indigo-400 font-semibold tracking-wider uppercase">
-                    Billed ₹{plan.price.yearly}/year
+                  <p className="mt-1.5 text-xs font-semibold text-amber-400/80">
+                    Billed ₹{plan.price.yearly} annually
                   </p>
                 )}
 
                 <Link
                   href={plan.href}
                   className={cn(
-                    buttonVariants({ variant: plan.highlighted ? "default" : "outline" }),
-                    "mt-8 w-full text-center font-bold uppercase tracking-wider text-xs py-5 transition-all duration-300",
+                    "mt-8 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider transition-all duration-300",
                     plan.highlighted
-                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 border-none text-white shadow-[0_0_20px_rgba(99,102,241,0.35)]"
-                      : "border-white/10 bg-white/5 hover:bg-white/10 text-white"
+                      ? "btn-amber-shimmer shadow-lg shadow-amber-500/20 hover:shadow-amber-500/35 hover:scale-[1.02]"
+                      : "border border-white/10 bg-white/5 hover:bg-white/10 hover:border-amber-500/20 text-white"
                   )}
                 >
+                  {plan.highlighted && <Sparkles className="h-3.5 w-3.5" />}
                   {plan.cta}
                 </Link>
               </div>
 
-              <ul className="mt-10 space-y-4 border-t border-white/5 pt-8 flex-1">
+              <ul className="relative z-10 mt-8 space-y-3.5 border-t border-white/5 pt-8 flex-1">
                 {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-3.5 text-sm text-slate-300">
-                    <Check className="mt-0.5 h-4.5 w-4.5 shrink-0 text-indigo-400" />
+                  <li key={f} className="flex items-center gap-3 text-sm text-slate-300">
+                    <div className="flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full bg-amber-500/15 border border-amber-500/20">
+                      <Check className="h-2.5 w-2.5 text-amber-400 shrink-0" />
+                    </div>
                     <span>{f}</span>
                   </li>
                 ))}
@@ -167,6 +188,11 @@ export function Pricing() {
             </div>
           ))}
         </div>
+
+        {/* Bottom note */}
+        <p className="mt-10 text-center text-xs text-slate-600">
+          All plans include a 14-day money-back guarantee. · Prices in INR · Taxes may apply.
+        </p>
       </div>
     </section>
   );

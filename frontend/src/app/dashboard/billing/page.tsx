@@ -85,7 +85,7 @@ function BillingPageContent() {
             email: session.user.email,
           },
           theme: {
-            color: "#d97706", // amber-600
+            color: "#f5a623", // bright amber-glow
           },
           handler: async function (response: any) {
             setLoading(true);
@@ -191,7 +191,7 @@ function BillingPageContent() {
             email: session.user.email || "",
           },
           theme: {
-            color: "#d97706", // amber-600
+            color: "#f5a623", // bright amber-glow
           },
           handler: async function (response: any) {
             setCreditLoading(true);
@@ -245,84 +245,101 @@ function BillingPageContent() {
   const usagePercentage = Math.min((usageCount / limit) * 100, 100);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[#030303] text-slate-100 pb-20">
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       
-      <header className="sticky top-0 z-20 border-b border-border/60 bg-background/80 backdrop-blur-md">
-        <div className="flex h-14 items-center px-6">
-          <h1 className="text-lg font-semibold">Billing</h1>
+      {/* Page Header */}
+      <header className="sticky top-0 z-20 border-b border-amber-600/10 bg-[#030303]/80 backdrop-blur-md">
+        <div className="flex h-16 items-center px-8 max-w-4xl mx-auto">
+          <h1 className="text-base font-bold uppercase tracking-wider text-slate-200">
+            Billing & Licenses
+          </h1>
         </div>
       </header>
 
       {/* Payment status banner */}
       {paymentStatus && (
-        <div className={`mx-auto max-w-3xl px-6 pt-4`}>
-          <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-sm animate-in fade-in slide-in-from-top-2 ${
+        <div className="mx-auto max-w-4xl px-8 pt-6">
+          <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-xs uppercase tracking-wider font-bold animate-in fade-in slide-in-from-top-2 ${
             paymentStatus === "success"
-              ? "border-emerald-600/30 bg-emerald-600/5 text-emerald-700 dark:text-emerald-400"
-              : "border-amber-600/30 bg-amber-600/5 text-amber-700 dark:text-amber-400"
+              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
+              : "border-amber-500/30 bg-amber-500/5 text-amber-400"
           }`}>
             {paymentStatus === "success" ? (
               <>
-                <PartyPopper className="h-5 w-5 shrink-0" />
+                <PartyPopper className="h-5 w-5 shrink-0 text-emerald-400" />
                 <div className="flex-1">
-                  <p className="font-semibold">Payment successful!</p>
-                  <p className="text-xs opacity-80">Welcome to Pro. Your subscription is now active.</p>
+                  <p className="font-extrabold text-emerald-400">Payment Verified!</p>
+                  <p className="text-[10px] text-slate-400 lowercase mt-0.5">Welcome to Pro. Unlimited translations unlocked.</p>
                 </div>
               </>
             ) : (
               <>
-                <X className="h-5 w-5 shrink-0" />
+                <X className="h-5 w-5 shrink-0 text-amber-500" />
                 <div className="flex-1">
-                  <p className="font-semibold">Payment cancelled</p>
-                  <p className="text-xs opacity-80">No charges were made. You can upgrade anytime.</p>
+                  <p className="font-extrabold text-amber-400">Transaction Terminated</p>
+                  <p className="text-[10px] text-slate-400 lowercase mt-0.5">No changes were applied. You may retry when ready.</p>
                 </div>
               </>
             )}
-            <button onClick={() => setPaymentStatus(null)} className="shrink-0 rounded p-1 hover:bg-black/5 dark:hover:bg-white/5">
-              <X className="h-3.5 w-3.5" />
+            <button onClick={() => setPaymentStatus(null)} className="shrink-0 rounded p-1 hover:bg-white/5">
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
       )}
 
-      <div className="mx-auto max-w-3xl p-6">
-        {/* Current plan */}
-        <Card className="p-6">
-          <div className="flex items-start justify-between">
+      <div className="mx-auto max-w-4xl px-8 py-8 space-y-8">
+        
+        {/* Current plan card */}
+        <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+          
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">{isActuallyPro ? "Pro Plan" : "Free Plan"}</h2>
-                <Badge variant="secondary" className="text-[10px]">{subscription?.status === "active" ? "Active" : "Current"}</Badge>
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-base font-bold uppercase tracking-wider text-slate-200">
+                  {isActuallyPro ? "Pro Subscription" : "Sandbox Level Plan"}
+                </h2>
+                <Badge className="text-[9px] uppercase tracking-widest bg-amber-500 text-slate-950 font-bold px-2 py-0.5">
+                  {subscription?.status === "active" ? "Active" : "Current"}
+                </Badge>
               </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {isActuallyPro ? "Unlimited translations · Priority processing · 50K char inputs" : "10 translations per day · 35+ languages · All modes"}
+              <p className="mt-2 text-xs text-slate-400 leading-relaxed max-w-lg">
+                {isActuallyPro 
+                  ? "Infinite code compilations, prioritized CPU routing, 50,000 character buffer capacity, and early release features." 
+                  : "Standard sandbox plan loaded with 10 translations daily, full programming dictionary access, and 3 code translation modes."
+                }
               </p>
               {subscription?.current_period_end && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Renews on {new Date(subscription.current_period_end).toLocaleDateString()}
+                <p className="mt-3 text-[10px] text-slate-500 font-medium">
+                  • System auto-renews on {new Date(subscription.current_period_end).toLocaleDateString()}
                 </p>
               )}
             </div>
-            <p className="text-3xl font-bold">
-              {isActuallyPro ? "₹499" : "₹0"}<span className="text-sm font-normal text-muted-foreground">/mo</span>
-            </p>
+            <div className="text-left sm:text-right shrink-0">
+              <p className="text-3xl font-black text-amber-500">
+                {isActuallyPro ? "₹499" : "₹0"}
+                <span className="text-xs font-bold text-slate-500 tracking-normal">/mo</span>
+              </p>
+            </div>
           </div>
+
           {!isActuallyPro && (
             <>
-              <Separator className="my-6" />
-              <div className="flex items-center justify-between">
+              <Separator className="my-6 bg-slate-800/50" />
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <p className="text-sm font-medium">Usage this billing period</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Daily limit resets at midnight UTC</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sandbox Daily Counter</p>
+                  <p className="mt-1 text-[10px] text-slate-500">Limits reset daily at midnight (UTC +0)</p>
                 </div>
                 {statsLoading ? (
-                  <Skeleton className="h-2 w-32 rounded-full" />
+                  <Skeleton className="h-2 w-36 bg-slate-900 rounded-full" />
                 ) : (
-                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-xs font-medium text-muted-foreground">{usageCount} / {limit} used</span>
-                    <div className="h-2 w-32 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-amber-600 transition-all duration-500" style={{ width: `${usagePercentage}%` }} />
+                  <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto">
+                    <span className="text-[11px] font-bold text-amber-500">{usageCount} / {limit} queries</span>
+                    <div className="h-2 w-full sm:w-36 bg-slate-950 rounded-full overflow-hidden border border-slate-900">
+                      <div className="h-full bg-amber-500 rounded-full transition-all duration-500 shadow-[0_0_6px_rgba(245,158,11,0.3)]" style={{ width: `${usagePercentage}%` }} />
                     </div>
                   </div>
                 )}
@@ -333,141 +350,178 @@ function BillingPageContent() {
 
         {/* Upgrade section — only show for free users */}
         {!isActuallyPro && (
-          <Card className="mt-6 border-amber-600/20 bg-gradient-to-r from-amber-600/5 to-amber-500/5 p-6">
-            <div className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-amber-600" />
-              <h2 className="text-lg font-semibold">Upgrade to Pro</h2>
+          <Card className="border border-amber-600/20 bg-gradient-to-r from-amber-950/15 via-[#0c0c0f] to-amber-950/5 p-6 rounded-xl shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+            
+            <div className="flex items-center gap-2.5 mb-3">
+              <Zap className="h-5 w-5 text-amber-500 animate-pulse" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">Redeem Pro Access</h2>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">Unlock unlimited translations, priority processing, and large inputs.</p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              {["Unlimited translations","Priority processing","50K char inputs","Cloud-synced history","Early access to features","Email support"].map((f) => (
-                <div key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Check className="h-4 w-4 text-amber-600 shrink-0" />{f}
+            
+            <p className="text-xs text-slate-400 leading-relaxed max-w-xl">
+              Break past limits. Deploy a continuous translation harness using on-demand remote pipelines.
+            </p>
+            
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {[
+                "Unlimited compiler pipelines",
+                "Prioritized pipeline routing (<3s)",
+                "Expanded 50,000 char capacity",
+                "Persistent history cache integration",
+                "Advanced AI models selection",
+                "Direct continuous support"
+              ].map((f) => (
+                <div key={f} className="flex items-center gap-2.5 text-xs text-slate-400 font-medium">
+                  <Check className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span>{f}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-6 flex flex-col gap-2">
-              <Button className="gap-2 bg-amber-600 hover:bg-amber-700 w-fit" onClick={handleUpgrade} disabled={loading || !enableBilling}>
+            
+            <div className="mt-6 space-y-3">
+              <Button 
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-2 h-10 px-5 shadow-[0_0_12px_rgba(245,158,11,0.2)]" 
+                onClick={handleUpgrade} 
+                disabled={loading || !enableBilling}
+              >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                {loading ? "Opening Checkout..." : enableBilling ? "Upgrade — ₹499/month" : "Upgrades Paused"}
+                {loading ? "Allocating Gateway..." : enableBilling ? "Activate Pro — ₹499/Month" : "Subscriptions Paused"}
               </Button>
               {!enableBilling && (
-                <p className="text-xs text-amber-600 font-medium">
-                  * Credit card upgrades are temporarily paused during launch. Enjoy the free features!
+                <p className="text-[10px] text-amber-500/70 italic font-medium leading-relaxed max-w-md">
+                  * Live subscription checkout is offline. All pro functions are enabled natively for testing cycles.
                 </p>
               )}
             </div>
           </Card>
         )}
- 
-        {/* Pro success state */}
+
+        {/* Pro success card */}
         {isActuallyPro && (
-          <Card className="mt-6 border-emerald-600/20 bg-gradient-to-r from-emerald-600/5 to-emerald-500/5 p-6">
-            <div className="flex items-center gap-2">
-              <Check className="h-5 w-5 text-emerald-600" />
-              <h2 className="text-lg font-semibold">You&apos;re on Pro</h2>
+          <Card className="border border-emerald-500/20 bg-gradient-to-r from-emerald-950/15 via-[#0c0c0f] to-emerald-950/5 p-6 rounded-xl shadow-lg relative overflow-hidden">
+            <div className="flex items-center gap-2.5">
+              <Check className="h-5 w-5 text-emerald-400" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-emerald-400">Pro Pipeline Active</h2>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Enjoy unlimited translations, priority processing, and all premium features.
+            <p className="mt-2 text-xs text-slate-400 leading-relaxed max-w-xl">
+              Your profile is authenticated to run unlimited model queries, with direct GPU allocation and cloud history archiving active.
             </p>
           </Card>
         )}
- 
-        {/* Credits section */}
-        <Card className="mt-6 p-6">
-          <div className="flex items-start justify-between">
+
+        {/* Credits card */}
+        <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+          <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-semibold">Translation Credits</h2>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                One-time purchase credits for when you hit your free tier limits.
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">
+                On-Demand Energy Credits
+              </h2>
+              <p className="mt-1.5 text-xs text-slate-400 leading-relaxed max-w-lg">
+                Replenish translation energy scopes instantly. Credits act as emergency limits and never expire.
               </p>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               {creditsLoading ? (
-                <Skeleton className="h-8 w-16 mb-1 ml-auto" />
+                <Skeleton className="h-8 w-16 mb-1 ml-auto bg-slate-900" />
               ) : (
-                <p className="text-3xl font-bold text-amber-600">{credits}</p>
+                <p className="text-3xl font-black text-amber-500">{credits}</p>
               )}
-              <span className="text-xs font-normal text-muted-foreground">Available</span>
+              <span className="text-[9px] uppercase tracking-wider font-bold text-slate-500">Available</span>
             </div>
           </div>
           
-          <Separator className="my-6" />
+          <Separator className="my-6 bg-slate-800/50" />
           
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium">Buy more credits</p>
-              <p className="mt-1 text-xs text-muted-foreground">Never expire. Use anytime.</p>
+              <p className="text-xs font-bold text-slate-300">Purchase Energy Credits</p>
+              <p className="text-[10px] text-slate-500">Each credit allows one model execution cycle.</p>
               {!enableBilling && (
-                <p className="text-xs text-amber-600 font-medium mt-1">
-                  * Credit purchases are temporarily paused.
+                <p className="text-[9px] text-amber-500/70 italic mt-1 font-medium">
+                  * Checkout integration currently offline.
                 </p>
               )}
             </div>
-            <Button onClick={handleBuyCredits} disabled={creditLoading || !enableBilling} variant="outline" className="gap-2">
-              {creditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-600" />}
+            <Button 
+              onClick={handleBuyCredits} 
+              disabled={creditLoading || !enableBilling} 
+              variant="outline" 
+              className="border-amber-600/20 hover:border-amber-500/40 text-xs font-bold text-amber-500 bg-amber-950/10 hover:bg-amber-950/20 gap-2 h-9"
+            >
+              {creditLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
               {creditLoading ? "Processing..." : enableBilling ? "Buy 100 Credits — ₹100" : "Paused"}
             </Button>
           </div>
         </Card>
 
         {/* Payment method */}
-        <Card className="mt-6 p-6">
-          <h2 className="text-sm font-semibold">Payment Method</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {isActuallyPro ? "Managed via Razorpay." : "No payment method on file."}
+        <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">Integrated Payment Profile</h2>
+          <p className="mt-2 text-xs text-slate-400 leading-relaxed">
+            {isActuallyPro ? "Your payments are handled securely using encrypted Razorpay tokens." : "No linked payment methods are cached on this profile."}
           </p>
           <Button
             variant="outline"
             size="sm"
-            className="mt-4 gap-2 text-xs"
+            className="mt-4 gap-2 text-xs border-slate-800 text-slate-300 hover:bg-slate-900 bg-slate-950/50"
             onClick={handleManageBilling}
             disabled={portalLoading || !isActuallyPro}
           >
-            {portalLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
-            {portalLoading ? "Retrieving..." : "Manage Subscription"}
+            {portalLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+            {portalLoading ? "Verifying..." : "Manage Subscription"}
           </Button>
         </Card>
+
       </div>
 
-      {/* Subscription details / self-service cancellation instructions modal */}
+      {/* Portal info modal */}
       {portalInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <Card className="w-full max-w-md p-6 relative border-border/80 bg-popover text-popover-foreground shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <Card className="w-full max-w-md p-6 relative border border-amber-600/10 bg-[#0c0c0f] text-slate-100 shadow-2xl rounded-xl">
             <button 
               onClick={() => setPortalInfo(null)} 
-              className="absolute top-4 right-4 rounded-sm opacity-70 hover:opacity-100 transition-opacity"
+              className="absolute top-4 right-4 rounded-sm opacity-50 hover:opacity-100 transition-opacity"
             >
               <X className="h-4 w-4" />
             </button>
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-amber-600" />
-              Subscription Details
+            
+            <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500 flex items-center gap-2">
+              <CreditCard className="h-4 w-4" />
+              Subscription Ledger
             </h3>
-            <Separator className="my-4" />
-            <div className="space-y-3 text-sm">
+            
+            <Separator className="my-4 bg-slate-800/50" />
+            
+            <div className="space-y-3.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Plan:</span>
-                <span className="font-medium uppercase text-amber-600">{portalInfo.plan}</span>
+                <span className="text-slate-400">Plan Identifier:</span>
+                <span className="font-bold uppercase text-amber-500">{portalInfo.plan}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Status:</span>
-                <span className="font-medium capitalize text-emerald-600">{portalInfo.status}</span>
+                <span className="text-slate-400">Ledger Status:</span>
+                <span className="font-bold uppercase text-emerald-400">{portalInfo.status}</span>
               </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground">Subscription ID:</span>
-                <span className="font-mono text-[11px] select-all bg-muted px-2 py-1.5 rounded break-all">{portalInfo.subscription_id}</span>
+              <div className="flex flex-col gap-1.5">
+                <span className="text-slate-400">Razorpay Subscription ID:</span>
+                <span className="font-mono text-[10px] select-all bg-slate-950 border border-slate-900 px-2 py-2 rounded break-all text-amber-200">
+                  {portalInfo.subscription_id}
+                </span>
               </div>
             </div>
-            <Separator className="my-4" />
-            <div className="text-xs text-muted-foreground bg-amber-500/10 border border-amber-500/20 rounded p-3 leading-relaxed">
+            
+            <Separator className="my-4 bg-slate-800/50" />
+            
+            <div className="text-[10px] text-amber-500 bg-amber-500/5 border border-amber-500/10 rounded p-3 leading-relaxed">
               {portalInfo.message}
             </div>
+            
             <div className="mt-6 flex justify-end">
-              <Button onClick={() => setPortalInfo(null)} size="sm">
-                Close
+              <Button 
+                onClick={() => setPortalInfo(null)} 
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-[10px]"
+              >
+                Dismiss
               </Button>
             </div>
           </Card>
@@ -480,7 +534,7 @@ function BillingPageContent() {
 export default function BillingPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#030303]">
         <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
       </div>
     }>

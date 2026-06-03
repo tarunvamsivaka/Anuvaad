@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, UserPlus, Building, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface WorkspaceMember {
   user_email: string;
@@ -116,103 +117,123 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6 lg:p-10 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Team Workspaces</h1>
-        <p className="mt-2 text-muted-foreground">
-          Collaborate with your team, share translation history, and manage unified billing.
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#030303] text-slate-100 pb-20">
+      <header className="sticky top-0 z-20 border-b border-amber-600/10 bg-[#030303]/80 backdrop-blur-md">
+        <div className="flex h-16 items-center px-8 max-w-4xl mx-auto">
+          <h1 className="text-base font-bold uppercase tracking-wider text-slate-200">
+            Team Workspaces Hub
+          </h1>
+        </div>
+      </header>
 
-      {!activeWorkspace ? (
-        <Card className="p-8 border-dashed border-2 bg-muted/30">
-          <div className="flex flex-col items-center text-center space-y-4">
-            <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center">
-              <Building className="h-6 w-6 text-amber-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-medium">You are in your Personal Workspace</h3>
-              <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                Translations and API keys created here are private to you. Switch to a team workspace in the sidebar, or create a new one below.
-              </p>
-            </div>
-            
-            <form onSubmit={handleCreateWorkspace} className="flex gap-2 w-full max-w-sm mt-4">
-              <Input 
-                placeholder="Company Name (e.g., Acme Corp)" 
-                value={newWorkspaceName} 
-                onChange={e => setNewWorkspaceName(e.target.value)}
-                required 
-              />
-              <Button type="submit" disabled={loading} className="bg-amber-600 hover:bg-amber-700 text-white">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Team"}
-              </Button>
-            </form>
-            {error && <p className="text-xs text-red-500">{error}</p>}
-          </div>
-        </Card>
-      ) : (
-        <div className="space-y-6">
-          <Card className="p-6">
-            <div className="flex items-center gap-4 border-b border-border pb-4 mb-6">
-              <div className="h-10 w-10 rounded-md bg-amber-500/20 flex items-center justify-center text-amber-700 font-bold text-lg">
-                {activeWorkspace.name.charAt(0).toUpperCase()}
+      <div className="mx-auto max-w-4xl px-8 py-8 space-y-8">
+        <div>
+          <h2 className="text-xl font-extrabold uppercase tracking-tight text-slate-200">Team Clusters</h2>
+          <p className="mt-1.5 text-xs text-slate-400 leading-relaxed">
+            Collaborate with your team, share translation history logs, and manage unified developer keys.
+          </p>
+        </div>
+
+        {!activeWorkspace ? (
+          <Card className="p-8 border border-dashed border-amber-600/10 bg-amber-500/5 rounded-xl shadow-lg">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="h-12 w-12 rounded-full bg-slate-950 border border-amber-600/15 flex items-center justify-center">
+                <Building className="h-6 w-6 text-amber-500" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">{activeWorkspace.name}</h2>
-                <p className="text-xs text-muted-foreground">Team Workspace</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-end">
-                <h3 className="text-sm font-medium flex items-center gap-2">
-                  <Users className="h-4 w-4" /> Team Members ({members.length})
-                </h3>
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Personal Sandbox Workspace</h3>
+                <p className="text-xs text-slate-400 mt-2 max-w-md leading-relaxed">
+                  Translations and scope keys created here are locked to your profile. Provision a team workspace below to share vectors.
+                </p>
               </div>
               
-              <div className="rounded-md border border-border">
-                {members.map(m => (
-                  <div key={m.user_email} className="flex items-center justify-between p-3 border-b border-border last:border-0 hover:bg-muted/50">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
-                        {m.user_email.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">{m.user_email}</p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{m.role}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <form onSubmit={handleCreateWorkspace} className="flex flex-col sm:flex-row gap-3 w-full max-w-md mt-6">
+                <Input 
+                  placeholder="Team Name (e.g., Acme Devs)" 
+                  value={newWorkspaceName} 
+                  onChange={e => setNewWorkspaceName(e.target.value)}
+                  required 
+                  className="flex-1 text-xs uppercase tracking-wider font-semibold bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 text-slate-100 placeholder:text-slate-650 h-10"
+                />
+                <Button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-1.5 h-10 shadow-[0_0_12px_rgba(245,158,11,0.2)] shrink-0"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Deploy Team"}
+                </Button>
+              </form>
+              {error && <p className="text-xs text-red-400 font-medium">{error}</p>}
             </div>
           </Card>
-
-          <Card className="p-6">
-            <h3 className="text-sm font-medium flex items-center gap-2 mb-4">
-              <UserPlus className="h-4 w-4" /> Invite Member
-            </h3>
-            <form onSubmit={handleInvite} className="flex gap-3 items-end">
-              <div className="flex-1 space-y-1">
-                <label htmlFor="invite-email-team" className="text-xs text-muted-foreground">Email Address</label>
-                <Input 
-                  id="invite-email-team"
-                  type="email"
-                  placeholder="colleague@company.com" 
-                  value={inviteEmail} 
-                  onChange={e => setInviteEmail(e.target.value)}
-                  required 
-                />
+        ) : (
+          <div className="space-y-8">
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <div className="flex items-center gap-4 border-b border-amber-600/10 pb-4 mb-6">
+                <div className="h-10 w-10 rounded-md bg-amber-500/5 border border-amber-500/15 flex items-center justify-center text-amber-500 font-bold text-base">
+                  {activeWorkspace.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">{activeWorkspace.name}</h2>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Active Team Core</p>
+                </div>
               </div>
-              <Button type="submit" disabled={loading} variant="secondary">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send Invite"}
-              </Button>
-            </form>
-            {error && <p className="text-xs text-red-500 mt-2">{error}</p>}
-          </Card>
-        </div>
-      )}
+
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                  <Users className="h-4 w-4 text-amber-500" /> Active Operators ({members.length})
+                </h3>
+                
+                <div className="rounded-lg border border-amber-600/10 divide-y divide-amber-600/10 overflow-hidden bg-slate-950/20">
+                  {members.map(m => (
+                    <div key={m.user_email} className="flex items-center justify-between p-3.5 px-5 hover:bg-slate-900/10 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-amber-500/5 border border-amber-500/15 flex items-center justify-center text-xs font-bold text-amber-500">
+                          {m.user_email.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-xs font-mono font-bold text-slate-350">{m.user_email}</p>
+                        </div>
+                      </div>
+                      <Badge className="text-[9px] uppercase tracking-wider font-extrabold bg-slate-900 border border-amber-600/5 text-amber-500 px-2 py-0.5 rounded">
+                        {m.role}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-2.5 mb-4">
+                <UserPlus className="h-4 w-4" /> Invite Workspace Operator
+              </h3>
+              <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3 items-end max-w-lg">
+                <div className="flex-1 w-full space-y-2">
+                  <label htmlFor="invite-email-team" className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Operator Email Address</label>
+                  <Input 
+                    id="invite-email-team"
+                    type="email"
+                    placeholder="operator@company.com" 
+                    value={inviteEmail} 
+                    onChange={e => setInviteEmail(e.target.value)}
+                    required 
+                    className="h-10 text-xs bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 text-slate-100 placeholder:text-slate-650"
+                  />
+                </div>
+                <Button 
+                  type="submit" 
+                  disabled={loading} 
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-1.5 h-10 w-full sm:w-auto shadow-[0_0_12px_rgba(245,158,11,0.2)] shrink-0"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Invite Operator"}
+                </Button>
+              </form>
+              {error && <p className="text-xs text-red-400 font-medium mt-2">{error}</p>}
+            </Card>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
