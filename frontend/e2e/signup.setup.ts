@@ -1,4 +1,4 @@
-import { test as setup } from '@playwright/test';
+import { test as setup, expect } from '@playwright/test';
 import * as path from 'path';
 import { mockSupabaseAuth } from './mock-auth';
 
@@ -27,7 +27,7 @@ setup('signup-new-user', async ({ page }) => {
 
   // Wait for redirect to dashboard or welcome onboarding page
   try {
-    await page.waitForURL('**/dashboard', { timeout: 15000 });
+    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 15000 });
   } catch (err) {
     // If auto-redirect failed due to email verification being required, we check for verification prompt
     const hasVerificationText = await page.isVisible('text=Check your email');

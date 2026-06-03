@@ -1,4 +1,4 @@
-import { test as setup } from '@playwright/test';
+import { test as setup, expect } from '@playwright/test';
 import * as path from 'path';
 import { mockSupabaseAuth } from './mock-auth';
 
@@ -26,7 +26,7 @@ setup('authenticate', async ({ page }) => {
   
   try {
     // Wait for redirect to dashboard with a short timeout
-    await page.waitForURL('**/dashboard', { timeout: 6000 });
+    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 6000 });
   } catch (err) {
     // If signin failed, check for invalid credentials error to trigger self-healing signup
     const isInvalid = await page.isVisible('p:has-text("Invalid login credentials")');
@@ -38,7 +38,7 @@ setup('authenticate', async ({ page }) => {
       await page.click('button[type="submit"]');
       
       // Wait for auto-login redirect to dashboard (email confirmation is disabled)
-      await page.waitForURL('**/dashboard', { timeout: 15000 });
+      await expect(page.locator('text=All Time')).toBeVisible({ timeout: 15000 });
     } else {
       throw err;
     }
@@ -49,7 +49,7 @@ setup('authenticate', async ({ page }) => {
     await page.waitForURL('**/dashboard/welcome', { timeout: 4000 });
     console.log('[E2E Setup] Onboarding welcome page detected. Skipping onboarding flow...');
     await page.click('button:has-text("Skip onboarding")');
-    await page.waitForURL('**/dashboard', { timeout: 6000 });
+    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 6000 });
   } catch {
     // Already onboarded
   }

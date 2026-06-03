@@ -123,6 +123,7 @@ test.describe('Authenticated Translation Flow', () => {
   });
 
   test('Copy button on an output block copies text to clipboard', async ({ page }) => {
+    // Navigate to translate page
     await page.goto('/dashboard/translate');
 
     // Mock the backend API
@@ -131,41 +132,46 @@ test.describe('Authenticated Translation Flow', () => {
     // Grant clipboard permissions
     await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
     
-    // Dismiss the drag-and-drop overlay
+    // Type code manually
     await page.click('button:has-text("Type Code Manually")');
 
-    // Set Monaco value directly via Monaco API
-    await setMonacoValue(page, 'x = 1');
+    // Fill the editor with a simple Python script
+    await setMonacoValue(page, 'def greet(name):\n    print(f"Hello, {name}!")\n\ngreet("Alice")');
 
-    const translateBtn = page.locator('button:has-text("Generate Translation")');
+    const translateBtn = page.locator('button:has-text("Translate")');
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
     await translateBtn.click();
     
-    // Wait for output block Copy button - it only appears on hover, so look for any copy button
-    const copyBtn = page.locator('button:has(.lucide-copy)').first();
+    // Wait for the copy button to appear
+    const copyBtn = page.locator('button', { has: page.locator('.lucide-copy') }).first();
     await expect(copyBtn).toBeVisible({ timeout: 15000 });
-    
+
+    // Click to copy
     await copyBtn.click();
-    
-    // Check clipboard content
-    const handle = await page.evaluateHandle(() => navigator.clipboard.readText());
-    const clipboardText = await handle.jsonValue();
+
+    // Verify it changes to checkmark
+    await expect(page.locator('.lucide-check')).toBeVisible({ timeout: 2000 });
+
+    // Check clipboard contents (using page.evaluate)
+    const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+    expect(clipboardText).toBeTruthy();
     expect(clipboardText.length).toBeGreaterThan(0);
   });
 
   test('Download JSON button appears after translation', async ({ page }) => {
+    // Navigate to translate page
     await page.goto('/dashboard/translate');
 
     // Mock the backend API
     await mockTranslateAPI(page);
     
-    // Dismiss the drag-and-drop overlay
+    // Type code manually
     await page.click('button:has-text("Type Code Manually")');
 
-    // Set Monaco value directly via Monaco API
-    await setMonacoValue(page, 'y = 2');
+    // Fill the editor
+    await setMonacoValue(page, 'print("Ready for JSON export")');
 
-    const translateBtn = page.locator('button:has-text("Generate Translation")');
+    const translateBtn = page.locator('button:has-text("Translate")');
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
     await translateBtn.click();
     
