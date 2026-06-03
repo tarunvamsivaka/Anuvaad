@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { cn } from "@/lib/utils";
-import { Code, Eye, RefreshCw, Sparkles, User, Zap } from "lucide-react";
+import { Code, RefreshCw, Sparkles, User, Zap } from "lucide-react";
 
 export function ScrollStory() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,18 +56,17 @@ export function ScrollStory() {
 
     if (!containerRef.current || !pinnedRef.current) return;
 
-    // Create a ScrollTrigger that pins the container for the duration of the story
+    // Create a smooth, scrubbed GSAP timeline that coordinates all character movements and frame animations
     const tl = gsap.timeline({
       scrollTrigger: {
         trigger: containerRef.current,
         start: "top top",
-        end: "+=500%", // Scroll depth for 6 steps (500vh)
+        end: "+=500%", // 500vh scroll depth
         scrub: 0.5,
         pin: pinnedRef.current,
         anticipatePin: 1,
         onUpdate: (self) => {
           setProgress(self.progress);
-          // Calculate the active step based on scroll progress (0 to 5)
           const stepIndex = Math.min(
             Math.floor(self.progress * steps.length),
             steps.length - 1
@@ -76,6 +75,53 @@ export function ScrollStory() {
         },
       },
     });
+
+    // Configure timeline duration to match steps (6 units total)
+    // ── STEP 1: Seeker and Code Chaos Wall appear (0 to 1) ──
+    tl.fromTo(".seeker-entity", { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 1 }, 0);
+    tl.fromTo(".code-chaos", { scale: 0.85, opacity: 0, filter: "blur(10px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 1 }, 0);
+    tl.fromTo(".guide-line", { strokeDashoffset: 600, opacity: 0 }, { strokeDashoffset: 350, opacity: 0.3, duration: 1 }, 0);
+
+    // ── STEP 2: The Guide draws itself, splits the Chaos Wall (1 to 2) ──
+    tl.to(".guide-line", { strokeDashoffset: 0, opacity: 1, duration: 1 }, 1);
+    tl.to(".code-chaos", { opacity: 0, scale: 0.9, y: -30, filter: "blur(10px)", duration: 0.8 }, 1.2);
+    tl.fromTo(".code-blocks-container", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 1 }, 1.3);
+    
+    // Spread out blocks
+    tl.fromTo(".code-block-1", { y: 20 }, { y: 0, duration: 0.8 }, 1.4);
+    tl.fromTo(".code-block-2", { y: 40 }, { y: 0, duration: 0.8 }, 1.5);
+    tl.fromTo(".code-block-3", { y: 60 }, { y: 0, duration: 0.8 }, 1.6);
+
+    // ── STEP 3: Explanations slide in (2 to 3) ──
+    tl.to(".code-blocks-container", { x: -60, duration: 1 }, 2);
+    tl.fromTo(".explanations-container", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 1 }, 2);
+    tl.fromTo(".english-exp-1", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6 }, 2.2);
+    tl.fromTo(".english-exp-2", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6 }, 2.4);
+    tl.fromTo(".english-exp-3", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6 }, 2.6);
+
+    // ── STEP 4: Two-Way Sync Editor Mock and typing (3 to 4) ──
+    tl.to([".code-blocks-container", ".explanations-container", ".guide-line"], { opacity: 0, scale: 0.92, duration: 0.8 }, 3);
+    tl.fromTo(".sync-editor-pane", { opacity: 0, y: 40, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 1 }, 3.2);
+    
+    // Typewriter clip reveal
+    tl.fromTo(".sync-editor-text", { clipPath: "polygon(0 0, 0 0, 0 100%, 0% 100%)" }, { clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)", duration: 1.2 }, 3.5);
+    // Code update refactor transition
+    tl.fromTo(".code-update-highlight", { borderColor: "rgba(99,102,241,0.15)", backgroundColor: "rgba(99,102,241,0)" }, { borderColor: "rgba(245,158,11,0.5)", backgroundColor: "rgba(245,158,11,0.08)", duration: 0.6 }, 4.3);
+    tl.to(".code-val-old", { opacity: 0, duration: 0.4 }, 4.5);
+    tl.to(".code-val-new", { opacity: 1, duration: 0.4 }, 4.5);
+    tl.to(".code-update-highlight", { borderColor: "rgba(99,102,241,0.15)", backgroundColor: "rgba(99,102,241,0)", duration: 0.6 }, 4.9);
+
+    // ── STEP 5: Cross-Language Translation (4 to 5) ──
+    tl.to(".sync-editor-pane", { opacity: 0, scale: 0.92, y: -25, duration: 0.8 }, 5);
+    tl.fromTo(".cross-lang-pane", { opacity: 0, y: 40, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 1 }, 5.2);
+    tl.fromTo(".lang-bridge-arrow", { rotation: 0, scale: 1 }, { rotation: 180, scale: 1.25, duration: 1, ease: "back.out(1.5)" }, 5.5);
+    tl.fromTo(".js-output-block", { x: 50, opacity: 0 }, { x: 0, opacity: 1, duration: 0.8 }, 5.8);
+
+    // ── STEP 6: Workspace Settle (5 to 6) ──
+    tl.to(".cross-lang-pane", { opacity: 0, scale: 0.92, y: -25, duration: 0.8 }, 6.2);
+    tl.to(".seeker-entity", { opacity: 0, scale: 0.9, duration: 0.8 }, 6.2);
+    tl.fromTo(".workspace-settle-pane", { opacity: 0, y: 40, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 1 }, 6.5);
+    tl.fromTo(".workspace-settle-pulse", { scale: 0.9, opacity: 0.5 }, { scale: 1.05, opacity: 0, duration: 1.5, repeat: -1 }, 6.8);
 
     return () => {
       tl.scrollTrigger?.kill();
@@ -159,230 +205,187 @@ export function ScrollStory() {
                   </div>
                   <div className="rounded-md bg-white/5 px-3 py-1 text-[10px] font-semibold text-slate-400 flex items-center gap-1.5 border border-white/5 font-mono">
                     <Code className="h-3 w-3 text-indigo-400" />
-                    anuvaad_story_sequence.py
+                    anuvaad_workspace.py
                   </div>
                   <div className="w-12" />
                 </div>
 
-                {/* VISUAL METAPHOR CONTENT SWITCHES BASED ON ACTIVE STEP */}
+                {/* VISUAL METAPHOR CONTENT CANVAS */}
                 <div className="relative flex-1 w-full flex items-center justify-center">
 
-                  {/* ────────────────────────────────────────────────────────
-                      SCENE 1: Dense Code Wall (Sealed Syntax)
-                      ──────────────────────────────────────────────────────── */}
-                  <div
-                    className={cn(
-                      "absolute inset-0 flex flex-col justify-center items-center space-y-2 transition-all duration-700 ease-out",
-                      activeStep === 0 ? "opacity-100 scale-100 blur-0" : "opacity-0 scale-95 blur-md pointer-events-none"
-                    )}
+                  {/* SVG Definitions for Gradients */}
+                  <svg className="absolute w-0 h-0">
+                    <defs>
+                      <linearGradient id="seeker-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#818cf8" />
+                        <stop offset="100%" stopColor="#6366f1" />
+                      </linearGradient>
+                      <linearGradient id="guide-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="50%" stopColor="#a855f7" />
+                        <stop offset="100%" stopColor="#ec4899" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+
+                  {/* ── THE SEEKER FORCE (Left Side) ── */}
+                  <div 
+                    className="seeker-entity absolute left-2 top-1/2 -translate-y-1/2 w-24 h-24 flex items-center justify-center opacity-0"
+                    style={{ zIndex: 15 }}
                   >
-                    {/* The Code Entity: Abstract mass of tangled code */}
-                    <div className="w-full max-w-[420px] font-mono text-[11px] leading-relaxed text-indigo-300/40 bg-indigo-950/10 border border-indigo-500/10 p-5 rounded-lg relative overflow-hidden select-none">
-                      {/* Chaos glimmers */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-indigo-500/5 to-transparent animate-pulse" />
-                      <p className="text-red-400/60 font-bold">{"// TANGLED ABSTRACT NOISE"}</p>
-                      <p>def _process(d, *args, **kwargs):</p>
-                      <p className="pl-4">if not d or not isinstance(d, dict): return None</p>
-                      <p className="pl-4">{"r = {k.upper(): v for k, v in d.items() if len(k) > 2}"}</p>
-                      <p className="pl-4">x = list(filter(lambda y: y % 2 == 0, [x for x in r.values() if isinstance(x, int)]))</p>
-                      <p className="pl-4">return lambda z: [y * z for y in x]</p>
-                      <p className="text-indigo-400/50">{"// Unreadable logic. High memory footprint. Unstructured."}</p>
-                    </div>
-                    {/* Symbolic Guide and Seeker forces */}
-                    <div className="flex gap-12 mt-4 items-center">
-                      <div className="flex items-center gap-1">
-                        <User className="h-4 w-4 text-slate-400" />
-                        <span className="text-[10px] text-slate-500">The Seeker (User)</span>
+                    <svg className="w-full h-full" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="38" fill="none" stroke="url(#seeker-grad)" strokeWidth="1.5" strokeDasharray="4 4" className="origin-center" style={{ animation: "spin 15s linear infinite" }} />
+                      <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(99,102,241,0.2)" strokeWidth="1" />
+                      <circle cx="50" cy="50" r="16" fill="rgba(99,102,241,0.1)" />
+                      <circle cx="50" cy="50" r="6" fill="#6366f1" className="animate-pulse" />
+                      <circle cx="50" cy="50" r="20" fill="none" stroke="#818cf8" strokeWidth="1" className="origin-center" style={{ animation: "ping 2s cubic-bezier(0, 0, 0.2, 1) infinite" }} />
+                    </svg>
+                    <span className="absolute -bottom-2 text-[8px] font-bold text-indigo-400 tracking-wider uppercase font-mono bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded">
+                      Seeker
+                    </span>
+                  </div>
+
+                  {/* ── THE GUIDE PATHWAY ── */}
+                  <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 500 300" style={{ zIndex: 12 }}>
+                    <path
+                      d="M 90 150 C 185 150, 155 50, 260 50 C 365 50, 315 230, 420 230"
+                      fill="none"
+                      stroke="url(#guide-grad)"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      className="guide-line opacity-0"
+                      style={{ strokeDasharray: 600, strokeDashoffset: 600 }}
+                    />
+                  </svg>
+
+                  {/* ── LAYER 1: Code Chaos (Abstract syntax noise) ── */}
+                  <div className="code-chaos absolute w-full max-w-[340px] right-2 font-mono text-[10px] leading-relaxed text-indigo-300/40 bg-indigo-950/10 border border-indigo-500/10 p-4 rounded-lg select-none opacity-0" style={{ zIndex: 10 }}>
+                    <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-indigo-500/5 to-transparent animate-pulse" />
+                    <p className="text-red-400/60 font-bold">{"// TANGLED ABSTRACT NOISE"}</p>
+                    <p>def _process(d, *args, **kwargs):</p>
+                    <p className="pl-4">if not d or not isinstance(d, dict): return None</p>
+                    <p className="pl-4">{"r = {k.upper(): v for k, v in d.items()}"}</p>
+                    <p className="pl-4">x = [x for x in r.values() if isinstance(x, int)]</p>
+                    <p className="pl-4">return lambda z: [y * z for y in x]</p>
+                  </div>
+
+                  {/* ── LAYER 2: Code Blocks (Left column of split) ── */}
+                  <div className="code-blocks-container absolute left-20 w-[180px] space-y-3 opacity-0" style={{ zIndex: 10 }}>
+                    <div className="code-block-1 border border-indigo-500/20 bg-indigo-500/5 p-2.5 rounded-lg shadow-md backdrop-blur-sm">
+                      <div className="text-[9px] font-mono text-indigo-300">
+                        if not d or not isinstance(d, dict):
+                        <br />
+                        &nbsp;&nbsp;return None
                       </div>
-                      <div className="w-12 h-[1px] bg-dashed bg-white/20" />
-                      <div className="flex items-center gap-1">
-                        <Sparkles className="h-4 w-4 text-red-500/60 animate-pulse" />
-                        <span className="text-[10px] text-slate-500">The Code Entity</span>
+                    </div>
+                    <div className="code-block-2 border border-purple-500/20 bg-purple-500/5 p-2.5 rounded-lg shadow-md backdrop-blur-sm">
+                      <div className="text-[9px] font-mono text-purple-300">
+                        r = {"{k: v for k, v in d}"}
+                        <br />
+                        x = [v for v in r.values()]
+                      </div>
+                    </div>
+                    <div className="code-block-3 border border-pink-500/20 bg-pink-500/5 p-2.5 rounded-lg shadow-md backdrop-blur-sm">
+                      <div className="text-[9px] font-mono text-pink-300">
+                        return lambda z: [y * z]
                       </div>
                     </div>
                   </div>
 
-                  {/* ────────────────────────────────────────────────────────
-                      SCENE 2: The Wall Splits (Translation Blocks)
-                      ──────────────────────────────────────────────────────── */}
-                  <div
-                    className={cn(
-                      "absolute inset-0 flex flex-col justify-center items-center space-y-3 transition-all duration-700 ease-out",
-                      activeStep === 1 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
-                    )}
-                  >
-                    <div className="w-full space-y-3 max-w-[420px]">
-                      {/* Split blocks */}
-                      <div className="border border-indigo-500/20 bg-indigo-500/5 p-3 rounded-lg flex items-center justify-between shadow-[0_0_15px_rgba(99,102,241,0.1)]">
-                        <div className="font-mono text-xs text-indigo-300">Block 1: Check Input Validity</div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded">Block</span>
-                      </div>
-                      <div className="border border-purple-500/20 bg-purple-500/5 p-3 rounded-lg flex items-center justify-between shadow-[0_0_15px_rgba(168,85,247,0.1)]">
-                        <div className="font-mono text-xs text-purple-300">Block 2: Filter Numeric Values</div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded">Block</span>
-                      </div>
-                      <div className="border border-pink-500/20 bg-pink-500/5 p-3 rounded-lg flex items-center justify-between shadow-[0_0_15px_rgba(236,72,153,0.1)]">
-                        <div className="font-mono text-xs text-pink-300">Block 3: Generate Multipliers</div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded">Block</span>
-                      </div>
+                  {/* ── LAYER 3: Explanations (Right column of split) ── */}
+                  <div className="explanations-container absolute right-2 w-[200px] space-y-3 opacity-0" style={{ zIndex: 10 }}>
+                    <div className="english-exp-1 border border-emerald-500/20 bg-emerald-500/5 p-2.5 rounded-lg shadow-md text-[9px] text-emerald-300 backdrop-blur-sm">
+                      <div className="font-bold text-[8px] text-emerald-400 uppercase tracking-wider mb-0.5">Guide Analysis</div>
+                      Validates input structure and returns fallback if invalid.
+                    </div>
+                    <div className="english-exp-2 border border-emerald-500/20 bg-emerald-500/5 p-2.5 rounded-lg shadow-md text-[9px] text-emerald-300 backdrop-blur-sm">
+                      <div className="font-bold text-[8px] text-emerald-400 uppercase tracking-wider mb-0.5">Guide Analysis</div>
+                      Extracts values from the dictionary elements.
+                    </div>
+                    <div className="english-exp-3 border border-emerald-500/20 bg-emerald-500/5 p-2.5 rounded-lg shadow-md text-[9px] text-emerald-300 backdrop-blur-sm">
+                      <div className="font-bold text-[8px] text-emerald-400 uppercase tracking-wider mb-0.5">Guide Analysis</div>
+                      Returns a functional multiplier list lambda.
                     </div>
                   </div>
 
-                  {/* ────────────────────────────────────────────────────────
-                      SCENE 3: Explain Block by Block (Clarity)
-                      ──────────────────────────────────────────────────────── */}
-                  <div
-                    className={cn(
-                      "absolute inset-0 flex flex-col justify-center items-center space-y-4 transition-all duration-700 ease-out",
-                      activeStep === 2 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
-                    )}
-                  >
-                    <div className="w-full max-w-[440px] space-y-3">
-                      {/* Code + English Split View */}
-                      <div className="border border-white/5 bg-slate-900/60 rounded-xl p-4 flex flex-col space-y-2 relative overflow-hidden">
-                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
-                          <span>PYTHON CODE</span>
-                          <span className="text-emerald-400">TRANSLATION</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="font-mono text-xs text-indigo-300 p-2 bg-indigo-500/5 rounded border border-indigo-500/10 flex flex-col justify-center">
-                            if not d or not isinstance(d, dict):
-                            <br />
-                            &nbsp;&nbsp;return None
-                          </div>
-                          <div className="text-xs text-emerald-300 p-2 bg-emerald-500/5 rounded border border-emerald-500/10 flex flex-col justify-center">
-                            <div className="flex items-center gap-1 text-[10px] text-emerald-400 font-bold mb-1">
-                              <Eye className="h-3 w-3" />
-                              GUIDE ANALYSIS
-                            </div>
-                            Checks if the input variable is valid and is a dictionary. Returns None if invalid.
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ────────────────────────────────────────────────────────
-                      SCENE 4: Two-Way Sync (Edit English -> Change Code)
-                      ──────────────────────────────────────────────────────── */}
-                  <div
-                    className={cn(
-                      "absolute inset-0 flex flex-col justify-center items-center space-y-4 transition-all duration-700 ease-out",
-                      activeStep === 3 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
-                    )}
-                  >
-                    <div className="w-full max-w-[440px] space-y-3">
-                      <div className="border border-amber-500/30 bg-amber-500/5 rounded-xl p-4 flex flex-col space-y-3 shadow-[0_0_20px_rgba(245,158,11,0.1)] relative overflow-hidden">
-                        <div className="flex items-center justify-between text-[10px] font-semibold text-amber-500">
-                          <span className="flex items-center gap-1 font-mono">
-                            <User className="h-3 w-3" />
-                            EDITING TRANSLATION
-                          </span>
-                          <span className="flex items-center gap-1 font-mono">
-                            <RefreshCw className="h-3 w-3 animate-spin text-amber-400" />
-                            SYNC ACTIVE
-                          </span>
-                        </div>
-                        
-                        {/* Editor Mock */}
-                        <div className="space-y-2">
-                          <div className="bg-slate-900 border border-white/10 p-2.5 rounded text-xs text-slate-100 relative">
-                            Checks if input is a dict. Return <span className="underline decoration-amber-500 text-amber-300 font-bold bg-amber-500/10 px-1 rounded animate-pulse">an empty dict</span> if invalid.
-                            <span className="inline-block w-1.5 h-3.5 bg-amber-500 ml-0.5 animate-pulse" />
-                          </div>
-                          
-                          <div className="text-[10px] text-slate-500 font-mono">{"// AUTO-GENERATED CODE UPDATE:"}</div>
-                          <div className="bg-slate-950/80 border border-indigo-500/20 p-2.5 rounded font-mono text-[11px] text-indigo-300">
-                            if not d or not isinstance(d, dict):
-                            <br />
-                            &nbsp;&nbsp;return <span className="text-amber-400 font-bold bg-amber-500/10 px-1 rounded transition-colors duration-500">{"{}"}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ────────────────────────────────────────────────────────
-                      SCENE 5: Cross-Language Translation
-                      ──────────────────────────────────────────────────────── */}
-                  <div
-                    className={cn(
-                      "absolute inset-0 flex flex-col justify-center items-center space-y-4 transition-all duration-700 ease-out",
-                      activeStep === 4 ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
-                    )}
-                  >
-                    <div className="w-full max-w-[440px] space-y-4">
-                      {/* Language badges mapping */}
-                      <div className="flex items-center justify-center gap-6">
-                        <div className="bg-indigo-600 text-white font-mono text-xs px-3 py-1.5 rounded-md border border-indigo-400 shadow-md">
-                          Python
-                        </div>
-                        <div className="h-[2px] flex-1 bg-gradient-to-r from-indigo-500 to-pink-500 relative">
-                          <Zap className="h-4 w-4 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2 animate-bounce" />
-                        </div>
-                        <div className="bg-pink-600 text-white font-mono text-xs px-3 py-1.5 rounded-md border border-pink-400 shadow-md">
-                          JavaScript
-                        </div>
-                      </div>
-
-                      {/* Code blocks morph */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-slate-900/80 border border-indigo-500/10 p-3 rounded-lg font-mono text-[10px] text-indigo-300/80">
-                          <p className="text-slate-500 font-semibold mb-1"># PYTHON</p>
-                          def add(a, b):
-                          <br />
-                          &nbsp;&nbsp;return a + b
-                        </div>
-                        <div className="bg-slate-900/80 border border-pink-500/10 p-3 rounded-lg font-mono text-[10px] text-pink-300">
-                          <p className="text-slate-500 font-semibold mb-1">{"// JAVASCRIPT"}</p>
-                          function add(a, b) {"{"}
-                          <br />
-                          &nbsp;&nbsp;return a + b;
-                          <br />
-                          {"}"}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* ────────────────────────────────────────────────────────
-                      SCENE 6: Stable Workspace (Transition to Features)
-                      ──────────────────────────────────────────────────────── */}
-                  <div
-                    className={cn(
-                      "absolute inset-0 flex flex-col justify-center items-center space-y-4 transition-all duration-700 ease-out",
-                      activeStep === 5 ? "opacity-100 scale-100 blur-0" : "opacity-0 scale-95 blur-md pointer-events-none"
-                    )}
-                  >
-                    <div className="w-full max-w-[460px] border border-emerald-500/20 bg-emerald-500/5 p-5 rounded-2xl flex flex-col space-y-3 shadow-[0_0_30px_rgba(16,185,129,0.15)] relative overflow-hidden">
-                      {/* Top shine */}
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl" />
-                      
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-emerald-400" />
-                        <h4 className="font-semibold text-white">Anuvaad Workspace Ready</h4>
-                      </div>
-                      
-                      <p className="text-xs text-slate-400">
-                        Interactive code translating, two-way sync documentation, and cross-language compatibility aligned inside a minimal high-performance interface.
-                      </p>
-
-                      <div className="flex gap-4 pt-2">
-                        <div className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded">
-                          Stable Build
-                        </div>
-                        <div className="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded">
-                          Free Tier Enabled
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Gentle scroll indicator */}
-                    <div className="flex flex-col items-center gap-1 pt-6 animate-bounce">
-                      <span className="text-[10px] tracking-widest text-slate-500 uppercase font-semibold">
-                        Scroll to explore features
+                  {/* ── LAYER 4: Two-Way Sync Editor Mock ── */}
+                  <div className="sync-editor-pane absolute w-full max-w-[420px] bg-slate-900/80 border border-amber-500/20 p-4 rounded-xl shadow-lg opacity-0 flex flex-col space-y-3" style={{ zIndex: 10 }}>
+                    <div className="flex items-center justify-between text-[9px] font-semibold text-amber-500">
+                      <span className="flex items-center gap-1 font-mono">
+                        <User className="h-3 w-3" />
+                        EDITING TRANSLATION
                       </span>
-                      <div className="w-1 h-3 rounded-full bg-slate-500" />
+                      <span className="flex items-center gap-1 font-mono">
+                        <RefreshCw className="h-3 w-3 animate-spin text-amber-400" />
+                        SYNC ACTIVE
+                      </span>
+                    </div>
+                    <div className="bg-slate-950 border border-white/5 p-2.5 rounded text-[10px] text-slate-300 font-mono min-h-[44px] relative">
+                      <span className="sync-editor-text block">
+                        Checks if input is a dict. Return <span className="underline decoration-amber-500 text-amber-300 font-bold bg-amber-500/10 px-1 rounded animate-pulse">an empty dict</span> if invalid.
+                        <span className="inline-block w-1.5 h-3.5 bg-amber-500 ml-0.5 animate-pulse" />
+                      </span>
+                    </div>
+                    <div className="text-[8px] text-slate-500 font-mono">{"// AUTO-GENERATED CODE UPDATE:"}</div>
+                    <div className="bg-slate-950/80 border border-indigo-500/15 p-2.5 rounded font-mono text-[10px] text-indigo-300 code-update-highlight transition-all duration-500">
+                      if not d or not isinstance(d, dict):
+                      <br />
+                      &nbsp;&nbsp;return{" "}
+                      <span className="relative inline-block w-10 h-4">
+                        <span className="code-val-old absolute inset-0 text-red-400 font-bold">None</span>
+                        <span className="code-val-new absolute inset-0 text-amber-400 font-bold opacity-0">{"{}"}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* ── LAYER 5: Cross-Language Translation ── */}
+                  <div className="cross-lang-pane absolute w-full max-w-[420px] opacity-0 flex flex-col space-y-4" style={{ zIndex: 10 }}>
+                    <div className="flex items-center justify-center gap-6">
+                      <div className="bg-indigo-600/90 text-white font-mono text-xs px-3 py-1.5 rounded-md border border-indigo-400 shadow-md">
+                        Python
+                      </div>
+                      <div className="h-[2px] flex-1 bg-gradient-to-r from-indigo-500 to-pink-500 relative">
+                        <Zap className="h-4 w-4 text-amber-400 absolute -top-2 left-1/2 -translate-x-1/2 lang-bridge-arrow" />
+                      </div>
+                      <div className="bg-pink-600/90 text-white font-mono text-xs px-3 py-1.5 rounded-md border border-pink-400 shadow-md">
+                        JavaScript
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-slate-900/80 border border-indigo-500/10 p-3 rounded-lg font-mono text-[9px] text-indigo-300/80">
+                        <p className="text-slate-500 font-semibold mb-1"># PYTHON</p>
+                        def add(a, b):
+                        <br />
+                        &nbsp;&nbsp;return a + b
+                      </div>
+                      <div className="js-output-block bg-slate-900/80 border border-pink-500/10 p-3 rounded-lg font-mono text-[9px] text-pink-300 opacity-0">
+                        <p className="text-slate-500 font-semibold mb-1">{"// JAVASCRIPT"}</p>
+                        function add(a, b) {"{"}
+                        <br />
+                        &nbsp;&nbsp;return a + b;
+                        <br />
+                        {"}"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── LAYER 6: Stable Workspace Success State ── */}
+                  <div className="workspace-settle-pane absolute w-full max-w-[440px] border border-emerald-500/20 bg-emerald-500/5 p-5 rounded-2xl flex flex-col space-y-3 shadow-[0_0_30px_rgba(16,185,129,0.15)] opacity-0 relative overflow-hidden" style={{ zIndex: 10 }}>
+                    <div className="workspace-settle-pulse absolute inset-0 border border-emerald-500/50 rounded-2xl pointer-events-none" />
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-emerald-400" />
+                      <h4 className="font-semibold text-white font-sans">Anuvaad Workspace Ready</h4>
+                    </div>
+                    <p className="text-xs text-slate-400 font-sans leading-relaxed">
+                      Interactive code translating, two-way sync documentation, and cross-language compatibility aligned inside a minimal high-performance interface.
+                    </p>
+                    <div className="flex gap-4 pt-2">
+                      <div className="text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded font-sans">
+                        Stable Build
+                      </div>
+                      <div className="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded font-sans">
+                        Free Tier Enabled
+                      </div>
                     </div>
                   </div>
 
