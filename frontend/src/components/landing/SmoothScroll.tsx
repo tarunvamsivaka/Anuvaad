@@ -7,9 +7,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 const sections = [
   { id: "hero", label: "INTRO" },
   { id: "story", label: "STORY" },
+  { id: "demo", label: "DEMO" },
   { id: "features", label: "FEATURES" },
-  { id: "how-it-works", label: "PROCESS" },
-  { id: "pricing", label: "PRICING" },
   { id: "faq", label: "FAQ" },
 ];
 
@@ -20,10 +19,9 @@ export function SmoothScroll() {
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
 
-    // ── 1. SMOOTH SCROLL INTEGRATION ──
     document.documentElement.style.scrollBehavior = "smooth";
 
-    // ── 2. SCROLL TRIGGER PROGRESS ──
+    // Global page progress
     const mainProgressTrigger = ScrollTrigger.create({
       start: "top top",
       end: "bottom bottom",
@@ -32,7 +30,7 @@ export function SmoothScroll() {
       },
     });
 
-    // ── 3. ACTIVE SECTION HIGHLIGHTING ──
+    // Active section tracking
     const sectionTriggers = sections.map((sec) => {
       return ScrollTrigger.create({
         trigger: `#${sec.id}`,
@@ -43,7 +41,7 @@ export function SmoothScroll() {
       });
     });
 
-    // ── 4. STAGGERED REVEALS FOR SECTIONS ──
+    // Cinematic reveal for `.cinematic-reveal` elements
     const elementsToReveal = document.querySelectorAll(".cinematic-reveal");
     elementsToReveal.forEach((el) => {
       gsap.fromTo(
@@ -72,24 +70,22 @@ export function SmoothScroll() {
 
   const handleNavClick = (id: string) => {
     const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth" });
-    }
+    if (el) el.scrollIntoView({ behavior: "smooth" });
   };
 
   return (
     <>
-      {/* Immersive Scroll Progress Tracker on the Right */}
+      {/* Amber Scroll Progress Tracker — right side */}
       <div className="fixed right-6 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-6 md:flex">
+        {/* Progress bar */}
         <div className="relative h-48 w-0.5 rounded-full bg-white/10">
-          {/* Active Progress glow indicator */}
           <div
-            className="absolute top-0 w-full rounded-full bg-gradient-to-b from-indigo-500 to-pink-500 shadow-[0_0_8px_rgba(99,102,241,0.8)] transition-all duration-75"
+            className="absolute top-0 w-full rounded-full bg-gradient-to-b from-amber-400 to-amber-600 shadow-[0_0_8px_rgba(245,158,11,0.8)] transition-all duration-75"
             style={{ height: `${progress}%` }}
           />
         </div>
 
-        {/* Section Dots */}
+        {/* Section dots */}
         <div className="flex flex-col gap-4">
           {sections.map((sec) => {
             const isActive = activeSection === sec.id;
@@ -100,21 +96,20 @@ export function SmoothScroll() {
                 className="group relative flex h-4 w-4 items-center justify-center focus:outline-none"
                 aria-label={`Scroll to ${sec.label}`}
               >
-                {/* Outer Ring */}
+                {/* Outer ring */}
                 <span
-                  className={`absolute h-3 w-3 rounded-full border border-indigo-500/60 transition-all duration-300 ${
+                  className={`absolute h-3 w-3 rounded-full border border-amber-500/60 transition-all duration-300 ${
                     isActive ? "scale-125 opacity-100" : "scale-50 opacity-0 group-hover:scale-100 group-hover:opacity-60"
                   }`}
                 />
-                {/* Inner Dot */}
+                {/* Inner dot */}
                 <span
                   className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
-                    isActive ? "bg-white" : "bg-white/40 group-hover:bg-white"
+                    isActive ? "bg-amber-400" : "bg-white/40 group-hover:bg-white"
                   }`}
                 />
-
-                {/* Floating section text labels */}
-                <span className="pointer-events-none absolute right-7 origin-right scale-70 rounded bg-[#0b0b1e] border border-white/5 px-2 py-1 text-[9px] font-bold tracking-widest text-indigo-400 opacity-0 transition-all duration-300 group-hover:scale-100 group-hover:opacity-100 shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+                {/* Floating label */}
+                <span className="pointer-events-none absolute right-7 origin-right scale-70 rounded bg-[#0a0a0e] border border-amber-500/10 px-2 py-1 text-[9px] font-bold tracking-widest text-amber-400 opacity-0 transition-all duration-300 group-hover:scale-100 group-hover:opacity-100 shadow-[0_4px_12px_rgba(0,0,0,0.6)] whitespace-nowrap">
                   {sec.label}
                 </span>
               </button>

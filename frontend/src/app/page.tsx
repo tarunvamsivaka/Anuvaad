@@ -3,16 +3,21 @@ import Script from "next/script";
 import { Navbar } from "@/components/landing/navbar";
 import { Hero } from "@/components/landing/hero";
 import { ScrollStory } from "@/components/landing/ScrollStory";
+import { TransformationDemo } from "@/components/landing/TransformationDemo";
 import { Features } from "@/components/landing/features";
-import { HowItWorks } from "@/components/landing/how-it-works";
-import { UseCases } from "@/components/landing/use-cases";
-import { Pricing } from "@/components/landing/pricing";
+import { Positioning } from "@/components/landing/Positioning";
+import { Trust } from "@/components/landing/Trust";
+import { Testimonials } from "@/components/landing/testimonials";
+import { FinalCTA } from "@/components/landing/FinalCTA";
 import { FAQ } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
+import { SmoothScroll } from "@/components/landing/SmoothScroll";
 import { WebGLScrollProvider } from "@/components/landing/WebGLScrollProvider";
+
 export const metadata: Metadata = {
   title: "Anuvaad — The AI Code Translator for Modern Teams",
-  description: "Stop struggling with legacy code. Anuvaad instantly translates obscure logic into plain English or generates perfect code from your human specifications.",
+  description:
+    "Stop struggling with legacy code. Anuvaad instantly translates obscure logic into plain English or generates perfect code from your human specifications.",
 };
 
 const jsonLd = {
@@ -21,7 +26,8 @@ const jsonLd = {
   name: "Anuvaad",
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Web",
-  description: "AI-powered code translator that converts code to plain English and back. Supports 35+ programming languages.",
+  description:
+    "AI-powered code translator that converts code to plain English and back. Supports 35+ programming languages.",
   url: "https://anuvaad.dev",
   offers: [
     {
@@ -49,41 +55,59 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      
-      {/* 3D WebGL background + GSAP Scroll animations (loaded client-side) */}
+
+      {/* 3D WebGL particle background (loaded client-side) */}
       <WebGLScrollProvider />
 
-      <div className="relative z-10 flex min-h-screen flex-col overflow-hidden bg-transparent text-slate-100 selection:bg-indigo-500/30 selection:text-indigo-200">
+      {/* Smooth scroll side-nav tracker */}
+      <SmoothScroll />
+
+      {/* The full landing page — dark obsidian background, all sections stack above WebGL */}
+      <div
+        className="relative z-10 flex min-h-screen flex-col text-slate-100 selection:bg-amber-500/30 selection:text-amber-200"
+        style={{ background: "var(--landing-bg, #020204)" }}
+      >
         <Navbar />
-        
+
         <main className="flex-1">
-          {/* Main sections structured with IDs for smooth scroll snapping */}
-          <div id="hero" className="w-full">
+          {/* 1. Cinematic Hero */}
+          <div id="hero">
             <Hero />
           </div>
-          
-          <div id="story" className="w-full">
+
+          {/* 2. The Scroll Story — Riya's narrative */}
+          <div id="story">
             <ScrollStory />
           </div>
-          
-          <div id="features" className="w-full">
+
+          {/* 3. Interactive 3-tab Demo */}
+          <div id="demo">
+            <TransformationDemo />
+          </div>
+
+          {/* 4. Feature Bento Grid */}
+          <div id="features">
             <Features />
           </div>
-          
-          <div id="how-it-works" className="w-full">
-            <HowItWorks />
-            <UseCases />
-          </div>
-          
-          <div id="pricing" className="w-full">
-            <Pricing />
-          </div>
-          
-          <div id="faq" className="w-full">
+
+          {/* 5. Positioning — cinematic philosophy section */}
+          <Positioning />
+
+          {/* 6. Trust & Security */}
+          <Trust />
+
+          {/* 7. Social Proof — infinite marquee */}
+          <Testimonials />
+
+          {/* 8. FAQ */}
+          <div id="faq">
             <FAQ />
           </div>
+
+          {/* 9. Final CTA */}
+          <FinalCTA />
         </main>
-        
+
         <Footer />
       </div>
     </>

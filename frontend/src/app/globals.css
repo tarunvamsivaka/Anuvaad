@@ -46,9 +46,17 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
-  --color-amber-500: #d97706;
-  --color-amber-600: #b45309;
-  --color-amber-700: #78350f;
+  /* Amber / Gold landing page palette */
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+  /* Landing page specific tokens */
+  --amber-glow: rgba(245, 158, 11, 0.6);
+  --amber-mid: rgba(217, 119, 6, 0.4);
+  --amber-soft: rgba(252, 211, 77, 0.15);
+  --landing-bg: #020204;
+  --landing-charcoal: #0c0c0f;
+  --landing-panel: rgba(18, 18, 24, 0.85);
 }
 
 :root {
@@ -134,7 +142,7 @@
 
   /* Accessibility: Focus styles */
   :focus-visible {
-    outline: 2px solid #f59e0b; /* amber-500 */
+    outline: 2px solid #f59e0b;
     outline-offset: 2px;
   }
   
@@ -149,15 +157,266 @@
   }
 }
 
+/* ── LANDING PAGE KEYFRAME ANIMATIONS ─────────────────────────────────────── */
+
 @keyframes blink {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
 
+@keyframes aurora-drift {
+  0%, 100% {
+    transform: translate(-20%, -20%) scale(1);
+    opacity: 0.06;
+  }
+  33% {
+    transform: translate(10%, -30%) scale(1.15);
+    opacity: 0.1;
+  }
+  66% {
+    transform: translate(-10%, 10%) scale(0.9);
+    opacity: 0.07;
+  }
+}
+
+@keyframes aurora-drift-2 {
+  0%, 100% {
+    transform: translate(20%, 20%) scale(1.1);
+    opacity: 0.05;
+  }
+  50% {
+    transform: translate(-15%, 30%) scale(0.85);
+    opacity: 0.09;
+  }
+}
+
+@keyframes particle-float {
+  0%, 100% {
+    transform: translateY(0px) translateX(0px);
+    opacity: 0.4;
+  }
+  33% {
+    transform: translateY(-18px) translateX(8px);
+    opacity: 0.7;
+  }
+  66% {
+    transform: translateY(-8px) translateX(-12px);
+    opacity: 0.5;
+  }
+}
+
+@keyframes shimmer-amber {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes amber-pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+@keyframes marquee-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+@keyframes marquee-right {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes draw-circle {
+  from { stroke-dashoffset: 283; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes scan-line {
+  0% { left: -5%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 105%; opacity: 0; }
+}
+
+@keyframes card-cascade {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes text-gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+/* ── LANDING PAGE UTILITY CLASSES ─────────────────────────────────────────── */
+
+/* Shimmer button effect */
+.btn-amber-shimmer {
+  background: linear-gradient(
+    90deg,
+    #d97706 0%,
+    #f59e0b 25%,
+    #fcd34d 50%,
+    #f59e0b 75%,
+    #d97706 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer-amber 3s linear infinite;
+  color: #020204;
+  font-weight: 700;
+}
+
+.btn-amber-shimmer:hover {
+  animation-duration: 1.5s;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.5), 0 0 60px rgba(245, 158, 11, 0.2);
+}
+
+/* Amber glow text */
+.text-amber-glow {
+  text-shadow: 0 0 20px rgba(245, 158, 11, 0.4), 0 0 40px rgba(245, 158, 11, 0.15);
+}
+
+/* Gradient headline — animated */
+.headline-gradient {
+  background: linear-gradient(
+    135deg,
+    #f8fafc 0%,
+    #fcd34d 35%,
+    #f59e0b 60%,
+    #f8fafc 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-gradient-shift 5s ease infinite;
+}
+
+/* Glassmorphism amber panel */
+.glass-amber {
+  background: rgba(18, 18, 24, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(245, 158, 11, 0.12);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(245, 158, 11, 0.08);
+}
+
+/* Infinite marquee containers */
+.marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 1.5rem;
+}
+
+.marquee-left {
+  animation: marquee-left 40s linear infinite;
+}
+
+.marquee-right {
+  animation: marquee-right 45s linear infinite;
+}
+
+.marquee-left:hover,
+.marquee-right:hover {
+  animation-play-state: paused;
+}
+
+/* Particle float elements */
+.particle-amber {
+  animation: particle-float var(--duration, 4s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+/* Landing section base — ensures stacking above WebGL */
+.landing-section {
+  position: relative;
+  z-index: 10;
+}
+
+/* Scan line animation for demo sections */
+.scan-line-anim {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, transparent, rgba(245, 158, 11, 0.8), transparent);
+  filter: blur(2px);
+  animation: scan-line 2s ease-in-out forwards;
+  pointer-events: none;
+}
+
+/* Perspective utilities */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+/* Blinking cursor */
 .blinking-cursor::after {
   content: "█";
   animation: blink 1s step-end infinite;
   margin-left: 2px;
+}
+
+/* ── PERFORMANCE ─────────────────────────────────────────────────────────── */
+
+/* Defer GPU paint for long output lists */
+.output-panel-content {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Reserved GPU composite layer only for animated sidebar */
+.sidebar-animated {
+  will-change: transform;
+}
+.sidebar-animated.transition-done {
+  will-change: auto;
+}
+
+/* Smooth momentum scrolling on iOS */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Faster text rendering for code blocks */
+pre, code, .font-mono {
+  text-rendering: optimizeSpeed;
 }
 
 @media (prefers-reduced-motion: reduce) { 
@@ -165,32 +424,4 @@
     animation-duration: 0.01ms !important; 
     transition-duration: 0.01ms !important;
   } 
-}
-
-/* ── PERFORMANCE ── */
-
-/* Defer GPU paint for long output lists until they scroll into view */
-.output-panel-content {
-  content-visibility: auto;
-  contain-intrinsic-size: 0 500px;
-}
-
-/* Reserve GPU composite layer only for explicitly animated sidebar */
-.sidebar-animated {
-  will-change: transform;
-}
-/* Remove will-change once transition is done to free GPU memory */
-.sidebar-animated.transition-done {
-  will-change: auto;
-}
-
-/* Smooth momentum scrolling on iOS for scroll containers */
-.scroll-container {
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-}
-
-/* Faster text rendering for code blocks — prioritize speed over legibility micro-optimizations */
-pre, code, .font-mono {
-  text-rendering: optimizeSpeed;
 }
