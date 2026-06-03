@@ -1,5 +1,6 @@
 import asyncio
 import json
+from contextlib import asynccontextmanager
 import os
 import hashlib
 import logging
@@ -110,7 +111,6 @@ class MetricsCollector:
 metrics = MetricsCollector()
 
 
-from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
