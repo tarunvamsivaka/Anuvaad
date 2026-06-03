@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Logo } from "@/components/landing/Logo";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Anuvaad",
@@ -11,9 +12,8 @@ export default function TermsPage() {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/40 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-4xl items-center px-6">
-          <Link href="/" className="flex items-baseline gap-2">
-            <span className="text-xl font-bold tracking-tight">Anuvaad</span>
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-600">Translator</span>
+          <Link href="/" className="block">
+            <Logo />
           </Link>
         </div>
       </header>

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Logo } from "@/components/landing/Logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
@@ -71,9 +72,8 @@ function SidebarContent({
   return (
     <>
       {/* Logo */}
-      <div className="flex h-14 items-center gap-2 border-b border-border/60 px-4">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-amber-500 to-amber-600 text-xs font-bold text-white">A</div>
-        {!collapsed && <span className="text-sm font-semibold tracking-tight">Anuvaad</span>}
+      <div className="flex h-14 items-center border-b border-border/60 px-4 overflow-hidden">
+        <Logo showText={!collapsed} iconSize={22} textSize="text-sm" />
       </div>
 
       <WorkspaceSwitcher collapsed={collapsed} />

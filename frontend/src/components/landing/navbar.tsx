@@ -7,6 +7,7 @@ import { Menu, X, ArrowRight, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import gsap from "gsap";
+import { Logo } from "@/components/landing/Logo";
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -49,13 +50,8 @@ export function Navbar() {
       )}
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-        <Link href="/" className="nav-item-reveal flex items-baseline gap-2 group opacity-0">
-          <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent transition-all duration-300 group-hover:text-indigo-400">
-            Anuvaad
-          </span>
-          <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-indigo-400">
-            AI
-          </span>
+        <Link href="/" className="nav-item-reveal block opacity-0">
+          <Logo />
         </Link>
 
         {/* Navigation links with slide and fade */}

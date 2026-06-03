@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
+import { Logo } from "@/components/landing/Logo";
 
 const footerLinks = {
   Product: [
@@ -25,9 +26,8 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-6 py-16">
         <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-4">
           <div>
-            <Link href="/" className="flex items-baseline gap-2">
-              <span className="text-xl font-bold tracking-tight">Anuvaad</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-amber-600">Translator</span>
+            <Link href="/" className="block w-fit">
+              <Logo />
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-muted-foreground">AI-powered code translation for developers, students, and teams.</p>
           </div>

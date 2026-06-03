@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
 import { Loader2, ArrowLeft, Mail } from "lucide-react";
+import { Logo } from "@/components/landing/Logo";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -38,9 +39,8 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 text-sm font-bold text-white">A</div>
-            <span className="text-lg font-semibold tracking-tight">Anuvaad</span>
+          <Link href="/" className="block w-fit mx-auto">
+            <Logo />
           </Link>
         </div>
 
