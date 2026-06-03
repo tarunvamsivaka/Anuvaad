@@ -109,8 +109,20 @@ class MetricsCollector:
 
 metrics = MetricsCollector()
 
+
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    global _global_http_client
+    if _global_http_client is not None:
+        await _global_http_client.aclose()
+        logger.info("Closed global HTTP client")
+
+
 # 1. Core Initialization
-app = FastAPI(title="Anuvaad API")
+app = FastAPI(title="Anuvaad API", lifespan=lifespan)
 
 # ── ENVIRONMENT MODE ──
 _is_production = os.getenv("ENV", "development").lower() == "production"
@@ -294,12 +306,7 @@ def get_http_client() -> httpx.AsyncClient:
     return _global_http_client
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    global _global_http_client
-    if _global_http_client is not None:
-        await _global_http_client.aclose()
-        logger.info("Closed global HTTP client")
+
 
 
 FREE_TIER_DAILY_LIMIT = 10
