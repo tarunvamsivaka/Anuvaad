@@ -174,9 +174,13 @@ export default function WorkspacePage() {
 
         <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6">
           <div className="w-full max-w-md text-center">
-            {/* Icon */}
-            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-500/8 border border-amber-500/15 shadow-lg shadow-amber-500/10">
-              <Building2 className="h-9 w-9 text-amber-500/70" />
+            {/* Team Illustration */}
+            <div className="mx-auto mb-6 max-w-[260px] overflow-hidden rounded-2xl border border-amber-500/10 bg-slate-100 dark:bg-slate-900/30 p-1.5 shadow-md dark:shadow-amber-500/5">
+              <img 
+                src="/team_working.png" 
+                alt="Team Collaboration" 
+                className="w-full h-auto rounded-xl object-cover"
+              />
             </div>
 
             <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Create your workspace</h2>
