@@ -162,7 +162,7 @@ export default function WorkspacePage() {
   // No workspace — creation UI
   if (!activeWorkspace) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#080c14]">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-800 dark:text-slate-100">
         <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-500/8 bg-white/80 dark:bg-[#080c14]/90 backdrop-blur-md">
           <div className="flex h-14 items-center px-6">
             <div className="flex items-center gap-2">
@@ -172,53 +172,84 @@ export default function WorkspacePage() {
           </div>
         </header>
 
-        <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6">
-          <div className="w-full max-w-md text-center">
-            {/* Team Illustration */}
-            <div className="mx-auto mb-6 max-w-[260px] overflow-hidden rounded-2xl border border-amber-500/10 bg-slate-100 dark:bg-slate-900/30 p-1.5 shadow-md dark:shadow-amber-500/5">
-              <img 
-                src="/team_working.png" 
-                alt="Team Collaboration" 
-                className="w-full h-auto rounded-xl object-cover"
-              />
-            </div>
+        <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6 md:p-12">
+          <div className="w-full max-w-5xl bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-12">
+            
+            {/* Left side: Create form and features */}
+            <div className="md:col-span-7 p-6 sm:p-10 flex flex-col justify-center space-y-6">
+              <div>
+                <h2 className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Create your workspace</h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-md">
+                  Collaborate with your team, share translation history logs, manage role access control layers, and generate unified developer API credentials.
+                </p>
+              </div>
 
-            <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Create your workspace</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-500 mb-8 leading-relaxed max-w-sm mx-auto">
-              Collaborate with your team, share translation history, and manage API access under one workspace.
-            </p>
-
-            {/* Features list */}
-            <div className="grid grid-cols-3 gap-3 mb-8">
-              {[
-                { icon: Users, label: "Team Access" },
-                { icon: Sparkles, label: "Shared History" },
-                { icon: Shield, label: "Role Controls" },
-              ].map(({ icon: Icon, label }) => (
-                <div key={label} className="flex flex-col items-center gap-2 rounded-xl border border-amber-500/10 bg-amber-500/4 p-3">
-                  <Icon className="h-4 w-4 text-amber-500/70" />
-                  <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">{label}</span>
+              <form onSubmit={handleCreateWorkspace} className="space-y-3.5 max-w-md">
+                <div className="space-y-1.5">
+                  <label htmlFor="creation-workspace-name" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Workspace Name</label>
+                  <Input
+                    id="creation-workspace-name"
+                    placeholder="e.g. Acme Engineering, Delta Core"
+                    value={newWorkspaceName}
+                    onChange={e => setNewWorkspaceName(e.target.value)}
+                    className="h-11 rounded-xl bg-white dark:bg-[#080c14]/50 border border-slate-200 dark:border-amber-600/10 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-amber-500/40"
+                    required
+                  />
                 </div>
-              ))}
+                <Button
+                  type="submit"
+                  disabled={creating}
+                  className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-lg shadow-amber-500/25"
+                >
+                  {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Deploy Workspace Core
+                </Button>
+              </form>
+
+              <div className="border-t border-slate-100 dark:border-amber-600/10 pt-6">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-550 dark:text-slate-500 mb-4">Included Features</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { icon: Users, label: "Team Access", desc: "Co-author translations" },
+                    { icon: Sparkles, label: "Shared History", desc: "Unified query logs" },
+                    { icon: Shield, label: "Role Controls", desc: "Fine-grained permissions" },
+                  ].map(({ icon: Icon, label, desc }) => (
+                    <div key={label} className="flex flex-col gap-1 rounded-xl border border-slate-100 dark:border-amber-600/5 bg-slate-50/50 dark:bg-amber-500/3 p-3">
+                      <Icon className="h-4 w-4 text-amber-500 shrink-0" />
+                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-none">{label}</span>
+                      <span className="text-[9px] text-slate-400 dark:text-slate-550 leading-tight">{desc}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <form onSubmit={handleCreateWorkspace} className="space-y-3">
-              <Input
-                placeholder="e.g. Acme Engineering"
-                value={newWorkspaceName}
-                onChange={e => setNewWorkspaceName(e.target.value)}
-                className="h-11 rounded-xl bg-white dark:bg-white/5 border-slate-200 dark:border-amber-500/10 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-amber-500/40"
-                required
+            {/* Right side: Large Showcase Banner */}
+            <div className="md:col-span-5 bg-slate-50/50 dark:bg-slate-950/20 border-l border-slate-200 dark:border-amber-600/10 relative flex items-center justify-center p-6 sm:p-8 min-h-[300px] md:min-h-full">
+              {/* Grid overlay for a tech style background */}
+              <div
+                className="pointer-events-none absolute inset-0 opacity-20 dark:opacity-30"
+                style={{
+                  backgroundImage: `linear-gradient(rgba(245,158,11,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.1) 1px, transparent 1px)`,
+                  backgroundSize: "24px 24px",
+                }}
               />
-              <Button
-                type="submit"
-                disabled={creating}
-                className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-lg shadow-amber-500/20"
-              >
-                {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                Create Workspace
-              </Button>
-            </form>
+              <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 to-transparent pointer-events-none" />
+
+              {/* Showcase Container */}
+              <div className="relative z-10 w-full max-w-[320px] md:max-w-none aspect-square md:aspect-auto md:h-full flex items-center justify-center">
+                <div className="relative rounded-2xl border border-amber-500/15 bg-white dark:bg-[#0c0f1a] p-2 shadow-2xl dark:shadow-amber-500/5 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-amber-500/30 group">
+                  <img 
+                    src="/team_working.png" 
+                    alt="Team Collaboration Showcase" 
+                    className="w-full h-full object-cover rounded-xl"
+                  />
+                  {/* Subtle dark layout gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
