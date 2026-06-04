@@ -21,8 +21,7 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Copy, Download, Loader2, RotateCcw,
   Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings, Zap,
-  ChevronDown, ChevronUp, X, Upload, FileCode, Pencil,
-  Activity, Cpu, ShieldCheck
+  ChevronDown, ChevronUp, X, Upload, FileCode, Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -395,7 +394,6 @@ function TranslatePageContent() {
   const [rawError, setRawError] = useState("");
   const [copied, setCopied] = useState(false);
   const [modelUsed, setModelUsed] = useState<string | null>(null);
-  const [latencyMs, setLatencyMs] = useState<number | null>(null);
 
   const onFileDrop = useCallback((acceptedFiles: globalThis.File[]) => {
     const file = acceptedFiles[0];
@@ -435,7 +433,6 @@ function TranslatePageContent() {
     setOriginalBlocks(null);
     setStreamText("");
     setRawError("");
-    setLatencyMs(null);
   }, []);
 
   const handleGistImport = async () => {
@@ -503,7 +500,6 @@ function TranslatePageContent() {
     setStreamText("");
     setRawError("");
     setModelUsed(null);
-    setLatencyMs(null);
 
     const translateStartTime = Date.now();
     track("translation_started", {
@@ -619,7 +615,6 @@ function TranslatePageContent() {
         setOutputBlocks(completeBlocks);
         setOriginalBlocks(JSON.parse(JSON.stringify(completeBlocks)));
         const latency = Date.now() - translateStartTime;
-        setLatencyMs(latency);
         track("translation_completed", {
           mode,
           block_count: completeBlocks.length,
@@ -659,7 +654,6 @@ function TranslatePageContent() {
     setRawError("");
     setUploadedFile(null);
     setGistSource(null);
-    setLatencyMs(null);
   }, []);
 
   const handleCopyMarkdown = useCallback(() => {
@@ -908,11 +902,8 @@ function TranslatePageContent() {
           </div>
         </div>
 
-        {/* Workspace Panels Grid + Model Insights Aside Panel */}
-        <div className="flex flex-col xl:flex-row gap-6 w-full items-start">
-          
-          {/* Main Code Workspace (Split editor / output) */}
-          <div className="flex-1 grid gap-6 lg:grid-cols-2 min-h-[600px] w-full">
+        {/* Main Code Workspace (Split editor / output) */}
+        <div className="grid gap-6 lg:grid-cols-2 min-h-[600px] w-full">
             {/* INPUT PANEL */}
             <Card className="flex flex-col overflow-hidden border-slate-200 dark:border-amber-600/10 bg-white dark:bg-[#0c0c0f] shadow-sm hover:border-amber-600/20 transition-all duration-300">
               <div className="flex items-center justify-between border-b border-slate-200 dark:border-amber-600/10 bg-slate-50/50 dark:bg-white/5 px-4 py-3">
@@ -1255,97 +1246,6 @@ function TranslatePageContent() {
                 )}
               </div>
             </Card>
-          </div>
-
-          {/* MODEL INSIGHTS SIDE PANEL (aside, inspired by Stitch Chat mockup) */}
-          <aside className="w-full xl:w-80 bg-white dark:bg-[#0c0c0f] border border-slate-200 dark:border-amber-600/10 rounded-xl p-5 flex flex-col gap-6 shrink-0 shadow-sm">
-            
-            {/* Session Stats */}
-            <div>
-              <h3 className="text-xs font-bold text-slate-400 dark:text-[#8494b0] uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                <Activity className="h-3.5 w-3.5 text-amber-500" /> Model Performance
-              </h3>
-              <div className="space-y-4">
-                {/* Latency Meter */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px] font-bold">
-                    <span className="text-slate-500 dark:text-slate-400">LATENCY</span>
-                    <span className={cn("font-extrabold", latencyMs ? "text-amber-500" : "text-slate-400")}>
-                      {latencyMs ? `${latencyMs}ms` : isStreaming ? "Calculating..." : "Idle"}
-                    </span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: latencyMs ? `${Math.min((latencyMs / 4000) * 100, 100)}%` : "0%" }} />
-                  </div>
-                </div>
-
-                {/* Token usage progress */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px] font-bold">
-                    <span className="text-slate-500 dark:text-slate-400">CONTEXT LOAD</span>
-                    <span className="text-amber-500 font-extrabold">{tokenEstimate.toLocaleString()} tokens ({tokenPercent}%)</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${tokenPercent}%` }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Context Resources */}
-            <div className="border-t border-slate-100 dark:border-amber-600/10 pt-5">
-              <h3 className="text-xs font-bold text-slate-400 dark:text-[#8494b0] uppercase tracking-wider mb-3.5">
-                Context Resources
-              </h3>
-              <div className="space-y-2">
-                <div className="p-3 rounded-lg border border-slate-100 dark:border-[#1a2233]/40 bg-slate-50/50 dark:bg-amber-950/5 flex items-start gap-3">
-                  <Cpu className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                      {modelUsed || "Gemini 2.5 Flash"}
-                    </span>
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500">Active Translation Model</span>
-                  </div>
-                </div>
-
-                {uploadedFile ? (
-                  <div className="p-3 rounded-lg border border-slate-100 dark:border-[#1a2233]/40 bg-slate-50/50 dark:bg-amber-950/5 flex items-start gap-3">
-                    <FileCode className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{uploadedFile.name}</span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">{(uploadedFile.size / 1024).toFixed(1)} KB · File Mapped</span>
-                    </div>
-                  </div>
-                ) : gistSource ? (
-                  <div className="p-3 rounded-lg border border-slate-100 dark:border-[#1a2233]/40 bg-slate-50/50 dark:bg-amber-950/5 flex items-start gap-3">
-                    <GithubIcon className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{gistSource.filename}</span>
-                      <span className="text-[10px] text-slate-400 dark:text-slate-500">Gist Mapped ({gistSource.username})</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-lg border border-slate-100 dark:border-amber-600/5 bg-slate-50/50 dark:bg-amber-950/5 text-center text-xs font-medium text-slate-400 dark:text-slate-500">
-                    No active source files loaded.
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Security Protocol */}
-            <div className="border-t border-slate-100 dark:border-amber-600/10 pt-5 mt-auto">
-              <div className="bg-amber-500/5 border border-amber-600/10 rounded-xl p-4">
-                <div className="flex items-center gap-2 mb-1.5 text-amber-600 dark:text-amber-500">
-                  <ShieldCheck className="h-4 w-4" />
-                  <span className="text-xs font-bold uppercase tracking-tight">Security Guard</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
-                  End-to-end data transmission is encrypted. Content redacted for PII parameters prior to engine execution. Zero retention active.
-                </p>
-              </div>
-            </div>
-            
-          </aside>
         </div>
       </div>
     </div>

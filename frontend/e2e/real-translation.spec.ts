@@ -133,7 +133,7 @@ int main() {
   await saveBtn.click();
   
   // 4. Verify that the sync warning banner has appeared
-  const syncBanner = page.locator('text=Modified English lines detected.');
+  const syncBanner = page.locator('text=Modified explanations detected');
   await expect(syncBanner).toBeVisible({ timeout: 5000 });
   
   // 5. Trigger sync to code

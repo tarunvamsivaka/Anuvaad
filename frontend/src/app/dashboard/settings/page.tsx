@@ -67,12 +67,7 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  // Stitch Connectivity Mock states
-  const [autoSwitch, setAutoSwitch] = useState(true);
-  const [backgroundUpdates, setBackgroundUpdates] = useState(true);
-  const [preferLocal, setPreferLocal] = useState(false);
-  const [localModel, setLocalModel] = useState("llama3");
-  const [reloadingModel, setReloadingModel] = useState(false);
+
 
   useEffect(() => {
     if (user?.user_metadata?.full_name) {
@@ -230,32 +225,7 @@ export default function SettingsPage() {
     }
   }
 
-  const handleModelChange = (val: string) => {
-    setLocalModel(val);
-    setReloadingModel(true);
-    const toastId = toast.loading(`Loading model weights for ${val === 'llama3' ? 'Llama 3 (8B)' : val === 'mistral' ? 'Mistral (7B)' : 'Phi-3 (Mini)'} into VRAM...`);
-    setTimeout(() => {
-      setReloadingModel(false);
-      toast.success("Model weights hot-swapped in VRAM successfully.", { id: toastId });
-    }, 1500);
-  };
 
-  // VRAM specifications depending on simulated model selection
-  const getVramUsage = () => {
-    if (reloadingModel) return { text: "Loading...", val: 0, percent: "0%" };
-    switch (localModel) {
-      case "llama3":
-        return { text: "5.2 GB / 8 GB", val: 5.2, percent: "65%" };
-      case "mistral":
-        return { text: "4.5 GB / 8 GB", val: 4.5, percent: "56%" };
-      case "phi3":
-        return { text: "2.1 GB / 8 GB", val: 2.1, percent: "26%" };
-      default:
-        return { text: "0 GB / 8 GB", val: 0, percent: "0%" };
-    }
-  };
-
-  const vram = getVramUsage();
 
   return (
     <div className="min-h-screen bg-[#030303] text-slate-100 pb-20">
@@ -266,24 +236,8 @@ export default function SettingsPage() {
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             <h1 className="text-base font-bold uppercase tracking-wider text-slate-200">
-              System Settings & Connectivity
+              System Settings
             </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-amber-600/20 hover:border-amber-500/40 text-xs font-bold text-amber-500 bg-amber-950/10 hover:bg-amber-950/20 gap-2 h-9"
-              onClick={() => {
-                const id = toast.loading("Checking for remote weight optimizations...");
-                setTimeout(() => {
-                  toast.success("All indices synchronized. System operational.", { id });
-                }, 1000);
-              }}
-            >
-              <Activity className="h-3.5 w-3.5" />
-              Sync Indices
-            </Button>
           </div>
         </div>
       </header>
@@ -296,126 +250,7 @@ export default function SettingsPage() {
           {/* LEFT COLUMN: Main Configurations (8 cols) */}
           <div className="lg:col-span-8 space-y-8">
             
-            {/* STITCH: Adaptive Connectivity & Controller */}
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-              
-              <div className="flex items-center gap-3 mb-6">
-                <Network className="h-5 w-5 text-amber-500" />
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
-                    Adaptive Controller
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Configure the hybrid orchestration framework balancing local privacy with cloud scalability.
-                  </p>
-                </div>
-              </div>
 
-              <div className="divide-y divide-slate-800/50">
-                {/* Switch 1: Auto Switching */}
-                <div className="py-5 flex items-start justify-between gap-6 first:pt-0">
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-slate-200">Automatic Network Switching</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Toggle automatically between latency-optimized cloud execution and zero-retention local pipelines.
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                    <input 
-                      type="checkbox" 
-                      checked={autoSwitch} 
-                      onChange={(e) => setAutoSwitch(e.target.checked)} 
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-800 rounded-full peer peer-focus:ring-0 dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-500"></div>
-                  </label>
-                </div>
-
-                {/* Switch 2: Background Updates */}
-                <div className="py-5 flex items-start justify-between gap-6">
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-slate-200">Smart Background Updates</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Fetch weight deltas and locally indexed FAISS cache matrices dynamically when workspace is idle.
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                    <input 
-                      type="checkbox" 
-                      checked={backgroundUpdates} 
-                      onChange={(e) => setBackgroundUpdates(e.target.checked)} 
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-800 rounded-full peer peer-focus:ring-0 dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-500"></div>
-                  </label>
-                </div>
-
-                {/* Switch 3: Prefer Local */}
-                <div className="py-5 flex items-start justify-between gap-6 last:pb-0">
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-slate-200">Prefer Local Processing</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Route pipeline commands exclusively to on-device GPU/NPU weights for absolute privacy guarantees.
-                    </p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                    <input 
-                      type="checkbox" 
-                      checked={preferLocal} 
-                      onChange={(e) => setPreferLocal(e.target.checked)} 
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-800 rounded-full peer peer-focus:ring-0 dark:bg-slate-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-slate-400 after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500 peer-checked:after:bg-slate-950 peer-checked:after:border-amber-500"></div>
-                  </label>
-                </div>
-              </div>
-            </Card>
-
-            {/* STITCH: Performance Comparison Insights */}
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
-              <div className="flex items-center gap-3 mb-6">
-                <BarChart3 className="h-5 w-5 text-amber-500" />
-                <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
-                    Performance Analytics
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Real-time response comparisons between standard cloud API engines and optimized edge nodes.
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                {/* Cloud Latency Bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-bold text-slate-400 uppercase tracking-tight">Cloud Latency (Standard)</span>
-                    <span className="font-bold text-slate-300">450ms</span>
-                  </div>
-                  <div className="w-full bg-[#16161a] h-2.5 rounded-full overflow-hidden border border-slate-800/40">
-                    <div className="bg-slate-600 h-full w-[85%] rounded-full transition-all duration-500" />
-                  </div>
-                </div>
-
-                {/* Local Latency Bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="font-bold text-amber-500 uppercase tracking-tight flex items-center gap-1.5">
-                      <Sparkles className="h-3 w-3 text-amber-500 animate-pulse" /> Edge Node Latency (Optimized)
-                    </span>
-                    <span className="font-bold text-amber-500 font-extrabold">45ms</span>
-                  </div>
-                  <div className="w-full bg-[#16161a] h-2.5 rounded-full overflow-hidden border border-slate-800/40">
-                    <div className="bg-amber-500 h-full w-[12%] rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]" />
-                  </div>
-                </div>
-
-                <div className="mt-4 p-3.5 bg-amber-500/5 border border-amber-600/10 rounded-lg text-center text-xs italic text-amber-500/80 font-medium">
-                  🚀 On-device compilation and inference is currently operating 10x faster than traditional remote nodes.
-                </div>
-              </div>
-            </Card>
 
             {/* Developer API Keys */}
             <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
@@ -595,82 +430,7 @@ export default function SettingsPage() {
           {/* RIGHT COLUMN: Settings Sidebar (4 cols) */}
           <div className="lg:col-span-4 space-y-8">
             
-            {/* STITCH: Active Local Model Selector */}
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
-              
-              <div className="flex items-center gap-3 mb-5">
-                <Cpu className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500">
-                  Local Weight Modules
-                </h3>
-              </div>
 
-              <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Active Edge Model
-                  </label>
-                  <div className="relative">
-                    <select 
-                      value={localModel}
-                      onChange={(e) => handleModelChange(e.target.value)}
-                      disabled={reloadingModel}
-                      className="w-full bg-slate-950 border border-amber-600/10 rounded-lg text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500/40 focus:ring-0 text-slate-200 cursor-pointer appearance-none disabled:opacity-50"
-                    >
-                      <option value="llama3" className="bg-[#0c0c0f]">Llama 3 (8B) - Fast Pipeline</option>
-                      <option value="mistral" className="bg-[#0c0c0f]">Mistral (7B) - Balanced Core</option>
-                      <option value="phi3" className="bg-[#0c0c0f]">Phi-3 (Mini) - Ultra Efficient</option>
-                    </select>
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-lg bg-slate-950/40 border border-amber-600/5">
-                  <div className="flex justify-between text-xs mb-2">
-                    <span className="text-slate-400 font-bold uppercase tracking-tight">Active GPU VRAM</span>
-                    <span className={cn("font-bold", reloadingModel ? "text-amber-500/60 animate-pulse" : "text-amber-500")}>
-                      {vram.text}
-                    </span>
-                  </div>
-                  <div className="w-full bg-[#16161a] h-2 rounded-full overflow-hidden border border-slate-800/40">
-                    <div 
-                      className={cn("h-full bg-amber-500 rounded-full transition-all duration-500", reloadingModel ? "bg-amber-600/30 w-0" : "")} 
-                      style={{ width: vram.percent }} 
-                    />
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* STITCH: Real-time status System Health */}
-            <Card className="p-6 bg-amber-500/5 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
-              <div className="flex items-center gap-3 mb-5">
-                <ShieldCheck className="h-5 w-5 text-amber-500" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500">
-                  Secured System Status
-                </h3>
-              </div>
-
-              <div className="space-y-3.5 text-xs">
-                <div className="flex items-center justify-between border-b border-amber-600/5 pb-2.5">
-                  <span className="text-slate-400 font-medium">Encryption Cipher</span>
-                  <span className="font-bold text-green-500 flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 bg-green-500 rounded-full animate-ping" /> AES-256 Active
-                  </span>
-                </div>
-                <div className="flex items-center justify-between border-b border-amber-600/5 pb-2.5">
-                  <span className="text-slate-400 font-medium">Privacy Shield</span>
-                  <span className="font-bold text-amber-500">
-                    {preferLocal ? "Local Enforcement" : "Hybrid Redaction"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400 font-medium">Vector Index Sync</span>
-                  <span className="font-bold text-slate-300">Synchronized</span>
-                </div>
-              </div>
-            </Card>
 
             {/* Visual Identity Selection (Appearance) */}
             <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
@@ -790,15 +550,7 @@ export default function SettingsPage() {
               </div>
             </Card>
 
-            {/* Micro warning label */}
-            <div className="px-2">
-              <div className="flex gap-3 items-start">
-                <Info className="h-4 w-4 text-slate-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-slate-500 leading-relaxed font-medium">
-                  Modification of active weights takes 1-2 seconds for GPU synchronization. API queries made during synchronization are buffered on the local scheduler.
-                </p>
-              </div>
-            </div>
+
 
           </div>
 

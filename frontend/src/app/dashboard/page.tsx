@@ -74,35 +74,9 @@ export default function DashboardPage() {
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const { stats, recentTranslations, isLoading } = useTranslationStats(user?.email, session?.access_token);
 
-  const [consoleLogs, setConsoleLogs] = useState<{ time: string; type: string; msg: string; color: string }[]>([]);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
-
-  useEffect(() => {
-    const baseLogs = [
-      { time: "—", type: "SYSTEM", msg: "Anuvaad translation core v2.4.0 active", color: "text-amber-400" },
-      { time: "—", type: "OK", msg: "Gemini 2.5 Flash engine mapped & ready", color: "text-emerald-400" },
-      { time: "—", type: "AUTH", msg: "Supabase secure OAuth session established", color: "text-blue-400" },
-      { time: "—", type: "SYNC", msg: "Workspace indexes synchronized", color: "text-indigo-400" },
-    ];
-    setConsoleLogs(baseLogs);
-
-    const interval = setInterval(() => {
-      const now = new Date();
-      const timeStr = now.toTimeString().split(" ")[0];
-      const liveLogs = [
-        { time: timeStr, type: "PING", msg: "Cache heartbeat OK — latency 12ms", color: "text-slate-500" },
-        { time: timeStr, type: "SYNC", msg: "Workspace synced with cloud repository", color: "text-amber-400/70" },
-        { time: timeStr, type: "READY", msg: "Translation engine warmed and ready", color: "text-emerald-400/70" },
-        { time: timeStr, type: "SEC", msg: "PII redaction layer active", color: "text-blue-400/70" },
-      ];
-      const randomLog = liveLogs[Math.floor(Math.random() * liveLogs.length)];
-      setConsoleLogs(prev => [...prev.slice(-5), randomLog]);
-    }, 12000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   // Mock 7-day activity data — replace with real data when available
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Today"];
@@ -300,59 +274,6 @@ export default function DashboardPage() {
 
           {/* Right col — System Console + Recent Translations */}
           <div className="xl:col-span-8 space-y-5">
-
-            {/* System Console */}
-            <Card className="p-5 dark:bg-[#080c14] border border-slate-200 dark:border-amber-500/8">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Terminal className="h-3.5 w-3.5 text-amber-500" />
-                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-500">System Console</h2>
-                </div>
-                <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-2.5 py-1">
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                  </span>
-                  <span className="text-[9px] font-bold uppercase tracking-widest text-emerald-400">All Systems Active</span>
-                </div>
-              </div>
-
-              {/* System indicators */}
-              <div className="grid grid-cols-3 gap-2.5 mb-4">
-                {[
-                  { icon: Cpu, label: "AI Engine", value: "Gemini 2.5 Flash", ok: true },
-                  { icon: Layers, label: "PII Redaction", value: "Active", ok: true },
-                  { icon: ShieldCheck, label: "DB Connection", value: "Online", ok: true },
-                ].map(({ icon: Icon, label, value, ok }) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-2.5 rounded-xl border border-white/5 dark:bg-white/3 bg-slate-50 p-2.5"
-                  >
-                    <div className="h-7 w-7 shrink-0 flex items-center justify-center rounded-lg bg-amber-500/10">
-                      <Icon className="h-3.5 w-3.5 text-amber-500" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 leading-none">{label}</p>
-                      <p className="text-[11px] font-bold text-slate-200 dark:text-white mt-0.5 leading-none flex items-center gap-1">
-                        {ok && <span className="h-1 w-1 rounded-full bg-emerald-400 shrink-0" />}
-                        {value}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Log panel */}
-              <div className="terminal-panel rounded-xl p-3.5 h-[120px] overflow-y-auto space-y-2">
-                {consoleLogs.map((log, i) => (
-                  <div key={i} className="flex items-start gap-2.5 text-[11px] animate-in fade-in duration-300">
-                    <span className="font-mono text-slate-700 shrink-0 font-bold">[{log.time}]</span>
-                    <span className={cn("font-mono font-bold shrink-0 w-14", log.color)}>{log.type}</span>
-                    <span className="font-mono text-slate-400 truncate">{log.msg}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
 
             {/* Recent Translations */}
             <Card className="dark:bg-[#0c0f1a] border border-slate-200 dark:border-amber-500/8">

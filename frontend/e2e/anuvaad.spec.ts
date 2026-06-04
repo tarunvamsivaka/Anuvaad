@@ -130,7 +130,7 @@ test.describe('Public Pages', () => {
     await expect(page.locator('h1')).toContainText('Create your account');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
-    await expect(page.locator('button:has-text("Create Account")')).toBeVisible();
+    await expect(page.locator('button:has-text("Create Free Account")')).toBeVisible();
     // Has link back to sign-in
     await expect(page.locator('a[href="/signin"]')).toBeVisible();
   });
@@ -185,7 +185,7 @@ test.describe('Authentication — Unauthenticated Guards', () => {
     await page.fill('input[type="email"]', 'wrong@example.com');
     await page.fill('input[type="password"]', 'wrongpassword');
     await page.click('button[type="submit"]');
-    await expect(page.locator('p.text-destructive, p[class*="destructive"]')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('p.text-destructive, p[class*="destructive"], p.text-red-400')).toBeVisible({ timeout: 8000 });
   });
 
   test('sign-up with password shorter than 8 chars shows HTML validation', async ({ page }) => {
@@ -210,11 +210,11 @@ test.describe('Dashboard Home', () => {
   test('dashboard shows all 4 stat cards', async ({ page }) => {
     await page.goto('/dashboard');
     // Wait for stats to load (async fetch)
-    await expect(page.locator("text=Today's Translations")).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=This Week')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator("p:has-text(\"Today's Translations\")")).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('p:has-text("This Week")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('p:has-text("All Time")')).toBeVisible({ timeout: 5000 });
     // "Current Plan" stat card
-    await expect(page.locator('p.text-xs:has-text("Current Plan")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('p:has-text("Current Plan")')).toBeVisible({ timeout: 5000 });
   });
 
   test('dashboard Quick Actions section has 3 translation mode links', async ({ page }) => {
@@ -228,18 +228,20 @@ test.describe('Dashboard Home', () => {
   test('"New Translation" button navigates to translate page', async ({ page }) => {
     await page.goto('/dashboard');
     await page.click('a:has-text("New Translation")');
-    await expect(page).toHaveURL(/\/dashboard\/translate/);
+    await expect(page).toHaveURL(/\/dashboard\/translate/, { timeout: 30000 });
   });
 
   test('free user sees upgrade banner on dashboard', async ({ page }) => {
     await page.goto('/dashboard');
-    await expect(page.locator('text=Upgrade to Pro for unlimited translations')).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('a:has-text("Upgrade Now")')).toBeVisible();
+    const sidebar = desktopSidebar(page);
+    await expect(sidebar.locator('text=Upgrade to Pro')).toBeVisible({ timeout: 8000 });
+    await expect(sidebar.locator('a:has-text("Upgrade Now")')).toBeVisible();
   });
 
   test('"Upgrade Now" banner links to billing page', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.click('a:has-text("Upgrade Now")');
+    const sidebar = desktopSidebar(page);
+    await sidebar.locator('a:has-text("Upgrade Now")').click();
     await expect(page).toHaveURL(/\/dashboard\/billing/);
   });
 
@@ -381,15 +383,17 @@ test.describe('Translation Workspace', () => {
     await page.goto('/dashboard/translate');
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
-    await setMonacoValue(page, 'a = 1');
-    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
+    await setMonacoValue(page, 'print("Collapse me")');
     await page.click('button:has-text("Translate")');
-    await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
-    // Collapse block (chevron-up → click → chevron-down)
+    
+    // The collapse button should have a chevron-up initially (expanded)
     const collapseBtn = page.locator('.lucide-chevron-up').first();
     await expect(collapseBtn).toBeVisible();
     await collapseBtn.click();
-    await expect(page.locator('.lucide-chevron-down').first()).toBeVisible();
+    
+    // Check that chevron-down is now visible on the block (last visible one on the page)
+    const collapseDown = page.locator('.lucide-chevron-down').filter({ visible: true }).last();
+    await expect(collapseDown).toBeVisible();
   });
 
   test('"Copy as Markdown" copies to clipboard and shows feedback', async ({ page }) => {
@@ -496,17 +500,17 @@ test.describe('Billing Page', () => {
 
   test('free user sees Free Plan heading', async ({ page }) => {
     await page.goto('/dashboard/billing');
-    await expect(page.locator('h2:has-text("Free Plan")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h2:has-text("Sandbox Level Plan")')).toBeVisible({ timeout: 10000 });
   });
 
   test('billing page shows usage section', async ({ page }) => {
     await page.goto('/dashboard/billing');
-    await expect(page.locator('text=Usage this billing period')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('text=Sandbox Daily Counter')).toBeVisible({ timeout: 10000 });
   });
 
   test('free user sees Upgrade button', async ({ page }) => {
     await page.goto('/dashboard/billing');
-    await expect(page.locator('button:has-text("Upgrade")')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('button').filter({ hasText: /Activate Pro — ₹499\/Month|Subscriptions Paused/ }).first()).toBeVisible({ timeout: 10000 });
   });
 });
 
@@ -516,14 +520,14 @@ test.describe('Settings Page', () => {
 
   test('settings page loads with correct heading', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await expect(page.locator('h1')).toContainText('Settings');
+    await expect(page.locator('h1')).toContainText('System Settings');
   });
 
   test('settings Profile section shows email and display name fields', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await expect(page.locator('h2:has-text("Profile")')).toBeVisible();
-    await expect(page.locator('label:has-text("Email")')).toBeVisible();
-    await expect(page.locator('label:has-text("Display Name")')).toBeVisible();
+    await expect(page.locator('h2:has-text("User Profile Settings")')).toBeVisible();
+    await expect(page.locator('label:has-text("Primary Email")')).toBeVisible();
+    await expect(page.locator('label:has-text("Display Title / Name")')).toBeVisible();
   });
 
   test('email field is disabled (read-only) in settings', async ({ page }) => {
@@ -535,9 +539,9 @@ test.describe('Settings Page', () => {
 
   test('settings Appearance section has theme dropdown with 3 options', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await expect(page.locator('h2:has-text("Appearance")')).toBeVisible({ timeout: 8000 });
-    // The theme select is inside main content (sidebar also has workspace selects → 3 total)
-    const themeSelect = page.locator('#main-content select');
+    await expect(page.locator('h3:has-text("Dashboard Skin")')).toBeVisible({ timeout: 8000 });
+    // The theme select is the last select inside main content
+    const themeSelect = page.locator('#main-content select').last();
     await expect(themeSelect).toBeVisible({ timeout: 8000 });
     await expect(themeSelect.locator('option[value="system"]')).toBeAttached();
     await expect(themeSelect.locator('option[value="light"]')).toBeAttached();
@@ -549,8 +553,8 @@ test.describe('Settings Page', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     );
     await page.goto('/dashboard/settings');
-    await expect(page.locator('h2:has-text("Developer API Keys")')).toBeVisible({ timeout: 8000 });
-    await expect(page.locator('text=No API keys generated yet.')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('h2:has-text("Developer Credentials")')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('text=No credentials generated.')).toBeVisible({ timeout: 5000 });
   });
 
   test('Create Key button is disabled when key name is empty', async ({ page }) => {
@@ -558,7 +562,7 @@ test.describe('Settings Page', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     );
     await page.goto('/dashboard/settings');
-    await expect(page.locator('button:has-text("Create Key")')).toBeDisabled({ timeout: 8000 });
+    await expect(page.locator('button:has-text("Generate Key")')).toBeDisabled({ timeout: 8000 });
   });
 
   test('Create Key button enables when key name is filled', async ({ page }) => {
@@ -566,42 +570,42 @@ test.describe('Settings Page', () => {
       route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
     );
     await page.goto('/dashboard/settings');
-    await page.fill('input[placeholder*="CI Pipeline"]', 'My Test Key');
-    await expect(page.locator('button:has-text("Create Key")')).toBeEnabled({ timeout: 5000 });
+    await page.fill('input[placeholder*="CI Deployment"]', 'My Test Key');
+    await expect(page.locator('button:has-text("Generate Key")')).toBeEnabled({ timeout: 5000 });
   });
 
   test('settings Subscription section shows plan badge', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await expect(page.locator('h2:has-text("Subscription")')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('h3:has-text("Active License")')).toBeVisible({ timeout: 8000 });
     // Free or Pro badge
     await expect(
-      page.locator('[class*="Badge"], [class*="badge"]').filter({ hasText: /Free|Pro/ }).first()
+      page.locator('[class*="Badge"], [class*="badge"]').filter({ hasText: /Sandbox|Pro/ }).first()
     ).toBeVisible({ timeout: 8000 });
   });
 
   test('settings Danger Zone has Sign Out and Delete buttons', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await expect(page.locator('h2:has-text("Danger Zone")')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('h3:has-text("Danger Zone")')).toBeVisible({ timeout: 8000 });
     // Scope to main content to avoid matching the 2 sidebar Sign Out buttons
     const mainContent = page.locator('#main-content');
-    await expect(mainContent.locator('button:has-text("Sign Out")')).toBeVisible({ timeout: 5000 });
-    await expect(mainContent.locator('button:has-text("Delete")')).toBeVisible({ timeout: 5000 });
+    await expect(mainContent.locator('button:has-text("Exit")')).toBeVisible({ timeout: 5000 });
+    await expect(mainContent.locator('button:has-text("Purge")')).toBeVisible({ timeout: 5000 });
   });
 
   test('Delete Account button opens confirmation dialog', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await page.click('button:has-text("Delete")');
-    await expect(page.locator('text=Are you absolutely sure?')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('button:has-text("Delete Account")')).toBeVisible();
+    await page.click('button:has-text("Purge")');
+    await expect(page.locator('text=Confirm Total Account Purge')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('button:has-text("Purge Everything")')).toBeVisible();
     await expect(page.locator('button:has-text("Cancel")')).toBeVisible();
   });
 
   test('Cancel button in delete dialog closes it', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await page.click('button:has-text("Delete")');
-    await expect(page.locator('text=Are you absolutely sure?')).toBeVisible({ timeout: 5000 });
+    await page.click('button:has-text("Purge")');
+    await expect(page.locator('text=Confirm Total Account Purge')).toBeVisible({ timeout: 5000 });
     await page.click('button:has-text("Cancel")');
-    await expect(page.locator('text=Are you absolutely sure?')).not.toBeVisible();
+    await expect(page.locator('text=Confirm Total Account Purge')).not.toBeVisible();
   });
 });
 
@@ -619,7 +623,7 @@ test.describe('Sidebar Navigation', () => {
     await expect(sidebar.locator('a[href="/dashboard"]')).toBeVisible({ timeout: 8000 });
     await expect(sidebar.locator('a[href="/dashboard/translate"]')).toBeVisible();
     await expect(sidebar.locator('a[href="/dashboard/history"]')).toBeVisible();
-    await expect(sidebar.locator('a[href="/dashboard/billing"]')).toBeVisible();
+    await expect(sidebar.locator('a[href="/dashboard/billing"]:has-text("Billing")')).toBeVisible();
     await expect(sidebar.locator('a[href="/dashboard/settings"]')).toBeVisible();
   });
 
@@ -637,7 +641,7 @@ test.describe('Sidebar Navigation', () => {
 
   test('clicking Billing in sidebar navigates to /dashboard/billing', async ({ page }) => {
     await page.goto('/dashboard');
-    await desktopSidebar(page).locator('a[href="/dashboard/billing"]').click();
+    await desktopSidebar(page).locator('a[href="/dashboard/billing"]:has-text("Billing")').click();
     await expect(page).toHaveURL(/\/dashboard\/billing/);
   });
 

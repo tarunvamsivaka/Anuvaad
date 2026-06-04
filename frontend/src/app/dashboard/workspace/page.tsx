@@ -222,7 +222,6 @@ export default function WorkspacePage() {
   }
 
   // Active workspace view
-  const ownerCount = members.filter(m => m.role === "owner").length;
   const memberCount = members.length;
 
   return (
@@ -247,22 +246,7 @@ export default function WorkspacePage() {
       </header>
 
       <div className="p-5 lg:p-6 max-w-4xl mx-auto space-y-5">
-        {/* Workspace stats */}
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { label: "Members", value: memberCount, icon: Users, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
-            { label: "Owners", value: ownerCount, icon: Crown, color: "text-orange-400 bg-orange-500/10 border-orange-500/20" },
-            { label: "Role Levels", value: 3, icon: Shield, color: "text-violet-400 bg-violet-500/10 border-violet-500/20" },
-          ].map(({ label, value, icon: Icon, color }) => (
-            <Card key={label} className="dark:bg-[#0c0f1a] border border-slate-100 dark:border-amber-500/8 p-4">
-              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border mb-3", color)}>
-                <Icon className="h-4 w-4" />
-              </div>
-              <p className="text-2xl font-black text-slate-800 dark:text-white">{value}</p>
-              <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 dark:text-slate-600 mt-0.5">{label}</p>
-            </Card>
-          ))}
-        </div>
+
 
         {/* Invite form */}
         <Card className="dark:bg-[#0c0f1a] border border-slate-100 dark:border-amber-500/8 overflow-hidden">

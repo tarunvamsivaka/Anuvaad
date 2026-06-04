@@ -16,17 +16,17 @@ test.describe('Billing & Subscription Flow', () => {
     await expect(page.locator('h1')).toContainText('Billing');
     
     // Check for Free Plan text in the main card heading (avoids collapsed sidebar element)
-    await expect(page.locator('h2:has-text("Free Plan")')).toBeVisible();
+    await expect(page.locator('h2:has-text("Sandbox Level Plan")')).toBeVisible();
     
     // Ensure the usage indicator is visible
-    await expect(page.locator('text=Usage this billing period')).toBeVisible();
+    await expect(page.locator('text=Sandbox Daily Counter')).toBeVisible();
   });
 
   test('upgrade button is visible for free users and hidden for pro users', async ({ page }) => {
     await page.goto('/dashboard/billing');
     
-    // The upgrade button (either ₹499/month or paused during launch) should be visible for our test free user
-    const upgradeBtn = page.locator('button').filter({ hasText: /Upgrade — ₹499\/month|Upgrades Paused/ }).first();
+    // The upgrade button (either ₹499/Month or paused during launch) should be visible for our test free user
+    const upgradeBtn = page.locator('button').filter({ hasText: /Activate Pro — ₹499\/Month|Subscriptions Paused/ }).first();
     await expect(upgradeBtn).toBeVisible();
 
     // To test the "hidden for pro users" part, we mock the backend subscription-status endpoint
@@ -40,7 +40,7 @@ test.describe('Billing & Subscription Flow', () => {
     await page.goto('/dashboard/billing');
 
     // The button should now be hidden
-    await expect(page.locator('button').filter({ hasText: /Upgrade — ₹499\/month|Upgrades Paused/ })).toBeHidden();
+    await expect(page.locator('button').filter({ hasText: /Activate Pro — ₹499\/Month|Subscriptions Paused/ })).toBeHidden();
     
     // Optional: check for Manage Subscription
     // await expect(page.locator('button:has-text("Manage Subscription")')).toBeVisible();
