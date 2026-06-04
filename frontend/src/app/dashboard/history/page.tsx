@@ -106,12 +106,16 @@ export default function HistoryPage() {
           signal: controller.signal,
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
+        if (res.status === 401 || res.status === 403) {
+          return;
+        }
         if (!res.ok) throw new Error("Failed to fetch history");
         const data: HistoryItem[] = await res.json();
         if (active) setHistory(data.slice(0, 50));
       } catch (err) {
+        if (!active) return;
         if (err instanceof Error && err.name === "AbortError") return;
-        if (active) toast.error("Failed to load translation history.");
+        toast.error("Failed to load translation history.");
       } finally {
         if (active) setLoading(false);
       }

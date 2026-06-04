@@ -744,13 +744,11 @@ async def get_user_pro_status(email: str) -> bool:
         return bool(cached)
 
     sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{email}&select=plan,status"
+        "GET", f"user_subscriptions?user_email=eq.{email}&select=is_pro"
     )
     is_pro = False
     if sub and isinstance(sub, dict):
-        plan = sub.get("plan", "free")
-        status = sub.get("status", "active")
-        is_pro = plan in ("pro", "enterprise") and status in ("active", "trialing")
+        is_pro = bool(sub.get("is_pro", False))
 
     await cache.put(cache_key, is_pro, ttl=300)  # Cache for 5 minutes
     return is_pro
@@ -2899,14 +2897,14 @@ async def create_portal_session(payload: PortalPayload):
         raise HTTPException(status_code=502, detail="Could not verify authentication")
     sub = await supabase_request(
         "GET",
-        f"user_subscriptions?user_email=eq.{user_email}&select=stripe_subscription_id,plan,status",
+        f"user_subscriptions?user_email=eq.{user_email}&select=stripe_subscription_id,is_pro",
     )
-    if not sub or not isinstance(sub, dict) or sub.get("plan") != "pro":
+    if not sub or not isinstance(sub, dict) or not sub.get("is_pro"):
         raise HTTPException(status_code=404, detail="No active Pro subscription found.")
     return {
         "subscription_id": sub.get("stripe_subscription_id", ""),
-        "plan": sub.get("plan", "free"),
-        "status": sub.get("status", ""),
+        "plan": "pro",
+        "status": "active",
         "message": "To cancel your subscription, email support@anuvaad.dev with your subscription ID.",
     }
 
@@ -3039,8 +3037,7 @@ async def verify_payment(payload: VerifyPaymentPayload):
                 {
                     "user_email": user_email,
                     "stripe_subscription_id": payload.razorpay_subscription_id,
-                    "plan": "pro",
-                    "status": "active",
+                    "is_pro": True,
                     "onboarded": False,
                 },
             )
@@ -3068,8 +3065,7 @@ async def verify_payment(payload: VerifyPaymentPayload):
                     {
                         "user_email": user_email,
                         "credits": amount,
-                        "plan": "free",
-                        "status": "active",
+                        "is_pro": False,
                         "onboarded": False,
                     },
                 )
@@ -3150,8 +3146,7 @@ async def razorpay_webhook(request: Request):
                 {
                     "user_email": user_email,
                     "stripe_subscription_id": subscription_id,
-                    "plan": "pro",
-                    "status": "active",
+                    "is_pro": True,
                     "onboarded": False,
                 },
             )
@@ -3171,7 +3166,7 @@ async def razorpay_webhook(request: Request):
             await supabase_request(
                 "PATCH",
                 f"user_subscriptions?stripe_subscription_id=eq.{subscription_id}",
-                {"status": "active", "plan": "pro"},
+                {"is_pro": True},
             )
 
     elif event_type in ("subscription.cancelled", "subscription.completed"):
@@ -3185,7 +3180,7 @@ async def razorpay_webhook(request: Request):
         await supabase_request(
             "PATCH",
             f"user_subscriptions?stripe_subscription_id=eq.{subscription_id}",
-            {"plan": "free", "status": "cancelled"},
+            {"is_pro": False},
         )
 
     elif event_type == "payment.failed":
@@ -3196,7 +3191,7 @@ async def razorpay_webhook(request: Request):
             await supabase_request(
                 "PATCH",
                 f"user_subscriptions?user_email=eq.{customer_email}",
-                {"status": "past_due"},
+                {"is_pro": False},
             )
 
     else:
@@ -3239,13 +3234,13 @@ async def check_subscription_status(payload: SubscriptionCheckPayload):
 
     # Look up subscription in Supabase
     sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{user_email}&select=plan,status"
+        "GET", f"user_subscriptions?user_email=eq.{user_email}&select=is_pro"
     )
 
     if sub and isinstance(sub, dict):
-        plan = sub.get("plan", "free")
-        status = sub.get("status", "active")
-        is_pro = plan in ("pro", "enterprise") and status in ("active", "trialing")
+        is_pro = bool(sub.get("is_pro", False))
+        plan = "pro" if is_pro else "free"
+        status = "active"
     else:
         plan = "free"
         status = "active"

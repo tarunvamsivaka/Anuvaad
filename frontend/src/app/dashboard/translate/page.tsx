@@ -990,7 +990,14 @@ function TranslatePageContent() {
                   {/* Drag & drop overlay */}
                   {!input && !isTypingManually && (
                     <div
-                      {...getRootProps()}
+                      {...getRootProps({
+                        onClick: (e) => {
+                          if ((e.target as HTMLElement).closest("button")) {
+                            e.stopPropagation();
+                            return;
+                          }
+                        }
+                      })}
                       className={cn(
                         "absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200 z-10",
                         "bg-white/95 dark:bg-[#0c0c0f]/95 backdrop-blur-sm",
