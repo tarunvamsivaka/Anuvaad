@@ -228,14 +228,14 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="min-h-screen bg-[#030303] text-slate-100 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-800 dark:text-slate-100 pb-20">
       
       {/* Premium Header */}
-      <header className="sticky top-0 z-20 border-b border-amber-600/10 bg-[#030303]/80 backdrop-blur-md">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-[#080c14]/80 backdrop-blur-md">
         <div className="flex h-16 items-center justify-between px-8 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <h1 className="text-base font-bold uppercase tracking-wider text-slate-200">
+            <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
               System Settings
             </h1>
           </div>
@@ -253,7 +253,7 @@ export default function SettingsPage() {
 
 
             {/* Developer API Keys */}
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Key className="h-5 w-5 text-amber-500" />
@@ -261,7 +261,7 @@ export default function SettingsPage() {
                     <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
                       Developer Credentials
                     </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       Integrate Anuvaad directly with CLI routines, scripts, or continuous deployment pipelines.
                     </p>
                   </div>
@@ -276,18 +276,18 @@ export default function SettingsPage() {
                       <h3 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
                         Capture API Key
                       </h3>
-                      <p className="text-[11px] text-slate-400 mt-1">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                         For system protection, this bearer secret is displayed once. Retain this credentials packet in a secure secrets manager.
                       </p>
                       <div className="mt-3 flex items-center gap-2">
-                        <code className="text-xs bg-slate-950/80 border border-amber-600/20 px-3 py-2 rounded flex-1 font-mono break-all text-amber-200">
+                        <code className="text-xs bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-amber-600/20 px-3 py-2 rounded flex-1 font-mono break-all text-amber-600 dark:text-amber-200">
                           {generatedKey}
                         </code>
                         <Button 
                           size="sm" 
                           variant="secondary" 
                           onClick={handleCopy} 
-                          className="shrink-0 h-9 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/50"
+                          className="shrink-0 h-9 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700/50"
                         >
                           {copied ? <Check className="h-4 w-4 text-emerald-500 animate-scale" /> : <Copy className="h-4 w-4" />}
                         </Button>
@@ -295,7 +295,7 @@ export default function SettingsPage() {
                       <Button 
                         size="sm" 
                         variant="ghost" 
-                        className="mt-3 text-xs text-slate-400 hover:text-slate-200 h-8" 
+                        className="mt-3 text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 h-8" 
                         onClick={() => setGeneratedKey("")}
                       >
                         I have archived this secret safely
@@ -307,7 +307,7 @@ export default function SettingsPage() {
 
               <div className="flex flex-col md:flex-row items-end gap-3 mb-6">
                 <div className="flex-1 w-full">
-                  <label htmlFor="settings-key-name" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label htmlFor="settings-key-name" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Key Name / Scope
                   </label>
                   <Input 
@@ -315,7 +315,7 @@ export default function SettingsPage() {
                     placeholder="e.g. CI Deployment, Local Dev Client" 
                     value={newKeyName}
                     onChange={(e) => setNewKeyName(e.target.value)}
-                    className="mt-1.5 text-sm bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-100 placeholder:text-slate-600" 
+                    className="mt-1.5 text-sm bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600" 
                   />
                 </div>
                 <Button 
@@ -329,18 +329,18 @@ export default function SettingsPage() {
                 </Button>
               </div>
 
-              <div className="border border-amber-600/10 rounded-lg overflow-hidden bg-slate-950/20">
+              <div className="border border-slate-200 dark:border-amber-600/10 rounded-lg overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-[#0c0c0f] border-b border-amber-600/10">
+                    <thead className="bg-slate-100 dark:bg-[#0c0c0f] border-b border-slate-200 dark:border-amber-600/10">
                       <tr>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400">Name</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400">Scope Prefix</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400">Created At</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-400 text-right">Actions</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Scope Prefix</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Created At</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-amber-600/10 text-slate-300">
+                    <tbody className="divide-y divide-slate-200 dark:divide-amber-600/10 text-slate-700 dark:text-slate-300">
                       {apiKeys.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-4 py-8 text-center text-xs text-slate-500 italic">
@@ -349,10 +349,10 @@ export default function SettingsPage() {
                         </tr>
                       ) : (
                         apiKeys.map(key => (
-                          <tr key={key.id} className="hover:bg-slate-900/20">
-                            <td className="px-4 py-3.5 font-bold text-slate-200">{key.name}</td>
-                            <td className="px-4 py-3.5 font-mono text-[11px] text-amber-500/80">{key.key_prefix}</td>
-                            <td className="px-4 py-3.5 text-slate-400">
+                          <tr key={key.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20">
+                            <td className="px-4 py-3.5 font-bold text-slate-800 dark:text-slate-200">{key.name}</td>
+                            <td className="px-4 py-3.5 font-mono text-[11px] text-amber-600 dark:text-amber-500/80">{key.key_prefix}</td>
+                            <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400">
                               {new Date(key.created_at).toLocaleDateString()}
                             </td>
                             <td className="px-4 py-3.5 text-right">
@@ -360,7 +360,7 @@ export default function SettingsPage() {
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={() => revokeApiKey(key.id)} 
-                                className="h-7 px-2.5 text-red-400 hover:text-red-300 hover:bg-red-950/30 text-xs font-bold uppercase tracking-wider"
+                                className="h-7 px-2.5 text-red-500 hover:text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/30 text-xs font-bold uppercase tracking-wider"
                               >
                                 Revoke
                               </Button>
@@ -375,14 +375,14 @@ export default function SettingsPage() {
             </Card>
 
             {/* Profile Credentials */}
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center gap-3 mb-6">
                 <User className="h-5 w-5 text-amber-500" />
                 <div>
                   <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
                     User Profile Settings
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Modify parameters relating to your personal display configuration.
                   </p>
                 </div>
@@ -390,18 +390,18 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                 <div className="space-y-1">
-                  <label htmlFor="settings-email" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label htmlFor="settings-email" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Primary Email
                   </label>
                   <Input 
                     id="settings-email" 
                     value={user?.email || ""} 
                     disabled 
-                    className="mt-1.5 text-sm bg-slate-900/50 border-amber-600/5 text-slate-400 cursor-not-allowed select-all" 
+                    className="mt-1.5 text-sm bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-amber-600/5 text-slate-500 dark:text-slate-400 cursor-not-allowed select-all" 
                   />
                 </div>
                 <div className="space-y-1">
-                  <label htmlFor="settings-display-name" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <label htmlFor="settings-display-name" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Display Title / Name
                   </label>
                   <Input
@@ -409,7 +409,7 @@ export default function SettingsPage() {
                     placeholder="Your Full Name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="mt-1.5 text-sm bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-100 placeholder:text-slate-600"
+                    className="mt-1.5 text-sm bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600"
                   />
                 </div>
               </div>
@@ -433,7 +433,7 @@ export default function SettingsPage() {
 
 
             {/* Visual Identity Selection (Appearance) */}
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center gap-3 mb-4">
                 <Palette className="h-5 w-5 text-amber-500" />
                 <div>
@@ -442,68 +442,68 @@ export default function SettingsPage() {
                   </h3>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
                 Choose a visual mode to align your translation dashboard appearance.
               </p>
               <div className="relative">
                 <select
                   value={theme || "system"}
                   onChange={(e) => setTheme(e.target.value)}
-                  className="w-full bg-slate-950 border border-amber-600/10 rounded-lg text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500/40 focus:ring-0 text-slate-200 cursor-pointer appearance-none"
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-amber-600/10 rounded-lg text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500/40 focus:ring-0 text-slate-800 dark:text-slate-200 cursor-pointer appearance-none"
                 >
-                  <option value="system" className="bg-[#0c0c0f]">System Adaptive</option>
-                  <option value="light" className="bg-[#0c0c0f]">High Contrast Light</option>
-                  <option value="dark" className="bg-[#0c0c0f]">Cinematic Dark Void</option>
+                  <option value="system" className="bg-[#0c0c0f] text-slate-200">System Adaptive</option>
+                  <option value="light" className="bg-white text-slate-800 dark:bg-[#0c0c0f] dark:text-slate-200">High Contrast Light</option>
+                  <option value="dark" className="bg-[#0c0c0f] text-slate-200">Cinematic Dark Void</option>
                 </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-450 dark:text-slate-400 text-xs">▼</span>
               </div>
             </Card>
 
             {/* Subscription status */}
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Active License
                   </h3>
-                  <p className="mt-1 text-[11px] text-slate-400 leading-tight">
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                     {isPro ? "Pro Subscription Pack · Unlimited weight runs" : "Developer Sandbox Tier · 10 runs/day"}
                   </p>
                 </div>
-                <Badge className={cn("text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 shrink-0 ml-3", isPro ? "bg-amber-500 text-slate-950" : "bg-slate-800 text-slate-300")}>
+                <Badge className={cn("text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 shrink-0 ml-3", isPro ? "bg-amber-500 text-slate-950" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300")}>
                   {isPro ? "✦ Pro Level" : "Sandbox"}
                 </Badge>
               </div>
             </Card>
 
             {/* Danger zone / Account Actions */}
-            <Card className="border-red-950/20 p-6 bg-red-950/5 rounded-xl shadow-lg relative overflow-hidden">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-red-500 mb-4">
+            <Card className="border border-red-200 dark:border-red-950/20 p-6 bg-red-50/50 dark:bg-red-950/5 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-red-600 dark:text-red-500 mb-4">
                 Danger Zone Operations
               </h3>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between text-xs">
                   <div>
-                    <p className="font-bold text-slate-200">Revoke Session</p>
-                    <p className="text-[10px] text-slate-400">Sign out of active account on this client.</p>
+                    <p className="font-bold text-slate-800 dark:text-slate-200">Revoke Session</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Sign out of active account on this client.</p>
                   </div>
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 border-slate-700/50 hover:border-slate-600 text-slate-300 hover:text-slate-100 bg-slate-950/50 hover:bg-slate-950" 
+                    className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 border border-slate-200 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600 text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100 bg-white hover:bg-slate-50 dark:bg-slate-950/50 dark:hover:bg-slate-950" 
                     onClick={handleSignOut}
                   >
                     <LogOut className="h-3 w-3" /> Exit
                   </Button>
                 </div>
                 
-                <Separator className="bg-red-500/10" />
+                <Separator className="bg-red-200 dark:bg-red-500/10" />
                 
                 <div className="flex items-center justify-between text-xs">
                   <div>
-                    <p className="font-bold text-red-400">Purge Data & Account</p>
-                    <p className="text-[10px] text-slate-400">Irreversibly delete profile records and vector weight structures.</p>
+                    <p className="font-bold text-red-600 dark:text-red-400">Purge Data & Account</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">Irreversibly delete profile records and vector weight structures.</p>
                   </div>
                   
                   <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
@@ -511,24 +511,24 @@ export default function SettingsPage() {
                       <Button 
                         variant="destructive" 
                         size="sm" 
-                        className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 bg-red-950/20 border border-red-500/20 text-red-400 hover:bg-red-950/40 hover:text-red-300"
+                        className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 bg-red-100 border border-red-300 text-red-600 hover:bg-red-200 dark:bg-red-950/20 dark:border-red-500/20 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                       />
                     }>
                       <Trash2 className="h-3 w-3" /> Purge
                     </DialogTrigger>
-                    <DialogContent className="bg-slate-950 border border-amber-600/10 text-slate-100 rounded-lg">
+                    <DialogContent className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-amber-600/10 text-slate-900 dark:text-slate-100 rounded-lg">
                       <DialogHeader>
-                        <DialogTitle className="text-base font-bold uppercase tracking-wider text-red-400">
+                        <DialogTitle className="text-base font-bold uppercase tracking-wider text-red-500 dark:text-red-400">
                           Confirm Total Account Purge
                         </DialogTitle>
-                        <DialogDescription className="text-xs text-slate-400 leading-relaxed pt-2">
+                        <DialogDescription className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed pt-2">
                           This operation permanently destroys all developer profiles, generated client credentials, database vectors, and active settings files. This transaction is non-reversible.
                         </DialogDescription>
                       </DialogHeader>
                       <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
                         <Button 
                           variant="outline" 
-                          className="border-slate-800 text-slate-300 hover:bg-slate-900"
+                          className="border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900"
                           onClick={() => setIsDeleteDialogOpen(false)} 
                           disabled={deleting}
                         >
@@ -536,7 +536,7 @@ export default function SettingsPage() {
                         </Button>
                         <Button 
                           variant="destructive" 
-                          className="bg-red-650 hover:bg-red-600 text-white font-bold"
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold"
                           onClick={handleDeleteAccount} 
                           disabled={deleting}
                         >
@@ -545,7 +545,7 @@ export default function SettingsPage() {
                         </Button>
                       </DialogFooter>
                     </DialogContent>
-                  </Dialog>
+                  </ Dialog>
                 </div>
               </div>
             </Card>

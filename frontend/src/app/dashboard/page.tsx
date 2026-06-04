@@ -28,12 +28,12 @@ function ActivityBar({ value, max, label }: { value: number; max: number; label:
             "w-full rounded-t transition-all duration-700",
             isToday
               ? "bg-gradient-to-t from-amber-600 to-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.4)]"
-              : "bg-white/10 hover:bg-white/15"
+              : "bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/15"
           )}
           style={{ height: `${height}px` }}
         />
       </div>
-      <span className={cn("text-[9px] font-medium", isToday ? "text-amber-400" : "text-slate-600")}>{label}</span>
+      <span className={cn("text-[9px] font-medium", isToday ? "text-amber-400" : "text-slate-500 dark:text-slate-600")}>{label}</span>
     </div>
   );
 }
@@ -49,7 +49,7 @@ function QuotaRing({ used, total, isPro }: { used: number; total: number; isPro:
   return (
     <div className="relative flex items-center justify-center">
       <svg width="72" height="72" className="-rotate-90">
-        <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5" />
+        <circle cx="36" cy="36" r={r} fill="none" stroke="currentColor" className="text-slate-200 dark:text-white/5" strokeWidth="5" />
         <circle
           cx="36" cy="36" r={r} fill="none"
           stroke={color} strokeWidth="5"
@@ -60,7 +60,7 @@ function QuotaRing({ used, total, isPro }: { used: number; total: number; isPro:
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <span className="text-sm font-black text-white leading-none">
+        <span className="text-sm font-black text-slate-800 dark:text-white leading-none">
           {isPro ? "∞" : used}
         </span>
         {!isPro && <span className="text-[9px] text-slate-500 font-medium">/{total}</span>}
@@ -133,7 +133,7 @@ export default function DashboardPage() {
                 Welcome back,{" "}
                 <span className="text-amber-500 dark:text-amber-400">{firstName}</span>
               </h1>
-              <p className="text-[11px] text-slate-500 dark:text-slate-600 hidden sm:block">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:block">
                 {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
               </p>
             </div>
@@ -163,7 +163,7 @@ export default function DashboardPage() {
                 className="relative overflow-hidden p-5 dark:bg-[#0c0f1a] border border-slate-200 dark:border-amber-500/8 hover:border-amber-500/25 dark:hover:border-amber-500/25 transition-all duration-300 group shadow-sm animate-fade-up"
               >
                 <div className="flex items-start justify-between">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-600">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">
                     {stat.label}
                   </p>
                   <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg border bg-gradient-to-br", accentCls)}>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
             <Card className="dark:bg-[#0c0f1a] border border-slate-200 dark:border-amber-500/8 overflow-hidden">
               <div className="flex items-center gap-2 px-5 pt-5 pb-3">
                 <Activity className="h-3.5 w-3.5 text-amber-500" />
-                <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-500">Quick Actions</h2>
+                <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Quick Actions</h2>
               </div>
               <div className="px-4 pb-4 space-y-2">
                 {[
@@ -233,7 +233,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-3.5 w-3.5 text-amber-500" />
-                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-500">7-Day Activity</h2>
+                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">7-Day Activity</h2>
                 </div>
                 <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-600">{stats.week} this week</span>
               </div>
@@ -251,7 +251,7 @@ export default function DashboardPage() {
               <Card className="dark:bg-[#0c0f1a] border border-slate-200 dark:border-amber-500/8 p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="h-3.5 w-3.5 text-amber-500" />
-                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-500">Daily Quota</h2>
+                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Daily Quota</h2>
                 </div>
                 <div className="flex items-center gap-4">
                   <QuotaRing used={stats.today} total={10} isPro={isPro} />
@@ -280,7 +280,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between px-5 pt-5 pb-3">
                 <div className="flex items-center gap-2">
                   <FileText className="h-3.5 w-3.5 text-amber-500" />
-                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-500">Recent Translations</h2>
+                  <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400">Recent Translations</h2>
                 </div>
                 <Link
                   href="/dashboard/history"
@@ -352,7 +352,7 @@ export default function DashboardPage() {
                   <Sparkles className="h-4 w-4 text-amber-400" />
                   <h3 className="text-sm font-bold text-slate-800 dark:text-amber-400">Upgrade to Pro</h3>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-500 leading-relaxed max-w-xl">
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl">
                   Remove the daily limit, unlock priority processing, team workspaces, and translate entire codebases with higher context windows.
                 </p>
               </div>

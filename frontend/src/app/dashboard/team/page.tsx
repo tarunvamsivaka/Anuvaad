@@ -117,10 +117,10 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#030303] text-slate-100 pb-20">
-      <header className="sticky top-0 z-20 border-b border-amber-600/10 bg-[#030303]/80 backdrop-blur-md">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-800 dark:text-slate-100 pb-20">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-[#080c14]/80 backdrop-blur-md">
         <div className="flex h-16 items-center px-8 max-w-4xl mx-auto">
-          <h1 className="text-base font-bold uppercase tracking-wider text-slate-200">
+          <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
             Team Workspaces Hub
           </h1>
         </div>
@@ -128,21 +128,21 @@ export default function TeamPage() {
 
       <div className="mx-auto max-w-4xl px-8 py-8 space-y-8">
         <div>
-          <h2 className="text-xl font-extrabold uppercase tracking-tight text-slate-200">Team Clusters</h2>
-          <p className="mt-1.5 text-xs text-slate-400 leading-relaxed">
+          <h2 className="text-xl font-extrabold uppercase tracking-tight text-slate-800 dark:text-slate-200">Team Clusters</h2>
+          <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Collaborate with your team, share translation history logs, and manage unified developer keys.
           </p>
         </div>
 
         {!activeWorkspace ? (
-          <Card className="p-8 border border-dashed border-amber-600/10 bg-amber-500/5 rounded-xl shadow-lg">
+          <Card className="p-8 border border-dashed border-slate-200 dark:border-amber-600/10 bg-white dark:bg-amber-500/5 rounded-xl shadow-md dark:shadow-lg">
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="h-12 w-12 rounded-full bg-slate-950 border border-amber-600/15 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-amber-600/15 flex items-center justify-center">
                 <Building className="h-6 w-6 text-amber-500" />
               </div>
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Personal Sandbox Workspace</h3>
-                <p className="text-xs text-slate-400 mt-2 max-w-md leading-relaxed">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">Personal Sandbox Workspace</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 max-w-md leading-relaxed">
                   Translations and scope keys created here are locked to your profile. Provision a team workspace below to share vectors.
                 </p>
               </div>
@@ -153,7 +153,7 @@ export default function TeamPage() {
                   value={newWorkspaceName} 
                   onChange={e => setNewWorkspaceName(e.target.value)}
                   required 
-                  className="flex-1 text-xs uppercase tracking-wider font-semibold bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 text-slate-100 placeholder:text-slate-650 h-10"
+                  className="flex-1 text-xs uppercase tracking-wider font-semibold bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-amber-600/10 focus:border-amber-500/40 focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 h-10"
                 />
                 <Button 
                   type="submit" 
@@ -168,34 +168,34 @@ export default function TeamPage() {
           </Card>
         ) : (
           <div className="space-y-8">
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
-              <div className="flex items-center gap-4 border-b border-amber-600/10 pb-4 mb-6">
-                <div className="h-10 w-10 rounded-md bg-amber-500/5 border border-amber-500/15 flex items-center justify-center text-amber-500 font-bold text-base">
+            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+              <div className="flex items-center gap-4 border-b border-slate-200 dark:border-amber-600/10 pb-4 mb-6">
+                <div className="h-10 w-10 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-base">
                   {activeWorkspace.name.charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">{activeWorkspace.name}</h2>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Active Team Core</p>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">{activeWorkspace.name}</h2>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Active Team Core</p>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
                   <Users className="h-4 w-4 text-amber-500" /> Active Operators ({members.length})
                 </h3>
                 
-                <div className="rounded-lg border border-amber-600/10 divide-y divide-amber-600/10 overflow-hidden bg-slate-950/20">
+                <div className="rounded-lg border border-slate-200 dark:border-amber-600/10 divide-y divide-slate-200 dark:divide-amber-600/10 overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
                   {members.map(m => (
-                    <div key={m.user_email} className="flex items-center justify-between p-3.5 px-5 hover:bg-slate-900/10 transition-colors">
+                    <div key={m.user_email} className="flex items-center justify-between p-3.5 px-5 hover:bg-slate-100/50 dark:hover:bg-slate-900/10 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-amber-500/5 border border-amber-500/15 flex items-center justify-center text-xs font-bold text-amber-500">
+                        <div className="h-8 w-8 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-xs font-bold text-amber-500">
                           {m.user_email.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="text-xs font-mono font-bold text-slate-350">{m.user_email}</p>
+                          <p className="text-xs font-mono font-bold text-slate-700 dark:text-slate-300">{m.user_email}</p>
                         </div>
                       </div>
-                      <Badge className="text-[9px] uppercase tracking-wider font-extrabold bg-slate-900 border border-amber-600/5 text-amber-500 px-2 py-0.5 rounded">
+                      <Badge className="text-[9px] uppercase tracking-wider font-extrabold bg-slate-100 border border-slate-200 dark:bg-slate-900 dark:border-amber-600/5 text-amber-600 dark:text-amber-500 px-2 py-0.5 rounded">
                         {m.role}
                       </Badge>
                     </div>
@@ -204,13 +204,13 @@ export default function TeamPage() {
               </div>
             </Card>
 
-            <Card className="p-6 bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <h3 className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-2.5 mb-4">
                 <UserPlus className="h-4 w-4" /> Invite Workspace Operator
               </h3>
               <form onSubmit={handleInvite} className="flex flex-col sm:flex-row gap-3 items-end max-w-lg">
                 <div className="flex-1 w-full space-y-2">
-                  <label htmlFor="invite-email-team" className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Operator Email Address</label>
+                  <label htmlFor="invite-email-team" className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Operator Email Address</label>
                   <Input 
                     id="invite-email-team"
                     type="email"
@@ -218,7 +218,7 @@ export default function TeamPage() {
                     value={inviteEmail} 
                     onChange={e => setInviteEmail(e.target.value)}
                     required 
-                    className="h-10 text-xs bg-slate-950/40 border-amber-600/10 focus:border-amber-500/40 focus:ring-0 text-slate-100 placeholder:text-slate-650"
+                    className="h-10 text-xs bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-amber-600/10 focus:border-amber-500/40 focus:ring-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600"
                   />
                 </div>
                 <Button 
