@@ -10,3 +10,4 @@ redis>=5.0.0
 sentry-sdk[fastapi]
 python-multipart>=0.0.9
 resend>=2.0.0
+supabase>=2.4.0
