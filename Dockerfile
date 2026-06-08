@@ -33,6 +33,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend
 COPY main.py .
+COPY app/ ./app
 
 # Copy built frontend
 COPY --from=frontend-builder /frontend/.next ./frontend/.next
