@@ -12,6 +12,10 @@ const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Ed
   ssr: false,
   loading: () => <Skeleton className="h-full w-full min-h-[500px] rounded-lg" />,
 });
+const DiffEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.DiffEditor), {
+  ssr: false,
+  loading: () => <Skeleton className="h-full w-full min-h-[500px] rounded-lg" />,
+});
 const MotionDiv = dynamic(() => import("framer-motion").then((mod) => mod.motion.div), {
   ssr: false,
 });
@@ -21,8 +25,9 @@ import { Input } from "@/components/ui/input";
 import {
   ArrowRight, Copy, Download, Loader2, RotateCcw,
   Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings, Zap,
-  ChevronDown, ChevronUp, X, Upload, FileCode, Pencil
+  ChevronDown, ChevronUp, X, Upload, FileCode, Pencil, Diff
 } from "lucide-react";
+import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
@@ -394,6 +399,7 @@ function TranslatePageContent() {
   const [rawError, setRawError] = useState("");
   const [copied, setCopied] = useState(false);
   const [modelUsed, setModelUsed] = useState<string | null>(null);
+  const [viewType, setViewType] = useState<"blocks" | "diff">("blocks");
 
   const onFileDrop = useCallback((acceptedFiles: globalThis.File[]) => {
     const file = acceptedFiles[0];
@@ -621,6 +627,12 @@ function TranslatePageContent() {
           model_used: completeBlocks[0]?.model_used || "unknown",
           latency_ms: latency,
           from_cache: false,
+        });
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.8, x: 0.8 },
+          colors: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1']
         });
       }
       
@@ -1159,6 +1171,26 @@ function TranslatePageContent() {
                 </p>
                 {outputBlocks && (
                   <div className="flex items-center gap-1.5">
+                    {mode === "code-to-code" && (
+                      <div className="flex items-center bg-slate-100 dark:bg-[#1a2233] rounded-md p-0.5 mr-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setViewType("blocks")}
+                          className={cn("h-6 px-2.5 text-[10px] rounded-sm font-bold", viewType === "blocks" ? "bg-white dark:bg-[#2c3852] shadow-sm text-blue-600 dark:text-blue-400" : "text-slate-500 hover:text-slate-700")}
+                        >
+                          Blocks
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setViewType("diff")}
+                          className={cn("h-6 gap-1 px-2.5 text-[10px] rounded-sm font-bold", viewType === "diff" ? "bg-white dark:bg-[#2c3852] shadow-sm text-blue-600 dark:text-blue-400" : "text-slate-500 hover:text-slate-700")}
+                        >
+                          <Diff className="h-3 w-3" /> Diff
+                        </Button>
+                      </div>
+                    )}
                     <Button variant="outline" size="sm" onClick={handleCopyMarkdown} className="h-7 gap-1.5 px-3 text-[10px] bg-background border-slate-200 dark:border-blue-600/20 hover:bg-slate-50 dark:hover:bg-blue-950/10 font-bold">
                       {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
                       {copied ? "Copied MD" : "Copy as Markdown"}
@@ -1227,29 +1259,46 @@ function TranslatePageContent() {
                 ) : rawError && !streamText ? (
                   <div className="p-6 text-sm text-red-500 whitespace-pre-wrap font-mono bg-red-500/5 m-4 rounded-lg border border-red-500/30">{rawError}</div>
                 ) : outputBlocks ? (
-                  <div className="p-4 flex flex-col gap-2">
-                    {outputBlocks.map((block, idx) => (
-                      <TranslationBlockCard 
-                        key={block.id || idx} 
-                        block={block} 
-                        index={idx} 
-                        onEditBlock={(newEnglish) => {
-                          const updated = [...outputBlocks];
-                          updated[idx] = { ...updated[idx], english_translation: newEnglish };
-                          setOutputBlocks(updated);
+                  viewType === "diff" && mode === "code-to-code" ? (
+                    <div className="h-full min-h-[500px] w-full p-2">
+                      <DiffEditor
+                        height="100%"
+                        original={input}
+                        modified={outputBlocks.map(b => b.code_snippet).join("\n\n")}
+                        language={languages.find(l => l.value === targetLanguage)?.monacoId || targetLanguage}
+                        theme={isDark ? "vs-dark" : "light"}
+                        options={{
+                          ...monacoOptions,
+                          readOnly: true,
+                          renderSideBySide: true,
                         }}
                       />
-                    ))}
-                    
-                    {modelUsed && (
-                      <div className="mt-4 flex items-center justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-white/5 px-3 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-blue-600/10 flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3 text-blue-500" />
-                          Generated by {modelUsed}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 flex flex-col gap-2">
+                      {outputBlocks.map((block, idx) => (
+                        <TranslationBlockCard 
+                          key={block.id || idx} 
+                          block={block} 
+                          index={idx} 
+                          onEditBlock={(newEnglish) => {
+                            const updated = [...outputBlocks];
+                            updated[idx] = { ...updated[idx], english_translation: newEnglish };
+                            setOutputBlocks(updated);
+                          }}
+                        />
+                      ))}
+                      
+                      {modelUsed && (
+                        <div className="mt-4 flex items-center justify-center">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-white/5 px-3 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-blue-600/10 flex items-center gap-1.5">
+                            <Sparkles className="h-3 w-3 text-blue-500" />
+                            Generated by {modelUsed}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )
                 ) : (
                   <div className="flex h-full min-h-[500px] items-center justify-center">
                     <div className="text-center max-w-sm px-6">

@@ -5,13 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar, Hash, Filter } from "lucide-react";
+import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar, Hash, Filter, Share2, Check } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 const modeIcons = {
   "Code → English": FileText,
@@ -34,6 +35,7 @@ interface HistoryItem {
   char_count: number;
   created_at: string;
   model_used: string;
+  is_public?: boolean;
 }
 
 function getRelativeTimeString(date: Date | string): string {
@@ -79,6 +81,7 @@ const ALL_MODES = ["All", "Code → English", "English → Code", "Code → Code
 
 export default function HistoryPage() {
   const { session } = useAuth();
+  const { activeWorkspace } = useWorkspace();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeMode, setActiveMode] = useState("All");
@@ -102,7 +105,10 @@ export default function HistoryPage() {
       setLoading(true);
       try {
         const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const res = await fetch(`${API}/api/history`, {
+        const url = activeWorkspace 
+          ? `${API}/api/history?workspace_id=${activeWorkspace.id}`
+          : `${API}/api/history`;
+        const res = await fetch(url, {
           signal: controller.signal,
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
@@ -123,7 +129,7 @@ export default function HistoryPage() {
 
     fetchHistory();
     return () => { active = false; controller.abort(); };
-  }, [session?.access_token]);
+  }, [session?.access_token, activeWorkspace?.id]);
 
   const filteredHistory = useMemo(() => {
     let items = history;
@@ -158,6 +164,37 @@ export default function HistoryPage() {
     } catch {
       setHistory(previousHistory);
       toast.error("Failed to delete translation. Please try again.");
+    }
+  const handleShare = async (e: React.MouseEvent, id: string, is_public?: boolean) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (is_public) {
+      // Already public, just copy link
+      const url = `${window.location.origin}/share/${id}`;
+      navigator.clipboard.writeText(url);
+      toast.success("Public link copied to clipboard!");
+      return;
+    }
+    
+    // Make public
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/history/${id}/share`, {
+        method: "PATCH",
+        headers: { 
+          "Authorization": `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ is_public: true })
+      });
+      if (!res.ok) throw new Error("Share failed");
+      
+      setHistory(prev => prev.map(item => item.id === id ? { ...item, is_public: true } : item));
+      const url = `${window.location.origin}/share/${id}`;
+      navigator.clipboard.writeText(url);
+      toast.success("Made public! Link copied to clipboard!");
+    } catch {
+      toast.error("Failed to share translation. Please try again.");
     }
   };
 
@@ -314,16 +351,27 @@ export default function HistoryPage() {
                           </div>
                         </div>
 
-                        {/* Delete */}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Delete translation"
-                          className="h-8 w-8 shrink-0 text-slate-300 dark:text-slate-700 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all rounded-lg"
-                          onClick={e => handleDelete(e, item.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {/* Actions */}
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Share translation"
+                            className={cn("h-8 w-8 shrink-0 hover:bg-blue-500/10 transition-all rounded-lg", item.is_public ? "text-blue-500 opacity-100" : "text-slate-300 dark:text-slate-700 hover:text-blue-400 opacity-0 group-hover:opacity-100 focus:opacity-100")}
+                            onClick={e => handleShare(e, item.id, item.is_public)}
+                          >
+                            {item.is_public ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Delete translation"
+                            className="h-8 w-8 shrink-0 text-slate-300 dark:text-slate-700 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all rounded-lg"
+                            onClick={e => handleDelete(e, item.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </Card>
                     );
                   })}

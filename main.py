@@ -2876,6 +2876,8 @@ async def create_checkout_session(payload: CheckoutPayload):
 class PortalPayload(BaseModel):
     access_token: str = Field(..., min_length=10)
 
+class ShareHistoryPayload(BaseModel):
+    is_public: bool
 
 @app.post("/api/create-portal-session")
 async def create_portal_session(payload: PortalPayload):
