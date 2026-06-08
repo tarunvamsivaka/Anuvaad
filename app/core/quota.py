@@ -313,7 +313,7 @@ async def get_user_limits_and_cooldown(
         return daily_limit, char_limit, cooldown
 
     daily_limit = int(os.getenv("LIMIT_FREE_DAILY", "10"))
-    char_limit = int(os.getenv("LIMIT_FREE_CHARS", "1000"))
+    char_limit = int(os.getenv("LIMIT_FREE_CHARS", "10000"))
     cooldown = int(os.getenv("LIMIT_FREE_COOLDOWN", "5"))
 
     if mode == "CAUTION":

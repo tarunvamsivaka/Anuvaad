@@ -43,9 +43,9 @@ class TestUserTiersAndQuotas:
 
     @pytest.mark.asyncio
     async def test_free_user_char_limit(self, client):
-        # Free user character limit is 1,000. Try 1,005 characters -> 413
+        # Free user character limit is 10,000. Try 10,005 characters -> 413
         res = client.post(
-            "/api/code-to-english", json={"raw_code": "x" * 1005, "language": "python"}
+            "/api/code-to-english", json={"raw_code": "x" * 10005, "language": "python"}
         )
         assert res.status_code == 413
         assert "exceeds the current limit" in res.json()["detail"]
@@ -56,9 +56,9 @@ class TestUserTiersAndQuotas:
         with patch("main.get_user_pro_status", return_value=True):
             res = client.post(
                 "/api/code-to-english",
-                json={"raw_code": "x" * 1005, "language": "python"},
+                json={"raw_code": "x" * 10005, "language": "python"},
             )
-            # Pro user allows up to 50K. 1005 chars should be 200 (allowed)
+            # Pro user allows up to 50K. 10005 chars should be 200 (allowed)
             assert res.status_code == 200
 
     @pytest.mark.asyncio
