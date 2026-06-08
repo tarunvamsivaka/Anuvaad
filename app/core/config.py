@@ -17,7 +17,7 @@ logger = logging.getLogger("anuvaad")
 ENV = os.getenv("ENV", "development").lower()
 _is_production = ENV == "production"
 IS_PRODUCTION = _is_production
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
 LLM_TIMEOUT = 60
 FREE_TIER_DAILY_LIMIT = 10
 GIST_MAX_SIZE = 50 * 1024

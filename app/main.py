@@ -28,14 +28,16 @@ app = FastAPI(title="Anuvaad API", lifespan=lifespan)
 
 # ── CORS CONFIGURATION ──
 _allowed_origins = [FRONTEND_URL]
-if not IS_PRODUCTION:
-    for origin in [
-        "http://localhost:3000",
-        "http://localhost:5500",
-        "http://127.0.0.1:5500",
-    ]:
-        if origin not in _allowed_origins:
-            _allowed_origins.append(origin)
+for origin in [
+    "https://getanuvaad.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+]:
+    clean_origin = origin.rstrip("/")
+    if clean_origin not in _allowed_origins:
+        _allowed_origins.append(clean_origin)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -102,12 +104,20 @@ async def csrf_origin_middleware(request: Request, call_next):
             referer = request.headers.get("Referer")
 
             authorized = False
+            allowed_list = list(_allowed_origins)
+            clean_furl = frontend_url.rstrip("/")
+            if clean_furl not in allowed_list:
+                allowed_list.append(clean_furl)
+
             if origin:
-                if origin == frontend_url:
+                clean_origin = origin.rstrip("/")
+                if clean_origin in allowed_list:
                     authorized = True
             elif referer:
-                if referer.startswith(frontend_url):
-                    authorized = True
+                for allowed in allowed_list:
+                    if referer.startswith(allowed):
+                        authorized = True
+                        break
 
             if not authorized:
                 return JSONResponse(

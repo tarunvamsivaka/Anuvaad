@@ -50,7 +50,7 @@ NEXT_PUBLIC_POSTHOG_KEY=phc_...                    # Optional
 
 ## 2. Infrastructure Specs & Sizing
 
-Anuvaad relies heavily on async I/O (SSE streams) and network requests to external LLMs, making it memory-efficient but network-bound.
+Anuvaad relies heavily on async I/O (SSWE streams) and network requests to external LLMs, making it memory-efficient but network-bound.
 
 | Tier | Traffic | Frontend (Next.js) | Backend (FastAPI) | Redis | Database (Supabase) |
 |---|---|---|---|---|---|
