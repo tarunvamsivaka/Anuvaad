@@ -574,17 +574,44 @@ function TranslatePageContent() {
         });
       };
 
+      let streamBuffer = "";
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          if (streamBuffer.trim()) {
+            const line = streamBuffer.trim();
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.error) {
+                  streamError = data.error;
+                  setRawError(`Error: ${data.error}`);
+                } else if (data.chunk) {
+                  streamBufferRef.current += data.chunk;
+                  scheduleFlush();
+                } else if (data.done && data.blocks) {
+                  completeBlocks = data.blocks;
+                  if (data.model_used) {
+                    setModelUsed(data.model_used);
+                  }
+                }
+              } catch {
+                // Ignore
+              }
+            }
+          }
+          break;
+        }
 
-        const chunkText = decoder.decode(value, { stream: true });
-        const lines = chunkText.split('\n');
+        streamBuffer += decoder.decode(value, { stream: true });
+        const lines = streamBuffer.split('\n');
+        streamBuffer = lines.pop() || "";
         
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
+          const trimmedLine = line.trim();
+          if (trimmedLine.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6));
+              const data = JSON.parse(trimmedLine.slice(6));
               
               if (data.error) {
                 streamError = data.error;
