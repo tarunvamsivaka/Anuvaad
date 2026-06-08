@@ -182,7 +182,7 @@ function SearchableLanguageSelect({
     <div className="relative" ref={dropdownRef}>
       <div 
         onClick={() => { setOpen(!open); setSearch(""); }}
-        className="flex items-center gap-2 bg-background border border-border hover:border-amber-600/40 rounded-lg px-3 py-1.5 shadow-sm cursor-pointer select-none transition-colors"
+        className="flex items-center gap-2 glass-pill rounded-lg px-3 py-1.5 shadow-sm cursor-pointer select-none transition-colors hover:bg-white/20 dark:hover:bg-white/10"
       >
         <span className="text-xs font-medium text-muted-foreground">{label}:</span>
         <span className="text-sm font-medium text-foreground">{selected?.label || value}</span>
@@ -195,7 +195,7 @@ function SearchableLanguageSelect({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search language..."
-            className="h-8 text-xs mb-1.5 bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-amber-500"
+            className="h-8 text-xs mb-1.5 bg-muted/40 border-none focus-visible:ring-1 focus-visible:ring-blue-500"
             autoFocus
           />
           <div className="max-h-48 overflow-y-auto space-y-0.5">
@@ -210,12 +210,12 @@ function SearchableLanguageSelect({
                   className={cn(
                     "flex items-center justify-between px-2 py-1.5 rounded text-xs cursor-pointer select-none transition-all",
                     l.value === value 
-                      ? "bg-amber-600/10 text-amber-700 dark:text-amber-500 font-medium" 
+                      ? "bg-blue-600/10 text-blue-700 dark:text-blue-500 font-medium" 
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
                 >
                   <span>{l.label}</span>
-                  {l.value === value && <Check className="h-3 w-3 text-amber-600 shrink-0" />}
+                  {l.value === value && <Check className="h-3 w-3 text-blue-600 shrink-0" />}
                 </div>
               ))
             ) : (
@@ -263,9 +263,9 @@ function TranslationBlockCard({ block, index, onEditBlock }: { block: Translatio
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: "easeOut", delay: Math.min(index * 0.05, 0.4) }}
     >
-      <Card className="mb-4 overflow-hidden border-border/60 shadow-sm transition-all duration-200 hover:border-amber-600/35 hover:shadow-md dark:hover:shadow-amber-950/5">
-        <div className="flex items-center justify-between border-b border-border/40 bg-muted/20 px-4 py-2.5">
-          <Badge variant="outline" className="bg-amber-600/10 text-amber-600 border-amber-600/20 font-medium">
+      <Card className="mb-4 overflow-hidden glass-inner transition-all duration-200 hover:border-blue-600/50 hover:shadow-lg">
+        <div className="flex items-center justify-between border-b border-white/10 bg-transparent px-4 py-2.5">
+          <Badge variant="outline" className="bg-blue-600/10 text-blue-600 border-blue-600/20 font-medium">
             Block {index + 1}
           </Badge>
           <div className="flex items-center gap-2">
@@ -291,13 +291,13 @@ function TranslationBlockCard({ block, index, onEditBlock }: { block: Translatio
                 {copiedCode ? "Copied" : "Copy code"}
               </Button>
             </div>
-            <div className="relative p-4 md:p-5 bg-background group">
+            <div className="relative p-4 md:p-5 bg-transparent group">
               {isEditing ? (
                 <div className="flex flex-col gap-2 w-full animate-in fade-in duration-200">
                   <textarea
                     value={editedText}
                     onChange={(e) => setEditedText(e.target.value)}
-                    className="w-full text-sm leading-relaxed p-2.5 border border-border/80 rounded-md bg-background focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[80px] font-sans"
+                    className="w-full text-sm leading-relaxed p-2.5 border border-border/80 rounded-md bg-background focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y min-h-[80px] font-sans"
                     autoFocus
                   />
                   <div className="flex justify-end gap-2">
@@ -315,7 +315,7 @@ function TranslationBlockCard({ block, index, onEditBlock }: { block: Translatio
                     <Button
                       variant="default"
                       size="sm"
-                      className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white gap-1"
+                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1"
                       onClick={() => {
                         onEditBlock?.(editedText);
                         setIsEditing(false);
@@ -807,27 +807,28 @@ function TranslatePageContent() {
   }, [tokenEstimate]);
 
   return (
-    <div className="min-h-screen pb-20">
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-[#080c14]/80 backdrop-blur-md">
+    <div className="min-h-screen pb-20 relative">
+      <div className="apple-mesh-bg"></div>
+      <header className="sticky top-0 z-20 glass-apple border-b-0">
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-bold tracking-tight">Workspace</h1>
-            <Badge variant="outline" className="text-[10px] font-medium bg-amber-500/5 text-amber-600 dark:text-amber-500/90 border-amber-500/20">{currentMode.label}</Badge>
+            <Badge variant="outline" className="text-[10px] font-medium bg-blue-500/5 text-blue-600 dark:text-blue-500/90 border-blue-500/20">{currentMode.label}</Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)} className="h-8 gap-2 hover:bg-slate-50 dark:hover:bg-amber-950/10 font-bold text-xs">
-              <Settings className="h-4 w-4 text-amber-500" />
+            <Button variant="ghost" size="sm" onClick={() => setShowSettings(!showSettings)} className="h-8 gap-2 hover:bg-slate-50 dark:hover:bg-blue-950/10 font-bold text-xs">
+              <Settings className="h-4 w-4 text-blue-500" />
               <span>Instructions</span>
             </Button>
             {!isPro && (
-               <Badge variant="outline" className="text-[10px] bg-amber-500/5 border-amber-600/20 text-amber-600 font-bold gap-1 px-2.5 py-0.5">
-                 <Zap className="h-3 w-3 text-amber-500 animate-pulse" /> {creditsLoading ? "..." : credits} Credits
+               <Badge variant="outline" className="text-[10px] bg-blue-500/5 border-blue-600/20 text-blue-600 font-bold gap-1 px-2.5 py-0.5">
+                 <Zap className="h-3 w-3 text-blue-500 animate-pulse" /> {creditsLoading ? "..." : credits} Credits
                </Badge>
             )}
             <Badge className={cn(
               "text-[10px] font-bold py-0.5 px-2.5",
               isPro
-                ? "bg-amber-600/10 text-amber-600 dark:text-amber-500 border border-amber-600/20 hover:bg-amber-600/10"
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-500 border border-blue-600/20 hover:bg-blue-600/10"
                 : "bg-muted text-muted-foreground hover:bg-muted"
             )}>
               {isPro ? "✦ Pro" : "Free Plan"}
@@ -838,7 +839,7 @@ function TranslatePageContent() {
 
       {/* Corporate Settings Panel */}
       {showSettings && (
-        <div className="border-b border-slate-200 dark:border-amber-600/10 bg-slate-50/50 dark:bg-[#0c0c0f]/50 px-6 py-4 animate-in slide-in-from-top duration-250">
+        <div className="border-b border-slate-200 dark:border-blue-600/10 bg-slate-50/50 dark:bg-[#0c0c0f]/50 px-6 py-4 animate-in slide-in-from-top duration-250">
           <div className="max-w-3xl">
             <label htmlFor="custom-instructions" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
               Corporate Standards / Custom Instructions
@@ -848,7 +849,7 @@ function TranslatePageContent() {
               value={customInstructions}
               onChange={(e) => setCustomInstructions(e.target.value)}
               placeholder="e.g. Strictly enforce JSDoc comments. Use functional components only."
-              className="text-sm bg-background border-slate-200 dark:border-amber-600/20 focus-visible:ring-amber-500"
+              className="text-sm bg-background border-slate-200 dark:border-blue-600/20 focus-visible:ring-blue-500"
             />
             <p className="mt-2 text-[10px] font-medium text-slate-400 dark:text-slate-500 leading-relaxed">
               These instructions are appended to the AI prompt to enforce specific corporate coding standards, structural styles, or target frameworks.
@@ -860,7 +861,7 @@ function TranslatePageContent() {
       <div className="p-6 max-w-[1600px] mx-auto">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Mode tabs */}
-          <div role="tablist" aria-label="Translation modes" className="flex gap-1 rounded-xl bg-slate-100 dark:bg-[#0c0c0f] p-1 w-fit border border-slate-200 dark:border-amber-600/10 shadow-inner">
+          <div role="tablist" aria-label="Translation modes" className="macos-segmented-track w-fit shadow-sm">
             {modes.map((m) => {
               const Icon = m.icon;
               return (
@@ -872,10 +873,8 @@ function TranslatePageContent() {
                     }
                   }}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all duration-200",
-                    mode === m.id 
-                      ? "bg-white dark:bg-[#1a2235] text-amber-600 dark:text-amber-500 shadow-sm border border-slate-200 dark:border-amber-600/20" 
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-white/50 dark:hover:bg-white/5"
+                    "flex items-center gap-2 macos-segmented-item",
+                    mode === m.id ? "active" : ""
                   )}>
                   <Icon className="h-3.5 w-3.5" />{m.label}
                 </button>
@@ -902,18 +901,31 @@ function TranslatePageContent() {
           </div>
         </div>
 
-        {/* Main Code Workspace (Split editor / output) */}
-        <div className="grid gap-6 lg:grid-cols-2 min-h-[600px] w-full">
+        {/* Main Code Workspace (Split editor / output) wrapped in macOS Window */}
+        <div className="glass-apple rounded-xl shadow-2xl overflow-hidden mt-2 flex flex-col border border-white/20 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/10">
+          {/* macOS Title Bar */}
+          <div className="h-12 border-b border-black/5 dark:border-white/5 flex items-center px-4 relative bg-white/40 dark:bg-black/40 backdrop-blur-md">
+            <div className="flex items-center gap-2 absolute left-4">
+              <div className="h-3 w-3 rounded-full bg-[#ff5f56] border border-[#e0443e] shadow-sm"></div>
+              <div className="h-3 w-3 rounded-full bg-[#ffbd2e] border border-[#dea123] shadow-sm"></div>
+              <div className="h-3 w-3 rounded-full bg-[#27c93f] border border-[#1aab29] shadow-sm"></div>
+            </div>
+            <div className="w-full text-center text-xs font-semibold text-slate-700 dark:text-slate-300 select-none">
+              Translation Workspace
+            </div>
+          </div>
+          
+          <div className="grid lg:grid-cols-2 min-h-[600px] w-full bg-slate-50/50 dark:bg-[#0c0c0f]/50">
             {/* INPUT PANEL */}
-            <Card className="flex flex-col overflow-hidden border-slate-200 dark:border-amber-600/10 bg-white dark:bg-[#0c0c0f] shadow-sm hover:border-amber-600/20 transition-all duration-300">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-amber-600/10 bg-slate-50/50 dark:bg-white/5 px-4 py-3">
+            <div className="flex flex-col border-r border-slate-200/50 dark:border-white/5 relative">
+              <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-3">
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
                     {mode === "english-to-code" ? "Requirements (English)" : "Source Code"}
                   </p>
                   {uploadedFile && (
-                    <Badge variant="secondary" className="gap-1.5 text-[10px] font-bold border border-slate-200 dark:border-amber-600/10">
-                      <FileCode className="h-3 w-3 text-amber-500" />
+                    <Badge variant="secondary" className="gap-1.5 text-[10px] font-bold border border-slate-200 dark:border-blue-600/10">
+                      <FileCode className="h-3 w-3 text-blue-500" />
                       {uploadedFile.name}
                       <button onClick={handleClearFile} className="ml-1 rounded-full hover:bg-muted p-0.5">
                         <X className="h-2.5 w-2.5" />
@@ -922,7 +934,7 @@ function TranslatePageContent() {
                   )}
                   {gistSource && (
                     <Badge variant="secondary" className="gap-1.5 text-[10px] font-bold border border-[#24292e]/20 dark:border-white/10 bg-[#24292e]/5 text-[#24292e] dark:bg-white/5 dark:text-white">
-                      <GithubIcon className="h-3 w-3 text-amber-500" />
+                      <GithubIcon className="h-3 w-3 text-blue-500" />
                       github.com/{gistSource.username} — {gistSource.filename}
                       <button onClick={() => { setGistSource(null); handleClearFile(); }} className="ml-1 rounded-full hover:bg-muted p-0.5">
                         <X className="h-2.5 w-2.5" />
@@ -932,12 +944,12 @@ function TranslatePageContent() {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{input.length.toLocaleString()} chars</span>
-                  <Button variant="ghost" size="sm" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
+                  <Button variant="ghost" size="sm" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-blue-500" /></Button>
                   <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} aria-disabled={!input.trim() && !isStreaming}
                     size="sm"
                     className={cn(
                       "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs font-bold",
-                      isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+                      isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                     )}>
                     {isStreaming ? (
                       <><X className="h-3.5 w-3.5" /> Stop</>
@@ -980,9 +992,9 @@ function TranslatePageContent() {
                           setDetectedLang(null);
                           toast.success(`Language switched to ${languages.find(l => l.value === detectedLang)?.label}!`);
                         }}
-                        className="bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white font-bold text-xs gap-1.5 shadow-lg border border-amber-500/20 px-4 h-8 rounded-full"
+                        className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-bold text-xs gap-1.5 shadow-lg border border-blue-500/20 px-4 h-8 rounded-full"
                       >
-                        <Sparkles className="h-3.5 w-3.5 animate-pulse text-amber-300" />
+                        <Sparkles className="h-3.5 w-3.5 animate-pulse text-blue-300" />
                         Switch to {languages.find(l => l.value === detectedLang)?.label}?
                       </Button>
                     </div>
@@ -1001,15 +1013,15 @@ function TranslatePageContent() {
                       className={cn(
                         "absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200 z-10",
                         "bg-white/95 dark:bg-[#0c0c0f]/95 backdrop-blur-sm",
-                        isDragActive && "bg-amber-500/5 ring-2 ring-inset ring-amber-500/40"
+                        isDragActive && "bg-blue-500/5 ring-2 ring-inset ring-blue-500/40"
                       )}
                     >
                       <input {...getInputProps()} />
                       <div className={cn(
                         "flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed transition-colors",
-                        isDragActive ? "border-amber-500 bg-amber-500/10" : "border-slate-200 dark:border-amber-600/10 bg-slate-50 dark:bg-white/5"
+                        isDragActive ? "border-blue-500 bg-blue-500/10" : "border-slate-200 dark:border-blue-600/10 bg-slate-50 dark:bg-white/5"
                       )}>
-                        <Upload className={cn("h-6 w-6", isDragActive ? "text-amber-500" : "text-slate-400 dark:text-slate-600")} />
+                        <Upload className={cn("h-6 w-6", isDragActive ? "text-blue-500" : "text-slate-400 dark:text-slate-600")} />
                       </div>
                       <div className="text-center px-4">
                         <p className="text-sm font-bold">{isDragActive ? "Drop your file here" : "Drag & drop a code file"}</p>
@@ -1024,7 +1036,7 @@ function TranslatePageContent() {
                             e.stopPropagation();
                             setIsTypingManually(true);
                           }}
-                          className="text-xs bg-background border-slate-200 dark:border-amber-600/20 hover:bg-slate-50 dark:hover:bg-amber-950/10 shadow-sm"
+                          className="text-xs bg-background border-slate-200 dark:border-blue-600/20 hover:bg-slate-50 dark:hover:bg-blue-950/10 shadow-sm"
                         >
                           Type Code Manually
                         </Button>
@@ -1087,7 +1099,7 @@ function TranslatePageContent() {
                   {!input && mode !== "english-to-code" && (
                     <div className="absolute bottom-4 left-0 right-0 z-20 flex justify-center">
                       {showGistInput ? (
-                        <div className="flex items-center gap-2 bg-white dark:bg-[#0c0c0f] border border-slate-200 dark:border-amber-600/20 rounded-lg px-3 py-2 shadow-lg w-[90%] max-w-md animate-in fade-in slide-in-from-bottom-2 duration-200">
+                        <div className="flex items-center gap-2 bg-white dark:bg-[#0c0c0f] border border-slate-200 dark:border-blue-600/20 rounded-lg px-3 py-2 shadow-lg w-[90%] max-w-md animate-in fade-in slide-in-from-bottom-2 duration-200">
                           <GithubIcon className="h-4 w-4 text-slate-400 dark:text-slate-600 shrink-0" />
                           <input
                             type="url"
@@ -1100,11 +1112,11 @@ function TranslatePageContent() {
                             disabled={gistLoading}
                           />
                           {gistLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+                            <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
                           ) : (
                             <>
                               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleGistImport} disabled={!gistUrl.trim()}>
-                                <ArrowRight className="h-3.5 w-3.5 text-amber-500" />
+                                <ArrowRight className="h-3.5 w-3.5 text-blue-500" />
                               </Button>
                               <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setShowGistInput(false); setGistUrl(""); }}>
                                 <X className="h-3.5 w-3.5" />
@@ -1117,9 +1129,9 @@ function TranslatePageContent() {
                           variant="outline"
                           size="sm"
                           onClick={() => setShowGistInput(true)}
-                          className="gap-2 bg-white dark:bg-[#0c0c0f] border border-slate-200 dark:border-amber-600/10 hover:bg-slate-50 dark:hover:bg-amber-950/10 shadow-sm text-xs font-bold"
+                          className="gap-2 bg-white dark:bg-[#0c0c0f] border border-slate-200 dark:border-blue-600/10 hover:bg-slate-50 dark:hover:bg-blue-950/10 shadow-sm text-xs font-bold"
                         >
-                          <GithubIcon className="h-3.5 w-3.5 text-amber-500" />
+                          <GithubIcon className="h-3.5 w-3.5 text-blue-500" />
                           Import Gist
                         </Button>
                       )}
@@ -1128,30 +1140,30 @@ function TranslatePageContent() {
                 </div>
               )}
               
-              <div className="border-t border-slate-200 dark:border-amber-600/10 bg-slate-50/50 dark:bg-white/5 px-4 py-2.5 flex justify-between items-center text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+              <div className="border-t border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-2.5 flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                 <div className="flex gap-4">
-                  <span><kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">Alt</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">C</kbd> Clear</span>
+                  <span><kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">Alt</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">C</kbd> Clear</span>
                   {outputBlocks && (
-                    <span><kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">Shift</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">C</kbd> Copy Markdown</span>
+                    <span><kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">Shift</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">C</kbd> Copy Markdown</span>
                   )}
                 </div>
-                <span>Press <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">Ctrl/⌘</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-amber-600/20 text-[9px] font-mono">Enter</kbd></span>
+                <span>Press <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">Ctrl/⌘</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-[#1a2233] rounded border border-slate-200 dark:border-blue-600/20 text-[9px] font-mono">Enter</kbd></span>
               </div>
-            </Card>
+            </div>
 
             {/* OUTPUT PANEL */}
-            <Card className="flex flex-col overflow-hidden border-slate-200 dark:border-amber-600/10 bg-white dark:bg-[#0c0c0f] shadow-sm hover:border-amber-600/20 transition-all duration-300">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-amber-600/10 bg-slate-50/50 dark:bg-white/5 px-4 py-3">
+            <div className="flex flex-col relative">
+              <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
                   {mode === "code-to-english" ? "AI Analysis" : "Generated Code"}
                 </p>
                 {outputBlocks && (
                   <div className="flex items-center gap-1.5">
-                    <Button variant="outline" size="sm" onClick={handleCopyMarkdown} className="h-7 gap-1.5 px-3 text-[10px] bg-background border-slate-200 dark:border-amber-600/20 hover:bg-slate-50 dark:hover:bg-amber-950/10 font-bold">
+                    <Button variant="outline" size="sm" onClick={handleCopyMarkdown} className="h-7 gap-1.5 px-3 text-[10px] bg-background border-slate-200 dark:border-blue-600/20 hover:bg-slate-50 dark:hover:bg-blue-950/10 font-bold">
                       {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
                       {copied ? "Copied MD" : "Copy as Markdown"}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={handleDownloadJson} className="h-7 gap-1.5 px-3 text-[10px] bg-background border-slate-200 dark:border-amber-600/20 hover:bg-slate-50 dark:hover:bg-amber-950/10 font-bold">
+                    <Button variant="outline" size="sm" onClick={handleDownloadJson} className="h-7 gap-1.5 px-3 text-[10px] bg-background border-slate-200 dark:border-blue-600/20 hover:bg-slate-50 dark:hover:bg-blue-950/10 font-bold">
                       <Download className="h-3 w-3" />
                       Download JSON
                     </Button>
@@ -1160,9 +1172,9 @@ function TranslatePageContent() {
               </div>
               
               {hasEdits && mode === "code-to-english" && (
-                <div className="bg-amber-500/5 border-b border-amber-600/10 px-4 py-2.5 flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-200">
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-500/90 flex items-center gap-1.5 pr-4 leading-normal">
-                    <Sparkles className="h-3.5 w-3.5 animate-pulse text-amber-500 shrink-0" />
+                <div className="bg-blue-500/5 border-b border-blue-600/10 px-4 py-2.5 flex items-center justify-between animate-in fade-in slide-in-from-top-1 duration-200">
+                  <span className="text-xs font-bold text-blue-600 dark:text-blue-500/90 flex items-center gap-1.5 pr-4 leading-normal">
+                    <Sparkles className="h-3.5 w-3.5 animate-pulse text-blue-500 shrink-0" />
                     Modified explanations detected. Sync back to update code?
                   </span>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1177,7 +1189,7 @@ function TranslatePageContent() {
                     </Button>
                     <Button
                       size="sm"
-                      className="h-7 text-xs bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white gap-1.5 shadow-sm font-bold"
+                      className="h-7 text-xs bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white gap-1.5 shadow-sm font-bold"
                       onClick={handleSyncEnglishToCode}
                       disabled={isSyncing}
                     >
@@ -1192,15 +1204,15 @@ function TranslatePageContent() {
                 </div>
               )}
 
-              <div className="flex-1 overflow-auto bg-slate-50/20 dark:bg-black/10 relative">
+              <div className="flex-1 overflow-auto bg-transparent relative">
                 {(isStreaming || (streamText.length > 0 && !outputBlocks)) ? (
                   <div className={cn(
                     "p-6 m-4 rounded-lg bg-white dark:bg-[#0c0c0f] border shadow-sm min-h-[400px]", 
-                    rawError ? "border-red-500" : "border-slate-200 dark:border-amber-600/10"
+                    rawError ? "border-red-500" : "border-slate-200 dark:border-blue-600/10"
                   )}>
                     <div className="flex items-center gap-2 mb-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider" role="status" aria-live="polite">
                        {isStreaming ? (
-                         <><div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" /> Generating...</>
+                         <><div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" /> Generating...</>
                        ) : (
                          <><div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> Done</>
                        )}
@@ -1231,8 +1243,8 @@ function TranslatePageContent() {
                     
                     {modelUsed && (
                       <div className="mt-4 flex items-center justify-center">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-white/5 px-3 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-amber-600/10 flex items-center gap-1.5">
-                          <Sparkles className="h-3 w-3 text-amber-500" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-white/5 px-3 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-blue-600/10 flex items-center gap-1.5">
+                          <Sparkles className="h-3 w-3 text-blue-500" />
                           Generated by {modelUsed}
                         </span>
                       </div>
@@ -1241,8 +1253,8 @@ function TranslatePageContent() {
                 ) : (
                   <div className="flex h-full min-h-[500px] items-center justify-center">
                     <div className="text-center max-w-sm px-6">
-                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-amber-600/10 shadow-sm">
-                        <Code2 className="h-7 w-7 text-amber-500" />
+                      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-blue-600/10 shadow-sm">
+                        <Code2 className="h-7 w-7 text-blue-500" />
                       </div>
                       <p className="mt-5 text-sm font-bold text-slate-800 dark:text-slate-200">Workspace Empty</p>
                       <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-[#8494b0]">
@@ -1252,7 +1264,8 @@ function TranslatePageContent() {
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1263,10 +1276,11 @@ export default function TranslatePage() {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen w-full items-center justify-center bg-[#080c14]">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
       </div>
     }>
       <TranslatePageContent />
     </Suspense>
   );
 }
+
