@@ -1,15 +1,16 @@
 {
-  "timestamp": "2026-06-03T17:21:55.148558",
+  "timestamp": "2026-06-08T12:53:15.449658",
   "passed_checks": 15,
   "failed_checks": 0,
   "warnings_count": 0,
   "status": "HEALTHY",
   "findings": [],
   "metrics": {
-    "uptime_seconds": 13,
+    "uptime_seconds": 162,
     "python_version": "3.14.3 (main, Feb  9 2026, 23:06:03) [GCC 12.2.0]",
     "total_requests": {
-      "health": 1
+      "health": 3,
+      "metrics": 1
     },
     "total_errors": {},
     "model_calls": {},
@@ -17,7 +18,8 @@
     "cache_hits": 0,
     "cache_misses": 0,
     "average_latency_ms": {
-      "health": 227.09
+      "health": 237.78,
+      "metrics": 1.32
     }
   }
 }

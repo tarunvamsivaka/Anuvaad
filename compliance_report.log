@@ -522,3 +522,62 @@
 [2026-06-03T17:21:55.149379] [SUMMARY] Audit completed: 15 passed checks, 0 failures, 0 warnings.
 [2026-06-03T17:21:55.149644] [SUMMARY] Operational status: HEALTHY
 [2026-06-03T17:21:55.149930] [SUMMARY] Report saved to compliance_report.json
+[2026-06-08T12:52:20.006977] [START] Starting automated Anuvaad site audit and compliance subagent...
+[2026-06-08T12:52:20.008704] [HEALTH] Auditing endpoint /api/health...
+[2026-06-08T12:52:23.130675] [INFO] Backend API is healthy (status 200). Config checks:
+[2026-06-08T12:52:23.131441] [INFO]   [92m[OK][0m Redis connected: True
+[2026-06-08T12:52:23.132580] [INFO]   [92m[OK][0m Supabase connection: Active
+[2026-06-08T12:52:23.133160] [INFO]   [92m[OK][0m LLM API Keys (Groq/DeepSeek): Configured
+[2026-06-08T12:52:23.134409] [METRICS] Auditing system errors and latency metrics...
+[2026-06-08T12:52:24.075625] [INFO] Uptime: 114 seconds (0.03 hours)
+[2026-06-08T12:52:24.076223] [INFO] Observability Metrics Snapshot:
+[2026-06-08T12:52:24.076631] [INFO]   - Total API Requests: 1
+[2026-06-08T12:52:24.077132] [INFO]   - Total API Errors (4xx/5xx): 0
+[2026-06-08T12:52:24.077591] [INFO]   - Error Rate: 0.00%
+[2026-06-08T12:52:24.078076] [INFO]   - Average latencies:
+[2026-06-08T12:52:24.078583] [INFO]     * health: 238.49 ms
+[2026-06-08T12:52:24.079383] [LINKS] Auditing Content & Link Integrity of static legal pages...
+[2026-06-08T12:52:24.081855] [INFO]   [92m[OK][0m privacy.html link integrity scan passed (no legacy static HTML extensions)
+[2026-06-08T12:52:24.082978] [INFO]   [92m[OK][0m terms.html link integrity scan passed (no legacy static HTML extensions)
+[2026-06-08T12:52:24.083313] [SECURITY] Auditing Security Gating and Configuration...
+[2026-06-08T12:52:24.084526] [INFO]   [92m[OK][0m Secret configuration (.env) is properly listed in .gitignore
+[2026-06-08T12:52:25.223218] [INFO]   [92m[OK][0m Security Header 'X-Frame-Options' present: DENY
+[2026-06-08T12:52:25.223800] [INFO]   [92m[OK][0m Security Header 'X-Content-Type-Options' present: nosniff
+[2026-06-08T12:52:25.224582] [INFO]   [92m[OK][0m Security Header 'Referrer-Policy' present: strict-origin-when-cross-origin
+[2026-06-08T12:52:25.225104] [DEPENDENCIES] Auditing frontend dependencies using npm audit...
+[2026-06-08T12:52:30.486268] [INFO] NPM Vulnerabilities: 14 total (1 High/Critical)
+[2026-06-08T12:52:30.486852] [INFO]   [93m[WARN][0m Action recommended: run 'npm audit fix'
+[2026-06-08T12:52:30.488812] [SUMMARY] ----------------------------------------------------------------
+[2026-06-08T12:52:30.489247] [SUMMARY] Audit completed: 14 passed checks, 0 failures, 1 warnings.
+[2026-06-08T12:52:30.489625] [SUMMARY] Operational status: HEALTHY
+[2026-06-08T12:52:30.489934] [SUMMARY] Report saved to compliance_report.json
+[2026-06-08T12:53:09.628522] [START] Starting automated Anuvaad site audit and compliance subagent...
+[2026-06-08T12:53:09.629736] [HEALTH] Auditing endpoint /api/health...
+[2026-06-08T12:53:11.431228] [INFO] Backend API is healthy (status 200). Config checks:
+[2026-06-08T12:53:11.431855] [INFO]   [92m[OK][0m Redis connected: True
+[2026-06-08T12:53:11.432759] [INFO]   [92m[OK][0m Supabase connection: Active
+[2026-06-08T12:53:11.433294] [INFO]   [92m[OK][0m LLM API Keys (Groq/DeepSeek): Configured
+[2026-06-08T12:53:11.434161] [METRICS] Auditing system errors and latency metrics...
+[2026-06-08T12:53:12.494312] [INFO] Uptime: 162 seconds (0.04 hours)
+[2026-06-08T12:53:12.496301] [INFO] Observability Metrics Snapshot:
+[2026-06-08T12:53:12.498026] [INFO]   - Total API Requests: 4
+[2026-06-08T12:53:12.499123] [INFO]   - Total API Errors (4xx/5xx): 0
+[2026-06-08T12:53:12.500667] [INFO]   - Error Rate: 0.00%
+[2026-06-08T12:53:12.501964] [INFO]   - Average latencies:
+[2026-06-08T12:53:12.503541] [INFO]     * health: 237.78 ms
+[2026-06-08T12:53:12.504970] [INFO]     * metrics: 1.32 ms
+[2026-06-08T12:53:12.507978] [LINKS] Auditing Content & Link Integrity of static legal pages...
+[2026-06-08T12:53:12.512747] [INFO]   [92m[OK][0m privacy.html link integrity scan passed (no legacy static HTML extensions)
+[2026-06-08T12:53:12.515975] [INFO]   [92m[OK][0m terms.html link integrity scan passed (no legacy static HTML extensions)
+[2026-06-08T12:53:12.516995] [SECURITY] Auditing Security Gating and Configuration...
+[2026-06-08T12:53:12.519473] [INFO]   [92m[OK][0m Secret configuration (.env) is properly listed in .gitignore
+[2026-06-08T12:53:13.686568] [INFO]   [92m[OK][0m Security Header 'X-Frame-Options' present: DENY
+[2026-06-08T12:53:13.687605] [INFO]   [92m[OK][0m Security Header 'X-Content-Type-Options' present: nosniff
+[2026-06-08T12:53:13.689176] [INFO]   [92m[OK][0m Security Header 'Referrer-Policy' present: strict-origin-when-cross-origin
+[2026-06-08T12:53:13.690364] [DEPENDENCIES] Auditing frontend dependencies using npm audit...
+[2026-06-08T12:53:15.447154] [INFO] NPM Vulnerabilities: 0 total (0 High/Critical)
+[2026-06-08T12:53:15.448320] [INFO]   [92m[OK][0m Frontend dependencies are clear of High/Critical vulnerabilities
+[2026-06-08T12:53:15.450983] [SUMMARY] ----------------------------------------------------------------
+[2026-06-08T12:53:15.451778] [SUMMARY] Audit completed: 15 passed checks, 0 failures, 0 warnings.
+[2026-06-08T12:53:15.452257] [SUMMARY] Operational status: HEALTHY
+[2026-06-08T12:53:15.452637] [SUMMARY] Report saved to compliance_report.json
