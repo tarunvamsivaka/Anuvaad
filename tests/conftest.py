@@ -49,6 +49,7 @@ os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test_webhook_secret_for_ci"
 os.environ["ADMIN_USERS"] = "admin@anuvaad.dev"
 os.environ["TRUSTED_USERS"] = "trusted@anuvaad.dev"
 os.environ["LIMIT_FREE_COOLDOWN"] = "0"
+os.environ.setdefault("RATE_LIMIT_IP_MAX", "15")
 
 # ── Patch Razorpay Webhook Verification ──
 

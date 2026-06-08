@@ -1545,8 +1545,12 @@ cache = RedisCache()
 
 # ── RATE LIMITING (Redis-backed) ──
 RATE_LIMIT_WINDOW = 60  # seconds
-RATE_LIMIT_IP_MAX = 50  # anonymous guest requests per window
-RATE_LIMIT_USER_MAX = 200  # authenticated user requests per window
+RATE_LIMIT_IP_MAX = int(os.getenv("RATE_LIMIT_IP_MAX", "50"))  # anonymous guest requests per window
+RATE_LIMIT_USER_MAX = int(os.getenv("RATE_LIMIT_USER_MAX", "200"))  # authenticated user requests per window
+
+# Backward compatibility / Test suite compatibility
+RATE_LIMIT_MAX = RATE_LIMIT_IP_MAX
+
 
 
 @app.middleware("http")
@@ -1574,7 +1578,7 @@ async def rate_limit_middleware(request: Request, call_next):
         redis_key = f"rate_limit:token:{token_hash}"
         limit = RATE_LIMIT_USER_MAX
     else:
-        redis_key = f"rate_limit:ip:{client_ip}"
+        redis_key = f"rate_limit:{client_ip}"
         limit = RATE_LIMIT_IP_MAX
 
     current_count = await cache.incr_rate_limit(redis_key, RATE_LIMIT_WINDOW)
