@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withPWAInit from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
   // Proxy API requests to the FastAPI backend to avoid CORS in production
@@ -26,6 +27,10 @@ const nextConfig: NextConfig = {
   output: "standalone",  // Enable standalone production build for smaller memory footprint
 };
 
+const withPWA = withPWAInit({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+});
 
 import { withSentryConfig } from "@sentry/nextjs";
 import withBundleAnalyzer from "@next/bundle-analyzer";
@@ -34,8 +39,11 @@ const analyze = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
 });
 
-export default analyze(withSentryConfig(nextConfig, {
+const configWithPWA = withPWA(nextConfig);
+
+export default analyze(withSentryConfig(configWithPWA, {
   silent: !process.env.CI,
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
 }));
+

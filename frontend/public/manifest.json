@@ -1,0 +1,25 @@
+{
+  "name": "Anuvaad — AI Code Translator & Explainer",
+  "short_name": "Anuvaad",
+  "description": "Premium AI-powered code explanations, reverse engineering, and programming language translation with a macOS liquid glass design.",
+  "start_url": "/dashboard/translate",
+  "display": "standalone",
+  "background_color": "#080c14",
+  "theme_color": "#080c14",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

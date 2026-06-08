@@ -27,7 +27,6 @@ import {
   Sparkles, Code2, FileText, ArrowLeftRight, Check, Settings, Zap,
   ChevronDown, ChevronUp, X, Upload, FileCode, Pencil, Diff
 } from "lucide-react";
-import confetti from "canvas-confetti";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
@@ -628,12 +627,14 @@ function TranslatePageContent() {
           latency_ms: latency,
           from_cache: false,
         });
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.8, x: 0.8 },
-          colors: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1']
-        });
+        import("canvas-confetti").then((module) => {
+          module.default({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.8, x: 0.8 },
+            colors: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1']
+          });
+        }).catch((err) => console.error("Confetti dynamic import failed", err));
       }
       
     } catch (err: unknown) {

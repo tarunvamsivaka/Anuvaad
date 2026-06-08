@@ -165,6 +165,7 @@ export default function HistoryPage() {
       setHistory(previousHistory);
       toast.error("Failed to delete translation. Please try again.");
     }
+  };
   const handleShare = async (e: React.MouseEvent, id: string, is_public?: boolean) => {
     e.stopPropagation();
     e.preventDefault();

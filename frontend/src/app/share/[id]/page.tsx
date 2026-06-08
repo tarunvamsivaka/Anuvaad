@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, Code2, Sparkles } from "lucide-react";
 import dynamic from "next/dynamic";
+import Script from "next/script";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
@@ -75,8 +76,25 @@ export default function SharedTranslationPage() {
     codeContent = JSON.stringify(item.result_blocks, null, 2);
   }
 
+  // Dynamic JSON-LD structured data for search engine indexing
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareSourceCode",
+    "name": `Shared Snippet (${item.source_language} to ${item.target_language})`,
+    "description": `AI-translated code snippet preview: ${item.input_preview}`,
+    "programmingLanguage": item.target_language === "english" ? item.source_language : item.target_language,
+    "codeSampleType": item.mode,
+    "text": codeContent,
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-900 dark:text-slate-100 p-4 sm:p-8 flex justify-center">
+    <>
+      <Script
+        id={`schema-org-snippet-${item.id}`}
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-900 dark:text-slate-100 p-4 sm:p-8 flex justify-center">
       <div className="w-full max-w-4xl flex flex-col gap-6">
         {/* Header */}
         <div className="flex flex-col gap-2">
@@ -120,5 +138,6 @@ export default function SharedTranslationPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

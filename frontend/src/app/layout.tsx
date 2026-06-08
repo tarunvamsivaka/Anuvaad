@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { Toaster } from "sonner";
 import { CommandPalette } from "@/components/CommandPalette";
+import { WorkspaceProvider } from "@/context/WorkspaceContext";
 import "./globals.css";
 
 const inter = Inter({
@@ -35,6 +36,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Anuvaad",
+  },
   title: {
     template: "%s | Anuvaad",
     default: "Anuvaad — AI Code Translator & Explainer",
@@ -119,8 +126,10 @@ export default function RootLayout({
           <PostHogProvider>
             <TooltipProvider>
               <AuthProvider>
-                {children}
-                <CommandPalette />
+                <WorkspaceProvider>
+                  {children}
+                  <CommandPalette />
+                </WorkspaceProvider>
               </AuthProvider>
             </TooltipProvider>
           </PostHogProvider>

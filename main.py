@@ -1545,7 +1545,8 @@ cache = RedisCache()
 
 # ── RATE LIMITING (Redis-backed) ──
 RATE_LIMIT_WINDOW = 60  # seconds
-RATE_LIMIT_MAX = 15  # requests per window
+RATE_LIMIT_IP_MAX = 50  # anonymous guest requests per window
+RATE_LIMIT_USER_MAX = 200  # authenticated user requests per window
 
 
 @app.middleware("http")
@@ -1560,28 +1561,44 @@ async def rate_limit_middleware(request: Request, call_next):
     if client_ip == "127.0.0.1":
         return await call_next(request)
 
-    redis_key = f"rate_limit:{client_ip}"
+    # Differentiate between guest IPs and authenticated users
+    auth_header = request.headers.get("Authorization")
+    token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        parts = auth_header.split(" ")
+        if len(parts) > 1:
+            token = parts[1]
+
+    if token:
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
+        redis_key = f"rate_limit:token:{token_hash}"
+        limit = RATE_LIMIT_USER_MAX
+    else:
+        redis_key = f"rate_limit:ip:{client_ip}"
+        limit = RATE_LIMIT_IP_MAX
+
     current_count = await cache.incr_rate_limit(redis_key, RATE_LIMIT_WINDOW)
 
-    if current_count > RATE_LIMIT_MAX:
+    if current_count > limit:
         return JSONResponse(
             status_code=429,
             content={
-                "detail": f"Rate limit exceeded. Max {RATE_LIMIT_MAX} requests per {RATE_LIMIT_WINDOW}s."
+                "detail": f"Rate limit exceeded. Max {limit} requests per {RATE_LIMIT_WINDOW}s."
             },
             headers={
-                "X-RateLimit-Limit": str(RATE_LIMIT_MAX),
+                "X-RateLimit-Limit": str(limit),
                 "X-RateLimit-Remaining": "0",
                 "Retry-After": str(RATE_LIMIT_WINDOW),
             },
         )
 
     response = await call_next(request)
-    response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_MAX)
+    response.headers["X-RateLimit-Limit"] = str(limit)
     response.headers["X-RateLimit-Remaining"] = str(
-        max(0, RATE_LIMIT_MAX - current_count)
+        max(0, limit - current_count)
     )
     return response
+
 
 
 def normalize_code_for_cache(code: str) -> str:
