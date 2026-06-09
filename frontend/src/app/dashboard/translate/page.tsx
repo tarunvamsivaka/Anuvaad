@@ -901,7 +901,7 @@ function TranslatePageContent() {
       )}
 
       {/* ── Mode + language toolbar ── */}
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-slate-200/50 dark:border-white/5 bg-white/60 dark:bg-[#0c0c0f]/60 backdrop-blur-md">
+      <div className="shrink-0 z-10 relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-slate-200/50 dark:border-white/5 bg-white/60 dark:bg-[#0c0c0f]/60 backdrop-blur-md">
         {/* Mode tabs */}
         <div role="tablist" aria-label="Translation modes" className="macos-segmented-track w-fit shadow-sm">
           {modes.map((m) => {
