@@ -847,9 +847,11 @@ function TranslatePageContent() {
   // }, [tokenEstimate]);
 
   return (
-    <div className="min-h-screen pb-20 relative">
+    <div className="h-screen flex flex-col overflow-hidden relative">
       <div className="apple-mesh-bg"></div>
-      <header className="sticky top-0 z-20 glass-apple border-b-0">
+
+      {/* ── Top bar ── */}
+      <header className="shrink-0 z-20 glass-apple border-b border-slate-200/50 dark:border-white/5">
         <div className="flex h-14 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-bold tracking-tight">Workspace</h1>
@@ -877,14 +879,14 @@ function TranslatePageContent() {
         </div>
       </header>
 
-      {/* Corporate Settings Panel */}
+      {/* ── Custom instructions panel (slides in below header) ── */}
       {showSettings && (
-        <div className="border-b border-slate-200 dark:border-blue-600/10 bg-slate-50/50 dark:bg-[#0c0c0f]/50 px-6 py-4 animate-in slide-in-from-top duration-250">
+        <div className="shrink-0 border-b border-slate-200 dark:border-blue-600/10 bg-slate-50/50 dark:bg-[#0c0c0f]/50 px-6 py-4 animate-in slide-in-from-top duration-250">
           <div className="max-w-3xl">
             <label htmlFor="custom-instructions" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
               Corporate Standards / Custom Instructions
             </label>
-            <Input 
+            <Input
               id="custom-instructions"
               value={customInstructions}
               onChange={(e) => setCustomInstructions(e.target.value)}
@@ -898,53 +900,55 @@ function TranslatePageContent() {
         </div>
       )}
 
-      <div className="p-6 max-w-[1600px] mx-auto">
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {/* Mode tabs */}
-          <div role="tablist" aria-label="Translation modes" className="macos-segmented-track w-fit shadow-sm">
-            {modes.map((m) => {
-              const Icon = m.icon;
-              return (
-                <button key={m.id} role="tab" aria-selected={mode === m.id} onClick={() => {
-                    const prevMode = mode;
-                    setMode(m.id);
-                    if (prevMode !== m.id) {
-                      track("mode_switched", { from_mode: prevMode, to_mode: m.id });
-                    }
-                  }}
-                  className={cn(
-                    "flex items-center gap-2 macos-segmented-item",
-                    mode === m.id ? "active" : ""
-                  )}>
-                  <Icon className="h-3.5 w-3.5" />{m.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Language selectors */}
-          <div className="flex flex-wrap items-center gap-3">
-            {mode !== "english-to-code" && (
-              <SearchableLanguageSelect
-                label="Source"
-                value={sourceLanguage}
-                onChange={setSourceLanguage}
-              />
-            )}
-            {mode !== "code-to-english" && (
-              <SearchableLanguageSelect
-                label="Target"
-                value={targetLanguage}
-                onChange={setTargetLanguage}
-              />
-            )}
-          </div>
+      {/* ── Mode + language toolbar ── */}
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-slate-200/50 dark:border-white/5 bg-white/60 dark:bg-[#0c0c0f]/60 backdrop-blur-md">
+        {/* Mode tabs */}
+        <div role="tablist" aria-label="Translation modes" className="macos-segmented-track w-fit shadow-sm">
+          {modes.map((m) => {
+            const Icon = m.icon;
+            return (
+              <button key={m.id} role="tab" aria-selected={mode === m.id} onClick={() => {
+                  const prevMode = mode;
+                  setMode(m.id);
+                  if (prevMode !== m.id) {
+                    track("mode_switched", { from_mode: prevMode, to_mode: m.id });
+                  }
+                }}
+                className={cn(
+                  "flex items-center gap-2 macos-segmented-item",
+                  mode === m.id ? "active" : ""
+                )}>
+                <Icon className="h-3.5 w-3.5" />{m.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Main Code Workspace (Split editor / output) wrapped in macOS Window */}
-        <div className="glass-apple rounded-xl shadow-2xl overflow-hidden mt-2 flex flex-col border border-white/20 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/10">
-          {/* macOS Title Bar */}
-          <div className="h-12 border-b border-black/5 dark:border-white/5 flex items-center px-4 relative bg-white/40 dark:bg-black/40 backdrop-blur-md">
+        {/* Language selectors */}
+        <div className="flex flex-wrap items-center gap-3">
+          {mode !== "english-to-code" && (
+            <SearchableLanguageSelect
+              label="Source"
+              value={sourceLanguage}
+              onChange={setSourceLanguage}
+            />
+          )}
+          {mode !== "code-to-english" && (
+            <SearchableLanguageSelect
+              label="Target"
+              value={targetLanguage}
+              onChange={setTargetLanguage}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* ── Main split workspace — fills all remaining height ── */}
+      <div className="flex-1 overflow-hidden flex flex-col p-4 md:p-6 pt-2">
+        {/* ── macOS-style window chrome + split grid ── */}
+        <div className="flex-1 overflow-hidden flex flex-col bg-slate-50/50 dark:bg-[#0c0c0f]/50 glass-apple rounded-xl shadow-2xl border border-white/20 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/10">
+          {/* Title bar */}
+          <div className="shrink-0 h-10 border-b border-black/5 dark:border-white/5 flex items-center px-4 relative bg-white/40 dark:bg-black/40 backdrop-blur-md">
             <div className="flex items-center gap-2 absolute left-4">
               <div className="h-3 w-3 rounded-full bg-[#ff5f56] border border-[#e0443e] shadow-sm"></div>
               <div className="h-3 w-3 rounded-full bg-[#ffbd2e] border border-[#dea123] shadow-sm"></div>
@@ -954,10 +958,11 @@ function TranslatePageContent() {
               Translation Workspace
             </div>
           </div>
-          
-          <div className="grid lg:grid-cols-2 min-h-[600px] w-full bg-slate-50/50 dark:bg-[#0c0c0f]/50">
-            {/* INPUT PANEL */}
-            <div className="flex flex-col border-r border-slate-200/50 dark:border-white/5 relative">
+
+          {/* Split grid — both columns fill the remaining height */}
+          <div className="flex-1 overflow-hidden grid lg:grid-cols-2 divide-x divide-slate-200/50 dark:divide-white/5">
+            {/* ════════════ INPUT PANEL ════════════ */}
+            <div className="flex flex-col h-full overflow-hidden relative">
               <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-3">
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
@@ -1003,11 +1008,11 @@ function TranslatePageContent() {
               {mode === "english-to-code" ? (
                 <textarea value={input} onChange={(e) => setInput(e.target.value)}
                   placeholder="Describe the functionality you need. Be as detailed as possible..."
-                  className="flex-1 resize-none border-0 bg-transparent p-6 font-sans text-sm leading-relaxed focus:outline-none"
+                  className="flex-1 resize-none border-0 bg-transparent p-6 font-sans text-sm leading-relaxed focus:outline-none min-h-0"
                   onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleTranslate(); }}
                 />
               ) : (
-                <div className="flex-1 min-h-[500px] relative">
+                <div className="flex-1 relative min-h-0">
                   <Editor
                     height="100%"
                     language={languages.find(l => l.value === sourceLanguage)?.monacoId || sourceLanguage}
@@ -1191,8 +1196,8 @@ function TranslatePageContent() {
               </div>
             </div>
 
-            {/* OUTPUT PANEL */}
-            <div className="flex flex-col relative">
+            {/* ════════════ OUTPUT PANEL ════════════ */}
+            <div className="flex flex-col h-full overflow-hidden relative">
               <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
                   {mode === "code-to-english" ? "AI Analysis" : "Generated Code"}
@@ -1264,10 +1269,10 @@ function TranslatePageContent() {
                 </div>
               )}
 
-              <div className="flex-1 overflow-auto bg-transparent relative">
+              <div className="flex-1 overflow-auto bg-transparent relative min-h-0">
                 {(isStreaming || (streamText.length > 0 && !outputBlocks)) ? (
                   <div className={cn(
-                    "p-6 m-4 rounded-lg bg-white dark:bg-[#0c0c0f] border shadow-sm min-h-[400px]", 
+                    "p-6 m-4 rounded-lg bg-white dark:bg-[#0c0c0f] border shadow-sm", 
                     rawError ? "border-red-500" : "border-slate-200 dark:border-blue-600/10"
                   )}>
                     <div className="flex items-center gap-2 mb-4 text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider" role="status" aria-live="polite">
@@ -1288,7 +1293,7 @@ function TranslatePageContent() {
                   <div className="p-6 text-sm text-red-500 whitespace-pre-wrap font-mono bg-red-500/5 m-4 rounded-lg border border-red-500/30">{rawError}</div>
                 ) : outputBlocks ? (
                   viewType === "diff" && mode === "code-to-code" ? (
-                    <div className="h-full min-h-[500px] w-full p-2">
+                    <div className="h-full w-full p-2">
                       <DiffEditor
                         height="100%"
                         original={input}
@@ -1328,20 +1333,21 @@ function TranslatePageContent() {
                     </div>
                   )
                 ) : (
-                  <div className="flex h-full min-h-[500px] items-center justify-center">
+                  <div className="flex h-full min-h-[300px] items-center justify-center">
                     <div className="text-center max-w-sm px-6">
                       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-blue-600/10 shadow-sm">
                         <Code2 className="h-7 w-7 text-blue-500" />
                       </div>
                       <p className="mt-5 text-sm font-bold text-slate-800 dark:text-slate-200">Workspace Empty</p>
                       <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-[#8494b0]">
-                        Paste your code or requirements in the input editor on the left to generate translations.
+                        Paste your code or requirements in the input panel on the left to generate translations.
                       </p>
                     </div>
                   </div>
                 )}
               </div>
             </div>
+
           </div>
         </div>
       </div>
