@@ -837,14 +837,14 @@ function TranslatePageContent() {
   }, [input, sourceLanguage, mode]);
 
   // Estimate token usage (standard rule of thumb: ~4 characters per token)
-  const tokenEstimate = useMemo(() => {
-    if (!input) return 0;
-    return Math.min(Math.round(input.length / 4), 8192);
-  }, [input]);
+  // const tokenEstimate = useMemo(() => {
+  //   if (!input) return 0;
+  //   return Math.min(Math.round(input.length / 4), 8192);
+  // }, [input]);
 
-  const tokenPercent = useMemo(() => {
-    return Math.min(Math.round((tokenEstimate / 8192) * 100), 100);
-  }, [tokenEstimate]);
+  // const tokenPercent = useMemo(() => {
+  //   return Math.min(Math.round((tokenEstimate / 8192) * 100), 100);
+  // }, [tokenEstimate]);
 
   return (
     <div className="min-h-screen pb-20 relative">
@@ -1280,7 +1280,7 @@ function TranslatePageContent() {
                     {rawError && (
                        <div className="text-sm text-red-500 whitespace-pre-wrap font-mono mb-4">{rawError}</div>
                     )}
-                    <pre aria-label="Translation output" className={cn("font-mono text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed", isStreaming ? "blinking-cursor" : "")}>
+                    <pre aria-label="Translation output" aria-live="polite" aria-atomic="false" className={cn("font-mono text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed", isStreaming ? "blinking-cursor" : "")}>
                       {streamText}
                     </pre>
                   </div>

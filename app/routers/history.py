@@ -3,13 +3,13 @@ import secrets
 import hashlib
 import httpx
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
 from app.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, logger, metrics
 from app.core.cache import cache
-from app.core.auth import get_user_email, get_user_pro_status
+from app.core.auth import get_user_email
 from app.core.database import supabase_request, supabase_request_list
-from app.core.quota import get_today_usage_count, get_active_protection_mode
+from app.core.quota import get_active_protection_mode
 from app.models.schemas import ApiKeyCreate
 
 router = APIRouter(prefix="/api", tags=["history"])

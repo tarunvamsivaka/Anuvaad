@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -239,9 +240,11 @@ export default function WorkspacePage() {
               {/* Showcase Container */}
               <div className="relative z-10 w-full max-w-[320px] md:max-w-none aspect-square md:aspect-auto md:h-full flex items-center justify-center">
                 <div className="relative rounded-2xl border border-amber-500/15 bg-white dark:bg-[#0c0f1a] p-2 shadow-2xl dark:shadow-amber-500/5 overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:border-amber-500/30 group">
-                  <img 
+                  <Image 
                     src="/team_working.png" 
                     alt="Team Collaboration Showcase" 
+                    width={400}
+                    height={400}
                     className="w-full h-full object-cover rounded-xl"
                   />
                   {/* Subtle dark layout gradient */}

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState, Suspense, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { track } from "@/lib/analytics";
@@ -63,7 +62,7 @@ function AuthTypewriter() {
     setPhase("typing");
     timer = setTimeout(typeCode, 600);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [exIdx]);
 
   const ex = CODE_EXAMPLES[exIdx];

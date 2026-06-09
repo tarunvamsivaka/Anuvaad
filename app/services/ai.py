@@ -1,12 +1,9 @@
 import os
 import json
-import httpx
 import asyncio
 from openai import AsyncOpenAI
 from fastapi import HTTPException, BackgroundTasks
 from app.core.config import (
-    GROQ_API_KEY,
-    DEEPSEEK_API_KEY,
     LLM_TIMEOUT,
     logger,
     metrics,

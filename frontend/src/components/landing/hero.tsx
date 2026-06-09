@@ -37,8 +37,10 @@ export function Hero() {
     let frameId: ReturnType<typeof setTimeout>;
     let codeIdx = 0;
     let engIdx = 0;
+    let active = true; // guard: prevents state updates after unmount
 
     function typeCode() {
+      if (!active) return;
       const pair = DEMO_PAIRS[pairRef.current];
       if (codeIdx < pair.code.length) {
         codeIdx++;
@@ -51,6 +53,7 @@ export function Hero() {
     }
 
     function revealEnglish() {
+      if (!active) return;
       const pair = DEMO_PAIRS[pairRef.current];
       if (engIdx < pair.english.length) {
         engIdx++;
@@ -63,6 +66,7 @@ export function Hero() {
     }
 
     function nextPair() {
+      if (!active) return;
       pairRef.current = (pairRef.current + 1) % DEMO_PAIRS.length;
       setPairIndex(pairRef.current);
       codeIdx = 0;
@@ -74,7 +78,10 @@ export function Hero() {
     }
 
     frameId = setTimeout(typeCode, 800);
-    return () => clearTimeout(frameId);
+    return () => {
+      active = false;
+      clearTimeout(frameId);
+    };
   }, []);
 
   // ── GSAP HERO ENTRANCE ─────────────────────────────────────────────────────

@@ -44,8 +44,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json();
         setWorkspaces(Array.isArray(data) ? data : []);
       }
-    } catch (e) {
-      console.error("Failed to fetch workspaces", e);
+    } catch {
+      // Silently fail — workspace list defaults to empty on network error
     } finally {
       setLoading(false);
     }

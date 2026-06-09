@@ -5,6 +5,8 @@ Uses the monkey-patched LLM client from conftest.py
 so no real API calls are made.
 """
 
+from unittest.mock import patch, MagicMock
+
 
 class TestHealthEndpoint:
     """Tests for GET /api/health."""
@@ -223,3 +225,88 @@ class TestRazorpayWebhook:
             headers={"Content-Type": "application/json"},
         )
         assert res.status_code in (400, 422)
+
+
+class TestImportGist:
+    """Tests for GET /api/import-gist."""
+
+    @patch("httpx.AsyncClient.get")
+    def test_import_gist_success(self, mock_get, client):
+        # Mock Gist API response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "public": True,
+            "files": {
+                "test.py": {
+                    "content": "print('hello from Gist')",
+                    "language": "Python"
+                }
+            }
+        }
+        mock_get.return_value = mock_response
+
+        res = client.get("/api/import-gist?url=https://gist.github.com/username/gistid123")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["filename"] == "test.py"
+        assert data["language"] == "python"
+        assert data["content"] == "print('hello from Gist')"
+
+    @patch("httpx.AsyncClient.get")
+    def test_import_raw_file_success(self, mock_get, client):
+        # Mock Raw file response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "print('hello from raw')"
+        mock_get.return_value = mock_response
+
+        res = client.get("/api/import-gist?url=https://raw.githubusercontent.com/owner/repo/branch/main.py")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["filename"] == "main.py"
+        assert data["language"] == "python"
+        assert data["content"] == "print('hello from raw')"
+
+    @patch("httpx.AsyncClient.get")
+    def test_import_blob_file_success(self, mock_get, client):
+        # Mock Blob file response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "print('hello from blob')"
+        mock_get.return_value = mock_response
+
+        res = client.get("/api/import-gist?url=https://github.com/owner/repo/blob/branch/main.py")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["filename"] == "main.py"
+        assert data["language"] == "python"
+        assert data["content"] == "print('hello from blob')"
+
+    @patch("httpx.AsyncClient.get")
+    def test_import_repo_root_success(self, mock_get, client):
+        # Mock API contents response and download response
+        mock_contents_response = MagicMock()
+        mock_contents_response.status_code = 200
+        mock_contents_response.json.return_value = [
+            {"name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py"}
+        ]
+        
+        mock_download_response = MagicMock()
+        mock_download_response.status_code = 200
+        mock_download_response.text = "print('hello from repo root')"
+        
+        # Side effect for the two get calls
+        mock_get.side_effect = [mock_contents_response, mock_download_response]
+
+        res = client.get("/api/import-gist?url=https://github.com/owner/repo")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["filename"] == "main.py"
+        assert data["language"] == "python"
+        assert data["content"] == "print('hello from repo root')"
+
+    def test_invalid_url_rejected(self, client):
+        res = client.get("/api/import-gist?url=https://google.com")
+        assert res.status_code == 400
+        assert "Invalid URL" in res.json()["detail"]

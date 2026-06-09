@@ -32,7 +32,6 @@ export function WebGLCanvas() {
     const geometry = new THREE.BufferGeometry();
 
     const initialPositions = new Float32Array(PARTICLE_COUNT * 3);
-    const targetPositions = new Float32Array(PARTICLE_COUNT * 3);
     const colors = new Float32Array(PARTICLE_COUNT * 3);
     const sizes = new Float32Array(PARTICLE_COUNT);
 

@@ -2,20 +2,19 @@ import os
 import json
 import httpx
 import razorpay
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
 from app.core.config import (
     SUPABASE_URL,
     SUPABASE_ANON_KEY,
-    SUPABASE_SERVICE_KEY,
     RAZORPAY_KEY_ID,
     RAZORPAY_KEY_SECRET,
     logger,
 )
 from app.core.database import supabase_request
-from app.core.auth import get_user_pro_status
 from app.services.email import email_service
 from app.models.schemas import CheckoutPayload, SubscriptionCheckPayload, CreditCheckoutPayload, VerifyPaymentPayload
+from app.core.auth import get_user_email
 
 router = APIRouter(prefix="/api", tags=["billing"])
 
@@ -171,21 +170,32 @@ async def create_credit_checkout(payload: CreditCheckoutPayload):
 
 
 @router.post("/check-credits")
-async def check_credits(payload: CreditCheckoutPayload):
-    try:
-        async with httpx.AsyncClient() as http_client:
-            resp = await http_client.get(
-                f"{SUPABASE_URL}/auth/v1/user",
-                headers={
-                    "Authorization": f"Bearer {payload.access_token}",
-                    "apikey": SUPABASE_ANON_KEY,
-                },
-            )
-            if resp.status_code != 200:
-                raise HTTPException(status_code=401, detail="Invalid token")
-            user_email = resp.json().get("email", "")
-    except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Could not verify authentication")
+async def check_credits(
+    payload: CreditCheckoutPayload,
+    email: str | None = Depends(get_user_email)
+):
+    user_email = email
+    if not user_email:
+        if not payload.access_token:
+            raise HTTPException(status_code=401, detail="Missing authorization credentials")
+        try:
+            async with httpx.AsyncClient() as http_client:
+                resp = await http_client.get(
+                    f"{SUPABASE_URL}/auth/v1/user",
+                    headers={
+                        "Authorization": f"Bearer {payload.access_token}",
+                        "apikey": SUPABASE_ANON_KEY,
+                    },
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=401, detail="Invalid token")
+                user_email = resp.json().get("email", "")
+        except httpx.RequestError:
+            raise HTTPException(status_code=502, detail="Could not verify authentication")
+
+    if not user_email:
+        raise HTTPException(status_code=401, detail="Could not determine user email")
+
     sub = await supabase_request(
         "GET", f"user_subscriptions?user_email=eq.{user_email}&select=credits"
     )
@@ -394,24 +404,31 @@ async def razorpay_webhook(request: Request):
 
 
 @router.post("/subscription-status")
-async def check_subscription_status(payload: SubscriptionCheckPayload):
+async def check_subscription_status(
+    payload: SubscriptionCheckPayload,
+    email: str | None = Depends(get_user_email)
+):
     """Check if the authenticated user has an active Pro subscription.
     Returns {plan, status, isPro} for the frontend to gate features."""
-    try:
-        async with httpx.AsyncClient() as http_client:
-            resp = await http_client.get(
-                f"{SUPABASE_URL}/auth/v1/user",
-                headers={
-                    "Authorization": f"Bearer {payload.access_token}",
-                    "apikey": SUPABASE_ANON_KEY,
-                },
-            )
-            if resp.status_code != 200:
-                raise HTTPException(status_code=401, detail="Invalid or expired token")
-            user_data = resp.json()
-            user_email = user_data.get("email", "")
-    except httpx.RequestError:
-        raise HTTPException(status_code=502, detail="Could not verify authentication")
+    user_email = email
+    if not user_email:
+        if not payload.access_token:
+            raise HTTPException(status_code=401, detail="Missing authorization credentials")
+        try:
+            async with httpx.AsyncClient() as http_client:
+                resp = await http_client.get(
+                    f"{SUPABASE_URL}/auth/v1/user",
+                    headers={
+                        "Authorization": f"Bearer {payload.access_token}",
+                        "apikey": SUPABASE_ANON_KEY,
+                    },
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(status_code=401, detail="Invalid or expired token")
+                user_data = resp.json()
+                user_email = user_data.get("email", "")
+        except httpx.RequestError:
+            raise HTTPException(status_code=502, detail="Could not verify authentication")
 
     if not user_email:
         raise HTTPException(status_code=401, detail="Could not determine user email")

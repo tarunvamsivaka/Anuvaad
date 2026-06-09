@@ -86,7 +86,7 @@ class CheckoutPayload(BaseModel):
 
 
 class SubscriptionCheckPayload(BaseModel):
-    access_token: str = Field(..., min_length=10)
+    access_token: str | None = Field(default=None, min_length=10)
 
 
 class WorkspaceCreate(BaseModel):
@@ -118,7 +118,7 @@ class ApiKeyCreate(BaseModel):
 
 
 class CreditCheckoutPayload(BaseModel):
-    access_token: str = Field(..., min_length=10)
+    access_token: str | None = Field(default=None, min_length=10)
 
 
 class VerifyPaymentPayload(BaseModel):

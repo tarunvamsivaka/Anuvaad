@@ -1,6 +1,5 @@
 "use client";
 
-import { buttonVariants } from "@/components/ui/button";
 import { Check, Sparkles, Zap } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";

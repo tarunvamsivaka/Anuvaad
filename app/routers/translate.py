@@ -1,7 +1,6 @@
 import os
 import json
 import re
-import httpx
 from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from app.core.config import logger, metrics
@@ -15,7 +14,6 @@ from app.services.ai import (
     stream_code_to_code,
     normalize_blocks,
     find_stale_translation,
-    _clean_json_response,
     SYSTEM_INSTRUCTION,
     SYNC_SYSTEM_INSTRUCTION,
 )

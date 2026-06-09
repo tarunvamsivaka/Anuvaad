@@ -5,34 +5,26 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, Zap, CreditCard, ExternalLink, Loader2, X, PartyPopper } from "lucide-react";
+import { Check, Zap, CreditCard, Loader2, X, PartyPopper } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
-import { useSubscriptionStatus, useTranslationStats, useCredits } from "@/lib/hooks";
+import { useSubscriptionStatus, useTranslationStats } from "@/lib/hooks";
 import Script from "next/script";
-
-interface PortalInfo {
-  subscription_id: string;
-  plan: string;
-  status: string;
-  message: string;
-}
 
 function BillingPageContent() {
   const { isPro, session } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [portalLoading, setPortalLoading] = useState(false);
-  const [creditLoading, setCreditLoading] = useState(false);
+  // const [portalLoading, setPortalLoading] = useState(false);
+  // const [creditLoading, setCreditLoading] = useState(false);
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
-  const [portalInfo, setPortalInfo] = useState<PortalInfo | null>(null);
 
   const { subscription } = useSubscriptionStatus(session?.access_token);
   const { stats, isLoading: statsLoading } = useTranslationStats(session?.user?.email, session?.access_token);
-  const { credits, isLoading: creditsLoading } = useCredits(session?.access_token);
+  // const { credits, isLoading: creditsLoading } = useCredits(session?.access_token);
 
   useEffect(() => {
     const payment = searchParams.get("payment");
@@ -133,6 +125,7 @@ function BillingPageContent() {
     }
   }
 
+  /*
   async function handleManageBilling() {
     if (!enableBilling) {
       toast.info("Subscription management is currently offline since billing is paused.");
@@ -238,6 +231,7 @@ function BillingPageContent() {
       setCreditLoading(false);
     }
   }
+  */
 
   const isActuallyPro = isPro || subscription?.plan === "pro";
   const limit = 10;
@@ -410,60 +404,6 @@ function BillingPageContent() {
         )}
 
       </div>
-
-      {/* Portal info modal */}
-      {portalInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-          <Card className="w-full max-w-md p-6 relative border border-slate-200 dark:border-amber-600/10 bg-white dark:bg-[#0c0c0f] text-slate-900 dark:text-slate-100 shadow-2xl rounded-xl">
-            <button 
-              onClick={() => setPortalInfo(null)} 
-              className="absolute top-4 right-4 rounded-sm opacity-50 hover:opacity-100 transition-opacity"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            
-            <h3 className="text-sm font-bold uppercase tracking-wider text-amber-500 flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              Subscription Ledger
-            </h3>
-            
-            <Separator className="my-4 bg-slate-200 dark:bg-slate-800/50" />
-            
-            <div className="space-y-3.5 text-xs">
-              <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Plan Identifier:</span>
-                <span className="font-bold uppercase text-amber-500">{portalInfo.plan}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500 dark:text-slate-400">Ledger Status:</span>
-                <span className="font-bold uppercase text-emerald-500 dark:text-emerald-400">{portalInfo.status}</span>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-slate-500 dark:text-slate-400">Razorpay Subscription ID:</span>
-                <span className="font-mono text-[10px] select-all bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-900 px-2 py-2 rounded break-all text-amber-800 dark:text-amber-200">
-                  {portalInfo.subscription_id}
-                </span>
-              </div>
-            </div>
-            
-            <Separator className="my-4 bg-slate-200 dark:bg-slate-800/50" />
-            
-            <div className="text-[10px] text-amber-600 dark:text-amber-500 bg-amber-500/5 border border-amber-600/10 rounded p-3 leading-relaxed">
-              {portalInfo.message}
-            </div>
-            
-            <div className="mt-6 flex justify-end">
-              <Button 
-                onClick={() => setPortalInfo(null)} 
-                size="sm"
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-[10px]"
-              >
-                Dismiss
-              </Button>
-            </div>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import useSWR from 'swr';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -18,8 +17,11 @@ const getFetcher = async ([url, token]: [string, string]) => {
 const postFetcher = async ([url, token]: [string, string]) => {
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ access_token: token }),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({}),
   });
   if (!res.ok) {
     throw new Error('Failed to fetch POST resource');
@@ -38,15 +40,15 @@ export interface TranslationHistoryItem {
   model_used: string | null;
 }
 
-export function useTranslationStats(userEmail: string | undefined, accessToken: string | undefined) {
+export function useTranslationStats(_userEmail: string | undefined, accessToken: string | undefined) {
   // Fetch stats and history using SWR
-  const { data: statsData, error: statsError, isLoading: statsLoading } = useSWR(
+  const { data: statsData, isLoading: statsLoading } = useSWR(
     accessToken ? [`${API_BASE}/api/stats`, accessToken] : null,
     getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
   );
 
-  const { data: historyData, error: historyError, isLoading: historyLoading } = useSWR(
+  const { data: historyData, isLoading: historyLoading } = useSWR(
     accessToken ? [`${API_BASE}/api/history?limit=5`, accessToken] : null,
     getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
@@ -65,7 +67,7 @@ export function useTranslationStats(userEmail: string | undefined, accessToken: 
 }
 
 export function useSubscriptionStatus(accessToken: string | undefined) {
-  const { data, error, isLoading } = useSWR(
+  const { data, isLoading } = useSWR(
     accessToken ? [`${API_BASE}/api/subscription-status`, accessToken] : null,
     postFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
@@ -81,7 +83,7 @@ export function useSubscriptionStatus(accessToken: string | undefined) {
 }
 
 export function useCredits(accessToken: string | undefined) {
-  const { data, error, isLoading, mutate } = useSWR(
+  const { data, isLoading, mutate } = useSWR(
     accessToken ? [`${API_BASE}/api/check-credits`, accessToken] : null,
     postFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
@@ -91,7 +93,7 @@ export function useCredits(accessToken: string | undefined) {
 
   const setCredits = (val: number | ((prev: number) => number)) => {
     if (typeof val === 'function') {
-      mutate((prevData: any) => {
+      mutate((prevData: { credits: number } | undefined) => {
         const current = prevData?.credits || 0;
         const nextVal = val(current);
         return { ...prevData, credits: nextVal };

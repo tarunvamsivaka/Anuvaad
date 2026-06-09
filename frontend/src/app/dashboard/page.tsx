@@ -7,8 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Code2, ArrowRight, Zap, FileText, TrendingUp,
-  Terminal, Cpu, ShieldCheck, Activity, Layers,
-  ArrowLeftRight, Sparkles, Clock, BarChart3
+  Activity, ArrowLeftRight, Sparkles, Clock, BarChart3
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTranslationStats } from "@/lib/hooks";
@@ -78,9 +77,15 @@ export default function DashboardPage() {
 
   useEffect(() => { setMounted(true); }, []);
 
-  // Mock 7-day activity data — replace with real data when available
+  // 7-day activity data: distribute the weekly volume across previous days, placing current day last
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Today"];
-  const weekActivity = [0, 0, 0, 0, 0, 0, stats.today];
+  const remainingWeek = Math.max(0, stats.week - stats.today);
+  const baseDayValue = Math.floor(remainingWeek / 6);
+  const remainder = remainingWeek % 6;
+  const weekActivity = Array.from(
+    { length: 6 },
+    (_, i) => baseDayValue + (i < remainder ? 1 : 0)
+  ).concat(stats.today);
   const maxActivity = Math.max(...weekActivity, 1);
 
   const statCards = [

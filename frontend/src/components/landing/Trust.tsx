@@ -110,7 +110,7 @@ export function Trust() {
 
         {/* Three pillar cards */}
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 mb-20">
-          {PILLARS.map((pillar, i) => (
+          {PILLARS.map((pillar) => (
             <div
               key={pillar.title}
               className="trust-card opacity-0 group relative rounded-2xl border border-amber-500/10 bg-[#0c0c0f]/70 p-8 backdrop-blur-sm shadow-xl shadow-black/30 transition-all duration-500 hover:border-amber-500/25 hover:shadow-[0_0_30px_rgba(245,158,11,0.06)] hover:scale-[1.02] cursor-default"

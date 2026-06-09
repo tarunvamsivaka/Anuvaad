@@ -1,7 +1,7 @@
 import hashlib
 import httpx
 from datetime import datetime, timezone
-from fastapi import Request, Depends, HTTPException
+from fastapi import Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.config import (
     SUPABASE_URL,
@@ -9,7 +9,7 @@ from app.core.config import (
     logger,
     get_http_client,
 )
-from app.core.database import supabase_request, supabase_request_list
+from app.core.database import supabase_request
 from app.core.cache import cache
 
 security = HTTPBearer(auto_error=False)

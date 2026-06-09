@@ -23,16 +23,8 @@ import {
   Trash2, 
   ShieldAlert, 
   Loader2,
-  Activity,
-  Cpu,
-  ShieldCheck,
-  Network,
-  BarChart3,
-  Database,
-  Info,
   User,
-  Palette,
-  Sparkles
+  Palette
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/lib/supabase";
@@ -507,13 +499,15 @@ export default function SettingsPage() {
                   </div>
                   
                   <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                    <DialogTrigger render={
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 bg-red-100 border border-red-300 text-red-600 hover:bg-red-200 dark:bg-red-950/20 dark:border-red-500/20 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
-                      />
-                    }>
+                    <DialogTrigger
+                      render={
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="gap-1.5 text-[10px] uppercase font-bold tracking-wider h-8 bg-red-100 border border-red-300 text-red-600 hover:bg-red-200 dark:bg-red-950/20 dark:border-red-500/20 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                        />
+                      }
+                    >
                       <Trash2 className="h-3 w-3" /> Purge
                     </DialogTrigger>
                     <DialogContent className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-amber-600/10 text-slate-900 dark:text-slate-100 rounded-lg">

@@ -4,7 +4,7 @@ import hashlib
 import time
 import collections
 import threading
-from app.core.config import logger, _is_production as _is_prod
+from app.core.config import logger
 
 class LRUCache:
     def __init__(self, max_size: int = None):

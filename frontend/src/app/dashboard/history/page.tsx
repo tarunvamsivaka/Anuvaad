@@ -129,7 +129,7 @@ export default function HistoryPage() {
 
     fetchHistory();
     return () => { active = false; controller.abort(); };
-  }, [session?.access_token, activeWorkspace?.id]);
+  }, [session?.access_token, activeWorkspace]);
 
   const filteredHistory = useMemo(() => {
     let items = history;

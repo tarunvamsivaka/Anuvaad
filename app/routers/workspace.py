@@ -1,4 +1,3 @@
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.config import SUPABASE_URL, SUPABASE_SERVICE_KEY, logger, metrics, get_http_client
 from app.core.cache import cache

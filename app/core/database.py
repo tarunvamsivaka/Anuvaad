@@ -1,6 +1,4 @@
 import re
-import httpx
-from datetime import datetime, timezone
 from supabase import create_client, Client
 from app.core.config import SUPABASE_URL, SUPABASE_SERVICE_KEY, logger
 

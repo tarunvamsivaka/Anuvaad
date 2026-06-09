@@ -1,13 +1,10 @@
 import os
 import uuid
-import json
-import asyncio
 from datetime import datetime, timezone
 from fastapi import Request, HTTPException
 from app.core.config import (
     SUPABASE_URL,
     SUPABASE_SERVICE_KEY,
-    FREE_TIER_DAILY_LIMIT,
     logger,
     get_http_client,
 )

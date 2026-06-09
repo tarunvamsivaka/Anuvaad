@@ -1,6 +1,5 @@
 import os
 import re
-import sys
 import base64
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -15,19 +14,21 @@ from app.core.config import (
     METRICS_PASSWORD,
     FREE_TIER_DAILY_LIMIT,
     IS_PRODUCTION,
-    ENV,
     logger,
     metrics,
 )
 from app.core.cache import cache
 from app.core.auth import get_user_email, get_user_pro_status
-from app.core.quota import get_today_usage_count, get_active_protection_mode
+from app.core.quota import get_today_usage_count
 
 router = APIRouter(prefix="/api", tags=["utility"])
 
 # ── GITHUB GIST IMPORT ──
 GIST_MAX_SIZE = 50 * 1024  # 50 KB
-GIST_URL_PATTERN = re.compile(r"^https://gist\.github\.com/([^/]+)/([a-f0-9]+)$")
+GIST_URL_PATTERN = re.compile(r"^https://gist\.github\.com/([^/]+)/([a-zA-Z0-9]+)/?$")
+GITHUB_RAW_PATTERN = re.compile(r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$")
+GITHUB_BLOB_PATTERN = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$")
+GITHUB_REPO_PATTERN = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/?$")
 
 GIST_LANGUAGE_MAP = {
     "python": "python",
@@ -67,6 +68,87 @@ GIST_LANGUAGE_MAP = {
 }
 
 
+def get_language_from_filename(filename: str) -> str:
+    ext = os.path.splitext(filename)[1].lower()
+    ext_map = {
+        ".py": "python",
+        ".js": "javascript",
+        ".ts": "typescript",
+        ".tsx": "typescript",
+        ".jsx": "javascript",
+        ".java": "java",
+        ".cpp": "cpp",
+        ".cc": "cpp",
+        ".h": "cpp",
+        ".hpp": "cpp",
+        ".c": "c",
+        ".cs": "csharp",
+        ".go": "go",
+        ".rs": "rust",
+        ".swift": "swift",
+        ".kt": "kotlin",
+        ".kts": "kotlin",
+        ".dart": "dart",
+        ".php": "php",
+        ".rb": "ruby",
+        ".pl": "perl",
+        ".lua": "lua",
+        ".r": "r",
+        ".m": "matlab",
+        ".sql": "sql",
+        ".graphql": "graphql",
+        ".sh": "bash",
+        ".bash": "bash",
+        ".ps1": "powershell",
+        ".dockerfile": "dockerfile",
+        "dockerfile": "dockerfile",
+        ".yaml": "yaml",
+        ".yml": "yaml",
+        ".scala": "scala",
+        ".hs": "haskell",
+        ".ex": "elixir",
+        ".exs": "elixir",
+        ".clj": "clojure",
+        ".html": "html",
+        ".css": "css",
+        ".json": "json",
+        ".xml": "xml",
+        ".md": "markdown",
+    }
+    return ext_map.get(ext, "python")
+
+
+async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
+    try:
+        resp = await client.get(
+            url,
+            headers={
+                "User-Agent": "Anuvaad-App",
+            },
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504, detail="Request to fetch file timed out. Please try again."
+        )
+    except httpx.RequestError as e:
+        logger.error(f"GitHub fetch network error: {e}")
+        raise HTTPException(status_code=502, detail="Could not reach GitHub.")
+
+    if resp.status_code == 404:
+        raise HTTPException(
+            status_code=404, detail="File not found on GitHub."
+        )
+    if resp.status_code == 403:
+        raise HTTPException(
+            status_code=403, detail="GitHub API rate limit exceeded or file is private."
+        )
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=502, detail=f"GitHub returned status {resp.status_code}"
+        )
+    return resp.text
+
+
 @router.get("/health")
 async def health_check():
     redis_ok = False
@@ -90,79 +172,236 @@ async def health_check():
 
 @router.get("/import-gist")
 async def import_gist(url: str):
-    """Fetch a public GitHub Gist's first file and return its content for translation."""
-    match = GIST_URL_PATTERN.match(url.strip())
-    if not match:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid Gist URL. Expected format: https://gist.github.com/username/gist_id",
-        )
+    """Fetch a public GitHub Gist, Raw file, Repository file, or Repository's default file and return its content."""
+    clean_url = url.strip()
 
-    username = match.group(1)
-    gist_id = match.group(2)
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                f"https://api.github.com/gists/{gist_id}",
-                headers={
-                    "Accept": "application/vnd.github.v3+json",
-                    "User-Agent": "Anuvaad-App",
-                },
+    # 1. Gist URL
+    gist_match = GIST_URL_PATTERN.match(clean_url)
+    if gist_match:
+        username = gist_match.group(1)
+        gist_id = gist_match.group(2)
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"https://api.github.com/gists/{gist_id}",
+                    headers={
+                        "Accept": "application/vnd.github.v3+json",
+                        "User-Agent": "Anuvaad-App",
+                    },
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=504, detail="GitHub API request timed out. Please try again."
             )
-    except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504, detail="GitHub API request timed out. Please try again."
-        )
-    except httpx.RequestError as e:
-        logger.error(f"Gist fetch network error: {e}")
-        raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
+        except httpx.RequestError as e:
+            logger.error(f"Gist fetch network error: {e}")
+            raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
 
-    if resp.status_code == 404:
-        raise HTTPException(
-            status_code=404, detail="Gist not found. It may be private or deleted."
-        )
-    if resp.status_code == 403:
-        raise HTTPException(
-            status_code=400, detail="Gist is private or GitHub rate limit exceeded."
-        )
-    if resp.status_code != 200:
-        raise HTTPException(
-            status_code=502, detail=f"GitHub API returned status {resp.status_code}"
-        )
+        if resp.status_code == 404:
+            raise HTTPException(
+                status_code=404, detail="Gist not found. It may be private or deleted."
+            )
+        if resp.status_code == 403:
+            raise HTTPException(
+                status_code=403, detail="Gist is private or GitHub rate limit exceeded."
+            )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=502, detail=f"GitHub API returned status {resp.status_code}"
+            )
 
-    gist_data = resp.json()
+        gist_data = resp.json()
+        if not gist_data.get("public", True):
+            raise HTTPException(
+                status_code=400,
+                detail="This Gist is private. Only public Gists can be imported.",
+            )
 
-    if not gist_data.get("public", True):
-        raise HTTPException(
-            status_code=400,
-            detail="This Gist is private. Only public Gists can be imported.",
-        )
+        files = gist_data.get("files", {})
+        if not files:
+            raise HTTPException(status_code=400, detail="This Gist has no files.")
 
-    files = gist_data.get("files", {})
-    if not files:
-        raise HTTPException(status_code=400, detail="This Gist has no files.")
+        first_filename = next(iter(files))
+        file_data = files[first_filename]
+        content = file_data.get("content", "")
 
-    first_filename = next(iter(files))
-    file_data = files[first_filename]
-    content = file_data.get("content", "")
+        if len(content.encode("utf-8")) > GIST_MAX_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Gist content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
+            )
 
-    if len(content.encode("utf-8")) > GIST_MAX_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail=f"Gist content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
-        )
+        raw_language = (file_data.get("language") or "").lower()
+        detected_language = GIST_LANGUAGE_MAP.get(raw_language, "python")
 
-    raw_language = (file_data.get("language") or "").lower()
-    detected_language = GIST_LANGUAGE_MAP.get(raw_language, "python")
+        return {
+            "filename": first_filename,
+            "language": detected_language,
+            "content": content,
+            "char_count": len(content),
+            "username": username,
+        }
 
-    return {
-        "filename": first_filename,
-        "language": detected_language,
-        "content": content,
-        "char_count": len(content),
-        "username": username,
-    }
+    # 2. Raw File URL
+    raw_match = GITHUB_RAW_PATTERN.match(clean_url)
+    if raw_match:
+        owner = raw_match.group(1)
+        repo = raw_match.group(2)
+        branch = raw_match.group(3)
+        path = raw_match.group(4)
+        filename = path.split("/")[-1]
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            content = await fetch_raw_content(client, clean_url)
+
+        if len(content.encode("utf-8")) > GIST_MAX_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
+            )
+
+        detected_language = get_language_from_filename(filename)
+        return {
+            "filename": filename,
+            "language": detected_language,
+            "content": content,
+            "char_count": len(content),
+            "username": owner,
+        }
+
+    # 3. Blob File URL
+    blob_match = GITHUB_BLOB_PATTERN.match(clean_url)
+    if blob_match:
+        owner = blob_match.group(1)
+        repo = blob_match.group(2)
+        branch = blob_match.group(3)
+        path = blob_match.group(4)
+        filename = path.split("/")[-1]
+        raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            content = await fetch_raw_content(client, raw_url)
+
+        if len(content.encode("utf-8")) > GIST_MAX_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
+            )
+
+        detected_language = get_language_from_filename(filename)
+        return {
+            "filename": filename,
+            "language": detected_language,
+            "content": content,
+            "char_count": len(content),
+            "username": owner,
+        }
+
+    # 4. Repo Root URL
+    repo_match = GITHUB_REPO_PATTERN.match(clean_url)
+    if repo_match:
+        owner = repo_match.group(1)
+        repo = repo_match.group(2)
+
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    f"https://api.github.com/repos/{owner}/{repo}/contents",
+                    headers={
+                        "Accept": "application/vnd.github.v3+json",
+                        "User-Agent": "Anuvaad-App",
+                    },
+                )
+        except httpx.TimeoutException:
+            raise HTTPException(
+                status_code=504, detail="GitHub API request timed out. Please try again."
+            )
+        except httpx.RequestError as e:
+            logger.error(f"GitHub contents fetch network error: {e}")
+            raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
+
+        if resp.status_code == 404:
+            raise HTTPException(
+                status_code=404, detail="Repository not found or is private."
+            )
+        if resp.status_code == 403:
+            raise HTTPException(
+                status_code=403, detail="GitHub API rate limit exceeded or repository is private."
+            )
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=502, detail=f"GitHub API returned status {resp.status_code}"
+            )
+
+        contents = resp.json()
+        if not isinstance(contents, list):
+            raise HTTPException(status_code=400, detail="Could not read repository contents.")
+
+        files = [item for item in contents if item.get("type") == "file"]
+        if not files:
+            raise HTTPException(status_code=400, detail="No files found in the repository root.")
+
+        # Priority 1: Common entry points
+        preferred_names = ["main.py", "app.py", "index.js", "index.ts", "main.go", "main.rs", "index.html"]
+        selected_file = None
+        for name in preferred_names:
+            for f in files:
+                if f.get("name") == name:
+                    selected_file = f
+                    break
+            if selected_file:
+                break
+
+        # Priority 2: Any code file with supported extensions
+        if not selected_file:
+            supported_extensions = [
+                ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".cpp", ".cc", ".c", ".cs",
+                ".go", ".rs", ".swift", ".kt", ".dart", ".php", ".rb", ".sql", ".sh", ".html", ".css"
+            ]
+            for f in files:
+                ext = os.path.splitext(f.get("name", ""))[1].lower()
+                if ext in supported_extensions:
+                    selected_file = f
+                    break
+
+        # Priority 3: README.md
+        if not selected_file:
+            for f in files:
+                if f.get("name", "").lower() == "readme.md":
+                    selected_file = f
+                    break
+
+        # Priority 4: First file in the list
+        if not selected_file:
+            selected_file = files[0]
+
+        download_url = selected_file.get("download_url")
+        filename = selected_file.get("name", "code.txt")
+        if not download_url:
+            raise HTTPException(status_code=400, detail="Could not get download URL for selected file.")
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            content = await fetch_raw_content(client, download_url)
+
+        if len(content.encode("utf-8")) > GIST_MAX_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
+            )
+
+        detected_language = get_language_from_filename(filename)
+        return {
+            "filename": filename,
+            "language": detected_language,
+            "content": content,
+            "char_count": len(content),
+            "username": owner,
+        }
+
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid URL. Expected a GitHub Gist, Raw file, or Repository/File URL.",
+    )
 
 
 def _check_metrics_auth(request: Request) -> bool:

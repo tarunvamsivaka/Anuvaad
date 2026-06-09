@@ -1,8 +1,11 @@
 import os
+import sys
+import time
 import logging
 import httpx
-from dotenv import load_dotenv
+from collections import deque
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 from fastapi import FastAPI
 
 load_dotenv()
@@ -57,9 +60,6 @@ async def lifespan(app: FastAPI):
         logger.info("Closed global HTTP client")
 
 
-import time
-import sys
-from collections import deque
 
 class MetricsCollector:
     """In-memory metrics for API observability. Resets on process restart."""
