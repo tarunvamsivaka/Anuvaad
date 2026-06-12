@@ -166,7 +166,7 @@ export function ScrollStory() {
 
               {/* Scene Title */}
               <div className="space-y-2">
-                <h3
+                <h2
                   className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight min-h-[100px] lg:min-h-[130px] transition-all duration-500"
                   style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
                 >
@@ -183,7 +183,7 @@ export function ScrollStory() {
                       {line}
                     </span>
                   ))}
-                </h3>
+                </h2>
                 <p className="text-sm font-medium text-amber-400/60 tracking-wide">
                   {steps[activeStep].subtitle}
                 </p>
@@ -382,7 +382,7 @@ export function ScrollStory() {
                     <div className="workspace-settle-pulse absolute inset-0 border border-amber-500/40 rounded-2xl pointer-events-none" />
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-5 w-5 text-amber-400" />
-                      <h4 className="font-semibold text-white font-sans">Anuvaad Workspace Ready</h4>
+                      <h3 className="font-semibold text-white font-sans">Anuvaad Workspace Ready</h3>
                     </div>
                     <p className="text-xs text-slate-400 font-sans leading-relaxed">
                       Interactive code translating, two-way sync documentation, and cross-language compatibility inside a minimal, high-performance interface.

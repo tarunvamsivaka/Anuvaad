@@ -159,13 +159,13 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border-faint">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-amber-500" />
-              <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-text-secondary">Recent Sessions/Repositories</h2>
+              <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-text-secondary">Recent Translations</h2>
             </div>
             <Link
               href="/dashboard/history"
               className="text-[11px] font-semibold text-text-muted hover:text-text-amber transition-colors flex items-center gap-1"
             >
-              View History <ArrowRight className="h-3 w-3" />
+              View All <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
 

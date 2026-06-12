@@ -28,7 +28,7 @@ test.describe("Axe Accessibility Audit", () => {
 
   test("dashboard home page has no critical violations", async ({ page }) => {
     await page.goto(`${BASE}/dashboard`);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     const results = await new AxeBuilder({ page })
       .disableRules(GLOBAL_SKIP_RULES)
@@ -54,7 +54,7 @@ test.describe("Axe Accessibility Audit", () => {
 
   test("translate page has no critical violations", async ({ page }) => {
     await page.goto(`${BASE}/dashboard/translate`);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     // Wait for Monaco to finish loading (it has async chunks)
     await page.waitForTimeout(2000);
 
@@ -79,7 +79,7 @@ test.describe("Axe Accessibility Audit", () => {
 
   test("history page has no critical violations", async ({ page }) => {
     await page.goto(`${BASE}/dashboard/history`);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     const results = await new AxeBuilder({ page })
       .disableRules(GLOBAL_SKIP_RULES)
@@ -91,7 +91,7 @@ test.describe("Axe Accessibility Audit", () => {
 
   test("billing page has no critical violations", async ({ page }) => {
     await page.goto(`${BASE}/dashboard/billing`);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     const results = await new AxeBuilder({ page })
       .disableRules(GLOBAL_SKIP_RULES)
@@ -104,7 +104,7 @@ test.describe("Axe Accessibility Audit", () => {
   test("landing page has no critical violations", async ({ page }) => {
     // Landing is public — no auth needed
     await page.goto(BASE);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     const results = await new AxeBuilder({ page })
       .disableRules(GLOBAL_SKIP_RULES)
@@ -126,7 +126,7 @@ test.describe("Axe Accessibility Audit", () => {
 
   test("keyboard navigation: can tab to translate button", async ({ page }) => {
     await page.goto(`${BASE}/dashboard/translate`);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Tab through the UI — the Translate button must be reachable
     let found = false;

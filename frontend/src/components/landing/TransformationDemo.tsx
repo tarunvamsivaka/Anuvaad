@@ -413,7 +413,7 @@ export function TransformationDemo() {
               >
                 {/* CODE TO ENGLISH INPUT */}
                 {activeMode === "explain" && (
-                  <div className="select-none py-2 overflow-x-auto">
+                  <div className="select-none py-2 overflow-x-auto" tabIndex={0} aria-label="TypeScript source code preview">
                     {EXPLAIN_DATA.code.split("\n").map((line, idx) => {
                       const lineNum = idx + 1;
                       const activeSecId = getExplainSectionIdForLine(lineNum);
@@ -514,7 +514,7 @@ export function TransformationDemo() {
 
                 {/* CODE TO CODE INPUT */}
                 {activeMode === "translate" && (
-                  <div className="select-none py-2 overflow-x-auto">
+                  <div className="select-none py-2 overflow-x-auto" tabIndex={0} aria-label="Python source code preview">
                     {TRANSLATE_DATA.sourceCode.split("\n").map((line, idx) => {
                       const lineNum = idx + 1;
                       const activeMappingIdx = TRANSLATE_DATA.mappings.findIndex(
@@ -589,11 +589,11 @@ export function TransformationDemo() {
                   
                   {/* CODE TO ENGLISH RENDER */}
                   {activeMode === "explain" && (
-                    <div className="space-y-4 overflow-y-auto max-h-[440px] pr-2">
+                    <div className="space-y-4 overflow-y-auto max-h-[440px] pr-2" tabIndex={0} aria-label="English explanation details">
                       <div className="p-4 bg-[rgba(245,158,11,0.04)] border border-amber-500/10 rounded-xl mb-2">
-                        <h4 className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-1">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-amber-400 mb-1">
                           System Summary
-                        </h4>
+                        </h3>
                         <TypographyProse size="sm" textColor="secondary">
                           This is a Next.js API route that handles Server-Sent Events (SSE) streaming for real-time code translation. Hover over any explanation card below to highlight the corresponding lines in the source code file.
                         </TypographyProse>
@@ -637,6 +637,8 @@ export function TransformationDemo() {
                   {activeMode === "generate" && (
                     <div className="flex flex-col flex-1 justify-between h-full">
                       <CodeSurface 
+                        tabIndex={0}
+                        aria-label="Calculated code diff output"
                         className="text-xs font-mono min-h-[320px] bg-surface-card border border-[var(--border-faint)] overflow-x-auto whitespace-pre rounded-xl py-3"
                       >
                         {GENERATE_DATA.prompts[activePromptIndex].diff.map((line, idx) => (
@@ -699,6 +701,8 @@ export function TransformationDemo() {
                   {activeMode === "translate" && (
                     <div className="space-y-4 flex flex-col flex-1 justify-between">
                       <CodeSurface 
+                        tabIndex={0}
+                        aria-label="Translated TypeScript logic output"
                         className="text-[13px] font-mono min-h-[220px] bg-surface-card border border-[var(--border-faint)] overflow-x-auto whitespace-pre rounded-xl py-3 text-slate-300"
                       >
                         {TRANSLATE_DATA.targetCode.split("\n").map((line, idx) => {

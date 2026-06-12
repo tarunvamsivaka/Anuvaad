@@ -76,7 +76,10 @@ export function SmoothScroll() {
   return (
     <>
       {/* Amber Scroll Progress Tracker — right side */}
-      <div className="fixed right-6 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-6 md:flex">
+      <nav 
+        aria-label="Page navigation"
+        className="fixed right-6 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-6 md:flex"
+      >
         {/* Progress bar */}
         <div className="relative h-48 w-0.5 rounded-full bg-white/10">
           <div
@@ -116,7 +119,7 @@ export function SmoothScroll() {
             );
           })}
         </div>
-      </div>
+      </nav>
     </>
   );
 }

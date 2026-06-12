@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/Logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect, useRef, Suspense } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -83,7 +84,7 @@ function SidebarContent({
       </nav>
 
       {/* Bottom section */}
-      <div className="shrink-0 p-3">
+      <div className="shrink-0 p-3 space-y-2">
         {/* Upgrade CTA for free users */}
         {!isPro && (
           <div className="sidebar-upgrade relative overflow-hidden rounded-xl border border-border-medium bg-gradient-to-br from-amber-500/10 to-orange-500/5 transition-all duration-200 p-3 h-[44px]">
@@ -96,11 +97,14 @@ function SidebarContent({
                 href="/dashboard/billing"
                 className="block w-full text-center text-[10px] font-bold text-surface-base bg-amber-400 hover:bg-amber-300 rounded-lg py-1 transition-colors"
               >
-                Upgrade
+                Upgrade Now
               </Link>
             </div>
           </div>
         )}
+        <div className="flex justify-center border-t border-border-faint pt-2">
+          <ThemeToggle />
+        </div>
       </div>
     </div>
   );

@@ -96,7 +96,7 @@ int main() {
   console.log(`Proof screenshot saved to ${screenshotPath}`);
 
   // Print sample translation outputs
-  const cards = page.locator('p.text-sm');
+  const cards = page.locator('p[data-prose]');
   const firstCardText = await cards.first().innerText();
   console.log('--- SAMPLE TRANSLATION OUTPUT ---');
   console.log(firstCardText);
@@ -108,11 +108,11 @@ int main() {
   // 1. Find the English explanation section inside the first block card.
   //    The English section is a div with `bg-background group` that wraps the explanation text.
   //    We use the paragraph text inside it to scope correctly, then find its parent group div.
-  const firstBlockText = page.locator('div.group p.text-sm').first();
+  const firstBlockText = page.locator('div.group p[data-prose]').first();
   await expect(firstBlockText).toBeVisible({ timeout: 5000 });
   
   // Get the parent `.group` div (the English explanation panel)
-  const firstEnglishPanel = page.locator('div.group').filter({ has: page.locator('p.text-sm') }).first();
+  const firstEnglishPanel = page.locator('div.group').filter({ has: page.locator('p[data-prose]') }).first();
 
   // Hover so the CSS group-hover buttons become visible
   await firstEnglishPanel.hover();

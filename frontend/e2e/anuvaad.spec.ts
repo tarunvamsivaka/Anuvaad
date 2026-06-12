@@ -480,7 +480,7 @@ test.describe('Translation History', () => {
     await page.goto('/dashboard/history');
     await expect(page.locator('text=def hello_world():')).toBeVisible({ timeout: 8000 });
     // Hover first card to reveal delete button
-    const firstCard = page.locator('text=def hello_world():').locator('xpath=ancestor::div[contains(@class,"group")]');
+    const firstCard = page.locator('text=def hello_world():').locator('xpath=ancestor::*[contains(@class,"group")]');
     await firstCard.hover();
     const deleteBtn = page.locator('[aria-label*="Delete translation"]').first();
     await expect(deleteBtn).toBeVisible({ timeout: 3000 });
