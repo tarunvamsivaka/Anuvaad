@@ -12,5 +12,4 @@ python-multipart>=0.0.9
 resend>=2.0.0
 supabase>=2.4.0
 structlog>=24.0.0
-setuptools
-
+setuptools<82.0.0
