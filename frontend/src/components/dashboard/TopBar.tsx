@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
 
-function WorkspaceSwitcher() {
+export function WorkspaceSwitcher() {
   const { workspaces, activeWorkspace, setActiveWorkspace } = useWorkspace();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -86,7 +86,7 @@ export function TopBar({ breadcrumb, action }: { breadcrumb?: React.ReactNode; a
   const { user, isPro } = useAuth();
 
   return (
-    <header className="topbar flex items-center justify-between px-6">
+    <header className="topbar flex items-center justify-between pl-14 pr-6 md:px-6">
       <div className="flex items-center gap-4">
         {breadcrumb ? (
           <div className="text-sm font-semibold tracking-tight text-text-primary">{breadcrumb}</div>
@@ -95,7 +95,7 @@ export function TopBar({ breadcrumb, action }: { breadcrumb?: React.ReactNode; a
         )}
       </div>
 
-      <div className="flex items-center justify-center absolute left-1/2 -translate-x-1/2">
+      <div className="hidden md:flex items-center justify-center absolute left-1/2 -translate-x-1/2">
         <WorkspaceSwitcher />
       </div>
 

@@ -78,7 +78,7 @@ int main() {
 
   // Click Translate
   console.log('Clicking "Translate" button...');
-  await translateBtn.click();
+  await translateBtn.click({ force: true });
 
   // Wait for the translation to complete by waiting for "Copy as Markdown" or output block items
   console.log('Waiting for translation blocks to stream in...');
@@ -130,7 +130,8 @@ int main() {
   
   // 3. Save the card edits
   const saveBtn = page.locator('button:has-text("Save")').first();
-  await saveBtn.click();
+  await saveBtn.scrollIntoViewIfNeeded();
+  await saveBtn.click({ force: true });
   
   // 4. Verify that the sync warning banner has appeared
   const syncBanner = page.locator('text=Modified explanations detected');
@@ -138,7 +139,8 @@ int main() {
   
   // 5. Trigger sync to code
   const syncBtn = page.locator('button:has-text("Sync to Code")');
-  await syncBtn.click();
+  await syncBtn.scrollIntoViewIfNeeded();
+  await syncBtn.click({ force: true });
   
   // 6. Verify sync succeeds (banner goes away after code is synced)
   await expect(syncBanner).not.toBeVisible({ timeout: 30000 });

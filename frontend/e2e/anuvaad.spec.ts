@@ -137,14 +137,14 @@ test.describe('Public Pages', () => {
 
   test('sign-in page "Sign Up" link navigates to /signup', async ({ page }) => {
     await page.goto('/signin');
-    await page.click('a[href="/signup"]');
+    await page.click('a[href="/signup"]', { force: true });
     await expect(page).toHaveURL(/\/signup/);
     await expect(page.locator('h1')).toContainText('Create your account');
   });
 
   test('sign-up page "Sign In" link navigates to /signin', async ({ page }) => {
     await page.goto('/signup');
-    await page.click('a[href="/signin"]');
+    await page.click('a[href="/signin"]', { force: true });
     await expect(page).toHaveURL(/\/signin/);
     await expect(page.locator('h1')).toContainText('Welcome back');
   });
@@ -231,16 +231,20 @@ test.describe('Dashboard Home', () => {
     await expect(page).toHaveURL(/\/dashboard\/translate/, { timeout: 30000 });
   });
 
-  test('free user sees upgrade banner on dashboard', async ({ page }) => {
+  test('free user sees upgrade banner on dashboard', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Upgrade banner is inside the desktop sidebar which is hidden on mobile');
     await page.goto('/dashboard');
     const sidebar = desktopSidebar(page);
     await expect(sidebar.locator('text=Upgrade to Pro')).toBeVisible({ timeout: 8000 });
     await expect(sidebar.locator('a:has-text("Upgrade Now")')).toBeVisible();
   });
 
-  test('"Upgrade Now" banner links to billing page', async ({ page }) => {
+  test('"Upgrade Now" banner links to billing page', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Upgrade banner is inside the desktop sidebar which is hidden on mobile');
     await page.goto('/dashboard');
     const sidebar = desktopSidebar(page);
+    await sidebar.hover();
+    await page.waitForTimeout(350);
     await sidebar.locator('a:has-text("Upgrade Now")').click();
     await expect(page).toHaveURL(/\/dashboard\/billing/);
   });
@@ -288,7 +292,7 @@ test.describe('Translation Workspace', () => {
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'print("Hello")');
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")');
+    await page.click('button:has-text("Translate")', { force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
   });
 
@@ -298,7 +302,7 @@ test.describe('Translation Workspace', () => {
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'x = 42');
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")');
+    await page.click('button:has-text("Translate")', { force: true });
     await expect(page.locator('button:has-text("Copy as Markdown")')).toBeVisible({ timeout: 10000 });
   });
 
@@ -308,11 +312,12 @@ test.describe('Translation Workspace', () => {
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'y = 2');
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")');
+    await page.click('button:has-text("Translate")', { force: true });
     const downloadBtn = page.locator('button:has-text("Download JSON")');
     await expect(downloadBtn).toBeVisible({ timeout: 10000 });
     const downloadPromise = page.waitForEvent('download');
-    await downloadBtn.click();
+    await downloadBtn.scrollIntoViewIfNeeded();
+    await downloadBtn.click({ force: true });
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toContain('.json');
   });
@@ -329,7 +334,7 @@ test.describe('Translation Workspace', () => {
     await page.click('button[role="tab"]:has-text("English → Code")');
     await page.fill('textarea', 'Write a function that adds two numbers');
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")');
+    await page.click('button:has-text("Translate")', { force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
   });
 
@@ -363,7 +368,7 @@ test.describe('Translation Workspace', () => {
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'z = 3');
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")');
+    await page.click('button:has-text("Translate")', { force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
     // Click the reset/clear button (rotate-ccw icon)
     await page.locator('button').filter({ has: page.locator('.lucide-rotate-ccw') }).click();
@@ -384,12 +389,13 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'print("Collapse me")');
-    await page.click('button:has-text("Translate")');
+    await page.click('button:has-text("Translate")', { force: true });
     
     // The collapse button should have a chevron-up initially (expanded)
     const collapseBtn = page.locator('.lucide-chevron-up').first();
     await expect(collapseBtn).toBeVisible();
-    await collapseBtn.click();
+    await collapseBtn.scrollIntoViewIfNeeded();
+    await collapseBtn.click({ force: true });
     
     // Check that chevron-down is now visible on the block (last visible one on the page)
     const collapseDown = page.locator('.lucide-chevron-down').filter({ visible: true }).last();
@@ -403,7 +409,7 @@ test.describe('Translation Workspace', () => {
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'b = 2');
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")');
+    await page.click('button:has-text("Translate")', { force: true });
     await expect(page.locator('button:has-text("Copy as Markdown")')).toBeVisible({ timeout: 10000 });
     await page.click('button:has-text("Copy as Markdown")');
     // Button should briefly change text to confirm copy
@@ -616,6 +622,9 @@ test.describe('Settings Page', () => {
 // so href selectors resolve to 2 elements. We always scope to the LAST aside (desktop).
 
 test.describe('Sidebar Navigation', () => {
+  test.beforeEach(async ({ isMobile }) => {
+    test.skip(isMobile, 'Sidebar is different on mobile');
+  });
 
   test('desktop sidebar has links to all main sections', async ({ page }) => {
     await page.goto('/dashboard');

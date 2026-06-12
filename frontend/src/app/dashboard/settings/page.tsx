@@ -224,7 +224,7 @@ export default function SettingsPage() {
       
       {/* Premium Header */}
       <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
-        <div className="flex h-16 items-center justify-between px-8 max-w-7xl mx-auto">
+        <div className="flex h-16 items-center justify-between pl-14 pr-8 md:px-8 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
             <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">

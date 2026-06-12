@@ -46,7 +46,7 @@ export function TranslateShell({
 
       {/* ── Top bar ── */}
       <header className="shrink-0 z-20 glass-apple border-b border-slate-200/50 dark:border-white/5">
-        <div className="flex h-14 items-center justify-between px-6">
+        <div className="flex h-14 items-center justify-between pl-14 pr-6 md:px-6">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-bold tracking-tight">Workspace</h1>
             <Badge variant="outline" className="text-[10px] font-medium bg-amber-500/5 text-amber-500 dark:text-amber-500/90 border-amber-500/20">{currentModeLabel}</Badge>
@@ -137,7 +137,7 @@ export function TranslateShell({
           </div>
 
           {/* Split grid — both columns fill the remaining height */}
-          <div className="flex-1 overflow-hidden grid lg:grid-cols-2 divide-x divide-slate-200/50 dark:divide-white/5">
+          <div className="flex-1 overflow-y-auto lg:overflow-hidden grid lg:grid-cols-2 lg:divide-x divide-y lg:divide-y-0 divide-slate-200/50 dark:divide-white/5">
             {inputPanel}
             {outputPanel}
           </div>

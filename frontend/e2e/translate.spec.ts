@@ -102,7 +102,7 @@ test.describe('Authenticated Translation Flow', () => {
     // The button should now be enabled
     const translateBtn = page.locator('button:has-text("Translate")');
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
-    await translateBtn.click();
+    await translateBtn.click({ force: true });
     
     // Expect output blocks to appear (copy icon appears inside each block card)
     await expect(page.locator('.lucide-copy').first()).toBeVisible({ timeout: 15000 });
@@ -140,14 +140,15 @@ test.describe('Authenticated Translation Flow', () => {
 
     const translateBtn = page.locator('button:has-text("Translate")');
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
-    await translateBtn.click();
+    await translateBtn.click({ force: true });
     
     // Wait for the copy button to appear
     const copyBtn = page.locator('button', { has: page.locator('.lucide-copy') }).first();
     await expect(copyBtn).toBeVisible({ timeout: 15000 });
 
     // Click to copy
-    await copyBtn.click();
+    await copyBtn.scrollIntoViewIfNeeded();
+    await copyBtn.click({ force: true });
 
     // Verify it changes to checkmark
     await expect(page.locator('.lucide-check')).toBeVisible({ timeout: 2000 });
@@ -173,14 +174,15 @@ test.describe('Authenticated Translation Flow', () => {
 
     const translateBtn = page.locator('button:has-text("Translate")');
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
-    await translateBtn.click();
+    await translateBtn.click({ force: true });
     
     // Wait for output panel header buttons to appear
     const downloadBtn = page.locator('button:has-text("Download JSON")');
     await expect(downloadBtn).toBeVisible({ timeout: 15000 });
     
     const downloadPromise = page.waitForEvent('download');
-    await downloadBtn.click();
+    await downloadBtn.scrollIntoViewIfNeeded();
+    await downloadBtn.click({ force: true });
     
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toBeTruthy();

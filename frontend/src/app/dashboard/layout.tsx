@@ -12,6 +12,7 @@ import { Logo } from "@/components/landing/Logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect, useRef, Suspense } from "react";
+import { WorkspaceSwitcher } from "@/components/dashboard/TopBar";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { WorkspaceProvider, useWorkspace } from "@/context/WorkspaceContext";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
@@ -36,10 +37,12 @@ function SidebarContent({
   pathname,
   isPro,
   onNavigate,
+  showSwitcher = false,
 }: {
   pathname: string;
   isPro: boolean;
   onNavigate?: () => void;
+  showSwitcher?: boolean;
 }) {
   return (
     <div className="flex h-full flex-col">
@@ -47,6 +50,12 @@ function SidebarContent({
       <div className="flex h-14 shrink-0 items-center border-b border-border-subtle px-4 overflow-hidden">
         <Logo showText={true} iconSize={22} textSize="text-sm" />
       </div>
+
+      {showSwitcher && (
+        <div className="px-4 py-3 border-b border-border-faint">
+          <WorkspaceSwitcher />
+        </div>
+      )}
 
       {/* Nav section label (hidden when collapsed via CSS) */}
       <div className="sidebar-label px-5 pt-4 pb-2 opacity-0 transition-opacity duration-200">
@@ -187,6 +196,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
           pathname={pathname}
           isPro={isPro}
           onNavigate={() => setMobileOpen(false)}
+          showSwitcher={true}
         />
       </aside>
 

@@ -244,7 +244,7 @@ function BillingPageContent() {
       
       {/* Page Header */}
       <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
-        <div className="flex h-16 items-center px-8 max-w-4xl mx-auto">
+        <div className="flex h-16 items-center pl-14 pr-8 md:px-8 max-w-4xl mx-auto">
           <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
             Billing & Licenses
           </h1>
