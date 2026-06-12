@@ -190,8 +190,8 @@ class TestProtectionModes:
 class TestStaleRecoveryFallback:
     """Verify that if LLMs fail, the API recovers using stale cache/DB history."""
 
-    @pytest.mark.asyncio
-    async def test_stale_cache_recovery_on_failure(self, client):
+    def test_stale_cache_recovery_on_failure(self, client):
+        import asyncio
         # Seed cache for standard model
         key = app_module.cache_key("print(42)", "python", "code-to-english", "standard")
         mock_blocks = [
@@ -201,7 +201,7 @@ class TestStaleRecoveryFallback:
                 "english_translation": "Prints 42",
             }
         ]
-        await app_module.cache.put(key, mock_blocks)
+        asyncio.run(app_module.cache.put(key, mock_blocks))
 
         # Mock get_completion to throw an exception
         with patch("main.get_completion", side_effect=Exception("API limit exceeded")):
