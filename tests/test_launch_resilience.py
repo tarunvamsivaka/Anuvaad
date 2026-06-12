@@ -41,8 +41,7 @@ class TestAuthGating:
 class TestUserTiersAndQuotas:
     """Verify Free, Pro, and Admin quota enforcement."""
 
-    @pytest.mark.asyncio
-    async def test_free_user_char_limit(self, client):
+    def test_free_user_char_limit(self, client):
         # Free user character limit is 10,000. Try 10,005 characters -> 413
         res = client.post(
             "/api/code-to-english", json={"raw_code": "x" * 10005, "language": "python"}
@@ -50,8 +49,7 @@ class TestUserTiersAndQuotas:
         assert res.status_code == 413
         assert "exceeds the current limit" in res.json()["detail"]
 
-    @pytest.mark.asyncio
-    async def test_pro_user_char_limit_allowed(self, client):
+    def test_pro_user_char_limit_allowed(self, client):
         # Patch get_user_pro_status in the quota module (enforce_quotas_and_protection
         # calls app.core.quota.get_user_pro_status at line 361 of quota.py)
         from unittest.mock import AsyncMock
@@ -63,8 +61,7 @@ class TestUserTiersAndQuotas:
             # Pro user allows up to 50K. 10005 chars should be 200 (allowed)
             assert res.status_code == 200
 
-    @pytest.mark.asyncio
-    async def test_admin_bypass_limits(self, client):
+    def test_admin_bypass_limits(self, client):
         # Admin is in ADMIN_USERS. Mock email to return admin address
         async def fake_admin_email():
             return "admin@anuvaad.dev"
@@ -87,8 +84,7 @@ class TestUserTiersAndQuotas:
 class TestCooldownEnforcement:
     """Verify per-user cooldown rate limits."""
 
-    @pytest.mark.asyncio
-    async def test_cooldown_raises_429(self, client):
+    def test_cooldown_raises_429(self, client):
         # Simulate active cooldown in cache and set cooldown env limit to 5
         with patch.dict(os.environ, {"LIMIT_FREE_COOLDOWN": "5"}):
             with patch.object(
@@ -179,8 +175,7 @@ class TestAdminDashboardStats:
 class TestProtectionModes:
     """Verify Protection Mode limits and scaling."""
 
-    @pytest.mark.asyncio
-    async def test_emergency_mode_limits(self, client):
+    def test_emergency_mode_limits(self, client):
         # Force EMERGENCY mode via manual override
         with patch.dict(os.environ, {"PROTECTION_MODE": "EMERGENCY"}):
             # Check limits for a free user. Emergency should restrict chars to 300
