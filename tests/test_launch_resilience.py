@@ -201,7 +201,7 @@ class TestStaleRecoveryFallback:
         from unittest.mock import AsyncMock
         # Mock get_completion to throw an exception
         with patch("main.get_completion", side_effect=Exception("API limit exceeded")):
-            with patch.object(app_module.cache, "get", new_callable=AsyncMock, return_value=mock_blocks):
+            with patch("app.core.cache.RedisCache.get", new_callable=AsyncMock, return_value=mock_blocks):
                 res = client.post(
                     "/api/code-to-english/sync",
                     json={"raw_code": "print(42)", "language": "python"},
