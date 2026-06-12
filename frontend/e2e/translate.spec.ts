@@ -26,6 +26,12 @@ async function setMonacoValue(page: import('@playwright/test').Page, code: strin
 
 // Helper: mock the backend streaming API with a realistic SSE response
 async function mockTranslateAPI(page: import('@playwright/test').Page) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
   const mockBlocks = [
     {
       id: 'block-1',
@@ -42,29 +48,21 @@ async function mockTranslateAPI(page: import('@playwright/test').Page) {
   ].join('\n');
 
   // Intercept all code-to-english, code-to-code, and generate-from-english endpoints
-  await page.route('**/api/code-to-english', async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream; charset=utf-8',
-      body: sseBody,
+  for (const endpoint of ['**/api/code-to-english', '**/api/code-to-code', '**/api/generate-from-english']) {
+    await page.route(endpoint, async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream; charset=utf-8',
+        headers: corsHeaders,
+        body: sseBody,
+      });
     });
-  });
-
-  await page.route('**/api/code-to-code', async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream; charset=utf-8',
-      body: sseBody,
-    });
-  });
-
-  await page.route('**/api/generate-from-english', async route => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'text/event-stream; charset=utf-8',
-      body: sseBody,
-    });
-  });
+  }
 }
 
 // Unauthenticated tests don't use the stored storageState
@@ -129,8 +127,17 @@ test.describe('Authenticated Translation Flow', () => {
     // Mock the backend API
     await mockTranslateAPI(page);
     
-    // Grant clipboard permissions
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    // Mock clipboard API since non-Chromium browsers do not support clipboard permissions in headless mode
+    await page.evaluate(() => {
+      let clipboardData = '';
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
+          writeText: async (text: string) => { clipboardData = text; },
+          readText: async () => clipboardData,
+        },
+        configurable: true,
+      });
+    });
     
     // Type code manually
     await page.click('button:has-text("Type Code Manually")');

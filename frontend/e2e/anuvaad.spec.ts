@@ -35,6 +35,11 @@ async function setMonacoValue(page: import('@playwright/test').Page, code: strin
 
 /** Mock all 3 translation backend SSE endpoints */
 async function mockTranslateAPI(page: import('@playwright/test').Page) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
   const blocks = [
     {
       id: 'block-1',
@@ -52,9 +57,19 @@ async function mockTranslateAPI(page: import('@playwright/test').Page) {
     '**/api/code-to-code',
     '**/api/generate-from-english',
   ]) {
-    await page.route(endpoint, route =>
-      route.fulfill({ status: 200, contentType: 'text/event-stream', body: sseBody })
-    );
+    await page.route(endpoint, async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        headers: corsHeaders,
+        body: sseBody
+      });
+    });
   }
 }
 
@@ -82,9 +97,24 @@ async function mockHistoryAPI(page: import('@playwright/test').Page) {
       model_used: 'groq/llama3',
     },
   ];
-  await page.route('**/api/history', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(history) })
-  );
+  await page.route('**/api/history', async route => {
+    const request = route.request();
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: corsHeaders,
+      body: JSON.stringify(history)
+    });
+  });
 }
 
 /**
@@ -371,7 +401,7 @@ test.describe('Translation Workspace', () => {
     await page.click('button:has-text("Translate")', { force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
     // Click the reset/clear button (rotate-ccw icon)
-    await page.locator('button').filter({ has: page.locator('.lucide-rotate-ccw') }).click();
+    await page.locator('button').filter({ has: page.locator('.lucide-rotate-ccw') }).click({ force: true });
     await expect(page.locator('text=Workspace Empty')).toBeVisible({ timeout: 5000 });
   });
 
@@ -405,7 +435,19 @@ test.describe('Translation Workspace', () => {
   test('"Copy as Markdown" copies to clipboard and shows feedback', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await mockTranslateAPI(page);
-    await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+    
+    // Mock clipboard API since non-Chromium browsers do not support clipboard permissions in headless mode
+    await page.evaluate(() => {
+      let clipboardData = '';
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
+          writeText: async (text: string) => { clipboardData = text; },
+          readText: async () => clipboardData,
+        },
+        configurable: true,
+      });
+    });
+
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'b = 2');
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
@@ -463,18 +505,38 @@ test.describe('Translation History', () => {
   });
 
   test('history empty state shows start translating CTA', async ({ page }) => {
-    await page.route('**/api/history', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    );
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    await page.route('**/api/history', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: corsHeaders, body: '[]' });
+    });
     await page.goto('/dashboard/history');
     await expect(page.locator('text=No translations found')).toBeVisible({ timeout: 8000 });
     await expect(page.locator('a:has-text("Start Translating")')).toBeVisible();
   });
 
   test('"Start Translating" CTA navigates to translate page', async ({ page }) => {
-    await page.route('**/api/history', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    );
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    await page.route('**/api/history', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: corsHeaders, body: '[]' });
+    });
     await page.goto('/dashboard/history');
     await page.click('a:has-text("Start Translating")');
     await expect(page).toHaveURL(/\/dashboard\/translate/);
@@ -482,7 +544,19 @@ test.describe('Translation History', () => {
 
   test('delete button removes history item optimistically', async ({ page }) => {
     await mockHistoryAPI(page);
-    await page.route('**/api/history/h1', route => route.fulfill({ status: 204, body: '' }));
+    await page.route('**/api/history/h1', async route => {
+      const request = route.request();
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      };
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({ status: 204, headers: corsHeaders, body: '' });
+    });
     await page.goto('/dashboard/history');
     await expect(page.locator('text=def hello_world():')).toBeVisible({ timeout: 8000 });
     // Hover first card to reveal delete button
@@ -555,28 +629,61 @@ test.describe('Settings Page', () => {
   });
 
   test('settings Developer API Keys section loads', async ({ page }) => {
-    await page.route('**/api/api-keys*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    );
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    await page.route('**/api/api-keys*', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: corsHeaders, body: '[]' });
+    });
     await page.goto('/dashboard/settings');
     await expect(page.locator('h2:has-text("Developer Credentials")')).toBeVisible({ timeout: 8000 });
     await expect(page.locator('text=No credentials generated.')).toBeVisible({ timeout: 5000 });
   });
 
   test('Create Key button is disabled when key name is empty', async ({ page }) => {
-    await page.route('**/api/api-keys*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    );
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    await page.route('**/api/api-keys*', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: corsHeaders, body: '[]' });
+    });
     await page.goto('/dashboard/settings');
     await expect(page.locator('button:has-text("Generate Key")')).toBeDisabled({ timeout: 8000 });
   });
 
   test('Create Key button enables when key name is filled', async ({ page }) => {
-    await page.route('**/api/api-keys*', route =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
-    );
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    };
+    await page.route('**/api/api-keys*', async route => {
+      const request = route.request();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: corsHeaders, body: '[]' });
+    });
     await page.goto('/dashboard/settings');
-    await page.fill('input[placeholder*="CI Deployment"]', 'My Test Key');
+    await page.waitForTimeout(1000); // Wait for hydration
+    const input = page.locator('#settings-key-name');
+    await input.click();
+    await input.fill('My Test Key');
     await expect(page.locator('button:has-text("Generate Key")')).toBeEnabled({ timeout: 5000 });
   });
 

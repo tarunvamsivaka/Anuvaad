@@ -22,14 +22,26 @@ async function setMonacoValue(page: any, code: string) {
 test('Perform real translation and verify results in the website', async ({ page }) => {
   test.setTimeout(120000);
 
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+
   // Mock API routes to prevent calling real LLMs or requiring the backend in CI
   await page.route('**/api/code-to-english', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       headers: {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
+        ...corsHeaders,
       },
       body: [
         'data: {"chunk": "Defines", "done": false}\n\n',
@@ -40,9 +52,15 @@ test('Perform real translation and verify results in the website', async ({ page
   });
 
   await page.route('**/api/sync-english-to-code', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify({
         status: "success",
         updated_code: `#include <stdio.h>\n\nint main() {\n    printf("Hello, Anuvaad!\\n");\n    return 0;\n}`,

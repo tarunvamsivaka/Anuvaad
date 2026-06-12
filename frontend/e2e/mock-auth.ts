@@ -1,6 +1,12 @@
 import { Page } from '@playwright/test';
 
 export async function mockSupabaseAuth(page: Page) {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
+  };
+
   const mockUser = {
     id: 'test-user-id',
     aud: 'authenticated',
@@ -29,6 +35,10 @@ export async function mockSupabaseAuth(page: Page) {
   // Mock POST **/auth/v1/token* (signInWithPassword, refresh token, etc.)
   await page.route('**/auth/v1/token*', async route => {
     const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     if (request.method() === 'POST') {
       try {
         const body = request.postDataJSON();
@@ -36,6 +46,7 @@ export async function mockSupabaseAuth(page: Page) {
           await route.fulfill({
             status: 400,
             contentType: 'application/json',
+            headers: corsHeaders,
             body: JSON.stringify({
               error: 'invalid_grant',
               message: 'Invalid login credentials'
@@ -51,6 +62,7 @@ export async function mockSupabaseAuth(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify(mockSession)
     });
   });
@@ -58,6 +70,10 @@ export async function mockSupabaseAuth(page: Page) {
   // Mock POST **/auth/v1/signup*
   await page.route('**/auth/v1/signup*', async route => {
     const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     if (request.method() === 'POST') {
       try {
         const body = request.postDataJSON();
@@ -65,6 +81,7 @@ export async function mockSupabaseAuth(page: Page) {
           await route.fulfill({
             status: 400,
             contentType: 'application/json',
+            headers: corsHeaders,
             body: JSON.stringify({
               error: 'validation_failed',
               message: 'Password should be at least 8 characters'
@@ -80,24 +97,37 @@ export async function mockSupabaseAuth(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify(mockSession)
     });
   });
 
   // Mock GET **/auth/v1/user*
   await page.route('**/auth/v1/user*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify(mockUser)
     });
   });
 
   // Mock POST **/auth/v1/logout*
   await page.route('**/auth/v1/logout*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify({})
     });
   });
@@ -110,27 +140,45 @@ export async function mockSupabaseAuth(page: Page) {
 
   // Fallback for workspaces list
   await page.route('**/api/workspaces*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify([])
     });
   });
 
   // Fallback for translation history
   await page.route('**/api/history*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify([])
     });
   });
 
   // Fallback for dashboard stats
   await page.route('**/api/stats*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify({
         total_translations: 5,
         translations_today: 2,
@@ -142,9 +190,15 @@ export async function mockSupabaseAuth(page: Page) {
 
   // Fallback for subscription status
   await page.route('**/api/subscription-status*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify({
         plan: 'free',
         status: 'active',
@@ -155,18 +209,30 @@ export async function mockSupabaseAuth(page: Page) {
 
   // Fallback for developer API keys
   await page.route('**/api/api-keys*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify([])
     });
   });
 
   // Fallback for check-credits
   await page.route('**/api/check-credits*', async route => {
+    const request = route.request();
+    if (request.method() === 'OPTIONS') {
+      await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: corsHeaders,
       body: JSON.stringify({
         credits: 100,
         unlimited: false

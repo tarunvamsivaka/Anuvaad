@@ -32,8 +32,22 @@ test.describe('Billing & Subscription Flow', () => {
     // To test the "hidden for pro users" part, we mock the backend subscription-status endpoint
     // Use '**' to match cross-origin API calls on port 8000
     await page.route('**/api/subscription-status', async route => {
-      const json = { plan: 'pro', status: 'active', isPro: true };
-      await route.fulfill({ json });
+      const request = route.request();
+      const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      };
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({ status: 200, headers: corsHeaders });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ plan: 'pro', status: 'active', isPro: true }),
+      });
     });
 
     // Reload to apply the mocked pro status
