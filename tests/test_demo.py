@@ -6,7 +6,6 @@ Endpoint: POST /api/demo/translate
 - Rate limited to 3 requests per IP per 24h
 - Returns pre-cached sample translation blocks
 """
-import pytest
 from fastapi.testclient import TestClient
 
 

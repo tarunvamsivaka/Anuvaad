@@ -511,7 +511,6 @@ def client_no_auth():
 
 @pytest.fixture()
 def mock_openai_clients(monkeypatch):
-    from unittest.mock import AsyncMock, MagicMock
     import app.services.ai as ai_module
 
     groq_mock = MockAsyncOpenAI()

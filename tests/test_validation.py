@@ -349,7 +349,7 @@ class TestWebhookIdempotency:
             mock_cache.get = mock_cache_get
             mock_cache.put = AsyncMock(return_value=None)
 
-            r1 = client.post("/api/webhook/razorpay", content=b'{"event":"test"}', headers=headers)
+            _r1 = client.post("/api/webhook/razorpay", content=b'{"event":"test"}', headers=headers)
             r2 = client.post("/api/webhook/razorpay", content=b'{"event":"test"}', headers=headers)
 
         # Second call with duplicate event ID must return {status: duplicate}
