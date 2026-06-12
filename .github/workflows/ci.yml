@@ -156,6 +156,23 @@ jobs:
             -e DEEPSEEK_API_KEY=test_key \
             -p 8000:8000 \
             anuvaad:latest
-          sleep 5
-          curl -f http://localhost:8000/api/health || exit 1
+          
+          echo "Waiting for container to become healthy..."
+          success=false
+          for i in {1..30}; do
+            if curl -s -f http://localhost:8000/api/health > /dev/null; then
+              echo "Container is healthy!"
+              success=true
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 1
+          done
+          
+          if [ "$success" = false ]; then
+            echo "❌ Container health check failed! Fetching logs:"
+            docker logs anuvaad-test
+            exit 1
+          fi
+          
           docker stop anuvaad-test
