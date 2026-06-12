@@ -141,8 +141,8 @@ int main() {
   await editBtn.click({ force: true });
   
   // 2. Modify the explanation in the inline textarea
-  //    Exclude Monaco's hidden readonly ime-text-area by filtering to editable textareas only
-  const textarea = page.locator('textarea:not([readonly]):not(.ime-text-area)').first();
+  //    Scope to the card group to avoid matching Monaco's hidden textareas
+  const textarea = page.locator('div.group textarea').first();
   await expect(textarea).toBeVisible({ timeout: 5000 });
   await textarea.fill('Imports the standard input/output library for printing messages to the standard output stream.');
   

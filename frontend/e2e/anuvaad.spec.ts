@@ -249,7 +249,7 @@ test.describe('Dashboard Home', () => {
 
   test('dashboard Quick Actions section has 3 translation mode links', async ({ page }) => {
     await page.goto('/dashboard');
-    await expect(page.locator('h2:has-text("Quick Actions")')).toBeVisible();
+    await expect(page.locator('h2:has-text("Quick Actions")').first()).toBeVisible();
     await expect(page.locator('a[href="/dashboard/translate"] p:has-text("Code → English")')).toBeVisible();
     await expect(page.locator('a[href*="english-to-code"]')).toBeVisible();
     await expect(page.locator('a[href*="code-to-code"]')).toBeVisible();
