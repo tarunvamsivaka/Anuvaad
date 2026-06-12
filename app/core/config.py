@@ -16,10 +16,14 @@ try:
     import structlog
 
     _is_prod_env = os.getenv("ENV", "development").lower() == "production"
+    def _add_logger_name(logger, method_name, event_dict):
+        event_dict["logger"] = getattr(logger, "name", "anuvaad")
+        return event_dict
+
     _processors = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
-        structlog.stdlib.add_logger_name,
+        _add_logger_name,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
