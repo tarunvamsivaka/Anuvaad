@@ -37,7 +37,7 @@ export function FileDropZone({
         isDragActive && "bg-amber-500/5 ring-2 ring-inset ring-amber-500/40"
       )}
     >
-      <input {...getInputProps()} />
+      <input {...getInputProps({ "aria-label": "Upload code file" })} />
       <div className={cn(
         "flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed transition-colors",
         isDragActive ? "border-amber-500 bg-amber-500/10" : "border-slate-200 dark:border-amber-500/10 bg-slate-50 dark:bg-white/5"

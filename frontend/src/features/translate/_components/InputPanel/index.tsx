@@ -120,7 +120,7 @@ export function InputPanel({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{input.length.toLocaleString()} chars</span>
-          <Button variant="ghost" size="sm" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
+          <Button variant="ghost" size="sm" aria-label="Clear" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
           <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} aria-disabled={!input.trim() && !isStreaming}
             size="sm"
             className={cn(
@@ -204,10 +204,10 @@ export function InputPanel({
                     <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
                   ) : (
                     <>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleGistImport} disabled={!gistUrl.trim()}>
+                      <Button variant="ghost" size="sm" aria-label="Import Gist" className="h-7 w-7 p-0" onClick={handleGistImport} disabled={!gistUrl.trim()}>
                         <ArrowRight className="h-3.5 w-3.5 text-amber-500" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => { setShowGistInput(false); setGistUrl(""); }}>
+                      <Button variant="ghost" size="sm" aria-label="Cancel Gist import" className="h-7 w-7 p-0" onClick={() => { setShowGistInput(false); setGistUrl(""); }}>
                         <X className="h-3.5 w-3.5" />
                       </Button>
                     </>

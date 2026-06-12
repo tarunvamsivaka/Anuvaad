@@ -58,7 +58,7 @@ function ConsentBanner() {
         <div className="flex-1">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-semibold">We respect your privacy</h4>
-            <button onClick={handleDecline} className="text-muted-foreground hover:text-foreground">
+            <button onClick={handleDecline} aria-label="Dismiss cookie notice" className="text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           </div>

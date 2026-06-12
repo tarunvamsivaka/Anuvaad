@@ -4,7 +4,6 @@ Covers auth gating, tier quotas, cooldowns, billing flag, protection modes, and 
 """
 
 import os
-import pytest
 from unittest.mock import patch
 import main as app_module
 
@@ -191,9 +190,6 @@ class TestStaleRecoveryFallback:
     """Verify that if LLMs fail, the API recovers using stale cache/DB history."""
 
     def test_stale_cache_recovery_on_failure(self, client):
-        import asyncio
-        # Seed cache for standard model
-        key = app_module.cache_key("print(42)", "python", "code-to-english", "standard")
         mock_blocks = [
             {
                 "id": "block_1",
@@ -201,13 +197,14 @@ class TestStaleRecoveryFallback:
                 "english_translation": "Prints 42",
             }
         ]
-        asyncio.run(app_module.cache.put(key, mock_blocks))
 
+        from unittest.mock import AsyncMock
         # Mock get_completion to throw an exception
         with patch("main.get_completion", side_effect=Exception("API limit exceeded")):
-            res = client.post(
-                "/api/code-to-english/sync",
-                json={"raw_code": "print(42)", "language": "python"},
-            )
-            assert res.status_code == 200
-            assert res.json() == mock_blocks
+            with patch.object(app_module.cache, "get", new_callable=AsyncMock, return_value=mock_blocks):
+                res = client.post(
+                    "/api/code-to-english/sync",
+                    json={"raw_code": "print(42)", "language": "python"},
+                )
+                assert res.status_code == 200
+                assert res.json() == mock_blocks
