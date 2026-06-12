@@ -65,36 +65,61 @@ METRICS_PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
 
 # ── GLOBAL HTTP CLIENT (with asyncio.Lock for thread-safe init) ──
-_global_http_client: httpx.AsyncClient | None = None
-_client_lock: asyncio.Lock | None = None
+import weakref
+
+_client_locks = weakref.WeakKeyDictionary()
+_client_instances = weakref.WeakKeyDictionary()
+_fallback_lock: asyncio.Lock | None = None
+_fallback_client: httpx.AsyncClient | None = None
 
 
 def _get_client_lock() -> asyncio.Lock:
-    """Return a module-level asyncio.Lock, lazily created to avoid event-loop issues."""
-    global _client_lock
-    if _client_lock is None:
-        _client_lock = asyncio.Lock()
-    return _client_lock
+    """Return a thread-safe asyncio.Lock for the current running event loop."""
+    global _fallback_lock
+    try:
+        loop = asyncio.get_running_loop()
+        if loop not in _client_locks:
+            _client_locks[loop] = asyncio.Lock()
+        return _client_locks[loop]
+    except RuntimeError:
+        if _fallback_lock is None:
+            _fallback_lock = asyncio.Lock()
+        return _fallback_lock
 
 
-async def get_http_client() -> httpx.AsyncClient:  # type: ignore[return]
-    """Return the shared httpx.AsyncClient singleton. Thread-safe via asyncio.Lock."""
-    global _global_http_client
-    async with _get_client_lock():
-        if _global_http_client is None:
-            _global_http_client = httpx.AsyncClient(
-                limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
-                timeout=httpx.Timeout(30.0),
-            )
-    return _global_http_client
+async def get_http_client() -> httpx.AsyncClient:
+    """Return the shared httpx.AsyncClient singleton for the running loop. Thread-safe."""
+    global _fallback_client
+    try:
+        loop = asyncio.get_running_loop()
+        async with _get_client_lock():
+            if loop not in _client_instances or _client_instances[loop].is_closed:
+                _client_instances[loop] = httpx.AsyncClient(
+                    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+                    timeout=httpx.Timeout(30.0),
+                )
+            return _client_instances[loop]
+    except RuntimeError:
+        async with _get_client_lock():
+            if _fallback_client is None or _fallback_client.is_closed:
+                _fallback_client = httpx.AsyncClient(
+                    limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+                    timeout=httpx.Timeout(30.0),
+                )
+            return _fallback_client
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
-    global _global_http_client
-    if _global_http_client is not None:
-        await _global_http_client.aclose()
-        logger.info("Closed global HTTP client")
+    # Teardown: close any active HTTP clients
+    for client in list(_client_instances.values()):
+        if not client.is_closed:
+            await client.aclose()
+    global _fallback_client
+    if _fallback_client is not None and not _fallback_client.is_closed:
+        await _fallback_client.aclose()
+
 
 
 
