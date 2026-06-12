@@ -1,0 +1,48 @@
+/* ============================================================
+   ANUVAAD DESIGN SYSTEM V2 — TYPOGRAPHY TOKENS
+   Scale: Major Third (1.25 ratio) anchored at 1rem = 16px
+   ============================================================ */
+
+:root {
+  /* ── FONT FAMILIES ─────────────────────────────────────────── */
+  --font-display:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:     'JetBrains Mono', 'Geist Mono', 'Fira Code', 'Cascadia Code', monospace;
+  --font-prose:    'Lora', 'Georgia', 'Times New Roman', serif;  /* English translation output */
+
+  /* ── TYPE SCALE (Major Third / 1.25 ratio) ─────────────────── */
+  --text-2xs: 0.512rem;   /*  8.2px — micro labels */
+  --text-xs:  0.64rem;    /* 10.2px — captions */
+  --text-sm:  0.8rem;     /* 12.8px — secondary UI */
+  --text-base: 1rem;      /* 16px   — body default */
+  --text-md:  1.25rem;    /* 20px   — lead text */
+  --text-lg:  1.563rem;   /* 25px   — section subheads */
+  --text-xl:  1.953rem;   /* 31px   — page titles */
+  --text-2xl: 2.441rem;   /* 39px   — hero subtitle */
+  --text-3xl: 3.052rem;   /* 49px   — hero */
+  --text-4xl: 3.815rem;   /* 61px   — display */
+  --text-hero: 7rem;      /* 112px  — statement text (E4 landing) */
+
+  /* ── FONT WEIGHTS ──────────────────────────────────────────── */
+  --weight-light:    300;
+  --weight-normal:   400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-black:    900;
+
+  /* ── LINE HEIGHTS ──────────────────────────────────────────── */
+  --leading-tight:  1.1;
+  --leading-snug:   1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+  --leading-loose:  2;
+
+  /* ── LETTER SPACING ────────────────────────────────────────── */
+  --tracking-tighter: -0.04em;
+  --tracking-tight:   -0.02em;
+  --tracking-normal:   0em;
+  --tracking-wide:     0.04em;
+  --tracking-wider:    0.08em;
+  --tracking-widest:   0.16em;
+}

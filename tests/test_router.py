@@ -1,5 +1,5 @@
 """
-Tests for the get_completion() AI router in main.py.
+Tests for the get_completion() AI router in ai.py.
 
 Verifies model selection based on mode, R1 pro routing,
 and fallback behaviour when a provider returns a rate limit error.
@@ -14,7 +14,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import openai
-import main as app_module
+import app.services.ai as ai_module
 
 
 # ── Helpers ──
@@ -38,7 +38,7 @@ class FakeResponse:
 def _ok_response(
     content: str = '[{"id":"b1","code_snippet":"x","english_translation":"desc"}]',
 ):
-    """Return a coroutine that resolves to a FakeResponse."""
+    """Return a FakeResponse."""
     return FakeResponse(content)
 
 
@@ -50,19 +50,7 @@ def _build_clients():
     deepseek_mock = MagicMock()
     deepseek_mock.chat.completions.create = AsyncMock(return_value=_ok_response())
 
-    call_log = []  # (base_url, client_instance) pairs
-
-    def fake_async_openai(*args, **kwargs):
-        base_url = kwargs.get("base_url", "")
-        if "groq.com" in base_url:
-            call_log.append(("groq", kwargs))
-            return groq_mock
-        elif "deepseek.com" in base_url:
-            call_log.append(("deepseek", kwargs))
-            return deepseek_mock
-        return MagicMock()
-
-    return groq_mock, deepseek_mock, fake_async_openai, call_log
+    return groq_mock, deepseek_mock
 
 
 class TestModelRouting:
@@ -71,10 +59,11 @@ class TestModelRouting:
     @pytest.mark.asyncio
     async def test_groq_is_called_for_explanation_mode(self):
         """In explanation mode, Groq (llama-3.3-70b-versatile) should be the primary."""
-        groq, deepseek, factory, _ = _build_clients()
+        groq, deepseek = _build_clients()
 
-        with patch.object(app_module, "AsyncOpenAI", factory):
-            result, model_name = await app_module.get_completion(
+        with patch.object(ai_module, "_groq_client", groq), \
+             patch.object(ai_module, "_deepseek_client", deepseek):
+            result, model_name = await ai_module.get_completion(
                 prompt="explain this code",
                 system_instruction="You are a code explainer.",
                 mode="explanation",
@@ -92,10 +81,11 @@ class TestModelRouting:
     @pytest.mark.asyncio
     async def test_deepseek_is_called_for_translation_mode(self):
         """In translation mode, DeepSeek (deepseek-chat) should be the primary."""
-        groq, deepseek, factory, _ = _build_clients()
+        groq, deepseek = _build_clients()
 
-        with patch.object(app_module, "AsyncOpenAI", factory):
-            result, model_name = await app_module.get_completion(
+        with patch.object(ai_module, "_groq_client", groq), \
+             patch.object(ai_module, "_deepseek_client", deepseek):
+            result, model_name = await ai_module.get_completion(
                 prompt="translate this code to javascript",
                 system_instruction="You are a translator.",
                 mode="translation",
@@ -115,7 +105,7 @@ class TestFallbackBehaviour:
     @pytest.mark.asyncio
     async def test_on_groq_429_falls_back_to_deepseek(self):
         """When Groq raises RateLimitError, DeepSeek should be used as fallback."""
-        groq, deepseek, factory, _ = _build_clients()
+        groq, deepseek = _build_clients()
 
         # Make Groq raise a rate limit error
         mock_response = MagicMock()
@@ -129,8 +119,9 @@ class TestFallbackBehaviour:
             )
         )
 
-        with patch.object(app_module, "AsyncOpenAI", factory):
-            result, model_name = await app_module.get_completion(
+        with patch.object(ai_module, "_groq_client", groq), \
+             patch.object(ai_module, "_deepseek_client", deepseek):
+            result, model_name = await ai_module.get_completion(
                 prompt="explain this",
                 system_instruction="You are helpful.",
                 mode="explanation",
@@ -145,7 +136,7 @@ class TestFallbackBehaviour:
     @pytest.mark.asyncio
     async def test_on_deepseek_429_falls_back_to_groq(self):
         """When DeepSeek raises RateLimitError, Groq should be used as fallback."""
-        groq, deepseek, factory, _ = _build_clients()
+        groq, deepseek = _build_clients()
 
         mock_response = MagicMock()
         mock_response.status_code = 429
@@ -158,8 +149,9 @@ class TestFallbackBehaviour:
             )
         )
 
-        with patch.object(app_module, "AsyncOpenAI", factory):
-            result, model_name = await app_module.get_completion(
+        with patch.object(ai_module, "_groq_client", groq), \
+             patch.object(ai_module, "_deepseek_client", deepseek):
+            result, model_name = await ai_module.get_completion(
                 prompt="translate code",
                 system_instruction="You are a translator.",
                 mode="translation",
@@ -178,10 +170,11 @@ class TestProUserRouting:
     @pytest.mark.asyncio
     async def test_pro_user_gets_deepseek_reasoner_model(self):
         """When use_r1=True, the primary model should be deepseek-reasoner."""
-        groq, deepseek, factory, _ = _build_clients()
+        groq, deepseek = _build_clients()
 
-        with patch.object(app_module, "AsyncOpenAI", factory):
-            result, model_name = await app_module.get_completion(
+        with patch.object(ai_module, "_groq_client", groq), \
+             patch.object(ai_module, "_deepseek_client", deepseek):
+            result, model_name = await ai_module.get_completion(
                 prompt="explain this code",
                 system_instruction="You are a code explainer.",
                 mode="explanation",

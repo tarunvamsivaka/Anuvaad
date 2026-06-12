@@ -45,7 +45,7 @@ print(fibonacci(10))`;
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#030303] text-slate-100 relative overflow-hidden">
+    <div className="flex flex-col min-h-screen bg-surface-base text-slate-100 relative overflow-hidden">
       
       {/* Skip Button */}
       <div className="absolute top-6 right-8 z-10">
@@ -88,7 +88,7 @@ print(fibonacci(10))`;
               Anuvaad parses legacy files, redacts database inputs, and generates highly annotated plain English maps using Google Gemini core weights.
             </p>
 
-            <div className="w-full max-w-lg bg-[#0c0c0f]/80 border border-amber-600/10 rounded-xl overflow-hidden mb-8 text-left shadow-lg">
+            <div className="w-full max-w-lg bg-surface-charcoal/80 border border-amber-600/10 rounded-xl overflow-hidden mb-8 text-left shadow-lg">
               <div className="bg-slate-950 px-4 py-2.5 border-b border-amber-600/10 flex items-center gap-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-red-500/40"></div>
                 <div className="h-2.5 w-2.5 rounded-full bg-amber-500/40"></div>
@@ -133,7 +133,7 @@ print(fibonacci(10))`;
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-12">
-              <div className="bg-[#0c0c0f]/80 border border-amber-600/10 p-6 rounded-xl shadow-lg text-left hover:border-amber-500/30 transition-all duration-300 group relative">
+              <div className="bg-surface-charcoal/80 border border-amber-600/10 p-6 rounded-xl shadow-lg text-left hover:border-amber-500/30 transition-all duration-300 group relative">
                 <div className="h-10 w-10 rounded-lg bg-amber-500/5 border border-amber-500/15 flex items-center justify-center mb-4 text-amber-500">
                   <BookOpen className="h-5 w-5" />
                 </div>
@@ -154,7 +154,7 @@ print(fibonacci(10))`;
                 </Link>
               </div>
 
-              <div className="bg-[#0c0c0f]/80 border border-amber-600/10 p-6 rounded-xl shadow-lg text-left hover:border-amber-500/30 transition-all duration-300 group relative">
+              <div className="bg-surface-charcoal/80 border border-amber-600/10 p-6 rounded-xl shadow-lg text-left hover:border-amber-500/30 transition-all duration-300 group relative">
                 <div className="h-10 w-10 rounded-lg bg-amber-500/5 border border-amber-500/15 flex items-center justify-center mb-4 text-amber-500">
                   <Code2 className="h-5 w-5" />
                 </div>
@@ -175,7 +175,7 @@ print(fibonacci(10))`;
                 </Link>
               </div>
 
-              <div className="bg-[#0c0c0f]/80 border border-amber-600/10 p-6 rounded-xl shadow-lg text-left hover:border-amber-500/30 transition-all duration-300 group relative">
+              <div className="bg-surface-charcoal/80 border border-amber-600/10 p-6 rounded-xl shadow-lg text-left hover:border-amber-500/30 transition-all duration-300 group relative">
                 <div className="h-10 w-10 rounded-lg bg-amber-500/5 border border-amber-500/15 flex items-center justify-center mb-4 text-amber-500">
                   <Repeat className="h-5 w-5" />
                 </div>

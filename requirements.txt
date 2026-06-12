@@ -1,6 +1,6 @@
 fastapi==0.136.1
 uvicorn==0.46.0
-razorpay>=1.4.1
+razorpay>=1.4.1,<2.0.0
 openai>=1.0.0
 python-dotenv==1.2.2
 pydantic==2.13.3
@@ -11,3 +11,4 @@ sentry-sdk[fastapi]
 python-multipart>=0.0.9
 resend>=2.0.0
 supabase>=2.4.0
+structlog>=24.0.0

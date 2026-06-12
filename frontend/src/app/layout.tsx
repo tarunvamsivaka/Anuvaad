@@ -5,9 +5,8 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
 import { Toaster } from "sonner";
-import { CommandPalette } from "@/components/CommandPalette";
-import { WorkspaceProvider } from "@/context/WorkspaceContext";
 import "./globals.css";
+
 
 const inter = Inter({
   variable: "--font-sans",
@@ -126,10 +125,7 @@ export default function RootLayout({
           <PostHogProvider>
             <TooltipProvider>
               <AuthProvider>
-                <WorkspaceProvider>
                   {children}
-                  <CommandPalette />
-                </WorkspaceProvider>
               </AuthProvider>
             </TooltipProvider>
           </PostHogProvider>

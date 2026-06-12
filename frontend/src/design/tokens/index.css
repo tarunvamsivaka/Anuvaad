@@ -1,0 +1,28 @@
+/* ============================================================
+   ANUVAAD DESIGN SYSTEM V2 — TOKEN MANIFEST
+   Single entry point that imports all 7 token files
+   in correct cascade order.
+
+   Import this file ONCE in globals.css.
+   ============================================================ */
+
+/* 1. Colors first — everything else may reference them */
+@import './color.css';
+
+/* 2. Typography — font scales */
+@import './typography.css';
+
+/* 3. Spacing — layout grid */
+@import './spacing.css';
+
+/* 4. Radius — shape tokens */
+@import './radius.css';
+
+/* 5. Shadows — references color tokens (glows) */
+@import './shadow.css';
+
+/* 6. Animation — timing + easing */
+@import './animation.css';
+
+/* 7. Z-index — layering hierarchy */
+@import './z-index.css';

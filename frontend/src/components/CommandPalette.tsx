@@ -44,7 +44,7 @@ export function CommandPalette() {
         onClick={() => setOpen(false)}
       />
       
-      <div className="relative z-50 w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200/20 bg-white/95 dark:bg-[#1a1b26]/95 p-2 shadow-2xl backdrop-blur-md">
+      <div className="relative z-50 w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200/20 bg-white/95 dark:bg-surface-mid/95 p-2 shadow-2xl backdrop-blur-md">
         <Command 
           className="flex h-full w-full flex-col overflow-hidden bg-transparent"
           label="Global Command Menu"

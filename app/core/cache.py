@@ -66,7 +66,13 @@ class RedisCache:
         if redis_url:
             try:
                 import redis.asyncio as aioredis
-                self.client = aioredis.from_url(redis_url, decode_responses=True)
+                self.client = aioredis.from_url(
+                    redis_url,
+                    decode_responses=True,
+                    socket_timeout=0.5,
+                    socket_connect_timeout=0.5,
+                    retry_on_timeout=False
+                )
                 self._backend = "redis"
             except Exception as e:
                 logger.warning(f"Failed to connect to Redis via REDIS_URL: {e}")

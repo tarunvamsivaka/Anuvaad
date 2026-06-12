@@ -260,7 +260,7 @@ export function WebGLCanvas() {
   return (
     <div
       ref={containerRef}
-      className="pointer-events-none fixed inset-0 -z-50 h-screen w-screen overflow-hidden bg-[#030014]"
+      className="pointer-events-none fixed inset-0 -z-50 h-screen w-screen overflow-hidden bg-surface-base"
       style={{ mixBlendMode: "screen" }}
     />
   );

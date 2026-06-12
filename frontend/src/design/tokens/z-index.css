@@ -1,0 +1,17 @@
+/* ============================================================
+   ANUVAAD DESIGN SYSTEM V2 — Z-INDEX TOKENS
+   Strict layering hierarchy, no magic numbers in components
+   ============================================================ */
+
+:root {
+  --z-canvas:       -10;  /* WebGL / background canvas */
+  --z-base:           0;  /* default stacking */
+  --z-raised:        10;  /* slightly elevated content */
+  --z-sticky:        20;  /* sticky headers, toolbars */
+  --z-dropdown:      30;  /* dropdowns, selects */
+  --z-overlay:       40;  /* overlays, backdrops */
+  --z-modal:         50;  /* modal dialogs, drawers */
+  --z-toast:         60;  /* notifications, toasts */
+  --z-tooltip:       70;  /* tooltips */
+  --z-cursor:        99;  /* custom cursor (E4 landing only) */
+}

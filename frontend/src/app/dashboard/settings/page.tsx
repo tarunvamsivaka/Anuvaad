@@ -220,10 +220,10 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-800 dark:text-slate-100 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-800 dark:text-slate-100 pb-20">
       
       {/* Premium Header */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-[#080c14]/80 backdrop-blur-md">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
         <div className="flex h-16 items-center justify-between px-8 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -245,7 +245,7 @@ export default function SettingsPage() {
 
 
             {/* Developer API Keys */}
-            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <Key className="h-5 w-5 text-amber-500" />
@@ -324,7 +324,7 @@ export default function SettingsPage() {
               <div className="border border-slate-200 dark:border-amber-600/10 rounded-lg overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100 dark:bg-[#0c0c0f] border-b border-slate-200 dark:border-amber-600/10">
+                    <thead className="bg-slate-100 dark:bg-surface-charcoal border-b border-slate-200 dark:border-amber-600/10">
                       <tr>
                         <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
                         <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Scope Prefix</th>
@@ -367,7 +367,7 @@ export default function SettingsPage() {
             </Card>
 
             {/* Profile Credentials */}
-            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center gap-3 mb-6">
                 <User className="h-5 w-5 text-amber-500" />
                 <div>
@@ -425,7 +425,7 @@ export default function SettingsPage() {
 
 
             {/* Visual Identity Selection (Appearance) */}
-            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center gap-3 mb-4">
                 <Palette className="h-5 w-5 text-amber-500" />
                 <div>
@@ -443,16 +443,16 @@ export default function SettingsPage() {
                   onChange={(e) => setTheme(e.target.value)}
                   className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-amber-600/10 rounded-lg text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500/40 focus:ring-0 text-slate-800 dark:text-slate-200 cursor-pointer appearance-none"
                 >
-                  <option value="system" className="bg-[#0c0c0f] text-slate-200">System Adaptive</option>
-                  <option value="light" className="bg-white text-slate-800 dark:bg-[#0c0c0f] dark:text-slate-200">High Contrast Light</option>
-                  <option value="dark" className="bg-[#0c0c0f] text-slate-200">Cinematic Dark Void</option>
+                  <option value="system" className="bg-surface-charcoal text-slate-200">System Adaptive</option>
+                  <option value="light" className="bg-white text-slate-800 dark:bg-surface-charcoal dark:text-slate-200">High Contrast Light</option>
+                  <option value="dark" className="bg-surface-charcoal text-slate-200">Cinematic Dark Void</option>
                 </select>
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-450 dark:text-slate-400 text-xs">▼</span>
               </div>
             </Card>
 
             {/* Subscription status */}
-            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">

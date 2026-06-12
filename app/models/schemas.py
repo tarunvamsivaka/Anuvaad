@@ -5,6 +5,9 @@ class CodePayload(BaseModel):
     language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
     access_token: str | None = None
+    session_id: str | None = None
+    repository_name: str | None = None
+    file_path: str | None = None
 
     @field_validator("raw_code")
     @classmethod
@@ -25,6 +28,9 @@ class GeneratePayload(BaseModel):
     language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
     access_token: str | None = None
+    session_id: str | None = None
+    repository_name: str | None = None
+    file_path: str | None = None
 
     @field_validator("prompt")
     @classmethod
@@ -40,6 +46,9 @@ class CodeToCodePayload(BaseModel):
     target_language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
     access_token: str | None = None
+    session_id: str | None = None
+    repository_name: str | None = None
+    file_path: str | None = None
 
     @field_validator("raw_code")
     @classmethod
@@ -78,6 +87,9 @@ class SyncEnglishToCodePayload(BaseModel):
     custom_instructions: str | None = None
     access_token: str | None = None
     workspace_id: str | None = None
+    session_id: str | None = None
+    repository_name: str | None = None
+    file_path: str | None = None
 
 
 class CheckoutPayload(BaseModel):

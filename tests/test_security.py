@@ -86,13 +86,16 @@ class TestRazorpayWebhookSecurity:
         to process with 503 (service unavailable).
         """
         import main as app_module
+        import app.routers.billing as billing_module
         from fastapi.testclient import TestClient
 
         original_secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
         os.environ["RAZORPAY_WEBHOOK_SECRET"] = ""
 
         original_module_secret = app_module.RAZORPAY_WEBHOOK_SECRET
+        original_billing_secret = billing_module.RAZORPAY_WEBHOOK_SECRET
         app_module.RAZORPAY_WEBHOOK_SECRET = ""
+        billing_module.RAZORPAY_WEBHOOK_SECRET = ""
 
         try:
             with TestClient(app_module.app) as tc:
@@ -117,6 +120,7 @@ class TestRazorpayWebhookSecurity:
         finally:
             os.environ["RAZORPAY_WEBHOOK_SECRET"] = original_secret
             app_module.RAZORPAY_WEBHOOK_SECRET = original_module_secret
+            billing_module.RAZORPAY_WEBHOOK_SECRET = original_billing_secret
 
     def test_forged_razorpay_webhook_returns_400(self):
         """
@@ -178,14 +182,14 @@ class TestAdvancedSecurity:
         In production mode, mutating requests (POST/PATCH/DELETE) without
         valid Origin/Referer matching FRONTEND_URL should be rejected with 403.
         """
-        import main as app_module
+        import app.main as app_main_module
 
         # Enable production mode and configure FRONTEND_URL for the duration of the test
-        original_production = app_module._is_production
-        original_frontend_url = app_module._frontend_url
+        original_production = app_main_module.IS_PRODUCTION
+        original_frontend_url = app_main_module.FRONTEND_URL
 
-        app_module._is_production = True
-        app_module._frontend_url = "https://anuvaad.dev"
+        app_main_module.IS_PRODUCTION = True
+        app_main_module.FRONTEND_URL = "https://anuvaad.dev"
 
         try:
             # 1. Missing Origin/Referer -> Rejected 403
@@ -246,5 +250,5 @@ class TestAdvancedSecurity:
             # Since the webhook signature is successfully verified by our mock utility, it returns 200 OK
             assert res5.status_code == 200
         finally:
-            app_module._is_production = original_production
-            app_module._frontend_url = original_frontend_url
+            app_main_module.IS_PRODUCTION = original_production
+            app_main_module.FRONTEND_URL = original_frontend_url

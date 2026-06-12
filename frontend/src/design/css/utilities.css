@@ -1,0 +1,235 @@
+/* ============================================================
+   ANUVAAD — UTILITY CLASSES
+   Composable, reusable surface + animation utility classes.
+   No component-specific styles here.
+   ============================================================ */
+
+/* ── GLASSMORPHISM ────────────────────────────────────────── */
+
+/* Amber-tinted glass — landing page panels */
+.glass-amber {
+  background: rgba(18, 18, 24, 0.70);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-glass);
+}
+
+/* Dark glass — auth & dashboard panels */
+.glass-dark {
+  background: rgba(8, 12, 20, 0.80);
+  backdrop-filter: blur(var(--blur-xl));
+  -webkit-backdrop-filter: blur(var(--blur-xl));
+  border: 1px solid rgba(245, 158, 11, 0.10);
+  box-shadow: var(--shadow-glass-dark);
+}
+
+/* Apple-style frosted glass — light/dark aware */
+.glass-apple {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(var(--blur-2xl)) saturate(180%);
+  -webkit-backdrop-filter: blur(var(--blur-2xl)) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.60);
+  box-shadow:
+    0 10px 32px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.70);
+}
+
+.dark .glass-apple {
+  background: rgba(18, 18, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 10px 32px rgba(0, 0, 0, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* ── CARDS ────────────────────────────────────────────────── */
+
+.premium-card {
+  background: linear-gradient(135deg,
+    rgba(14, 18, 25, 0.90) 0%,
+    rgba(10, 13, 19, 0.95) 100%
+  );
+  border: 1px solid var(--border-default);
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color var(--dur-normal) var(--ease-out),
+    box-shadow   var(--dur-normal) var(--ease-out);
+}
+
+.premium-card:hover {
+  border-color: var(--border-active);
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ── GLOW BORDERS ─────────────────────────────────────────── */
+
+.glow-border {
+  border: 1px solid var(--border-medium);
+  box-shadow: 0 0 0 1px var(--border-faint), var(--glow-sm);
+  transition:
+    border-color var(--dur-normal) var(--ease-out),
+    box-shadow   var(--dur-normal) var(--ease-out);
+}
+
+.glow-border:hover {
+  border-color: var(--border-active);
+  box-shadow: 0 0 0 1px var(--border-subtle), var(--glow-md);
+}
+
+/* ── TEXT UTILITIES ───────────────────────────────────────── */
+
+.text-amber-glow {
+  text-shadow: 0 0 20px rgba(245, 158, 11, 0.40), 0 0 40px rgba(245, 158, 11, 0.15);
+}
+
+.gradient-text-amber {
+  background: linear-gradient(135deg, var(--amber-300) 0%, var(--amber-500) 50%, var(--amber-600) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.headline-gradient {
+  background: linear-gradient(135deg,
+    #f8fafc 0%,
+    var(--amber-300) 35%,
+    var(--amber-500) 60%,
+    #f8fafc 100%
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: text-gradient-shift 5s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .headline-gradient { animation: none; }
+}
+
+/* ── UNDERLINES ───────────────────────────────────────────── */
+
+.animated-underline {
+  position: relative;
+}
+
+.animated-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--amber-500), var(--amber-300));
+  transition: width var(--dur-normal) var(--ease-out);
+}
+
+.animated-underline:hover::after { width: 100%; }
+
+/* ── SHIMMER BUTTON ───────────────────────────────────────── */
+
+.btn-amber-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--amber-600) 0%,
+    var(--amber-500) 25%,
+    var(--amber-300) 50%,
+    var(--amber-500) 75%,
+    var(--amber-600) 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer-amber 3s linear infinite;
+  color: var(--text-on-brand);
+  font-weight: var(--weight-bold);
+}
+
+.btn-amber-shimmer:hover {
+  animation-duration: 1.5s;
+  box-shadow: 0 0 30px rgba(245, 158, 11, 0.50), 0 0 60px rgba(245, 158, 11, 0.20);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-amber-shimmer { animation: none; background-size: auto; }
+}
+
+/* ── SHIMMER SKELETON ─────────────────────────────────────── */
+
+.shimmer-loading {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-amber 1.5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-loading { animation: none; }
+}
+
+/* ── ANIMATION UTILITIES ──────────────────────────────────── */
+
+.animate-fade-up    { animation: fade-up 0.5s var(--ease-out) forwards; }
+.animate-fade-in    { animation: fade-in 0.4s var(--ease-out) forwards; }
+.animate-slide-right { animation: slide-in-right 0.4s var(--ease-out) forwards; }
+.animate-slide-left  { animation: slide-in-left  0.4s var(--ease-out) forwards; }
+.animate-number     { animation: number-count 0.4s var(--ease-out-back) forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-slide-right,
+  .animate-slide-left,
+  .animate-number {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── STAGGER UTILITY ──────────────────────────────────────── */
+
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: var(--stagger-sm); }
+.stagger-children > *:nth-child(3) { animation-delay: calc(var(--stagger-sm) * 2); }
+.stagger-children > *:nth-child(4) { animation-delay: calc(var(--stagger-sm) * 3); }
+.stagger-children > *:nth-child(5) { animation-delay: calc(var(--stagger-sm) * 4); }
+.stagger-children > *:nth-child(6) { animation-delay: calc(var(--stagger-sm) * 5); }
+
+/* ── PERFORMANCE UTILITIES ────────────────────────────────── */
+
+.output-panel-content {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+.sidebar-animated { will-change: transform; }
+.sidebar-animated.transition-done { will-change: auto; }
+
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* ── MISC ─────────────────────────────────────────────────── */
+
+.landing-section {
+  position: relative;
+  z-index: var(--z-raised);
+}
+
+.perspective-1000 { perspective: 1000px; }
+.transform-style-3d { transform-style: preserve-3d; }
+
+.blinking-cursor::after {
+  content: "█";
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blinking-cursor::after { animation: none; }
+}

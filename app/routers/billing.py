@@ -1,5 +1,7 @@
 import os
 import json
+import hashlib
+import hmac
 import httpx
 import razorpay
 from fastapi import APIRouter, HTTPException, Request, Depends
@@ -15,6 +17,7 @@ from app.core.database import supabase_request
 from app.services.email import email_service
 from app.models.schemas import CheckoutPayload, SubscriptionCheckPayload, CreditCheckoutPayload, VerifyPaymentPayload
 from app.core.auth import get_user_email
+from app.core.cache import cache
 
 router = APIRouter(prefix="/api", tags=["billing"])
 
@@ -253,6 +256,9 @@ async def verify_payment(payload: VerifyPaymentPayload):
                 email_service.send_welcome(user_email)
             email_service.send_subscription_confirmed(user_email, "pro")
             logger.info(f"✅ Razorpay subscription verified & activated: {user_email}")
+            # FRONT-08: Immediately bust Pro status cache so user sees upgrade instantly
+            cache_key = f"user_pro_status:{user_email}"
+            await cache.delete(cache_key)
             return {"status": "success", "plan": "pro"}
         else:  # credits
             razorpay_client.utility.verify_payment_signature(
@@ -297,11 +303,7 @@ async def verify_payment(payload: VerifyPaymentPayload):
 @router.post("/webhook/razorpay")
 async def razorpay_webhook(request: Request):
     """Handle Razorpay webhook events and update user_subscriptions in Supabase."""
-    import sys
     webhook_secret = RAZORPAY_WEBHOOK_SECRET
-    main_mod = sys.modules.get("main")
-    if main_mod:
-        webhook_secret = getattr(main_mod, "RAZORPAY_WEBHOOK_SECRET", webhook_secret)
 
     if not webhook_secret:
         logger.error(
@@ -313,7 +315,19 @@ async def razorpay_webhook(request: Request):
 
     body = await request.body()
     signature = request.headers.get("x-razorpay-signature", "")
+    event_id = request.headers.get("x-razorpay-event-id", "")
 
+    # BACK-03: Idempotency guard — reject duplicate webhook deliveries
+    if event_id:
+        idempotency_key = f"webhook:idempotency:{event_id}"
+        existing = await cache.get(idempotency_key)
+        if existing:
+            logger.info(f"Razorpay webhook: duplicate event {event_id} — skipping")
+            return {"status": "duplicate", "message": "Event already processed"}
+        # Mark this event as seen for 24 hours
+        await cache.put(idempotency_key, "1", ttl=86400)
+
+    # BACK-09: Verify signature BEFORE json.loads to prevent information leakage
     try:
         razorpay_client.utility.verify_webhook_signature(
             body.decode(), signature, RAZORPAY_WEBHOOK_SECRET
@@ -447,3 +461,27 @@ async def check_subscription_status(
         is_pro = False
 
     return {"plan": plan, "status": status, "isPro": is_pro}
+
+
+@router.get("/subscription-status")
+async def get_subscription_status(
+    email: str | None = Depends(get_user_email),
+):
+    """GET version of subscription-status — uses Authorization header only.
+    P4: Replaces the POST version so SWR can cache it like a normal GET resource.
+    """
+    if not email:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    sub = await supabase_request(
+        "GET", f"user_subscriptions?user_email=eq.{email}&select=is_pro"
+    )
+
+    if sub and isinstance(sub, dict):
+        is_pro = bool(sub.get("is_pro", False))
+        plan = "pro" if is_pro else "free"
+    else:
+        plan = "free"
+        is_pro = False
+
+    return {"plan": plan, "status": "active", "isPro": is_pro}

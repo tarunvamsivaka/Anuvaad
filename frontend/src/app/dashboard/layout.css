@@ -1,0 +1,28 @@
+/* ====================================================
+   ANUVAAD — dashboard/layout.css
+   Sidebar transition styles — extracted from dangerouslySetInnerHTML
+   Phase 1.10 / ARCH-05: Eliminates runtime style injection
+   ==================================================== */
+
+/* Desktop Hover-to-expand sidebar */
+@media (min-width: 768px) {
+  .desktop-sidebar {
+    width: 60px;
+  }
+
+  .desktop-sidebar:hover {
+    width: 224px;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+  }
+
+  .desktop-sidebar:hover .sidebar-text,
+  .desktop-sidebar:hover .sidebar-label,
+  .desktop-sidebar:hover .sidebar-upgrade-content {
+    opacity: 1;
+    transition-delay: 50ms;
+  }
+
+  .desktop-sidebar:hover .sidebar-upgrade {
+    height: 90px;
+  }
+}

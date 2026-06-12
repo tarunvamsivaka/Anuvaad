@@ -3,14 +3,18 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
   // Proxy API requests to the FastAPI backend to avoid CORS in production
+  // INFRA-05: Exclude /monitoring (Sentry tunnelRoute) from the proxy rewrite
   async rewrites() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${API_URL}/api/:path*`,
-      },
-    ];
+    return {
+      beforeFiles: [
+        {
+          // Matches /api/... but NOT /api/monitoring (Sentry tunnel)
+          source: "/api/:path((?!monitoring$).*)",
+          destination: `${API_URL}/api/:path*`,
+        },
+      ],
+    };
   },
   images: {
     remotePatterns: [],

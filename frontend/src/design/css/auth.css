@@ -1,0 +1,51 @@
+/* ============================================================
+   ANUVAAD — AUTH PAGE CSS
+   Auth background radial gradients.
+   Loaded ONLY on (auth)/* routes — signin, signup, forgot-password.
+   ============================================================ */
+
+.auth-bg {
+  background: var(--surface-landing, #020204);
+  position: relative;
+  overflow: hidden;
+  min-height: 100dvh;
+}
+
+.auth-bg::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  left: -20%;
+  width: 60%;
+  height: 80%;
+  background: radial-gradient(ellipse, rgba(245, 158, 11, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  animation: aurora-drift 14s ease-in-out infinite;
+}
+
+.auth-bg::after {
+  content: '';
+  position: absolute;
+  bottom: -20%;
+  right: -15%;
+  width: 50%;
+  height: 60%;
+  background: radial-gradient(ellipse, rgba(217, 119, 6, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+  animation: aurora-drift-2 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-bg::before,
+  .auth-bg::after { animation: none; }
+}
+
+/* Auth form card */
+.auth-card {
+  background: rgba(12, 15, 26, 0.90);
+  backdrop-filter: blur(var(--blur-xl));
+  -webkit-backdrop-filter: blur(var(--blur-xl));
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-glass-dark);
+}

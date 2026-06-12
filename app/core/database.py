@@ -66,8 +66,23 @@ def parse_postgrest_path(client: Client, method: str, path: str, data: dict = No
             query = query.in_(field, clean_list)
         elif op == "eq":
             query = query.eq(field, val)
+        elif op == "neq":
+            query = query.neq(field, val)
         elif op == "gte":
             query = query.gte(field, val)
+        elif op == "lte":
+            query = query.lte(field, val)
+        elif op == "is":
+            # Handle is.null and is.not.null
+            if val.lower() == "null":
+                query = query.is_(field, None)
+            else:
+                query = query.not_.is_(field, None)
+
+    # Parse limit constraint
+    limit_match = re.search(r"limit=(\d+)", query_str)
+    if limit_match:
+        query = query.limit(int(limit_match.group(1)))
 
     # Parse sorting constraints
     order_match = re.search(r"order=([^&]+)", query_str)
@@ -92,7 +107,7 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
     main_mod = sys.modules.get("main")
     if main_mod:
         main_func = getattr(main_mod, "supabase_request", None)
-        if main_func and main_func is not supabase_request:
+        if main_func and main_func is not _orig_supabase_request:
             res = main_func(method, path, data)
             if inspect.isawaitable(res):
                 return await res
@@ -131,6 +146,8 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
         logger.error(f"Supabase request error via SDK: {e}")
         return None
 
+_orig_supabase_request = supabase_request
+
 
 async def supabase_request_list(path: str) -> list:
     """
@@ -141,11 +158,12 @@ async def supabase_request_list(path: str) -> list:
     main_mod = sys.modules.get("main")
     if main_mod:
         main_func = getattr(main_mod, "supabase_request_list", None)
-        if main_func and main_func is not supabase_request_list:
+        if main_func and main_func is not _orig_supabase_request_list:
             res = main_func(path)
             if inspect.isawaitable(res):
                 return await res
             return res
+
 
         # Test mock checking for disabled DB
         url = getattr(main_mod, "SUPABASE_URL", "dummy")
@@ -175,3 +193,41 @@ async def supabase_request_list(path: str) -> list:
     except Exception as e:
         logger.error(f"Supabase list request error via SDK: {e}")
         return []
+
+_orig_supabase_request_list = supabase_request_list
+
+
+_history_columns = None
+
+
+async def get_history_columns() -> set[str]:
+    """Dynamically get the columns of the translation_history table from PostgREST."""
+    global _history_columns
+    if _history_columns is not None:
+        return _history_columns
+
+    fallback = {"id", "user_email", "mode", "source_language", "target_language", "input_preview", "workspace_id"}
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return fallback
+
+    try:
+        from app.core.config import get_http_client
+        headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        }
+        client = await get_http_client()
+        resp = await client.get(f"{SUPABASE_URL}/rest/v1/", headers=headers, timeout=5.0)
+        if resp.status_code == 200:
+            definitions = resp.json().get("definitions", {})
+            table_def = definitions.get("translation_history", {})
+            properties = table_def.get("properties", {})
+            if properties:
+                _history_columns = set(properties.keys())
+                logger.info(f"Dynamically resolved translation_history columns: {_history_columns}")
+                return _history_columns
+    except Exception as e:
+        logger.warning(f"Error fetching translation_history table columns: {e}")
+
+    return fallback
+

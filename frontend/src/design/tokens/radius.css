@@ -1,0 +1,16 @@
+/* ============================================================
+   ANUVAAD DESIGN SYSTEM V2 — RADIUS TOKENS
+   ============================================================ */
+
+:root {
+  --radius-none: 0px;
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-3xl:  20px;
+  --radius-4xl:  28px;
+  --radius-full: 9999px;  /* pill / circle */
+}

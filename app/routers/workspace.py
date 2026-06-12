@@ -118,7 +118,7 @@ async def delete_workspace(workspace_id: str, email: str = Depends(get_user_emai
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
     }
     try:
-        http_client = get_http_client()
+        http_client = await get_http_client()
         await http_client.delete(
             f"{SUPABASE_URL}/rest/v1/workspace_members?workspace_id=eq.{workspace_id}",
             headers=headers,
@@ -174,7 +174,7 @@ async def remove_workspace_member(
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
     }
     try:
-        http_client = get_http_client()
+        http_client = await get_http_client()
         resp = await http_client.delete(
             f"{SUPABASE_URL}/rest/v1/workspace_members?workspace_id=eq.{workspace_id}&user_email=eq.{member_email}",
             headers=headers,

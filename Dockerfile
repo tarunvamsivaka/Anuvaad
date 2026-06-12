@@ -27,9 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies (including gunicorn for multi-worker production)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy backend
 COPY main.py .
@@ -50,8 +50,18 @@ COPY terms.html .
 EXPOSE 8000 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" || exit 1
 
-# Start both services
-CMD sh -c "cd /app/frontend && npm start & uvicorn main:app --host 0.0.0.0 --port 8000"
+# INFRA-04: Gunicorn multi-worker production server
+# WEB_CONCURRENCY controls worker count (default: 4 workers)
+# Use uvicorn.workers.UvicornWorker for async/ASGI support
+CMD sh -c "cd /app/frontend && npm start & \
+  gunicorn main:app \
+    --workers ${WEB_CONCURRENCY:-4} \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 0.0.0.0:8000 \
+    --timeout 120 \
+    --keepalive 5 \
+    --access-logfile - \
+    --error-logfile -"

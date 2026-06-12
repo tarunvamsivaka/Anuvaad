@@ -10,18 +10,37 @@ from app.core.config import (
     ENV,
     IS_PRODUCTION,
     FRONTEND_URL,
+    GROQ_API_KEY,
+    DEEPSEEK_API_KEY,
     SENTRY_DSN,
     logger,
-    lifespan,
+    lifespan as _base_lifespan,
     metrics,
 )
 from app.core.cache import cache
-from app.core.auth import get_user_email
+from app.core.auth import get_user_email, get_client_ip
 from app.routers.translate import router as translate_router
 from app.routers.history import router as history_router
 from app.routers.workspace import router as workspace_router
 from app.routers.billing import router as billing_router
 from app.routers.utility import router as utility_router
+from app.routers.demo import router as demo_router
+from app.services import ai as ai_service
+from contextlib import asynccontextmanager
+
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: initialize singletons on startup, clean up on shutdown."""
+    # BACK-02: Initialize LLM client singletons (Groq + DeepSeek)
+    ai_service.init_clients(GROQ_API_KEY, DEEPSEEK_API_KEY)
+    # Delegate to the base lifespan for HTTP client management
+    async with _base_lifespan(app):
+        yield
+    # BACK-02: Close LLM clients gracefully
+    await ai_service.close_clients()
+
 
 app = FastAPI(title="Anuvaad API", lifespan=lifespan)
 
@@ -61,13 +80,6 @@ if SENTRY_DSN:
 else:
     logger.info("Sentry not configured")
 
-# ── IP EXTRACTOR ──
-def get_client_ip(request: Request) -> str:
-    x_forwarded_for = request.headers.get("x-forwarded-for")
-    if x_forwarded_for:
-        return x_forwarded_for.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
 # ── MIDDLEWARES ──
 
 @app.middleware("http")
@@ -86,20 +98,9 @@ async def security_headers_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def csrf_origin_middleware(request: Request, call_next):
-    import sys
+    # ARCH-01: Use module-level constants directly (no sys.modules DI)
     is_prod = IS_PRODUCTION
     frontend_url = FRONTEND_URL
-    main_mod = sys.modules.get("main")
-    if main_mod:
-        if hasattr(main_mod, "_is_production"):
-            is_prod = getattr(main_mod, "_is_production")
-        elif hasattr(main_mod, "IS_PRODUCTION"):
-            is_prod = getattr(main_mod, "IS_PRODUCTION")
-
-        if hasattr(main_mod, "_frontend_url"):
-            frontend_url = getattr(main_mod, "_frontend_url")
-        elif hasattr(main_mod, "FRONTEND_URL"):
-            frontend_url = getattr(main_mod, "FRONTEND_URL")
 
     if is_prod and request.method in ("POST", "PATCH", "DELETE"):
         if not request.url.path.startswith("/api/webhook/"):
@@ -225,11 +226,38 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled server error: {exc}")
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-# ── ROUTERS ──
+# ── ROUTERS — versioned (/api/v1/) + legacy aliases (/api/) ──
+# API-01: All new clients should use /api/v1/.
+# Legacy /api/ routes are kept for backward compatibility during migration.
+
+app.include_router(translate_router,  prefix="/api/v1")
+app.include_router(history_router,    prefix="/api/v1")
+app.include_router(workspace_router,  prefix="/api/v1")
+app.include_router(billing_router,    prefix="/api/v1")
+app.include_router(utility_router,    prefix="/api/v1")
+app.include_router(demo_router,       prefix="/api/v1")
+
+# Legacy aliases — emit Deprecation header so clients can migrate
 app.include_router(translate_router)
 app.include_router(history_router)
 app.include_router(workspace_router)
 app.include_router(billing_router)
 app.include_router(utility_router)
+app.include_router(demo_router)
+
+
+@app.middleware("http")
+async def api_deprecation_middleware(request: Request, call_next):
+    """Attach Deprecation header to all unversioned /api/ responses (API-01)."""
+    response = await call_next(request)
+    path = request.url.path
+    # Mark as deprecated only if NOT a versioned route
+    if path.startswith("/api/") and not path.startswith("/api/v"):
+        response.headers["Deprecation"] = "true"
+        response.headers["Link"] = (
+            f'<{str(request.url).replace("/api/", "/api/v1/", 1)}>; rel="successor-version"'
+        )
+    return response
+
 
 logger.info("Anuvaad API Modular Application Initialized")

@@ -40,7 +40,7 @@ async def get_user_email(
 
     # 2. Otherwise assume it's a Supabase JWT
     try:
-        client = get_http_client()
+        client = await get_http_client()
         resp = await client.get(
             f"{SUPABASE_URL}/auth/v1/user",
             headers={"Authorization": f"Bearer {token}", "apikey": SUPABASE_ANON_KEY},
@@ -55,18 +55,10 @@ async def get_user_email(
 
 
 async def get_user_pro_status(email: str) -> bool:
-    """Check if a user has an active Pro subscription or whitelist status."""
-    import sys
-    import inspect
-    main_mod = sys.modules.get("main")
-    if main_mod:
-        main_func = getattr(main_mod, "get_user_pro_status", None)
-        if main_func and main_func is not get_user_pro_status:
-            res = main_func(email)
-            if inspect.isawaitable(res):
-                return await res
-            return res
-
+    """Check if a user has an active Pro subscription or whitelist status.
+    ARCH-01: sys.modules DI anti-pattern removed. Tests should monkeypatch
+    this function directly via conftest.py instead.
+    """
     if not email:
         return False
 
@@ -94,7 +86,7 @@ async def get_user_pro_status(email: str) -> bool:
     if sub and isinstance(sub, dict):
         is_pro = bool(sub.get("is_pro", False))
 
-    await cache.put(cache_key, is_pro, ttl=300)  # Cache for 5 minutes
+    await cache.put(cache_key, is_pro, ttl=30)  # 30s TTL — FRONT-08: fast post-payment visibility
     return is_pro
 
 
@@ -103,18 +95,19 @@ async def is_token_pro(access_token: str | None) -> bool:
     if not access_token:
         return False
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{SUPABASE_URL}/auth/v1/user",
-                headers={
-                    "Authorization": f"Bearer {access_token}",
-                    "apikey": SUPABASE_ANON_KEY,
-                },
-            )
-            if resp.status_code == 200:
-                email = resp.json().get("email")
-                if email:
-                    return await get_user_pro_status(email)
+        # BACK-04: Use shared HTTP client singleton instead of creating a new one per call
+        client = await get_http_client()
+        resp = await client.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "apikey": SUPABASE_ANON_KEY,
+            },
+        )
+        if resp.status_code == 200:
+            email = resp.json().get("email")
+            if email:
+                return await get_user_pro_status(email)
     except Exception as e:
         logger.warning(f"Pro token check failed (silently falling back): {e}")
     return False

@@ -183,6 +183,10 @@ class MockAsyncOpenAI:
     def __init__(self, *args, **kwargs):
         self.chat = MockChat(self)
 
+    async def close(self):
+        """No-op close for test compatibility with lifespan teardown."""
+        pass
+
 
 class MockAsyncOpenAIError(MockAsyncOpenAI):
     error_mode = True
@@ -198,9 +202,9 @@ class MockAsyncOpenAIMulti(MockAsyncOpenAI):
 
 class MockRedisCache:
     def __init__(self, initial_rate_limits=None):
-        import main as app_module
+        from app.core.cache import LRUCache
 
-        self.fallback = app_module.LRUCache(max_size=500)
+        self.fallback = LRUCache(max_size=500)
         self.client = True
         self._store = {}
         self._rate_limits = initial_rate_limits or {}
@@ -211,7 +215,10 @@ class MockRedisCache:
 
             val = self._store[key]
             if isinstance(val, str):
-                return json.loads(val)
+                try:
+                    return json.loads(val)
+                except json.JSONDecodeError:
+                    return val
             return val
         return None
 
@@ -219,6 +226,14 @@ class MockRedisCache:
         import json
 
         self._store[key] = json.dumps(value)
+
+    async def delete(self, key: str):
+        self._store.pop(key, None)
+
+    async def delete_prefix(self, prefix: str):
+        keys_to_del = [k for k in self._store if k.startswith(prefix)]
+        for k in keys_to_del:
+            del self._store[k]
 
     async def incr_rate_limit(self, key: str, window: int) -> int:
         val = self._rate_limits.get(key, 0)
@@ -233,196 +248,291 @@ class MockRedisCache:
 @pytest.fixture()
 def client():
     """
-    Yield a TestClient whose AsyncOpenAI is monkey-patched
-    so tests run offline and instantly.
+    Yield a TestClient whose LLM clients are monkey-patched via the
+    ai module singleton accessors so tests run offline and instantly.
     """
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis = MockRedisCache()
+    mock_groq = MockAsyncOpenAI()
+    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
 
-    with patch.object(app_module, "cache", fake_redis):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAI):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    # Patch init_clients so the lifespan installs our mocks instead of real clients
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def client_rate_limited():
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis_async = MockRedisCache(
         {"rate_limit:testclient": app_module.RATE_LIMIT_MAX}
     )
+    mock_groq = MockAsyncOpenAI()
+    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
 
-    with patch.object(app_module, "cache", fake_redis_async):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAI):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis_async), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def client_multi_block():
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis = MockRedisCache()
+    mock_groq = MockAsyncOpenAIMulti()
+    mock_deepseek = MockAsyncOpenAIMulti()
 
     async def fake_get_user_email():
         return "testuser@example.com"
 
-    with patch.object(app_module, "cache", fake_redis):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAIMulti):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def client_ai_error():
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis = MockRedisCache()
+    mock_groq = MockAsyncOpenAIError()
+    mock_deepseek = MockAsyncOpenAIError()
 
     async def fake_get_user_email():
         return "testuser@example.com"
 
-    with patch.object(app_module, "cache", fake_redis):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAIError):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def client_empty_blocks():
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis = MockRedisCache()
+    mock_groq = MockAsyncOpenAIEmpty()
+    mock_deepseek = MockAsyncOpenAIEmpty()
 
     async def fake_get_user_email():
         return "testuser@example.com"
 
-    with patch.object(app_module, "cache", fake_redis):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAIEmpty):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def client_no_redis():
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis = MockRedisCache()
     fake_redis.client = None
+    mock_groq = MockAsyncOpenAI()
+    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
 
-    with patch.object(app_module, "cache", fake_redis):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAI):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def client_with_auth():
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis = MockRedisCache()
+    mock_groq = MockAsyncOpenAI()
+    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
 
-    with patch.object(app_module, "cache", fake_redis):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAI):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def client_no_auth():
     import main as app_module
+    import app.services.ai as ai_module
 
     fake_redis = MockRedisCache()
+    mock_groq = MockAsyncOpenAI()
+    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email_none():
         return None
 
-    with patch.object(app_module, "cache", fake_redis):
-        with patch.object(app_module, "AsyncOpenAI", MockAsyncOpenAI):
-            app_module.app.dependency_overrides[app_module.get_user_email] = (
-                fake_get_user_email_none
-            )
-            from fastapi.testclient import TestClient
+    async def fake_get_user_pro_status(email):
+        return False
 
-            with TestClient(app_module.app) as tc:
-                yield tc
-            app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+    def fake_init_clients(groq_key, deepseek_key):
+        ai_module._groq_client = mock_groq
+        ai_module._deepseek_client = mock_deepseek
+
+    with patch.object(app_module, "cache", fake_redis), \
+         patch.object(ai_module, "init_clients", fake_init_clients), \
+         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
+        app_module.app.dependency_overrides[app_module.get_user_email] = (
+            fake_get_user_email_none
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app_module.app) as tc:
+            yield tc
+        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
 
 @pytest.fixture()
 def mock_openai_clients(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
-    import main as app_module
+    import app.services.ai as ai_module
 
-    groq_mock = MagicMock()
-    groq_mock.chat.completions.create = AsyncMock()
+    groq_mock = MockAsyncOpenAI()
+    deepseek_mock = MockAsyncOpenAI()
 
-    deepseek_mock = MagicMock()
-    deepseek_mock.chat.completions.create = AsyncMock()
-
-    def fake_async_openai(*args, **kwargs):
-        base_url = kwargs.get("base_url", "")
-        if "groq.com" in base_url:
-            return groq_mock
-        elif "deepseek.com" in base_url:
-            return deepseek_mock
-        return MagicMock()
-
-    monkeypatch.setattr(app_module, "AsyncOpenAI", fake_async_openai)
+    monkeypatch.setattr(ai_module, "_groq_client", groq_mock)
+    monkeypatch.setattr(ai_module, "_deepseek_client", deepseek_mock)
     return {"groq": groq_mock, "deepseek": deepseek_mock}
+
+
+@pytest.fixture(autouse=True)
+def mock_supabase_and_quota():
+    from unittest.mock import AsyncMock
+    with patch("app.core.quota.get_today_usage_count", new_callable=AsyncMock) as m1, \
+         patch("app.core.quota.get_user_credits", new_callable=AsyncMock) as m2, \
+         patch("app.core.quota.deduct_credit", new_callable=AsyncMock) as m3, \
+         patch("app.core.database.supabase_request", new_callable=AsyncMock) as m6, \
+         patch("app.core.database.supabase_request_list", new_callable=AsyncMock) as m7:
+        m1.return_value = 0
+        m2.return_value = 0
+        m3.return_value = True
+        m6.return_value = {}
+        m7.return_value = []
+        yield

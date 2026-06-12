@@ -86,7 +86,7 @@ export function Pricing() {
           </p>
 
           {/* Billing toggle */}
-          <div className="mt-10 inline-flex items-center gap-1.5 rounded-full border border-amber-500/15 bg-[#0c0c0f]/90 p-1.5 backdrop-blur-md">
+          <div className="mt-10 inline-flex items-center gap-1.5 rounded-full border border-amber-500/15 bg-surface-charcoal/90 p-1.5 backdrop-blur-md">
             <button
               onClick={() => setYearly(false)}
               className={cn(
@@ -127,7 +127,7 @@ export function Pricing() {
                 "relative rounded-2xl border p-8 flex flex-col transition-all duration-400 overflow-hidden group",
                 plan.highlighted
                   ? "border-amber-500/30 bg-gradient-to-b from-amber-500/8 via-[#0c0c0f] to-[#0c0c0f] shadow-[0_0_60px_rgba(245,158,11,0.12)] scale-[1.02]"
-                  : "border-white/5 bg-[#0c0c0f]/80 shadow-2xl shadow-black/40 backdrop-blur-sm hover:border-amber-500/15 hover:shadow-[0_0_40px_rgba(0,0,0,0.5)]"
+                  : "border-white/5 bg-surface-charcoal/80 shadow-2xl shadow-black/40 backdrop-blur-sm hover:border-amber-500/15 hover:shadow-[0_0_40px_rgba(0,0,0,0.5)]"
               )}
             >
               {/* Shimmer on hover */}

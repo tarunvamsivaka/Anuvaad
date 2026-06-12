@@ -113,7 +113,7 @@ export function Trust() {
           {PILLARS.map((pillar) => (
             <div
               key={pillar.title}
-              className="trust-card opacity-0 group relative rounded-2xl border border-amber-500/10 bg-[#0c0c0f]/70 p-8 backdrop-blur-sm shadow-xl shadow-black/30 transition-all duration-500 hover:border-amber-500/25 hover:shadow-[0_0_30px_rgba(245,158,11,0.06)] hover:scale-[1.02] cursor-default"
+              className="trust-card opacity-0 group relative rounded-2xl border border-amber-500/10 bg-surface-charcoal/70 p-8 backdrop-blur-sm shadow-xl shadow-black/30 transition-all duration-500 hover:border-amber-500/25 hover:shadow-[0_0_30px_rgba(245,158,11,0.06)] hover:scale-[1.02] cursor-default"
             >
               {/* Animated circle checkmark */}
               <div className="mb-6 flex items-center gap-4">

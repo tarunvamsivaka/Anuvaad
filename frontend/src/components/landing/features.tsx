@@ -121,7 +121,7 @@ export function Features() {
               className={`feature-card-reveal group rounded-2xl border p-7 transition-all duration-500 cursor-default overflow-hidden relative ${
                 f.highlight
                   ? "border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-[#0c0c0f] to-[#0c0c0f] shadow-[0_0_60px_rgba(245,158,11,0.07)] col-span-1 md:col-span-2 lg:col-span-1"
-                  : "border-white/5 bg-[#0c0c0f]/80 shadow-xl shadow-black/40 backdrop-blur-sm hover:border-amber-500/15 hover:shadow-[0_8px_40px_rgba(0,0,0,0.6)]"
+                  : "border-white/5 bg-surface-charcoal/80 shadow-xl shadow-black/40 backdrop-blur-sm hover:border-amber-500/15 hover:shadow-[0_8px_40px_rgba(0,0,0,0.6)]"
               }`}
             >
               {/* Hover shimmer overlay */}
@@ -145,7 +145,7 @@ export function Features() {
           {SMALL_FEATURES.map((f) => (
             <div
               key={f.title}
-              className="feature-card-reveal group rounded-2xl border border-white/5 bg-[#0c0c0f]/80 p-5 shadow-lg shadow-black/30 backdrop-blur-sm transition-all duration-300 hover:border-amber-500/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.5)] cursor-default relative overflow-hidden"
+              className="feature-card-reveal group rounded-2xl border border-white/5 bg-surface-charcoal/80 p-5 shadow-lg shadow-black/30 backdrop-blur-sm transition-all duration-300 hover:border-amber-500/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.5)] cursor-default relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-amber-500/3 opacity-0 group-hover:opacity-100 transition-opacity duration-400 pointer-events-none" />
 

@@ -1,0 +1,145 @@
+/* ============================================================
+   ANUVAAD — DASHBOARD CSS
+   Sidebar glow, block entrance, layout-specific styles.
+   Loaded ONLY on /dashboard/* routes.
+   ============================================================ */
+
+/* ── SIDEBAR ──────────────────────────────────────────────── */
+
+.sidebar-rail {
+  width: 60px;
+  transition: width var(--dur-normal) var(--ease-out-expo);
+  will-change: width;
+}
+
+.sidebar-rail.expanded { width: 224px; }
+.sidebar-rail.transition-done { will-change: auto; }
+
+/* ── DASHBOARD SURFACE ────────────────────────────────────── */
+
+.dashboard-bg {
+  background: var(--surface-low);
+  min-height: 100vh;
+}
+
+/* ── QUOTA RING ───────────────────────────────────────────── */
+
+.quota-ring-track { stroke: var(--border-faint); }
+.quota-ring-fill  { stroke: var(--status-success); transition: stroke var(--dur-slow) var(--ease-out); }
+.quota-ring-fill.warning { stroke: var(--status-warning); }
+.quota-ring-fill.danger  { stroke: var(--status-danger); }
+
+/* ── STAT CARD ENTRANCE ───────────────────────────────────── */
+
+/* Used with style="--delay: Xms" for stagger */
+.stat-card-enter {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: fade-up var(--dur-slow) var(--ease-out-expo) var(--delay, 0ms) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-card-enter { animation: none; opacity: 1; transform: none; }
+}
+
+/* ── ACTIVITY BAR ─────────────────────────────────────────── */
+
+.activity-bar {
+  transform-origin: bottom;
+  transform: scaleY(0);
+  animation: scale-in var(--dur-slower) var(--ease-out-expo) var(--delay, 0ms) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-bar { animation: none; transform: scaleY(1); }
+}
+
+/* ── TOPBAR ───────────────────────────────────────────────── */
+
+.topbar {
+  height: 48px;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: rgba(8, 12, 20, 0.80);
+  backdrop-filter: blur(var(--blur-lg));
+  border-bottom: 1px solid var(--border-faint);
+}
+
+/* ── SKELETON PULSE ───────────────────────────────────────── */
+
+.skeleton-pulse {
+  background: linear-gradient(
+    90deg,
+    var(--surface-mid)  0%,
+    var(--surface-high) 50%,
+    var(--surface-mid)  100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-amber 1.8s linear infinite;
+  border-radius: var(--radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-pulse { animation: none; background: var(--surface-mid); }
+}
+
+/* ── DASHBOARD CARD ───────────────────────────────────────── */
+
+.dashboard-card {
+  background-color: var(--surface-high);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  transition: border-color var(--dur-normal) var(--ease-out);
+}
+.dashboard-card:hover {
+  border-color: var(--border-medium);
+}
+
+/* ── NAV LINK ACTIVE ──────────────────────────────────────── */
+
+.nav-link-active {
+  position: relative;
+  background-color: rgba(245, 158, 11, 0.05); /* very faint amber */
+  color: var(--text-amber) !important;
+  box-shadow: var(--glow-xs);
+}
+.nav-link-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background-color: var(--amber-400);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+}
+
+/* ── QUICK ACTION ITEM ────────────────────────────────────── */
+
+.quick-action-item {
+  border: 1px solid var(--border-subtle);
+  transition: all var(--dur-normal) var(--ease-out);
+}
+.quick-action-item:hover {
+  border-color: var(--border-active);
+  background-color: rgba(245, 158, 11, 0.04);
+}
+
+/* ── BLOCK ENTRANCE ───────────────────────────────────────── */
+
+.animate-block-in {
+  opacity: 0;
+  transform: translateY(15px);
+  animation: block-enter var(--dur-slow) var(--ease-out-expo) var(--delay, 0ms) forwards;
+}
+
+@keyframes block-enter {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-block-in { animation: none; opacity: 1; transform: none; }
+}

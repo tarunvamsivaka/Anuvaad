@@ -38,6 +38,9 @@ export interface TranslationHistoryItem {
   mode: string;
   created_at: string;
   model_used: string | null;
+  session_id?: string | null;
+  repository_name?: string | null;
+  file_path?: string | null;
 }
 
 export function useTranslationStats(_userEmail: string | undefined, accessToken: string | undefined) {

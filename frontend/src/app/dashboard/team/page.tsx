@@ -117,8 +117,8 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-800 dark:text-slate-100 pb-20">
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-[#080c14]/80 backdrop-blur-md">
+    <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-800 dark:text-slate-100 pb-20">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
         <div className="flex h-16 items-center px-8 max-w-4xl mx-auto">
           <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
             Team Workspaces Hub
@@ -168,7 +168,7 @@ export default function TeamPage() {
           </Card>
         ) : (
           <div className="space-y-8">
-            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <div className="flex items-center gap-4 border-b border-slate-200 dark:border-amber-600/10 pb-4 mb-6">
                 <div className="h-10 w-10 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-base">
                   {activeWorkspace.name.charAt(0).toUpperCase()}
@@ -204,7 +204,7 @@ export default function TeamPage() {
               </div>
             </Card>
 
-            <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
               <h3 className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-2.5 mb-4">
                 <UserPlus className="h-4 w-4" /> Invite Workspace Operator
               </h3>

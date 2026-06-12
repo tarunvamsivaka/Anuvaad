@@ -5,6 +5,8 @@ from openai import AsyncOpenAI
 from fastapi import HTTPException, BackgroundTasks
 from app.core.config import (
     LLM_TIMEOUT,
+    GROQ_API_KEY,
+    DEEPSEEK_API_KEY,
     logger,
     metrics,
 )
@@ -13,11 +15,58 @@ from app.core.database import supabase_request_list
 from app.core.quota import record_successful_completion, save_translation_background
 from app.models.schemas import CodePayload, CodeToCodePayload
 
+# ── LLM CLIENT SINGLETONS (BACK-02) ──
+# Created once at startup in lifespan, reused for all requests.
+# Eliminates per-request DNS + TLS handshake overhead.
+_groq_client: AsyncOpenAI | None = None
+_deepseek_client: AsyncOpenAI | None = None
+
+
+def init_clients(groq_key: str, deepseek_key: str) -> None:
+    """Initialize module-level LLM client singletons. Call from app lifespan."""
+    global _groq_client, _deepseek_client
+    _groq_client = AsyncOpenAI(
+        api_key=groq_key,
+        base_url="https://api.groq.com/openai/v1",
+    )
+    _deepseek_client = AsyncOpenAI(
+        api_key=deepseek_key,
+        base_url="https://api.deepseek.com/v1",
+    )
+    logger.info("LLM client singletons initialized (Groq + DeepSeek)")
+
+
+async def close_clients() -> None:
+    """Gracefully close all LLM clients. Call from app lifespan shutdown."""
+    global _groq_client, _deepseek_client
+    if _groq_client:
+        await _groq_client.close()
+        _groq_client = None
+    if _deepseek_client:
+        await _deepseek_client.close()
+        _deepseek_client = None
+    logger.info("LLM client singletons closed")
+
+
+def _get_groq_client() -> AsyncOpenAI:
+    """Return the shared Groq client, or create a fallback if not yet initialized."""
+    if _groq_client is not None:
+        return _groq_client
+    # Fallback: create on-the-fly (development mode or if lifespan wasn't used)
+    key = os.getenv("GROQ_API_KEY", "")
+    return AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
+
+
+def _get_deepseek_client() -> AsyncOpenAI:
+    """Return the shared DeepSeek client, or create a fallback if not yet initialized."""
+    if _deepseek_client is not None:
+        return _deepseek_client
+    key = os.getenv("DEEPSEEK_API_KEY", "")
+    return AsyncOpenAI(api_key=key, base_url="https://api.deepseek.com/v1")
+
+
 def get_async_openai_class():
-    import sys
-    main_mod = sys.modules.get("main")
-    if main_mod and hasattr(main_mod, "AsyncOpenAI"):
-        return main_mod.AsyncOpenAI
+    """Legacy compatibility shim — returns the AsyncOpenAI class (not an instance)."""
     return AsyncOpenAI
 
 SYSTEM_INSTRUCTION = """
@@ -205,13 +254,9 @@ async def get_completion(
     if not groq_api_key or not deepseek_api_key:
         raise HTTPException(status_code=500, detail="LLM API keys not configured")
 
-    AsyncOpenAIClass = get_async_openai_class()
-    groq_client = AsyncOpenAIClass(
-        api_key=groq_api_key, base_url="https://api.groq.com/openai/v1"
-    )
-    deepseek_client = AsyncOpenAIClass(
-        api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1"
-    )
+    # BACK-02: Use singleton clients instead of creating per-request
+    groq_client = _get_groq_client()
+    deepseek_client = _get_deepseek_client()
 
     if use_r1:
         primary = {
@@ -323,30 +368,26 @@ async def stream_code_to_english(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            asyncio.create_task(
-                save_translation_background(
-                    email,
-                    "Code → English",
-                    payload.language,
-                    "english",
-                    payload.raw_code,
-                    cached,
-                    model_name,
-                    payload.workspace_id,
-                )
+            background_tasks.add_task(
+                save_translation_background,
+                email,
+                "Code → English",
+                payload.language,
+                "english",
+                payload.raw_code,
+                cached,
+                model_name,
+                payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
         return
 
     metrics.record_cache_miss()
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
-    AsyncOpenAIClass = get_async_openai_class()
-    groq_client = AsyncOpenAIClass(
-        api_key=groq_api_key, base_url="https://api.groq.com/openai/v1"
-    )
-    deepseek_client = AsyncOpenAIClass(
-        api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1"
-    )
+    # BACK-02: Use singleton clients instead of creating per-request
+    groq_client = _get_groq_client()
+    deepseek_client = _get_deepseek_client()
 
     if use_r1:
         client = deepseek_client
@@ -389,17 +430,19 @@ async def stream_code_to_english(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            asyncio.create_task(
-                save_translation_background(
-                    email,
-                    "Code → English",
-                    payload.language,
-                    "english",
-                    payload.raw_code,
-                    result,
-                    model,
-                    payload.workspace_id,
-                )
+            background_tasks.add_task(
+                save_translation_background,
+                email,
+                "Code → English",
+                payload.language,
+                "english",
+                payload.raw_code,
+                result,
+                model,
+                payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
 
     except Exception as e:
@@ -435,30 +478,26 @@ async def stream_code_to_code(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            asyncio.create_task(
-                save_translation_background(
-                    email,
-                    "Code → Code",
-                    payload.source_language,
-                    payload.target_language,
-                    payload.raw_code,
-                    cached,
-                    model_name,
-                    payload.workspace_id,
-                )
+            background_tasks.add_task(
+                save_translation_background,
+                email,
+                "Code → Code",
+                payload.source_language,
+                payload.target_language,
+                payload.raw_code,
+                cached,
+                model_name,
+                payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
         return
 
     metrics.record_cache_miss()
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
-    AsyncOpenAIClass = get_async_openai_class()
-    groq_client = AsyncOpenAIClass(
-        api_key=groq_api_key, base_url="https://api.groq.com/openai/v1"
-    )
-    deepseek_client = AsyncOpenAIClass(
-        api_key=deepseek_api_key, base_url="https://api.deepseek.com/v1"
-    )
+    # BACK-02: Use singleton clients instead of creating per-request
+    groq_client = _get_groq_client()
+    deepseek_client = _get_deepseek_client()
 
     if use_r1:
         client = deepseek_client
@@ -504,17 +543,19 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            asyncio.create_task(
-                save_translation_background(
-                    email,
-                    "Code → Code",
-                    payload.source_language,
-                    payload.target_language,
-                    payload.raw_code,
-                    result,
-                    model,
-                    payload.workspace_id,
-                )
+            background_tasks.add_task(
+                save_translation_background,
+                email,
+                "Code → Code",
+                payload.source_language,
+                payload.target_language,
+                payload.raw_code,
+                result,
+                model,
+                payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
 
     except Exception as e:

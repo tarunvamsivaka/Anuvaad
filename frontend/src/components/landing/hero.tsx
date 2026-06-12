@@ -239,7 +239,7 @@ export function Hero() {
             {/* Demo Content */}
             <div className="grid md:grid-cols-2 min-h-[200px]">
               {/* Left: Code */}
-              <div className="border-b border-amber-500/5 bg-[#030014]/50 p-5 md:border-b-0 md:border-r md:border-amber-500/5">
+              <div className="border-b border-amber-500/5 bg-surface-base/50 p-5 md:border-b-0 md:border-r md:border-amber-500/5">
                 <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                   Source Code
                 </p>

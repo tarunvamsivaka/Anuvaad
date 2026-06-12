@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-12
+
+### Landing Page (Phase 5)
+- Implemented anonymous demo translate endpoint `POST /api/demo/translate` — rate-limited to 3 req/IP/day, no auth required, pre-cached sample translations for JS/TS/Python/Go/Rust/Java (P-demo)
+- Added 8 demo endpoint tests covering all supported languages, fallback, mode validation, headers, and rate decrement tracking
+- Added `CustomCursor` motion primitive — GSAP quickTo amber dot + spring-lag ring, expands on hover, disabled on touch + reduced-motion (Phase 5 custom cursor deliverable)
+- Exported `CustomCursor` from `components/motion` barrel; integrated into `LandingExperience.tsx`
+- Landing experience uses 9-scene `SceneOrchestrator` with WebGL particle canvas (OffscreenCanvas worker) and CSS fallback backdrop
+
+### Testing
+- Backend test suite now at **196 tests** (added 8 demo endpoint tests)
+
+---
+
+## [1.3.0] - 2026-06-12
+
+### Security
+- Added prompt injection sanitisation to `english-to-code` and `sync-english-to-code` endpoints (SEC-06/07)
+- Fixed webhook body parsing order: signature verification now runs before JSON parsing (BACK-09)
+- Added Razorpay webhook idempotency guard via Redis SET NX to prevent duplicate event processing (BACK-03)
+- Removed `access_token` from Pydantic request bodies in billing; all auth is now header-only (BACK-06)
+- Updated `.gitignore` to exclude `frontend/.env.local` from git history (SEC-01/02)
+
+### Performance
+- Fixed `is_token_pro()` HTTP client leak: shared singleton client replaces per-call `AsyncClient` (BACK-04)
+- Fixed LLM client re-instantiation: `AsyncOpenAI` clients for Groq/DeepSeek are now module-level singletons initialized in `lifespan` (BACK-02)
+- Fixed `asyncio.Lock` race condition on HTTP client singleton (ARCH-05)
+- Reduced Pro status cache TTL to 30 seconds and bust cache immediately on successful payment (FRONT-08/ARCH-04)
+- History pruning changed from O(N) individual deletes to a single DB-side `DELETE ... WHERE id IN (SELECT ...)` query (BACK-07)
+- Added composite index on `translation_history(user_email, created_at DESC)` for 10–100× speedup on quota queries (P5)
+
+### Architecture
+- Replaced `sys.modules.get("main")` DI anti-pattern with FastAPI `app.state` and `Depends(get_cache)` (BACK-01/ARCH-01)
+- Removed `WorkspaceProvider` double mount from root layout (was mounted in both root and dashboard layouts) (ARCH-06)
+- Removed redundant client-side auth redirect from `DashboardLayout` (FOUC fix) — `proxy.ts` handles all auth (ARCH-02)
+- Replaced `dangerouslySetInnerHTML` sidebar CSS with a proper CSS module (`dashboard/layout.css`) (ARCH-05)
+- Changed `useSubscriptionStatus` from POST to GET for HTTP-cache compliance (P4)
+- Landing page V1 bundle leak fixed with `next/dynamic` lazy imports behind the `NEXT_PUBLIC_LANDING_V2` flag (ARCH-03)
+- Consolidated landing page: `index.html` archived as `.html.archived`; Next.js App Router is now the single canonical source (FRONT-07)
+
+### Frontend
+- Fixed `--font-mono` CSS token mismatch: was referencing undefined `--font-geist-mono` (DS-03)
+- Fixed `--sidebar-primary` dark mode token to use amber brand color instead of blue (DS-04)
+- Decomposed 1,391-line translate page into focused components and hooks (FRONT-01)
+- Added per-route `loading.tsx` skeleton files for all 6 dashboard routes (FRONT-04)
+- Added `ErrorBoundary` + `ErrorCard` component wrapping all dashboard route children (FRONT-03)
+- Replaced `window.location.href` hard redirect in billing with `next/navigation` router (FRONT-05)
+- Removed 106 lines of commented-out billing code (FRONT-06)
+- Fixed Sentry `tunnelRoute` rewrite conflict in `next.config.ts` (INFRA-05)
+- Added Monaco-shaped editor skeleton (`components/ui/monaco-skeleton.tsx`) for cold-start loading (P6)
+- Added `prefers-reduced-motion` hard guarantee in `globals.css` (belt-and-suspenders)
+- Moved `@types/three` from `dependencies` to `devDependencies` (PERF-05)
+
+### Design System
+- Split `globals.css` from a monolith into modular token files (`design/tokens/*.css`, `design/css/*.css`)
+- Verified GSAP 3.15.0 license: all Club GSAP plugins (SplitText, DrawSVG, MorphSVG, ScrollSmoother) are free since GSAP 3.12 under the GSAP Standard License. Documented in `package.json` (API-02)
+
+### Infrastructure
+- Added Nginx HTTPS server block with HSTS (max-age=63072000), OCSP stapling, and TLS 1.2/1.3 (`nginx.conf`) (INFRA-01)
+- Added Redis password authentication in `docker-compose.yml` (INFRA-02)
+- Added container health checks for all services (frontend, backend, nginx, redis) (INFRA-03)
+- Configured Gunicorn with 4 `UvicornWorker` instances for production throughput (INFRA-04)
+- Added `/api/v1/` versioned route prefix; legacy `/api/` routes preserved with `Deprecation` response headers (API-01)
+- DB migration: renamed `stripe_subscription_id` to `razorpay_subscription_id` (BACK-10)
+
+### Testing
+- Added `TestEnglishToCodeSanitisation` and `TestWebhookIdempotency` test classes in `test_validation.py` (TEST-03)
+- Vitest test suite expanded to 41 tests: language detection (19), hooks data layer (16), MonacoSkeleton component (6)
+- Added Firefox, Safari/WebKit, and Mobile (Pixel 7, iPhone 14) projects to Playwright matrix (TEST-02)
+- Added full Axe accessibility audit Playwright spec (`e2e/accessibility.spec.ts`) targeting 0 critical violations (ACC-01–04)
+- Added structured logging with `structlog` replacing f-string log calls (BACK-08)
+
+### Backend test count: 188 passing
+
 ## [1.2.0] - 2026-05-14
 
 ### Added

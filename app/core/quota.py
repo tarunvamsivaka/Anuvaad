@@ -23,6 +23,9 @@ async def save_translation_background(
     blocks: list,
     model_used: str,
     workspace_id: str | None = None,
+    session_id: str | None = None,
+    repository_name: str | None = None,
+    file_path: str | None = None,
 ):
     import sys
     import inspect
@@ -30,7 +33,7 @@ async def save_translation_background(
     if main_mod:
         main_func = getattr(main_mod, "save_translation_background", None)
         if main_func and main_func is not save_translation_background:
-            res = main_func(user_email, mode, source_language, target_language, input_text, blocks, model_used, workspace_id)
+            res = main_func(user_email, mode, source_language, target_language, input_text, blocks, model_used, workspace_id, session_id, repository_name, file_path)
             if inspect.isawaitable(res):
                 return await res
             return res
@@ -61,6 +64,12 @@ async def save_translation_background(
 
         if workspace_id:
             data["workspace_id"] = workspace_id
+        if session_id:
+            data["session_id"] = session_id
+        if repository_name:
+            data["repository_name"] = repository_name
+        if file_path:
+            data["file_path"] = file_path
 
         # ── Storage Allocation & Pruning ──
         is_pro = await get_user_pro_status(user_email)
@@ -74,12 +83,9 @@ async def save_translation_background(
         current_count = len(all_rows)
         pruned_count = 0
 
-        # Resolve SUPABASE config dynamically for test mocking compatibility
+        # Use module-level SUPABASE config (patch app.core.quota.SUPABASE_URL in tests)
         url_config = SUPABASE_URL
         key_config = SUPABASE_SERVICE_KEY
-        if main_mod:
-            url_config = getattr(main_mod, "SUPABASE_URL", url_config)
-            key_config = getattr(main_mod, "SUPABASE_SERVICE_KEY", key_config)
 
         if current_count >= limit:
             pruned_count = (current_count + 1) - limit
@@ -97,7 +103,7 @@ async def save_translation_background(
                 ids_param = ",".join(to_delete_ids)
                 url = f"{url_config}/rest/v1/translation_history?id=in.({ids_param})"
                 try:
-                    http_client = get_http_client()
+                    http_client = await get_http_client()
                     resp = await http_client.delete(url, headers=headers)
                     if resp.status_code not in (200, 204):
                         logger.warning(
@@ -109,14 +115,19 @@ async def save_translation_background(
                         )
                 except Exception as prune_err:
                     logger.warning(f"Prune delete failed: {prune_err}")
-        # Try inserting with blocks
-        data_with_blocks = {**data, "blocks": blocks}
-        res = await supabase_request("POST", "translation_history", data_with_blocks)
-        if not res:
-            logger.info(
-                "Retrying translation history insert without 'blocks' column..."
-            )
-            await supabase_request("POST", "translation_history", data)
+        # Dynamically query allowed database columns to prevent PGRST204 column mismatches
+        from app.core.database import get_history_columns
+        allowed_cols = await get_history_columns()
+
+        # Build insert payload containing blocks only if the column exists in the schema
+        insert_data = {**data}
+        if "blocks" in allowed_cols:
+            insert_data["blocks"] = blocks
+
+        # Filter to strictly present database columns
+        filtered_payload = {k: v for k, v in insert_data.items() if k in allowed_cols}
+        await supabase_request("POST", "translation_history", filtered_payload)
+
         # Invalidate stats and history caches
         await cache.delete(f"user_stats:{user_email}")
         await cache.delete_prefix(f"user_history:{user_email}")
@@ -212,7 +223,7 @@ async def get_lifetime_translations(email: str) -> int:
     }
     url = f"{SUPABASE_URL}/rest/v1/translation_history?user_email=eq.{email}&select=id"
     try:
-        http_client = get_http_client()
+        http_client = await get_http_client()
         resp = await http_client.get(url, headers=base_headers)
         if resp.status_code in (200, 206):
             content_range = resp.headers.get("Content-Range", "")

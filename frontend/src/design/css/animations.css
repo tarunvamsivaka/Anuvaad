@@ -1,0 +1,188 @@
+/* ============================================================
+   ANUVAAD — ANIMATIONS LIBRARY
+   All @keyframes in one named library.
+   Wrapped in prefers-reduced-motion: no-preference.
+
+   Usage: import in components that need specific keyframes,
+   or import in route-scoped css files.
+   ============================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+
+  /* ── VISIBILITY ───────────────────────────────────────────── */
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to   { opacity: 0; }
+  }
+
+  /* ── SLIDE ENTRANCES ──────────────────────────────────────── */
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fade-down {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes slide-in-left {
+    from { opacity: 0; transform: translateX(-20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes card-cascade {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+
+  /* ── BLOCK ENTRANCE (replaces Framer Motion) ──────────────── */
+  @keyframes block-enter {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── SCALE ────────────────────────────────────────────────── */
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes number-count {
+    from { opacity: 0; transform: translateY(8px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ── FLOAT ────────────────────────────────────────────────── */
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(-12px); }
+  }
+
+  @keyframes particle-float {
+    0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.4; }
+    33%      { transform: translateY(-18px) translateX(8px); opacity: 0.7; }
+    66%      { transform: translateY(-8px) translateX(-12px); opacity: 0.5; }
+  }
+
+  /* ── ROTATION ─────────────────────────────────────────────── */
+  @keyframes rotate-slow {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
+  /* ── SHIMMER / GRADIENT ───────────────────────────────────── */
+  @keyframes shimmer-amber {
+    0%   { background-position: -200% center; }
+    100% { background-position:  200% center; }
+  }
+
+  @keyframes shimmer-sweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  @keyframes text-gradient-shift {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+
+  @keyframes mesh-drift {
+    0%   { background-position: 0% 0%; }
+    50%  { background-position: 100% 100%; }
+    100% { background-position: 0% 0%; }
+  }
+
+  /* ── PULSE / GLOW ─────────────────────────────────────────── */
+  @keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 12px rgba(245, 158, 11, 0.20), 0 0 24px rgba(245, 158, 11, 0.10); }
+    50%      { box-shadow: 0 0 20px rgba(245, 158, 11, 0.40), 0 0 40px rgba(245, 158, 11, 0.20); }
+  }
+
+  @keyframes amber-pulse-ring {
+    0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    70%  { transform: scale(1);    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  }
+
+  @keyframes border-glow {
+    0%, 100% { border-color: rgba(245, 158, 11, 0.15); }
+    50%      { border-color: rgba(245, 158, 11, 0.45); }
+  }
+
+  @keyframes status-ping {
+    0%   { transform: scale(1);   opacity: 1; }
+    75%  { transform: scale(2.2); opacity: 0; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  /* ── BLINK / CURSOR ───────────────────────────────────────── */
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
+  }
+
+  @keyframes caret-blink {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0; }
+  }
+
+  /* ── PROGRESS / FILL ──────────────────────────────────────── */
+  @keyframes progress-fill {
+    from { width: 0%; }
+    to   { width: var(--progress-width, 0%); }
+  }
+
+  @keyframes draw-circle {
+    from { stroke-dashoffset: 283; }
+    to   { stroke-dashoffset: 0; }
+  }
+
+  /* ── TYPING ───────────────────────────────────────────────── */
+  @keyframes typing-dots {
+    0%, 20% { opacity: 0; }
+    50%     { opacity: 1; }
+    100%    { opacity: 0; }
+  }
+
+  /* ── LANDING AURORA ───────────────────────────────────────── */
+  @keyframes aurora-drift {
+    0%, 100% { transform: translate(-20%, -20%) scale(1);    opacity: 0.06; }
+    33%      { transform: translate(10%, -30%)  scale(1.15); opacity: 0.10; }
+    66%      { transform: translate(-10%, 10%)  scale(0.90); opacity: 0.07; }
+  }
+
+  @keyframes aurora-drift-2 {
+    0%, 100% { transform: translate(20%, 20%)  scale(1.10); opacity: 0.05; }
+    50%      { transform: translate(-15%, 30%) scale(0.85); opacity: 0.09; }
+  }
+
+  /* ── MARQUEE ──────────────────────────────────────────────── */
+  @keyframes marquee-left {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  @keyframes marquee-right {
+    from { transform: translateX(-50%); }
+    to   { transform: translateX(0); }
+  }
+
+  /* ── SCAN LINE (demo output) ──────────────────────────────── */
+  @keyframes scan-line {
+    0%   { left: -5%;  opacity: 0; }
+    10%  {             opacity: 1; }
+    90%  {             opacity: 1; }
+    100% { left: 105%; opacity: 0; }
+  }
+
+} /* end @media prefers-reduced-motion: no-preference */

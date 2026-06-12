@@ -111,7 +111,7 @@ async def test_supabase_request_fallback():
 @pytest.mark.asyncio
 async def test_save_translation_background_pruning():
     import main as app_module
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
 
     user_email = "free_user@example.com"
     mock_history = [
@@ -125,24 +125,27 @@ async def test_save_translation_background_pruning():
         return mock_history
 
     mock_supabase_request = AsyncMock(return_value={"status": "success"})
+    mock_delete = AsyncMock(return_value=MagicMock(status_code=204, text="No Content"))
 
-    class MockResponse:
-        status_code = 204
-        text = "No Content"
+    # Mock the HTTP client returned by get_http_client() so .delete() is tracked
+    mock_http_client = MagicMock()
+    mock_http_client.delete = mock_delete
 
-    mock_delete = AsyncMock(return_value=MockResponse())
+    async def mock_get_http_client():
+        return mock_http_client
 
     with (
-        patch("main.get_user_pro_status", mock_get_user_pro_status),
-        patch("main.supabase_request_list", mock_supabase_request_list),
-        patch("main.supabase_request", mock_supabase_request),
-        patch("httpx.AsyncClient.delete", mock_delete) as mock_delete_call,
-        patch("main.SUPABASE_URL", "https://mock.supabase.co"),
-        patch("main.SUPABASE_SERVICE_KEY", "mock_key"),
+        patch("app.core.quota.get_user_pro_status", mock_get_user_pro_status),
+        patch("app.core.quota.supabase_request_list", mock_supabase_request_list),
+        patch("app.core.quota.supabase_request", mock_supabase_request),
+        patch("app.core.database.get_history_columns", new=AsyncMock(return_value={"id", "user_email", "mode", "source_language", "target_language", "input_preview", "char_count", "block_count", "model_used", "title", "character_count"})),
+        patch("app.core.quota.get_http_client", mock_get_http_client),
+        patch("app.core.quota.SUPABASE_URL", "https://mock.supabase.co"),
+        patch("app.core.quota.SUPABASE_SERVICE_KEY", "mock_key"),
     ):
         await app_module.save_translation_background(
             user_email=user_email,
-            mode="Code → English",
+            mode="Code â†’ English",
             source_language="python",
             target_language="english",
             input_text="print('test')",
@@ -150,16 +153,17 @@ async def test_save_translation_background_pruning():
             model_used="standard",
         )
 
-        assert mock_delete_call.called
+        assert mock_delete.called
         assert mock_supabase_request.called
 
 
 @pytest.mark.asyncio
 async def test_save_translation_background_pruning_pro():
     import main as app_module
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import AsyncMock, MagicMock, patch
 
     user_email = "pro_user@example.com"
+    # Pro limit is 1000, so 100 items should NOT trigger pruning
     mock_history = [
         {"id": f"id_{i}", "created_at": "2026-06-01T12:00:00Z"} for i in range(100)
     ]
@@ -173,17 +177,24 @@ async def test_save_translation_background_pruning_pro():
     mock_supabase_request = AsyncMock(return_value={"status": "success"})
     mock_delete = AsyncMock()
 
+    mock_http_client = MagicMock()
+    mock_http_client.delete = mock_delete
+
+    async def mock_get_http_client():
+        return mock_http_client
+
     with (
-        patch("main.get_user_pro_status", mock_get_user_pro_status),
-        patch("main.supabase_request_list", mock_supabase_request_list),
-        patch("main.supabase_request", mock_supabase_request),
-        patch("httpx.AsyncClient.delete", mock_delete) as mock_delete_call,
-        patch("main.SUPABASE_URL", "https://mock.supabase.co"),
-        patch("main.SUPABASE_SERVICE_KEY", "mock_key"),
+        patch("app.core.quota.get_user_pro_status", mock_get_user_pro_status),
+        patch("app.core.quota.supabase_request_list", mock_supabase_request_list),
+        patch("app.core.quota.supabase_request", mock_supabase_request),
+        patch("app.core.database.get_history_columns", new=AsyncMock(return_value={"id", "user_email", "mode", "source_language", "target_language", "input_preview", "char_count", "block_count", "model_used", "title", "character_count"})),
+        patch("app.core.quota.get_http_client", mock_get_http_client),
+        patch("app.core.quota.SUPABASE_URL", "https://mock.supabase.co"),
+        patch("app.core.quota.SUPABASE_SERVICE_KEY", "mock_key"),
     ):
         await app_module.save_translation_background(
             user_email=user_email,
-            mode="Code → English",
+            mode="Code â†’ English",
             source_language="python",
             target_language="english",
             input_text="print('test')",
@@ -191,5 +202,6 @@ async def test_save_translation_background_pruning_pro():
             model_used="standard",
         )
 
-        assert not mock_delete_call.called
+        assert not mock_delete.called
         assert mock_supabase_request.called
+

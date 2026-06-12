@@ -22,7 +22,9 @@ router = APIRouter(prefix="/api", tags=["translate"])
 
 # ── INPUT SANITISATION & VALIDATION ──
 def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
-    """Detects and neutralises prompt injection patterns hidden in comments."""
+    """Detects and neutralises prompt injection patterns hidden in comments.
+    Also handles Unicode obfuscation, RTL injection, and zero-width character attacks.
+    """
     if not raw_code:
         return raw_code
 
@@ -33,10 +35,16 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
             logger.warning(f"Prompt injection detected from anonymous user in mode {mode}")
         return "[REDACTED INJECTION ATTEMPT]"
 
+    # Strip zero-width and RTL/LTR override characters (SEC-05 Unicode obfuscation)
+    UNICODE_CONTROL = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff\u00ad]")
+    raw_code = UNICODE_CONTROL.sub("", raw_code)
+
+    # Standard prompt injection patterns in single-line comments
     pattern_line = r"(?i)(//|#)[^\n]*?(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions)[^\n]*"
     raw_code = re.sub(pattern_line, replacer, raw_code)
 
-    pattern_block = r"(?is)(/\*|<!--|'''|\"\"\").*?(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions).*?(?:\*/|-->|'''|\"\"\")"
+    # Prompt injection inside block comments / docstrings
+    pattern_block = r"(?is)(/\*|<!--|\'\'\'|\"\"\").*?(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions).*?(?:\*/|-->|\'\'\'|\"\"\")"
     raw_code = re.sub(pattern_block, replacer, raw_code)
 
     return raw_code
@@ -96,6 +104,9 @@ async def upload_file_translate(
     language: str = Form(""),
     target_language: str = Form(""),
     access_token: str = Form(""),
+    session_id: str | None = Form(None),
+    repository_name: str | None = Form(None),
+    file_path: str | None = Form(None),
     email: str | None = Depends(get_user_email),
 ):
     filename = file.filename or ""
@@ -159,6 +170,9 @@ async def upload_file_translate(
                 cached,
                 model_name,
                 None,
+                session_id,
+                repository_name,
+                file_path,
             )
         return cached
 
@@ -199,6 +213,9 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 result,
                 model_name,
                 None,
+                session_id,
+                repository_name,
+                file_path,
             )
         return result
 
@@ -220,6 +237,9 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                     stale_result,
                     model_name,
                     None,
+                    session_id,
+                    repository_name,
+                    file_path,
                 )
             return stale_result
 
@@ -294,6 +314,9 @@ async def function_translate_to_english(
                 cached,
                 model_name,
                 payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
         return cached
 
@@ -326,6 +349,9 @@ async def function_translate_to_english(
                 result,
                 model_used,
                 payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
 
         return result
@@ -351,6 +377,9 @@ async def function_translate_to_english(
                     stale_result,
                     model_name,
                     payload.workspace_id,
+                    payload.session_id,
+                    payload.repository_name,
+                    payload.file_path,
                 )
             return stale_result
 
@@ -401,6 +430,9 @@ async def function_generate_from_english(
                 cached,
                 model_name,
                 payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
         return cached
 
@@ -433,6 +465,9 @@ async def function_generate_from_english(
                 result,
                 model_used,
                 payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
 
         return result
@@ -458,6 +493,9 @@ async def function_generate_from_english(
                     stale_result,
                     model_name,
                     payload.workspace_id,
+                    payload.session_id,
+                    payload.repository_name,
+                    payload.file_path,
                 )
             return stale_result
 
@@ -474,6 +512,14 @@ async def function_update_to_code(
     payload: EnglishUpdatePayload,
     email: str | None = Depends(get_user_email),
 ):
+    # SEC-06: Sanitise all free-text fields before sending to LLM
+    payload.modified_english = sanitise_input(
+        payload.modified_english, mode="english-to-code", email=email
+    )
+    if payload.full_context:
+        payload.full_context = sanitise_input(
+            payload.full_context, mode="english-to-code/context", email=email
+        )
     is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
         request, email, len(payload.modified_english)
     )
@@ -509,6 +555,12 @@ async def function_sync_english_to_code(
     background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
+    # SEC-07: Sanitise every block's english_translation before sending to LLM
+    for block in payload.blocks:
+        block.english_translation = sanitise_input(
+            block.english_translation, mode="sync-english-to-code", email=email
+        )
+
     char_count = sum(len(b.code_snippet) for b in payload.blocks)
     is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
         request, email, char_count
@@ -563,6 +615,9 @@ async def function_sync_english_to_code(
                 normalized_blocks,
                 model_used,
                 payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
 
         return {

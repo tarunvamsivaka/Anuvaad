@@ -52,8 +52,10 @@ class TestUserTiersAndQuotas:
 
     @pytest.mark.asyncio
     async def test_pro_user_char_limit_allowed(self, client):
-        # Mock get_user_pro_status to return True
-        with patch("main.get_user_pro_status", return_value=True):
+        # Patch get_user_pro_status in the quota module (enforce_quotas_and_protection
+        # calls app.core.quota.get_user_pro_status at line 361 of quota.py)
+        from unittest.mock import AsyncMock
+        with patch("app.core.quota.get_user_pro_status", new_callable=AsyncMock, return_value=True):
             res = client.post(
                 "/api/code-to-english",
                 json={"raw_code": "x" * 10005, "language": "python"},

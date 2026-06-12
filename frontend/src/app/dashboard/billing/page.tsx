@@ -239,11 +239,11 @@ function BillingPageContent() {
   const usagePercentage = Math.min((usageCount / limit) * 100, 100);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-900 dark:text-slate-100 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-900 dark:text-slate-100 pb-20">
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       
       {/* Page Header */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-[#080c14]/80 backdrop-blur-md">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
         <div className="flex h-16 items-center px-8 max-w-4xl mx-auto">
           <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
             Billing & Licenses
@@ -286,7 +286,7 @@ function BillingPageContent() {
       <div className="mx-auto max-w-4xl px-8 py-8 space-y-8">
         
         {/* Current plan card */}
-        <Card className="p-6 bg-white dark:bg-[#0c0c0f]/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+        <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
           
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
@@ -411,7 +411,7 @@ function BillingPageContent() {
 export default function BillingPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen w-full items-center justify-center bg-[#030303]">
+      <div className="flex min-h-screen w-full items-center justify-center bg-surface-base">
         <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
       </div>
     }>

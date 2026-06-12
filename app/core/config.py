@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 import time
@@ -10,11 +11,35 @@ from fastapi import FastAPI
 
 load_dotenv()
 
-# ── LOGGING SYSTEM ──
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
-logger = logging.getLogger("anuvaad")
+# ── LOGGING SYSTEM (BACK-08: structured JSON in prod, pretty in dev) ──
+try:
+    import structlog
+
+    _is_prod_env = os.getenv("ENV", "development").lower() == "production"
+    _processors = [
+        structlog.contextvars.merge_contextvars,
+        structlog.stdlib.add_log_level,
+        structlog.stdlib.add_logger_name,
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.StackInfoRenderer(),
+        structlog.processors.format_exc_info,
+        structlog.processors.JSONRenderer() if _is_prod_env
+        else structlog.dev.ConsoleRenderer(colors=True),
+    ]
+    structlog.configure(
+        processors=_processors,
+        wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+    logger = structlog.get_logger("anuvaad")
+except ImportError:
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+    logger = logging.getLogger("anuvaad")
+
 
 # ── CONFIG CONSTANTS ──
 ENV = os.getenv("ENV", "development").lower()
@@ -39,16 +64,28 @@ METRICS_USERNAME = os.getenv("METRICS_USERNAME", "")
 METRICS_PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
 
-# ── GLOBAL HTTP CLIENT ──
-_global_http_client: httpx.AsyncClient = None
+# ── GLOBAL HTTP CLIENT (with asyncio.Lock for thread-safe init) ──
+_global_http_client: httpx.AsyncClient | None = None
+_client_lock: asyncio.Lock | None = None
 
-def get_http_client() -> httpx.AsyncClient:
+
+def _get_client_lock() -> asyncio.Lock:
+    """Return a module-level asyncio.Lock, lazily created to avoid event-loop issues."""
+    global _client_lock
+    if _client_lock is None:
+        _client_lock = asyncio.Lock()
+    return _client_lock
+
+
+async def get_http_client() -> httpx.AsyncClient:  # type: ignore[return]
+    """Return the shared httpx.AsyncClient singleton. Thread-safe via asyncio.Lock."""
     global _global_http_client
-    if _global_http_client is None:
-        _global_http_client = httpx.AsyncClient(
-            limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
-            timeout=httpx.Timeout(30.0),
-        )
+    async with _get_client_lock():
+        if _global_http_client is None:
+            _global_http_client = httpx.AsyncClient(
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+                timeout=httpx.Timeout(30.0),
+            )
     return _global_http_client
 
 @asynccontextmanager

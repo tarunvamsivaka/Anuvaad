@@ -48,7 +48,7 @@ export default function SharedTranslationPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#080c14]">
+      <div className="flex min-h-screen items-center justify-center bg-surface-low">
         <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
       </div>
     );
@@ -56,7 +56,7 @@ export default function SharedTranslationPage() {
 
   if (error || !item) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-[#080c14] text-white p-6">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-surface-low text-white p-6">
         <Code2 className="h-12 w-12 text-slate-600 mb-4" />
         <h1 className="text-xl font-bold">Snippet Not Found</h1>
         <p className="text-slate-400 mt-2 text-center max-w-sm">
@@ -94,7 +94,7 @@ export default function SharedTranslationPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="min-h-screen bg-slate-50 dark:bg-[#080c14] text-slate-900 dark:text-slate-100 p-4 sm:p-8 flex justify-center">
+      <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-900 dark:text-slate-100 p-4 sm:p-8 flex justify-center">
       <div className="w-full max-w-4xl flex flex-col gap-6">
         {/* Header */}
         <div className="flex flex-col gap-2">

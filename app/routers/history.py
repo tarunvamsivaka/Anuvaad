@@ -143,6 +143,20 @@ async def delete_history_item(item_id: str, email: str = Depends(get_user_email)
 
     return {"status": "success"}
 
+@router.get("/history/{item_id}")
+async def get_single_history_item(item_id: str, email: str = Depends(get_user_email)):
+    """Retrieve a specific translation history item."""
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    item = await supabase_request(
+        "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
+    )
+    if not item or not isinstance(item, dict):
+        raise HTTPException(status_code=404, detail="History item not found")
+
+    return item
+
 
 @router.get("/api-keys")
 async def list_api_keys(workspace_id: str = None, email: str = Depends(get_user_email)):
@@ -319,4 +333,73 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
         "model_errors": model_errors,
         "uptime_seconds": metrics.uptime_seconds,
     }
+
+
+from pydantic import BaseModel
+
+
+class SharePayload(BaseModel):
+    is_public: bool
+
+
+@router.patch("/history/{item_id}/share")
+async def share_history_item(
+    item_id: str,
+    payload: SharePayload,
+    email: str = Depends(get_user_email)
+):
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    item = await supabase_request(
+        "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="History item not found")
+
+    res = await supabase_request(
+        "PATCH",
+        f"translation_history?id=eq.{item_id}&user_email=eq.{email}",
+        {"is_public": payload.is_public}
+    )
+    if not res:
+        raise HTTPException(status_code=500, detail="Failed to update sharing status")
+
+    await cache.delete_prefix(f"user_history:{email}")
+    return {"status": "success", "is_public": payload.is_public}
+
+
+@router.get("/share/{item_id}")
+async def get_shared_item(item_id: str):
+    """Retrieve a public shared translation history item."""
+    item = await supabase_request(
+        "GET", f"translation_history?id=eq.{item_id}"
+    )
+    if not item or not isinstance(item, dict):
+        raise HTTPException(status_code=404, detail="Shared snippet not found")
+
+    if not item.get("is_public"):
+        raise HTTPException(status_code=403, detail="This snippet is private")
+
+    blocks = item.get("blocks")
+    if not blocks:
+        blocks = [
+            {
+                "id": "block_1",
+                "code_snippet": item.get("input_preview") or "No preview available.",
+                "english_translation": "Code blocks not stored in database (historical schema)."
+            }
+        ]
+
+    return {
+        "id": item.get("id"),
+        "mode": item.get("mode"),
+        "source_language": item.get("source_language"),
+        "target_language": item.get("target_language"),
+        "input_preview": item.get("input_preview"),
+        "result_blocks": blocks,
+        "model_used": item.get("model_used") or "standard",
+        "created_at": item.get("created_at"),
+    }
+
 

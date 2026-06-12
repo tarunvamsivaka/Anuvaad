@@ -1,4 +1,3 @@
-
 services:
   redis:
     image: redis:7-alpine
@@ -7,8 +6,27 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    # INFRA-02: Redis authentication via environment variable
+    command: >
+      sh -c "
+        if [ -n \"$$REDIS_PASSWORD\" ]; then
+          redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes;
+        else
+          redis-server --appendonly yes;
+        fi
+      "
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    # INFRA-03: Health check uses password when set
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: |
+        sh -c "
+          if [ -n \"$$REDIS_PASSWORD\" ]; then
+            redis-cli -a \"$$REDIS_PASSWORD\" ping;
+          else
+            redis-cli ping;
+          fi
+        "
       interval: 10s
       timeout: 5s
       retries: 3
@@ -26,11 +44,13 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # INFRA-03: Backend health check
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 20s
 
   frontend:
     build:
@@ -44,6 +64,13 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    # INFRA-03: Frontend health check
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health", "||", "exit", "1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   nginx:
     image: nginx:alpine

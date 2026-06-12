@@ -40,10 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function checkProStatus(accessToken: string, email?: string) {
       try {
         const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        // P4: Use GET so the response is cacheable and token stays in header only
         const res = await fetch(`${API}/api/subscription-status`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ access_token: accessToken }),
+          method: "GET",
+          headers: { Authorization: `Bearer ${accessToken}` },
         });
         if (res.ok) {
           const data = await res.json();
