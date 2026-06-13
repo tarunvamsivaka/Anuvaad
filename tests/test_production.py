@@ -100,12 +100,15 @@ def test_lru_cache_eviction():
 
 @pytest.mark.asyncio
 async def test_supabase_request_fallback():
-    from main import supabase_request
+    import main
+    import app.core.database
 
-    # Mock SUPABASE_URL to be None
-    with patch("main.SUPABASE_URL", None):
-        result = await supabase_request("test_table", "select", {"id": "1"})
-        assert result is None
+    # Patch main.supabase_request to prevent delegating to the conftest mock
+    # and patch SUPABASE_URL to be None to trigger fallback logic.
+    with patch("main.supabase_request", app.core.database._orig_supabase_request):
+        with patch("main.SUPABASE_URL", None):
+            result = await app.core.database._orig_supabase_request("test_table", "select", {"id": "1"})
+            assert result is None
 
 
 @pytest.mark.asyncio
