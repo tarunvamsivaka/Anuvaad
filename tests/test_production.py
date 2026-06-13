@@ -100,7 +100,7 @@ def test_lru_cache_eviction():
 
 @pytest.mark.asyncio
 async def test_supabase_request_fallback():
-    import main
+    import main  # noqa: F401
     import app.core.database
 
     # Patch main.supabase_request to prevent delegating to the conftest mock
