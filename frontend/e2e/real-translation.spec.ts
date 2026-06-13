@@ -150,10 +150,10 @@ int main() {
   await expect(textarea).toBeVisible({ timeout: 5000 });
   await textarea.fill('Imports the standard input/output library for printing messages to the standard output stream.');
   
-  // 3. Save the card edits
+  // 3. Save the card edits using evaluate to bypass fixed TopBar interception on scroll
   const saveBtn = page.locator('button:has-text("Save")').first();
   await saveBtn.scrollIntoViewIfNeeded();
-  await saveBtn.click({ force: true });
+  await saveBtn.evaluate((node) => (node as HTMLElement).click());
   
   // 4. Verify that the sync warning banner has appeared
   const syncBanner = page.locator('text=Modified explanations detected');
