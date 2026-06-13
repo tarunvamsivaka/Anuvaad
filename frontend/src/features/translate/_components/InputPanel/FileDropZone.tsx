@@ -26,6 +26,7 @@ export function FileDropZone({
       {...getRootProps({
         onClick: (e: any) => {
           if (e.target.closest("button")) {
+            e.preventDefault();
             e.stopPropagation();
             return;
           }
@@ -54,6 +55,7 @@ export function FileDropZone({
           variant="outline"
           size="sm"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             setIsTypingManually(true);
           }}
@@ -70,6 +72,7 @@ export function FileDropZone({
             type="button"
             variant="secondary"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               setInput(`def fibonacci(n):\n    if n <= 0:\n        return []\n    elif n == 1:\n        return [0]\n    \n    fib = [0, 1]\n    while len(fib) < n:\n        fib.append(fib[-1] + fib[-2])\n    return fib\n\n# Example usage:\nprint(fibonacci(10))`);
               setSourceLanguage("python");
@@ -85,6 +88,7 @@ export function FileDropZone({
             type="button"
             variant="secondary"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               setInput(`// JS Promise retry helper\nfunction retryWithDelay(fn, retries = 3, delay = 1000) {\n  return new Promise((resolve, reject) => {\n    fn()\n      .then(resolve)\n      .catch((error) => {\n        if (retries === 0) {\n          return reject(error);\n        }\n        setTimeout(() => {\n          retryWithDelay(fn, retries - 1, delay).then(resolve, reject);\n        }, delay);\n      });\n  });\n}`);
               setSourceLanguage("javascript");
@@ -100,6 +104,7 @@ export function FileDropZone({
             type="button"
             variant="secondary"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               setInput(`-- SQL: Calculate active user monthly retention\nWITH UserMonths AS (\n  SELECT DISTINCT user_id, DATE_TRUNC('month', created_at) AS active_month\n  FROM translation_history\n)\nSELECT \n  m1.active_month AS month,\n  COUNT(DISTINCT m1.user_id) AS active_users,\n  COUNT(DISTINCT m2.user_id) AS retained_users,\n  ROUND(COUNT(DISTINCT m2.user_id)::DECIMAL / COUNT(DISTINCT m1.user_id) * 100, 2) AS retention_rate\nFROM UserMonths m1\nLEFT JOIN UserMonths m2 \n  ON m1.user_id = m2.user_id \n  AND m2.active_month = m1.active_month + INTERVAL '1' month\nGROUP BY 1\nORDER BY 1 DESC;`);
               setSourceLanguage("sql");

@@ -362,7 +362,7 @@ export default function HistoryPage() {
                                   variant="ghost"
                                   size="icon"
                                   aria-label="Share translation"
-                                  className={cn("h-8 w-8 shrink-0 hover:bg-blue-500/10 transition-all rounded-lg", item.is_public ? "text-blue-500 opacity-100" : "text-text-muted hover:text-blue-400 opacity-0 group-hover:opacity-100 focus:opacity-100")}
+                                  className={cn("h-8 w-8 shrink-0 hover:bg-blue-500/10 transition-all rounded-lg", item.is_public ? "text-blue-500 opacity-100" : "text-text-muted hover:text-blue-400 opacity-100 sm:opacity-0 group-hover:opacity-100 focus:opacity-100")}
                                   onClick={e => handleShare(e, item.id, item.is_public)}
                                 >
                                   {item.is_public ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
@@ -371,12 +371,12 @@ export default function HistoryPage() {
                                   variant="ghost"
                                   size="icon"
                                   aria-label="Delete translation"
-                                  className="h-8 w-8 shrink-0 text-text-muted hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all rounded-lg"
+                                  className="h-8 w-8 shrink-0 text-text-muted hover:text-red-500 hover:bg-red-500/10 opacity-100 sm:opacity-0 group-hover:opacity-100 focus:opacity-100 transition-all rounded-lg"
                                   onClick={e => handleDelete(e, item.id)}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
-                                <div className="ml-1 h-8 w-8 flex items-center justify-center shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="ml-1 h-8 w-8 flex items-center justify-center shrink-0 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                   <ExternalLink className="h-4 w-4 text-amber-500" />
                                 </div>
                               </div>
