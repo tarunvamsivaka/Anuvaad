@@ -7,11 +7,12 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     return {
-      beforeFiles: [
+      fallback: [
         {
-          // Proxy all /api/... requests to the FastAPI backend, except /api/auth and /api/monitoring
-          source: "/api/:path((?!auth|monitoring).*)",
-          destination: `${API_URL}/api/:path`,
+          // Proxy all unmatched /api/... requests to the FastAPI backend.
+          // Native routes (like /api/auth/callback) are served by Next.js and bypass this fallback.
+          source: "/api/:path*",
+          destination: `${API_URL}/api/:path*`,
         },
       ],
     };

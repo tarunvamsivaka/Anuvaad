@@ -79,7 +79,7 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
                   <TypographyProse size="sm" className="pr-24 whitespace-pre-wrap text-foreground/90 text-sm">
                     {block.english_translation}
                   </TypographyProse>
-                  <div className="absolute right-3 top-3 flex gap-1.5 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute right-3 top-3 flex gap-1.5 z-10 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button 
                       variant="outline" 
                       size="sm" 
