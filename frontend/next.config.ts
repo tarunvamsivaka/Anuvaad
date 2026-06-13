@@ -9,8 +9,8 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          // Matches /api/... but NOT /api/monitoring (Sentry tunnel)
-          source: "/api/:path((?!monitoring$).*)",
+          // Matches /api/... but NOT /api/monitoring (Sentry tunnel) or /api/auth (Supabase Auth callback)
+          source: "/api/:path((?!monitoring$|auth$).*)*",
           destination: `${API_URL}/api/:path*`,
         },
       ],
