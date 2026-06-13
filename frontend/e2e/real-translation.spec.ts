@@ -140,9 +140,9 @@ int main() {
   }
   await page.waitForTimeout(300); // Let CSS transition settle
   
-  // Force-click the Edit button (it may still be at opacity-0 due to CSS, but it is in the DOM)
+  // Get the Edit button and click it programmatically to avoid layout overlap interception in WebKit (mobile-safari)
   const editBtn = firstEnglishPanel.locator('button:has-text("Edit")');
-  await editBtn.click({ force: true });
+  await editBtn.evaluate((node) => (node as HTMLElement).click());
   
   // 2. Modify the explanation in the inline textarea
   //    Scope to the card group to avoid matching Monaco's hidden textareas
