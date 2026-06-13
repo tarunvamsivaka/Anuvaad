@@ -132,8 +132,12 @@ int main() {
   // Get the parent `.group` div (the English explanation panel)
   const firstEnglishPanel = page.locator('div.group').filter({ has: page.locator('p[data-prose]') }).first();
 
-  // Hover so the CSS group-hover buttons become visible
-  await firstEnglishPanel.hover();
+  // Hover so the CSS group-hover buttons become visible (non-critical, wrap in try/catch for mobile compatibility)
+  try {
+    await firstEnglishPanel.hover({ timeout: 1000 });
+  } catch (e) {
+    console.log('Hover failed or skipped on mobile viewport:', e);
+  }
   await page.waitForTimeout(300); // Let CSS transition settle
   
   // Force-click the Edit button (it may still be at opacity-0 due to CSS, but it is in the DOM)
