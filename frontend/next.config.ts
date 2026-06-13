@@ -9,19 +9,9 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         {
-          // Exclude /api/auth from backend proxying so Next.js handles Supabase OAuth callbacks natively
-          source: "/api/auth/:path*",
-          destination: "/api/auth/:path*",
-        },
-        {
-          // Exclude /api/monitoring from backend proxying for Sentry tunnelRoute compatibility
-          source: "/api/monitoring/:path*",
-          destination: "/api/monitoring/:path*",
-        },
-        {
-          // Proxy all other /api/... requests to the FastAPI backend
-          source: "/api/:path*",
-          destination: `${API_URL}/api/:path*`,
+          // Proxy all /api/... requests to the FastAPI backend, except /api/auth and /api/monitoring
+          source: "/api/:path((?!auth|monitoring).*)",
+          destination: `${API_URL}/api/:path`,
         },
       ],
     };
