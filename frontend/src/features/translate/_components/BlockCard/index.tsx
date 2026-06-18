@@ -48,7 +48,7 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
     >
       {/* Notion-style drag handle & block indicator */}
       <div className="absolute -left-10 top-3 flex items-center justify-center w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+        <Button variant="ghost" size="icon" aria-label="Drag to reorder block" className="h-6 w-6 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
           <GripVertical className="h-4 w-4" />
         </Button>
       </div>
@@ -61,7 +61,7 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
             </Badge>
           </div>
           <div className="flex items-center gap-1 opacity-50 hover:opacity-100 transition-opacity">
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCollapsed(!collapsed)}>
+            <Button variant="ghost" size="icon" aria-label={collapsed ? "Expand block" : "Collapse block"} className="h-6 w-6" onClick={() => setCollapsed(!collapsed)}>
               {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </Button>
           </div>
@@ -112,6 +112,7 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
                       <Button 
                         variant="outline" 
                         size="icon" 
+                        aria-label="Edit explanation"
                         onClick={() => setIsEditing(true)} 
                         className="h-8 w-8 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10"
                       >
@@ -120,6 +121,7 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
                       <Button 
                         variant="outline" 
                         size="icon" 
+                        aria-label={copiedText ? "Copied!" : "Copy translation"}
                         onClick={copyText} 
                         className="h-8 w-8 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10"
                       >

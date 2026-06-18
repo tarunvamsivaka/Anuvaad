@@ -103,7 +103,7 @@ export function InputPanel({
             <Badge variant="secondary" className="gap-1.5 text-[10px] font-bold border border-slate-200 dark:border-amber-500/10">
               <FileCode className="h-3 w-3 text-amber-500" />
               {uploadedFile.name}
-              <button onClick={handleClearFile} className="ml-1 rounded-full hover:bg-muted p-0.5">
+              <button aria-label="Remove file" onClick={handleClearFile} className="ml-1 rounded-full hover:bg-muted p-0.5">
                 <X className="h-2.5 w-2.5" />
               </button>
             </Badge>
@@ -112,7 +112,7 @@ export function InputPanel({
             <Badge variant="secondary" className="gap-1.5 text-[10px] font-bold border border-[#24292e]/20 dark:border-white/10 bg-surface-high/5 text-text-on-brand dark:bg-white/5 dark:text-white">
               <GithubIcon className="h-3 w-3 text-amber-500" />
               github.com/{gistSource.username} — {gistSource.filename}
-              <button onClick={() => { setGistSource(null); handleClearFile(); }} className="ml-1 rounded-full hover:bg-muted p-0.5">
+              <button aria-label="Remove GitHub source" onClick={() => { setGistSource(null); handleClearFile(); }} className="ml-1 rounded-full hover:bg-muted p-0.5">
                 <X className="h-2.5 w-2.5" />
               </button>
             </Badge>
