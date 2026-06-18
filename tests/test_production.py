@@ -139,12 +139,12 @@ async def test_save_translation_background_pruning():
         patch("app.core.quota.supabase_request", mock_supabase_request),
         patch("app.core.database.get_history_columns", new=AsyncMock(return_value={"id", "user_email", "mode", "source_language", "target_language", "input_preview", "char_count", "block_count", "model_used", "title", "character_count"})),
         patch("app.core.quota.get_http_client", mock_get_http_client),
-        patch("app.core.quota.SUPABASE_URL", "https://mock.supabase.co"),
-        patch("app.core.quota.SUPABASE_SERVICE_KEY", "mock_key"),
+        patch("app.core.config.SUPABASE_URL", "https://mock.supabase.co"),
+        patch("app.core.config.SUPABASE_SERVICE_KEY", "mock_key"),
     ):
         await app_module.save_translation_background(
             user_email=user_email,
-            mode="Code â†’ English",
+            mode="Code → English",
             source_language="python",
             target_language="english",
             input_text="print('test')",
@@ -188,12 +188,12 @@ async def test_save_translation_background_pruning_pro():
         patch("app.core.quota.supabase_request", mock_supabase_request),
         patch("app.core.database.get_history_columns", new=AsyncMock(return_value={"id", "user_email", "mode", "source_language", "target_language", "input_preview", "char_count", "block_count", "model_used", "title", "character_count"})),
         patch("app.core.quota.get_http_client", mock_get_http_client),
-        patch("app.core.quota.SUPABASE_URL", "https://mock.supabase.co"),
-        patch("app.core.quota.SUPABASE_SERVICE_KEY", "mock_key"),
+        patch("app.core.config.SUPABASE_URL", "https://mock.supabase.co"),
+        patch("app.core.config.SUPABASE_SERVICE_KEY", "mock_key"),
     ):
         await app_module.save_translation_background(
             user_email=user_email,
-            mode="Code â†’ English",
+            mode="Code → English",
             source_language="python",
             target_language="english",
             input_text="print('test')",

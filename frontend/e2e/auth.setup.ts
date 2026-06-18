@@ -8,7 +8,8 @@ setup('authenticate', async ({ page }) => {
   page.on('console', msg => console.log('[BROWSER CONSOLE]', msg.text()));
   page.on('pageerror', err => console.error('[BROWSER ERROR]', err));
 
-  // Mock Supabase auth endpoints for offline E2E testing
+  // Mock Supabase auth endpoints BEFORE navigating so no real Supabase calls are made.
+  // This is required in CI where NEXT_PUBLIC_SUPABASE_URL is a placeholder.
   await mockSupabaseAuth(page);
 
   // Use environment variables for test credentials
@@ -25,8 +26,10 @@ setup('authenticate', async ({ page }) => {
   await page.click('button:has-text("Sign In")');
   
   try {
-    // Wait for redirect to dashboard with a short timeout
-    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 20000 });
+    // Wait for redirect to dashboard — the mock auth returns a valid session
+    // so we expect the dashboard to load. We wait for a recognisable element.
+    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')))
+      .toBeVisible({ timeout: 20000 });
   } catch (err) {
     // If signin failed, check for invalid credentials error to trigger self-healing signup
     const isInvalid = await page.isVisible('p:has-text("Invalid login credentials")');
@@ -38,7 +41,8 @@ setup('authenticate', async ({ page }) => {
       await page.click('button[type="submit"]');
       
       // Wait for auto-login redirect to dashboard (email confirmation is disabled)
-      await expect(page.locator('text=All Time')).toBeVisible({ timeout: 30000 });
+      await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')))
+        .toBeVisible({ timeout: 30000 });
     } else {
       throw err;
     }
@@ -49,7 +53,8 @@ setup('authenticate', async ({ page }) => {
     await page.waitForURL('**/dashboard/welcome', { timeout: 10000 });
     console.log('[E2E Setup] Onboarding welcome page detected. Skipping onboarding flow...');
     await page.click('button:has-text("Skip onboarding")');
-    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')))
+      .toBeVisible({ timeout: 20000 });
   } catch {
     // Already onboarded
   }

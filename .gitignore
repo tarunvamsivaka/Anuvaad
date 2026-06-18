@@ -31,7 +31,8 @@ TEST_CASES.md
 # Internal planning documents (keep in private Notion / separate repo)
 implementation_plan*
 walkthrough*
-task*
+task.md
+task-*.md
 
 # OS
 .DS_Store
