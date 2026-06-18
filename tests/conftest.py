@@ -42,7 +42,6 @@ httpx.Response.json = _patched_json
 
 # ── Ensure env vars are set BEFORE importing main ──
 os.environ.setdefault("GROQ_API_KEY", "test_key_for_ci")
-os.environ.setdefault("DEEPSEEK_API_KEY", "test_key_for_ci")
 os.environ.setdefault("RAZORPAY_KEY_ID", "rzp_test_real_key_for_ci")
 os.environ.setdefault("RAZORPAY_KEY_SECRET", "test_secret_for_ci")
 os.environ["RAZORPAY_WEBHOOK_SECRET"] = "test_webhook_secret_for_ci"
@@ -260,7 +259,6 @@ def client():
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
-    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
@@ -269,9 +267,8 @@ def client():
         return False
 
     # Patch init_clients so the lifespan installs our mocks instead of real clients
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
          patch.object(cache_module, "cache_override", fake_redis), \
@@ -296,7 +293,6 @@ def client_rate_limited():
         {"rate_limit:testclient": app_module.RATE_LIMIT_MAX}
     )
     mock_groq = MockAsyncOpenAI()
-    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
@@ -304,9 +300,8 @@ def client_rate_limited():
     async def fake_get_user_pro_status(email):
         return False
 
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis_async), \
          patch.object(cache_module, "cache_override", fake_redis_async), \
@@ -329,7 +324,6 @@ def client_multi_block():
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIMulti()
-    mock_deepseek = MockAsyncOpenAIMulti()
 
     async def fake_get_user_email():
         return "testuser@example.com"
@@ -337,9 +331,8 @@ def client_multi_block():
     async def fake_get_user_pro_status(email):
         return False
 
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
          patch.object(cache_module, "cache_override", fake_redis), \
@@ -362,7 +355,6 @@ def client_ai_error():
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIError()
-    mock_deepseek = MockAsyncOpenAIError()
 
     async def fake_get_user_email():
         return "testuser@example.com"
@@ -370,9 +362,8 @@ def client_ai_error():
     async def fake_get_user_pro_status(email):
         return False
 
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
          patch.object(cache_module, "cache_override", fake_redis), \
@@ -395,7 +386,6 @@ def client_empty_blocks():
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIEmpty()
-    mock_deepseek = MockAsyncOpenAIEmpty()
 
     async def fake_get_user_email():
         return "testuser@example.com"
@@ -403,9 +393,8 @@ def client_empty_blocks():
     async def fake_get_user_pro_status(email):
         return False
 
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
          patch.object(cache_module, "cache_override", fake_redis), \
@@ -429,7 +418,6 @@ def client_no_redis():
     fake_redis = MockRedisCache()
     fake_redis.client = None
     mock_groq = MockAsyncOpenAI()
-    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
@@ -437,9 +425,8 @@ def client_no_redis():
     async def fake_get_user_pro_status(email):
         return False
 
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
          patch.object(cache_module, "cache_override", fake_redis), \
@@ -462,7 +449,6 @@ def client_with_auth():
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
-    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email():
         return "testuser@example.com"
@@ -470,9 +456,8 @@ def client_with_auth():
     async def fake_get_user_pro_status(email):
         return False
 
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
          patch.object(cache_module, "cache_override", fake_redis), \
@@ -495,7 +480,6 @@ def client_no_auth():
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
-    mock_deepseek = MockAsyncOpenAI()
 
     async def fake_get_user_email_none():
         return None
@@ -503,9 +487,8 @@ def client_no_auth():
     async def fake_get_user_pro_status(email):
         return False
 
-    def fake_init_clients(groq_key, deepseek_key):
+    def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
-        ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
          patch.object(cache_module, "cache_override", fake_redis), \
@@ -526,11 +509,9 @@ def mock_openai_clients(monkeypatch):
     import app.services.ai as ai_module
 
     groq_mock = MockAsyncOpenAI()
-    deepseek_mock = MockAsyncOpenAI()
 
     monkeypatch.setattr(ai_module, "_groq_client", groq_mock)
-    monkeypatch.setattr(ai_module, "_deepseek_client", deepseek_mock)
-    return {"groq": groq_mock, "deepseek": deepseek_mock}
+    return {"groq": groq_mock}
 
 
 @pytest.fixture(autouse=True)

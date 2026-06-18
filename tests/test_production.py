@@ -62,7 +62,6 @@ def test_production_env_validation():
             "SUPABASE_URL",
             "SUPABASE_SERVICE_ROLE_KEY",
             "GROQ_API_KEY",
-            "DEEPSEEK_API_KEY",
             "RAZORPAY_WEBHOOK_SECRET",
             "FRONTEND_URL",
         ]:

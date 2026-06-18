@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Depends
 import os
 import httpx
 from app.queue.tasks import process_github_repo_task
-from app.core.security import verify_token
+from app.core.auth import get_user_email
 import logging
 
 router = APIRouter()
@@ -20,7 +20,7 @@ async def github_login(request: Request):
     return {"auth_url": auth_url}
 
 @router.post("/oauth/github/callback")
-async def github_callback(code: str, user=Depends(verify_token)):
+async def github_callback(code: str, user_email: str = Depends(get_user_email)):
     """Handles GitHub OAuth callback to exchange code for token."""
     try:
         async with httpx.AsyncClient() as client:
