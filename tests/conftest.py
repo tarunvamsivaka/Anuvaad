@@ -534,3 +534,43 @@ def mock_supabase_and_quota(monkeypatch):
          patch("app.core.quota.deduct_credit", m3):
         yield
 
+
+@pytest.fixture(autouse=True)
+def mock_celery_tasks():
+    """Prevent Celery tasks from connecting to Redis broker during tests.
+
+    All task dispatch calls (.delay, .apply_async) are replaced with no-ops
+    so tests run without a live Redis instance. This fixes CI failures on all
+    Python versions where Redis is not provisioned.
+    """
+    try:
+        import app.queue.tasks as tasks_module
+    except ImportError:
+        yield
+        return
+
+    _task_names = [
+        "save_translation_history_task",
+        "send_transactional_email_task",
+        "process_billing_webhook_task",
+        "prune_translation_history_task",
+        "process_large_file_task",
+        "process_github_repo_task",
+    ]
+
+    active_patches = []
+    for name in _task_names:
+        task = getattr(tasks_module, name, None)
+        if task is None:
+            continue
+        p_delay = patch.object(task, "delay", MagicMock(return_value=None))
+        p_async = patch.object(task, "apply_async", MagicMock(return_value=None))
+        p_delay.start()
+        p_async.start()
+        active_patches.extend([p_delay, p_async])
+
+    yield
+
+    for p in active_patches:
+        p.stop()
+

@@ -30,59 +30,71 @@ export default defineConfig({
     video: 'on-first-retry',
   },
 
-  /* Configure projects for major browsers */
-  projects: [
-    {
-      name: 'setup',
-      testMatch: /.*\.setup\.ts/,
-    },
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: 'playwright/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
-    // TEST-02: Cross-browser coverage
-    {
-      name: 'firefox',
-      use: {
-        ...devices['Desktop Firefox'],
-        storageState: 'playwright/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
-    {
-      name: 'webkit',
-      use: {
-        ...devices['Desktop Safari'],
-        storageState: 'playwright/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
-    {
-      name: 'mobile-chrome',
-      use: {
-        ...devices['Pixel 7'],
-        storageState: 'playwright/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
-    {
-      name: 'mobile-safari',
-      use: {
-        ...devices['iPhone 14'],
-        storageState: 'playwright/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
-  ],
+  /* Configure projects for major browsers.
+   * CI: chromium only (fast, stable, headless). Full matrix runs locally.
+   * TEST-02: Cross-browser coverage is preserved for local dev. */
+  projects: process.env.CI
+    ? [
+        { name: 'setup', testMatch: /.*\.setup\.ts/ },
+        {
+          name: 'chromium',
+          use: {
+            ...devices['Desktop Chrome'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
+        },
+      ]
+    : [
+        { name: 'setup', testMatch: /.*\.setup\.ts/ },
+        {
+          name: 'chromium',
+          use: {
+            ...devices['Desktop Chrome'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
+        },
+        {
+          name: 'firefox',
+          use: {
+            ...devices['Desktop Firefox'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
+        },
+        {
+          name: 'webkit',
+          use: {
+            ...devices['Desktop Safari'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
+        },
+        {
+          name: 'mobile-chrome',
+          use: {
+            ...devices['Pixel 7'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
+        },
+        {
+          name: 'mobile-safari',
+          use: {
+            ...devices['iPhone 14'],
+            storageState: 'playwright/.auth/user.json',
+          },
+          dependencies: ['setup'],
+        },
+      ],
 
   /* Run your local dev server before starting the tests */
   webServer: {
     command: process.env.CI ? 'npm run start' : 'npm run dev',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
+    /* Give the Next.js production server up to 2 minutes to start in CI */
+    timeout: 120_000,
   },
 });
