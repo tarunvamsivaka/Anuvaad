@@ -1,12 +1,13 @@
 import os
 import json
 import re
-from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks, UploadFile, File, Form
+from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from app.core.config import logger, metrics
 from app.core.cache import cache, cache_key
 from app.core.auth import get_user_email, get_user_pro_status, is_token_pro
-from app.core.quota import enforce_quotas_and_protection, record_successful_completion, save_translation_background
+from app.core.quota import enforce_quotas_and_protection, record_successful_completion
+from app.queue.tasks import save_translation_history_task
 from app.models.schemas import CodePayload, EnglishUpdatePayload, GeneratePayload, CodeToCodePayload, SyncEnglishToCodePayload
 from app.services.ai import (
     get_completion,
@@ -97,7 +98,6 @@ PRO_MAX_FILE_SIZE = 200 * 1024
 
 @router.post("/upload-file")
 async def upload_file_translate(
-    background_tasks: BackgroundTasks,
     request: Request,
     file: UploadFile = File(...),
     mode: str = Form("code-to-english"),
@@ -157,26 +157,25 @@ async def upload_file_translate(
 
     cached = await cache.get(key)
     if cached:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                f"File Upload ({mode})",
-                detected_language,
-                target_language or "english",
-                raw_code,
-                cached,
-                model_name,
-                None,
-                session_id,
-                repository_name,
-                file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode=f"File Upload ({mode})",
+                source_language=detected_language,
+                target_language=target_language or "english",
+                input_text=raw_code,
+                blocks=cached,
+                model_used=model_name,
+                workspace_id=None,
+                session_id=session_id,
+                repository_name=repository_name,
+                file_path=file_path,
             )
         return cached
 
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
 
     if mode == "code-to-code" and target_language:
         system = f"""You are an expert polyglot programmer. Translate the given code from {detected_language} to {target_language}.
@@ -203,19 +202,18 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                f"File Upload ({mode})",
-                detected_language,
-                target_language or "english",
-                raw_code,
-                result,
-                model_name,
-                None,
-                session_id,
-                repository_name,
-                file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode=f"File Upload ({mode})",
+                source_language=detected_language,
+                target_language=target_language or "english",
+                input_text=raw_code,
+                blocks=result,
+                model_used=model_name,
+                workspace_id=None,
+                session_id=session_id,
+                repository_name=repository_name,
+                file_path=file_path,
             )
         return result
 
@@ -227,19 +225,18 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         if stale_result:
             if email:
                 await record_successful_completion(email, is_pro, deduct_credit_flag)
-                background_tasks.add_task(
-                    save_translation_background,
-                    email,
-                    f"File Upload ({mode})",
-                    detected_language,
-                    target_language or "english",
-                    raw_code,
-                    stale_result,
-                    model_name,
-                    None,
-                    session_id,
-                    repository_name,
-                    file_path,
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode=f"File Upload ({mode})",
+                    source_language=detected_language,
+                    target_language=target_language or "english",
+                    input_text=raw_code,
+                    blocks=stale_result,
+                    model_used=model_name,
+                    workspace_id=None,
+                    session_id=session_id,
+                    repository_name=repository_name,
+                    file_path=file_path,
                 )
             return stale_result
 
@@ -254,7 +251,6 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 async def function_translate_to_english_stream(
     request: Request,
     payload: CodePayload,
-    background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.raw_code)
@@ -271,7 +267,7 @@ async def function_translate_to_english_stream(
 
     return StreamingResponse(
         stream_code_to_english(
-            payload, email, is_pro, use_r1, tier, background_tasks, deduct_credit_flag
+            payload, email, is_pro, use_r1, tier, deduct_credit_flag
         ),
         media_type="text/event-stream",
     )
@@ -281,7 +277,6 @@ async def function_translate_to_english_stream(
 async def function_translate_to_english(
     request: Request,
     payload: CodePayload,
-    background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.raw_code)
@@ -301,26 +296,25 @@ async def function_translate_to_english(
 
     cached = await cache.get(key)
     if cached:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "Code → English",
-                payload.language,
-                "english",
-                payload.raw_code,
-                cached,
-                model_name,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → English",
+                source_language=payload.language,
+                target_language="english",
+                input_text=payload.raw_code,
+                blocks=cached,
+                model_used=model_name,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
         return cached
 
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
 
     user_prompt = f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}"
 
@@ -339,19 +333,18 @@ async def function_translate_to_english(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "Code → English",
-                payload.language,
-                "english",
-                payload.raw_code,
-                result,
-                model_used,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → English",
+                source_language=payload.language,
+                target_language="english",
+                input_text=payload.raw_code,
+                blocks=result,
+                model_used=model_used,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
 
         return result
@@ -367,19 +360,18 @@ async def function_translate_to_english(
         if stale_result:
             if email:
                 await record_successful_completion(email, is_pro, deduct_credit_flag)
-                background_tasks.add_task(
-                    save_translation_background,
-                    email,
-                    "Code → English",
-                    payload.language,
-                    "english",
-                    payload.raw_code,
-                    stale_result,
-                    model_name,
-                    payload.workspace_id,
-                    payload.session_id,
-                    payload.repository_name,
-                    payload.file_path,
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode="Code → English",
+                    source_language=payload.language,
+                    target_language="english",
+                    input_text=payload.raw_code,
+                    blocks=stale_result,
+                    model_used=model_name,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
                 )
             return stale_result
 
@@ -395,7 +387,6 @@ async def function_translate_to_english(
 async def function_generate_from_english(
     request: Request,
     payload: GeneratePayload,
-    background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.prompt)
@@ -417,26 +408,25 @@ async def function_generate_from_english(
 
     cached = await cache.get(key)
     if cached:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "English → Code",
-                "english",
-                payload.language,
-                payload.prompt,
-                cached,
-                model_name,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="English → Code",
+                source_language="english",
+                target_language=payload.language,
+                input_text=payload.prompt,
+                blocks=cached,
+                model_used=model_name,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
         return cached
 
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
 
     user_prompt = f"Programming Language: {payload.language}\n\nUser Request:\n{payload.prompt}\n\nFirst, generate the complete, working code to satisfy this request. Then, analyze your generated code and break it down into logical blocks using the system instructions."
 
@@ -455,19 +445,18 @@ async def function_generate_from_english(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "English → Code",
-                "english",
-                payload.language,
-                payload.prompt,
-                result,
-                model_used,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="English → Code",
+                source_language="english",
+                target_language=payload.language,
+                input_text=payload.prompt,
+                blocks=result,
+                model_used=model_used,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
 
         return result
@@ -483,19 +472,18 @@ async def function_generate_from_english(
         if stale_result:
             if email:
                 await record_successful_completion(email, is_pro, deduct_credit_flag)
-                background_tasks.add_task(
-                    save_translation_background,
-                    email,
-                    "English → Code",
-                    "english",
-                    payload.language,
-                    payload.prompt,
-                    stale_result,
-                    model_name,
-                    payload.workspace_id,
-                    payload.session_id,
-                    payload.repository_name,
-                    payload.file_path,
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode="English → Code",
+                    source_language="english",
+                    target_language=payload.language,
+                    input_text=payload.prompt,
+                    blocks=stale_result,
+                    model_used=model_name,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
                 )
             return stale_result
 
@@ -552,7 +540,6 @@ async def function_update_to_code(
 async def function_sync_english_to_code(
     request: Request,
     payload: SyncEnglishToCodePayload,
-    background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
     # SEC-07: Sanitise every block's english_translation before sending to LLM
@@ -605,19 +592,18 @@ async def function_sync_english_to_code(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "Two-Way Sync",
-                payload.language,
-                "english",
-                updated_code,
-                normalized_blocks,
-                model_used,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Two-Way Sync",
+                source_language=payload.language,
+                target_language="english",
+                input_text=updated_code,
+                blocks=normalized_blocks,
+                model_used=model_used,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
 
         return {
@@ -639,7 +625,6 @@ async def function_sync_english_to_code(
 async def function_code_to_code(
     request: Request,
     payload: CodeToCodePayload,
-    background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.raw_code)
@@ -656,7 +641,7 @@ async def function_code_to_code(
 
     return StreamingResponse(
         stream_code_to_code(
-            payload, email, is_pro, use_r1, tier, background_tasks, deduct_credit_flag
+            payload, email, is_pro, use_r1, tier, deduct_credit_flag
         ),
         media_type="text/event-stream",
     )

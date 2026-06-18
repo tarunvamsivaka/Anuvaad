@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
         {
           // Proxy all unmatched /api/... requests to the FastAPI backend.
           // Native routes (like /api/auth/callback) are served by Next.js and bypass this fallback.
+          // INFRA-05: /sentry-tunnel (tunnelRoute) is handled by Next.js natively and does NOT match
+          // this fallback, since it does not start with /api/.
           source: "/api/:path*",
           destination: `${API_URL}/api/:path*`,
         },
@@ -49,6 +51,7 @@ const configWithPWA = withPWA(nextConfig);
 export default analyze(withSentryConfig(configWithPWA, {
   silent: !process.env.CI,
   widenClientFileUpload: true,
-  tunnelRoute: "/monitoring",
+  // INFRA-05: Use /sentry-tunnel (not /monitoring) to avoid /api/:path* rewrite conflict
+  tunnelRoute: "/sentry-tunnel",
 }));
 

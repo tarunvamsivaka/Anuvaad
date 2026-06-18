@@ -11,7 +11,6 @@ from app.core.config import (
     IS_PRODUCTION,
     FRONTEND_URL,
     GROQ_API_KEY,
-    DEEPSEEK_API_KEY,
     SENTRY_DSN,
     logger,
     lifespan as _base_lifespan,
@@ -23,6 +22,7 @@ from app.routers.translate import router as translate_router
 from app.routers.history import router as history_router
 from app.routers.workspace import router as workspace_router
 from app.routers.billing import router as billing_router
+from app.routers.github import router as github_router
 from app.routers.utility import router as utility_router
 from app.routers.demo import router as demo_router
 from app.services import ai as ai_service
@@ -33,8 +33,8 @@ from contextlib import asynccontextmanager
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: initialize singletons on startup, clean up on shutdown."""
-    # BACK-02: Initialize LLM client singletons (Groq + DeepSeek)
-    ai_service.init_clients(GROQ_API_KEY, DEEPSEEK_API_KEY)
+    # BACK-02: Initialize LLM client singletons (Groq only)
+    ai_service.init_clients(GROQ_API_KEY)
     # Delegate to the base lifespan for HTTP client management
     async with _base_lifespan(app):
         yield
@@ -151,7 +151,7 @@ async def metrics_middleware(request: Request, call_next):
         raise
     finally:
         latency_ms = (time.time() - start) * 1000
-        metrics.record_request(endpoint, latency_ms, is_error)
+        await metrics.record_request(endpoint, latency_ms, is_error)
 
 
 RATE_LIMIT_WINDOW = 60
@@ -167,7 +167,9 @@ async def rate_limit_middleware(request: Request, call_next):
         return await call_next(request)
 
     client_ip = get_client_ip(request)
-    if client_ip == "127.0.0.1":
+    # SEC-08: Only bypass rate limiting for localhost in non-production environments.
+    # In production all traffic (including internal) must go through rate limiting.
+    if client_ip == "127.0.0.1" and not IS_PRODUCTION:
         return await call_next(request)
 
     auth_header = request.headers.get("Authorization")
@@ -234,6 +236,7 @@ app.include_router(translate_router,  prefix="/api/v1")
 app.include_router(history_router,    prefix="/api/v1")
 app.include_router(workspace_router,  prefix="/api/v1")
 app.include_router(billing_router,    prefix="/api/v1")
+app.include_router(github_router,     prefix="/api/v1")
 app.include_router(utility_router,    prefix="/api/v1")
 app.include_router(demo_router,       prefix="/api/v1")
 

@@ -36,3 +36,4 @@ task*
 # OS
 .DS_Store
 Thumbs.db
+scratch/

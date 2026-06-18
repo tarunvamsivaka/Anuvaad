@@ -50,6 +50,10 @@ os.environ["ADMIN_USERS"] = "admin@anuvaad.dev"
 os.environ["TRUSTED_USERS"] = "trusted@anuvaad.dev"
 os.environ["LIMIT_FREE_COOLDOWN"] = "0"
 os.environ.setdefault("RATE_LIMIT_IP_MAX", "15")
+# BACK-01: Signal test mode via env var (replaces sys.modules inspection in quota.py)
+os.environ["TESTING"] = "true"
+
+import app.core.cache as cache_module  # noqa: E402
 
 # ── Patch Razorpay Webhook Verification ──
 
@@ -270,6 +274,7 @@ def client():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
+         patch.object(cache_module, "cache_override", fake_redis), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -304,6 +309,7 @@ def client_rate_limited():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis_async), \
+         patch.object(cache_module, "cache_override", fake_redis_async), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -336,6 +342,7 @@ def client_multi_block():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
+         patch.object(cache_module, "cache_override", fake_redis), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -368,6 +375,7 @@ def client_ai_error():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
+         patch.object(cache_module, "cache_override", fake_redis), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -400,6 +408,7 @@ def client_empty_blocks():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
+         patch.object(cache_module, "cache_override", fake_redis), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -433,6 +442,7 @@ def client_no_redis():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
+         patch.object(cache_module, "cache_override", fake_redis), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -465,6 +475,7 @@ def client_with_auth():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
+         patch.object(cache_module, "cache_override", fake_redis), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -497,6 +508,7 @@ def client_no_auth():
         ai_module._deepseek_client = mock_deepseek
 
     with patch.object(app_module, "cache", fake_redis), \
+         patch.object(cache_module, "cache_override", fake_redis), \
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
@@ -522,16 +534,22 @@ def mock_openai_clients(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def mock_supabase_and_quota():
+def mock_supabase_and_quota(monkeypatch):
     from unittest.mock import AsyncMock
-    with patch("app.core.quota.get_today_usage_count", new_callable=AsyncMock) as m1, \
-         patch("app.core.quota.get_user_credits", new_callable=AsyncMock) as m2, \
-         patch("app.core.quota.deduct_credit", new_callable=AsyncMock) as m3, \
-         patch("app.core.database.supabase_request", new_callable=AsyncMock) as m6, \
-         patch("app.core.database.supabase_request_list", new_callable=AsyncMock) as m7:
-        m1.return_value = 0
-        m2.return_value = 0
-        m3.return_value = True
-        m6.return_value = {}
-        m7.return_value = []
+    import app.core.database as db_module
+    import app.core.quota as quota_module
+
+    m1 = AsyncMock(return_value=0)
+    m2 = AsyncMock(return_value=0)
+    m3 = AsyncMock(return_value=True)
+    m6 = AsyncMock(return_value={})
+    m7 = AsyncMock(return_value=[])
+
+    monkeypatch.setattr(quota_module, "get_today_usage_count_override", m1)
+    monkeypatch.setattr(db_module, "supabase_request_override", m6)
+    monkeypatch.setattr(db_module, "supabase_request_list_override", m7)
+
+    with patch("app.core.quota.get_user_credits", m2), \
+         patch("app.core.quota.deduct_credit", m3):
         yield
+

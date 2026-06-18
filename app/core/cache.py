@@ -175,18 +175,20 @@ class RedisCache:
         return False
 
 
+# Override hook for unit testing (replaces sys.modules.get("main") hack)
+cache_override = None
+
+
 class CacheProxy:
     def __init__(self, target):
         self._target = target
 
     def __getattr__(self, name):
-        import sys
-        main_mod = sys.modules.get("main")
-        if main_mod:
-            main_cache = getattr(main_mod, "cache", None)
-            if main_cache is not None and main_cache is not self:
-                return getattr(main_cache, name)
+        global cache_override
+        if cache_override is not None:
+            return getattr(cache_override, name)
         return getattr(self._target, name)
+
 
 cache = CacheProxy(RedisCache())
 

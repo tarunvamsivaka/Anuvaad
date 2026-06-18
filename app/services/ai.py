@@ -5,46 +5,36 @@ from openai import AsyncOpenAI
 from fastapi import HTTPException, BackgroundTasks
 from app.core.config import (
     LLM_TIMEOUT,
-    GROQ_API_KEY,
-    DEEPSEEK_API_KEY,
     logger,
     metrics,
 )
 from app.core.cache import cache, cache_key
 from app.core.database import supabase_request_list
 from app.core.quota import record_successful_completion, save_translation_background
+from app.queue.tasks import save_translation_history_task
 from app.models.schemas import CodePayload, CodeToCodePayload
 
 # ── LLM CLIENT SINGLETONS (BACK-02) ──
 # Created once at startup in lifespan, reused for all requests.
 # Eliminates per-request DNS + TLS handshake overhead.
 _groq_client: AsyncOpenAI | None = None
-_deepseek_client: AsyncOpenAI | None = None
 
-
-def init_clients(groq_key: str, deepseek_key: str) -> None:
+def init_clients(groq_key: str) -> None:
     """Initialize module-level LLM client singletons. Call from app lifespan."""
-    global _groq_client, _deepseek_client
+    global _groq_client
     _groq_client = AsyncOpenAI(
         api_key=groq_key,
         base_url="https://api.groq.com/openai/v1",
     )
-    _deepseek_client = AsyncOpenAI(
-        api_key=deepseek_key,
-        base_url="https://api.deepseek.com/v1",
-    )
-    logger.info("LLM client singletons initialized (Groq + DeepSeek)")
+    logger.info("LLM client singleton initialized (Groq)")
 
 
 async def close_clients() -> None:
     """Gracefully close all LLM clients. Call from app lifespan shutdown."""
-    global _groq_client, _deepseek_client
+    global _groq_client
     if _groq_client:
         await _groq_client.close()
         _groq_client = None
-    if _deepseek_client:
-        await _deepseek_client.close()
-        _deepseek_client = None
     logger.info("LLM client singletons closed")
 
 
@@ -55,14 +45,6 @@ def _get_groq_client() -> AsyncOpenAI:
     # Fallback: create on-the-fly (development mode or if lifespan wasn't used)
     key = os.getenv("GROQ_API_KEY", "")
     return AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
-
-
-def _get_deepseek_client() -> AsyncOpenAI:
-    """Return the shared DeepSeek client, or create a fallback if not yet initialized."""
-    if _deepseek_client is not None:
-        return _deepseek_client
-    key = os.getenv("DEEPSEEK_API_KEY", "")
-    return AsyncOpenAI(api_key=key, base_url="https://api.deepseek.com/v1")
 
 
 def get_async_openai_class():
@@ -243,49 +225,31 @@ async def get_completion(
     use_r1: bool = False,
 ) -> tuple[str, str]:
     """
-    Router for Groq and DeepSeek models.
-    If use_r1=True, routes to DeepSeek R1 (deepseek-reasoner).
-    mode='explanation' -> Groq (fallback DeepSeek)
-    mode='translation' -> DeepSeek (fallback Groq)
+    Router for Groq models.
+    If use_r1=True, routes to deepseek-r1-distill-llama-70b via Groq.
+    Otherwise uses llama-3.3-70b-versatile.
     """
     groq_api_key = os.getenv("GROQ_API_KEY")
-    deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
 
-    if not groq_api_key or not deepseek_api_key:
-        raise HTTPException(status_code=500, detail="LLM API keys not configured")
+    if not groq_api_key:
+        raise HTTPException(status_code=500, detail="Groq API key not configured")
 
-    # BACK-02: Use singleton clients instead of creating per-request
     groq_client = _get_groq_client()
-    deepseek_client = _get_deepseek_client()
 
     if use_r1:
         primary = {
-            "client": deepseek_client,
-            "model": "deepseek-reasoner",
-            "name": "DeepSeek R1",
-        }
-        fallback = {
             "client": groq_client,
-            "model": "llama-3.3-70b-versatile",
-            "name": "Llama 3.3",
+            "model": "deepseek-r1-distill-llama-70b",
+            "name": "Groq DeepSeek R1",
         }
     else:
-        groq_model = "llama-3.3-70b-versatile"
-        deepseek_model = "deepseek-chat"
-        if mode == "explanation":
-            primary = {"client": groq_client, "model": groq_model, "name": "Llama 3.3"}
-            fallback = {
-                "client": deepseek_client,
-                "model": deepseek_model,
-                "name": "DeepSeek V3",
-            }
-        else:  # "translation"
-            primary = {
-                "client": deepseek_client,
-                "model": deepseek_model,
-                "name": "DeepSeek V3",
-            }
-            fallback = {"client": groq_client, "model": groq_model, "name": "Llama 3.3"}
+        primary = {
+            "client": groq_client,
+            "model": "llama-3.3-70b-versatile",
+            "name": "Groq Llama 3.3",
+        }
+    
+    fallback = primary  # No secondary provider needed since Groq handles both
 
     messages = [
         {"role": "system", "content": system_instruction},
@@ -293,7 +257,7 @@ async def get_completion(
     ]
 
     kwargs = {}
-    if response_format == "json_object" and primary["model"] != "deepseek-reasoner":
+    if response_format == "json_object" and not use_r1:
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
@@ -303,12 +267,12 @@ async def get_completion(
             ),
             timeout=LLM_TIMEOUT,
         )
-        metrics.record_model_call(primary["model"])
+        await metrics.record_model_call(primary["model"])
         return _clean_json_response(response.choices[0].message.content), primary[
             "name"
         ]
     except Exception as e:
-        metrics.record_model_call(primary["model"], is_error=True)
+        await metrics.record_model_call(primary["model"], is_error=True)
         logger.warning(
             f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}"
         )
@@ -323,12 +287,12 @@ async def get_completion(
                 ),
                 timeout=LLM_TIMEOUT,
             )
-            metrics.record_model_call(fallback["model"])
+            await metrics.record_model_call(fallback["model"])
             return _clean_json_response(response.choices[0].message.content), fallback[
                 "name"
             ]
         except asyncio.TimeoutError:
-            metrics.record_model_call(fallback["model"], is_error=True)
+            await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(
                 f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}"
             )
@@ -337,7 +301,7 @@ async def get_completion(
                 detail=f"Translation timed out after {LLM_TIMEOUT}s. Please try again.",
             )
         except Exception as fallback_e:
-            metrics.record_model_call(fallback["model"], is_error=True)
+            await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
             raise HTTPException(
                 status_code=500,
@@ -351,50 +315,42 @@ async def stream_code_to_english(
     is_pro: bool,
     use_r1: bool,
     tier: str,
-    background_tasks: BackgroundTasks,
     deduct_credit_flag: bool = False,
 ):
-    model_name = "deepseek-reasoner" if use_r1 else "standard"
-    model = "deepseek-reasoner" if use_r1 else "llama-3.3-70b-versatile"
+    # Intelligent LLM Routing (Groq Only)
+    model_name = "deepseek-r1" if use_r1 else "standard"
+    model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+        
     key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
 
     # Check Cache
     cached = await cache.get(key)
 
     if cached:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
         yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "Code → English",
-                payload.language,
-                "english",
-                payload.raw_code,
-                cached,
-                model_name,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → English",
+                source_language=payload.language,
+                target_language="english",
+                input_text=payload.raw_code,
+                blocks=cached,
+                model_used=model_name,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
         return
 
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
     # BACK-02: Use singleton clients instead of creating per-request
-    groq_client = _get_groq_client()
-    deepseek_client = _get_deepseek_client()
-
-    if use_r1:
-        client = deepseek_client
-        model = "deepseek-reasoner"
-    else:
-        client = groq_client
-        model = "llama-3.3-70b-versatile"
+    client = _get_groq_client()
 
     messages = [
         {"role": "system", "content": SYSTEM_INSTRUCTION},
@@ -405,7 +361,7 @@ async def stream_code_to_english(
     ]
 
     kwargs = {"stream": True}
-    if model != "deepseek-reasoner":
+    if not use_r1:
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
@@ -430,19 +386,18 @@ async def stream_code_to_english(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "Code → English",
-                payload.language,
-                "english",
-                payload.raw_code,
-                result,
-                model,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → English",
+                source_language=payload.language,
+                target_language="english",
+                input_text=payload.raw_code,
+                blocks=result,
+                model_used=model,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
 
     except Exception as e:
@@ -456,11 +411,12 @@ async def stream_code_to_code(
     is_pro: bool,
     use_r1: bool,
     tier: str,
-    background_tasks: BackgroundTasks,
     deduct_credit_flag: bool = False,
 ):
-    model_name = "deepseek-reasoner" if use_r1 else "standard"
-    model = "deepseek-reasoner" if use_r1 else "llama-3.3-70b-versatile"
+    # Intelligent LLM Routing (Groq Only)
+    model_name = "deepseek-r1" if use_r1 else "standard"
+    model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+        
     key = cache_key(
         payload.raw_code,
         f"{payload.source_language}->{payload.target_language}",
@@ -472,39 +428,30 @@ async def stream_code_to_code(
     cached = await cache.get(key)
 
     if cached:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
         yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "Code → Code",
-                payload.source_language,
-                payload.target_language,
-                payload.raw_code,
-                cached,
-                model_name,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → Code",
+                source_language=payload.source_language,
+                target_language=payload.target_language,
+                input_text=payload.raw_code,
+                blocks=cached,
+                model_used=model_name,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
         return
 
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
     # BACK-02: Use singleton clients instead of creating per-request
-    groq_client = _get_groq_client()
-    deepseek_client = _get_deepseek_client()
-
-    if use_r1:
-        client = deepseek_client
-        model = "deepseek-reasoner"
-    else:
-        client = groq_client
-        model = "llama-3.3-70b-versatile"
+    client = _get_groq_client()
 
     system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
@@ -518,7 +465,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
     ]
 
     kwargs = {"stream": True}
-    if model != "deepseek-reasoner":
+    if not use_r1:
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
@@ -543,19 +490,18 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag)
-            background_tasks.add_task(
-                save_translation_background,
-                email,
-                "Code → Code",
-                payload.source_language,
-                payload.target_language,
-                payload.raw_code,
-                result,
-                model,
-                payload.workspace_id,
-                payload.session_id,
-                payload.repository_name,
-                payload.file_path,
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → Code",
+                source_language=payload.source_language,
+                target_language=payload.target_language,
+                input_text=payload.raw_code,
+                blocks=result,
+                model_used=model,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
             )
 
     except Exception as e:

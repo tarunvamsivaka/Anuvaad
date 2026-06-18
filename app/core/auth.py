@@ -1,5 +1,4 @@
 import hashlib
-import httpx
 from datetime import datetime, timezone
 from fastapi import Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials

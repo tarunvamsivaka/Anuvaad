@@ -53,6 +53,22 @@ services:
       retries: 3
       start_period: 20s
 
+  worker:
+    build: .
+    command: celery -A app.queue.celery_config.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379
+      - ENV=production
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
@@ -60,7 +76,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      # INFRA-04: NEXT_PUBLIC_API_URL must be the PUBLIC URL clients use from their browsers.
+      # Set to your domain in production (e.g., https://api.anuvaad.dev).
+      # http://backend:8000 is an internal Docker URL — it works for SSR but NOT for
+      # browser-side fetch calls. Override via .env or CI/CD environment.
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:
       backend:
         condition: service_healthy

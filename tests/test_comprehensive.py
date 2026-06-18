@@ -281,37 +281,26 @@ class TestPydanticModels:
         )
         assert res.status_code == 422
 
-    # -- CheckoutPayload --
+    # -- CheckoutPayload (BACK-06: access_token removed — auth via header) --
     def test_checkout_payload_email_too_short(self):
         from main import CheckoutPayload
 
         with pytest.raises(Exception):
-            CheckoutPayload(user_email="a@b", access_token="a" * 10)
-
-    def test_checkout_payload_token_too_short(self):
-        from main import CheckoutPayload
-
-        with pytest.raises(Exception):
-            CheckoutPayload(user_email="test@example.com", access_token="short")
+            CheckoutPayload(user_email="a@b")
 
     def test_checkout_payload_valid(self):
         from main import CheckoutPayload
 
-        p = CheckoutPayload(user_email="test@example.com", access_token="a" * 50)
+        p = CheckoutPayload(user_email="test@example.com")
         assert p.user_email == "test@example.com"
 
-    # -- SubscriptionCheckPayload --
-    def test_subscription_check_token_too_short(self):
-        from main import SubscriptionCheckPayload
-
-        with pytest.raises(Exception):
-            SubscriptionCheckPayload(access_token="short")
-
+    # -- SubscriptionCheckPayload (BACK-06: access_token removed — auth via header) --
     def test_subscription_check_valid(self):
         from main import SubscriptionCheckPayload
 
-        p = SubscriptionCheckPayload(access_token="a" * 50)
-        assert len(p.access_token) == 50
+        # BACK-06: SubscriptionCheckPayload is now a no-arg marker class
+        p = SubscriptionCheckPayload()
+        assert p is not None
 
     # -- WorkspaceCreate --
     def test_workspace_create_valid(self):

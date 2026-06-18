@@ -62,7 +62,7 @@ export function CountUp({
       return;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     let ctx: any;
 
     (async () => {

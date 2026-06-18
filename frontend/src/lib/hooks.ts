@@ -72,7 +72,7 @@ export function useTranslationStats(_userEmail: string | undefined, accessToken:
 export function useSubscriptionStatus(accessToken: string | undefined) {
   const { data, isLoading } = useSWR(
     accessToken ? [`${API_BASE}/api/subscription-status`, accessToken] : null,
-    postFetcher,
+    getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
   );
 
@@ -88,7 +88,7 @@ export function useSubscriptionStatus(accessToken: string | undefined) {
 export function useCredits(accessToken: string | undefined) {
   const { data, isLoading, mutate } = useSWR(
     accessToken ? [`${API_BASE}/api/check-credits`, accessToken] : null,
-    postFetcher,
+    getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
   );
 

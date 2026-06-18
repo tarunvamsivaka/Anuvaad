@@ -61,9 +61,13 @@
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: rgba(8, 12, 20, 0.80);
+  background: rgba(248, 250, 252, 0.85);
   backdrop-filter: blur(var(--blur-lg));
   border-bottom: 1px solid var(--border-faint);
+}
+
+.dark .topbar {
+  background: rgba(8, 12, 20, 0.80);
 }
 
 /* ── SKELETON PULSE ───────────────────────────────────────── */
@@ -100,9 +104,13 @@
 
 .nav-link-active {
   position: relative;
-  background-color: rgba(245, 158, 11, 0.05); /* very faint amber */
+  background-color: rgba(217, 119, 6, 0.08); /* amber-600 faint */
   color: var(--text-amber) !important;
   box-shadow: var(--glow-xs);
+}
+
+.dark .nav-link-active {
+  background-color: rgba(245, 158, 11, 0.05); /* amber-500 faint */
 }
 .nav-link-active::before {
   content: "";

@@ -6,7 +6,7 @@
 
 /* ── GLASSMORPHISM ────────────────────────────────────────── */
 
-/* Amber-tinted glass — landing page panels */
+/* Amber-tinted glass — landing page panels (always dark — landing stays cinematic) */
 .glass-amber {
   background: rgba(18, 18, 24, 0.70);
   backdrop-filter: blur(var(--blur-lg));
@@ -15,13 +15,18 @@
   box-shadow: var(--shadow-glass);
 }
 
-/* Dark glass — auth & dashboard panels */
+/* Dashboard glass — theme-aware */
 .glass-dark {
-  background: rgba(8, 12, 20, 0.80);
+  background: rgba(248, 250, 252, 0.80);
   backdrop-filter: blur(var(--blur-xl));
   -webkit-backdrop-filter: blur(var(--blur-xl));
-  border: 1px solid rgba(245, 158, 11, 0.10);
+  border: 1px solid rgba(15, 23, 42, 0.10);
   box-shadow: var(--shadow-glass-dark);
+}
+
+.dark .glass-dark {
+  background: rgba(8, 12, 20, 0.80);
+  border: 1px solid rgba(245, 158, 11, 0.10);
 }
 
 /* Apple-style frosted glass — light/dark aware */
@@ -47,14 +52,21 @@
 
 .premium-card {
   background: linear-gradient(135deg,
-    rgba(14, 18, 25, 0.90) 0%,
-    rgba(10, 13, 19, 0.95) 100%
+    rgba(248, 250, 252, 0.95) 0%,
+    rgba(241, 245, 249, 0.98) 100%
   );
   border: 1px solid var(--border-default);
   box-shadow: var(--shadow-card);
   transition:
     border-color var(--dur-normal) var(--ease-out),
     box-shadow   var(--dur-normal) var(--ease-out);
+}
+
+.dark .premium-card {
+  background: linear-gradient(135deg,
+    rgba(14, 18, 25, 0.90) 0%,
+    rgba(10, 13, 19, 0.95) 100%
+  );
 }
 
 .premium-card:hover {
@@ -158,12 +170,22 @@
 .shimmer-loading {
   background: linear-gradient(
     90deg,
+    rgba(0, 0, 0, 0.03) 0%,
+    rgba(0, 0, 0, 0.07) 50%,
+    rgba(0, 0, 0, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-amber 1.5s linear infinite;
+}
+
+.dark .shimmer-loading {
+  background: linear-gradient(
+    90deg,
     rgba(255, 255, 255, 0.03) 0%,
     rgba(255, 255, 255, 0.07) 50%,
     rgba(255, 255, 255, 0.03) 100%
   );
   background-size: 200% 100%;
-  animation: shimmer-amber 1.5s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

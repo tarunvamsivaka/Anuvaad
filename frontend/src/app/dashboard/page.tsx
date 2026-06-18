@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Code2, ArrowRight, Zap, FileText, TrendingUp,
-  BarChart3, Sparkles, Clock, ArrowLeftRight, Upload, GitBranch
+  BarChart3, Sparkles, Clock
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTranslationStats } from "@/lib/hooks";

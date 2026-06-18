@@ -61,6 +61,30 @@ services:
           cpus: '1.5'
           memory: 1.5G
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anuvaad-worker-prod
+    command: celery -A app.queue.celery_config.celery_app worker --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - ENV=production
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+
   frontend:
     build:
       context: ./frontend

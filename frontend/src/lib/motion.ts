@@ -111,7 +111,7 @@ export function isMotionSafe(): boolean {
  * ```
  */
 export function useGsapContext(ref: RefObject<Element | null>) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const contextRef = useRef<any>(null);
 
   const getContext = useCallback(async () => {

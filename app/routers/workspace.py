@@ -42,9 +42,9 @@ async def list_workspaces(email: str = Depends(get_user_email)):
     cache_key = f"user_workspaces:{email}"
     cached = await cache.get(cache_key)
     if cached is not None:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         return cached
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
 
     memberships = await supabase_request_list(
         f"workspace_members?user_email=eq.{email}&select=workspace_id,role"

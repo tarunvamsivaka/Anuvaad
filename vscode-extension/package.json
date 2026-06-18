@@ -1,0 +1,48 @@
+{
+  "name": "anuvaad-vscode",
+  "displayName": "Anuvaad",
+  "description": "AI Code Translator & Explainer inline in your IDE",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "anuvaad.translateInline",
+        "title": "Anuvaad: Translate Code Inline"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "anuvaad.translateInline",
+        "key": "cmd+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.80.0",
+    "@types/node": "18.x",
+    "typescript": "^5.1.3",
+    "@typescript-eslint/eslint-plugin": "^6.4.1",
+    "@typescript-eslint/parser": "^6.4.1",
+    "eslint": "^8.47.0"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.12"
+  }
+}

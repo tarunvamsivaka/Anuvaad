@@ -16,6 +16,7 @@ from app.core.config import (
     IS_PRODUCTION,
     logger,
     metrics,
+    get_http_client,
 )
 from app.core.cache import cache
 from app.core.auth import get_user_email, get_user_pro_status
@@ -125,6 +126,7 @@ async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
             headers={
                 "User-Agent": "Anuvaad-App",
             },
+            timeout=10.0,
         )
     except httpx.TimeoutException:
         raise HTTPException(
@@ -181,14 +183,15 @@ async def import_gist(url: str):
         username = gist_match.group(1)
         gist_id = gist_match.group(2)
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(
-                    f"https://api.github.com/gists/{gist_id}",
-                    headers={
-                        "Accept": "application/vnd.github.v3+json",
-                        "User-Agent": "Anuvaad-App",
-                    },
-                )
+            client = await get_http_client()
+            resp = await client.get(
+                f"https://api.github.com/gists/{gist_id}",
+                headers={
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "Anuvaad-App",
+                },
+                timeout=10.0,
+            )
         except httpx.TimeoutException:
             raise HTTPException(
                 status_code=504, detail="GitHub API request timed out. Please try again."
@@ -251,8 +254,8 @@ async def import_gist(url: str):
         path = raw_match.group(4)
         filename = path.split("/")[-1]
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            content = await fetch_raw_content(client, clean_url)
+        client = await get_http_client()
+        content = await fetch_raw_content(client, clean_url)
 
         if len(content.encode("utf-8")) > GIST_MAX_SIZE:
             raise HTTPException(
@@ -279,8 +282,8 @@ async def import_gist(url: str):
         filename = path.split("/")[-1]
         raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            content = await fetch_raw_content(client, raw_url)
+        client = await get_http_client()
+        content = await fetch_raw_content(client, raw_url)
 
         if len(content.encode("utf-8")) > GIST_MAX_SIZE:
             raise HTTPException(
@@ -304,14 +307,15 @@ async def import_gist(url: str):
         repo = repo_match.group(2)
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get(
-                    f"https://api.github.com/repos/{owner}/{repo}/contents",
-                    headers={
-                        "Accept": "application/vnd.github.v3+json",
-                        "User-Agent": "Anuvaad-App",
-                    },
-                )
+            client = await get_http_client()
+            resp = await client.get(
+                f"https://api.github.com/repos/{owner}/{repo}/contents",
+                headers={
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "Anuvaad-App",
+                },
+                timeout=10.0,
+            )
         except httpx.TimeoutException:
             raise HTTPException(
                 status_code=504, detail="GitHub API request timed out. Please try again."
@@ -380,8 +384,8 @@ async def import_gist(url: str):
         if not download_url:
             raise HTTPException(status_code=400, detail="Could not get download URL for selected file.")
 
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            content = await fetch_raw_content(client, download_url)
+        client = await get_http_client()
+        content = await fetch_raw_content(client, download_url)
 
         if len(content.encode("utf-8")) > GIST_MAX_SIZE:
             raise HTTPException(
@@ -428,7 +432,7 @@ async def get_metrics_json(request: Request):
             content={"detail": "Unauthorized"},
             headers={"WWW-Authenticate": 'Basic realm="metrics"'},
         )
-    return metrics.snapshot()
+    return await metrics.snapshot()
 
 
 @router.get("/metrics/prometheus")
@@ -440,7 +444,7 @@ async def get_metrics_prometheus(request: Request):
             status_code=401,
             headers={"WWW-Authenticate": 'Basic realm="metrics"'},
         )
-    snap = metrics.snapshot()
+    snap = await metrics.snapshot()
     lines: list[str] = []
 
     lines.append("# HELP anuvaad_uptime_seconds Seconds since process start")

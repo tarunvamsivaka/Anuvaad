@@ -60,7 +60,7 @@ export function TypographyProse({
   ...props
 }: TypographyProseProps) {
   return (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     <Component
       data-prose
       className={cn(

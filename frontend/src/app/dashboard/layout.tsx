@@ -4,17 +4,17 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Code2, History, Settings, CreditCard,
-  LayoutDashboard, LogOut, Menu, X, Users,
-  Sparkles, Zap
+  LayoutDashboard, Menu, X, Users,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/Logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { WorkspaceSwitcher } from "@/components/dashboard/TopBar";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
-import { WorkspaceProvider, useWorkspace } from "@/context/WorkspaceContext";
+
+import { WorkspaceProvider } from "@/context/WorkspaceContext";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { ErrorCard } from "@/components/ui/error-card";
 import { CommandPalette } from "@/components/CommandPalette";
@@ -122,7 +122,7 @@ function SidebarContent({
 function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, loading, isPro, signOut } = useAuth();
+  const { user, loading, isPro } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -144,11 +144,6 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
       }
     }
   }, [user, loading, pathname, router]);
-
-  async function handleSignOut() {
-    await signOut();
-    router.push("/");
-  }
 
   return (
     <div className="flex min-h-screen bg-surface-low text-text-primary relative">

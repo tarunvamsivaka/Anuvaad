@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Lora } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display, Outfit } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -21,11 +21,17 @@ const jetbrains = JetBrains_Mono({
   preload: true,    // Critical path — Monaco editor uses this font
 });
 
-const lora = Lora({
-  variable: "--font-lora",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
-  style: ["italic"],
-  display: "swap",  // Story narration serif — loaded lazily
+  style: ["italic", "normal"],
+  display: "swap",
+});
+
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -109,7 +115,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrains.variable} ${lora.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrains.variable} ${playfair.variable} ${outfit.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

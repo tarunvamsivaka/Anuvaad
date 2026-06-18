@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TypographyProse } from "@/design/primitives/TypographyProse";
-import { ChevronDown, ChevronUp, Copy, Check, Pencil } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Check, Pencil, GripVertical, Sparkles } from "lucide-react";
 import { EnglishEditor } from "./EnglishEditor";
 import { TranslationBlock } from "../../_types";
 
@@ -32,79 +32,107 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
   };
 
   return (
-    <div
-      className="animate-block-in"
-      style={{ "--delay": `${Math.min(index * 0.05, 0.4)}s` } as React.CSSProperties}
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 20, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.96, y: -10 }}
+      whileHover={{ y: -2 }}
+      transition={{ 
+        duration: 0.45, 
+        delay: index * 0.08, 
+        ease: [0.22, 1, 0.36, 1],
+        y: { type: "spring", stiffness: 300, damping: 30 },
+      }}
+      className="group relative flex w-full mb-6 items-start"
     >
-      <Card className="mb-4 overflow-hidden dashboard-card transition-all duration-200 hover:border-amber-500/30">
-        <div className="flex items-center justify-between border-b border-border-subtle bg-transparent px-4 py-2.5">
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-bold">
-            Block {index + 1}
-          </Badge>
+      {/* Notion-style drag handle & block indicator */}
+      <div className="absolute -left-10 top-3 flex items-center justify-center w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+          <GripVertical className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-hidden rounded-xl border border-slate-200/50 bg-white/70 shadow-sm backdrop-blur-md transition-all duration-300 hover:shadow-md hover:border-amber-500/30 dark:border-white/10 dark:bg-[#0c1222]/80">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-black/20 px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" aria-label={collapsed ? "Expand code block" : "Collapse code block"} className="h-6 w-6 text-muted-foreground hover:text-foreground" onClick={() => setCollapsed(!collapsed)}>
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 font-mono text-[10px] uppercase tracking-wider">
+              <Sparkles className="mr-1 h-3 w-3" /> Block {index + 1}
+            </Badge>
+          </div>
+          <div className="flex items-center gap-1 opacity-50 hover:opacity-100 transition-opacity">
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCollapsed(!collapsed)}>
               {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </Button>
           </div>
         </div>
         
-        {!collapsed && (
-          <div className="flex flex-col animate-in fade-in slide-in-from-top-1 duration-200">
-            <div className="relative border-b border-border/40 bg-surface-card p-4 group">
-              <pre className="font-mono text-xs md:text-sm text-gray-300 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed">
-                <code>{block.code_snippet}</code>
-              </pre>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={copyCode} 
-                className="absolute right-3 top-3 h-7 gap-1.5 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity bg-white/10 text-white hover:bg-white/20 border-0 shadow-sm"
-              >
-                {copiedCode ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                {copiedCode ? "Copied" : "Copy code"}
-              </Button>
-            </div>
-            <div className="relative p-4 md:p-5 bg-transparent group">
-              {isEditing ? (
-                <EnglishEditor
-                  initialText={block.english_translation}
-                  onSave={(newText) => {
-                    onEditBlock?.(newText);
-                    setIsEditing(false);
-                  }}
-                  onCancel={() => setIsEditing(false)}
-                />
-              ) : (
-                <>
-                  <TypographyProse size="sm" className="pr-24 whitespace-pre-wrap text-foreground/90 text-sm">
-                    {block.english_translation}
-                  </TypographyProse>
-                  <div className="absolute right-3 top-3 flex gap-1.5 z-10 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setIsEditing(true)} 
-                      className="h-7 gap-1 bg-background shadow-sm hover:bg-muted"
-                    >
-                      <Pencil className="h-3 w-3" />
-                      Edit
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={copyText} 
-                      className="h-7 gap-1.5 bg-background shadow-sm"
-                    >
-                      {copiedText ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                      {copiedText ? "Copied" : "Copy text"}
-                    </Button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </Card>
-    </div>
+        <AnimatePresence initial={false}>
+          {!collapsed && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="flex flex-col"
+            >
+              <div className="relative border-b border-slate-100 dark:border-white/5 bg-slate-900/95 dark:bg-black/40 p-4">
+                <pre className="font-mono text-[13px] text-slate-300 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed selection:bg-amber-500/30">
+                  <code>{block.code_snippet}</code>
+                </pre>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  onClick={copyCode} 
+                  className="absolute right-3 top-3 h-7 gap-1.5 opacity-0 group-hover:opacity-100 transition-all bg-white/10 text-white hover:bg-white/20 border-0 shadow-none backdrop-blur-md"
+                >
+                  {copiedCode ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                  {copiedCode ? "Copied" : "Copy"}
+                </Button>
+              </div>
+              
+              <div className="relative p-5 bg-transparent">
+                {isEditing ? (
+                  <EnglishEditor
+                    initialText={block.english_translation}
+                    onSave={(newText) => {
+                      onEditBlock?.(newText);
+                      setIsEditing(false);
+                    }}
+                    onCancel={() => setIsEditing(false)}
+                  />
+                ) : (
+                  <>
+                    <div className="pr-20 text-slate-800 dark:text-slate-200 text-[15px] leading-relaxed font-outfit">
+                      <TypographyProse size="sm" className="whitespace-pre-wrap">
+                        {block.english_translation}
+                      </TypographyProse>
+                    </div>
+                    <div className="absolute right-4 top-4 flex gap-1.5 z-10 opacity-0 group-hover:opacity-100 transition-all">
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => setIsEditing(true)} 
+                        className="h-8 w-8 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10"
+                      >
+                        <Pencil className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={copyText} 
+                        className="h-8 w-8 bg-white/50 dark:bg-black/50 backdrop-blur-md shadow-sm border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10"
+                      >
+                        {copiedText ? <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />}
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
   );
 }

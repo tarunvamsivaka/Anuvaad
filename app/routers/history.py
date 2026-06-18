@@ -1,11 +1,10 @@
 import os
 import secrets
 import hashlib
-import httpx
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
-from app.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, logger, metrics
+from app.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, logger, metrics, get_http_client
 from app.core.cache import cache
 from app.core.auth import get_user_email
 from app.core.database import supabase_request, supabase_request_list
@@ -29,9 +28,9 @@ async def get_translation_history(
     cache_key = f"user_history:{email}:{workspace_id}:{limit}"
     cached = await cache.get(cache_key)
     if cached is not None:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         return cached
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
 
     if workspace_id:
         path = f"translation_history?workspace_id=eq.{workspace_id}&order=created_at.desc&limit={limit}"
@@ -52,9 +51,9 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
     cache_key = f"user_stats:{email}"
     cached = await cache.get(cache_key)
     if cached is not None:
-        metrics.record_cache_hit()
+        await metrics.record_cache_hit()
         return cached
-    metrics.record_cache_miss()
+    await metrics.record_cache_miss()
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return {"total": 0, "week": 0, "today": 0}
@@ -81,12 +80,12 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
     async def count_rows(extra_filter: str) -> int:
         url = f"{SUPABASE_URL}/rest/v1/translation_history?{base_filter}&{extra_filter}"
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(url, headers=base_headers)
-                if resp.status_code in (200, 206):
-                    content_range = resp.headers.get("Content-Range", "")
-                    if "/" in content_range:
-                        return int(content_range.split("/")[1])
+            client = await get_http_client()
+            resp = await client.get(url, headers=base_headers)
+            if resp.status_code in (200, 206):
+                content_range = resp.headers.get("Content-Range", "")
+                if "/" in content_range:
+                    return int(content_range.split("/")[1])
         except Exception as e:
             logger.warning(f"Count query failed: {e}")
         return 0
@@ -127,14 +126,16 @@ async def delete_history_item(item_id: str, email: str = Depends(get_user_email)
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
     }
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.delete(
-                f"{SUPABASE_URL}/rest/v1/translation_history?id=eq.{item_id}&user_email=eq.{email}",
-                headers=headers,
-            )
-            if resp.status_code not in (200, 204):
-                raise HTTPException(status_code=500, detail="Failed to delete history item")
+        client = await get_http_client()
+        resp = await client.delete(
+            f"{SUPABASE_URL}/rest/v1/translation_history?id=eq.{item_id}&user_email=eq.{email}",
+            headers=headers,
+        )
+        if resp.status_code not in (200, 204):
+            raise HTTPException(status_code=500, detail="Failed to delete history item")
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         logger.error(f"Failed to delete history item from DB: {e}")
         raise HTTPException(status_code=500, detail="Database error during deletion")
 
@@ -215,10 +216,10 @@ async def delete_api_key(key_id: str, email: str = Depends(get_user_email)):
         "apikey": SUPABASE_SERVICE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
     }
-    async with httpx.AsyncClient() as http_client:
-        resp = await http_client.delete(url, headers=headers)
-        if resp.status_code not in (200, 204):
-            raise HTTPException(status_code=500, detail="Failed to delete API key")
+    client = await get_http_client()
+    resp = await client.delete(url, headers=headers)
+    if resp.status_code not in (200, 204):
+        raise HTTPException(status_code=500, detail="Failed to delete API key")
 
     return {"status": "success"}
 
@@ -230,32 +231,32 @@ async def delete_account(authorization: str = Header(None)):
 
     try:
         token = authorization.replace("Bearer ", "")
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{SUPABASE_URL}/auth/v1/user",
+        client = await get_http_client()
+        resp = await client.get(
+            f"{SUPABASE_URL}/auth/v1/user",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "apikey": SUPABASE_ANON_KEY,
+            },
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user_id = resp.json().get("id")
+
+        if SUPABASE_SERVICE_KEY:
+            admin_resp = await client.delete(
+                f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
                 headers={
-                    "Authorization": f"Bearer {token}",
-                    "apikey": SUPABASE_ANON_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "apikey": SUPABASE_SERVICE_KEY,
                 },
             )
-            if resp.status_code != 200:
-                raise HTTPException(status_code=401, detail="Invalid token")
-
-            user_id = resp.json().get("id")
-
-            if SUPABASE_SERVICE_KEY:
-                admin_resp = await client.delete(
-                    f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
-                    headers={
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                        "apikey": SUPABASE_SERVICE_KEY,
-                    },
+            if admin_resp.status_code not in (200, 204):
+                logger.error(f"Admin delete user failed: {admin_resp.text}")
+                raise HTTPException(
+                    status_code=500, detail="Failed to delete account"
                 )
-                if admin_resp.status_code not in (200, 204):
-                    logger.error(f"Admin delete user failed: {admin_resp.text}")
-                    raise HTTPException(
-                        status_code=500, detail="Failed to delete account"
-                    )
 
             return JSONResponse(status_code=200, content={"status": "deleted"})
     except Exception as e:
@@ -284,15 +285,15 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
             "Range": "0-0",
         }
         try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"{SUPABASE_URL}/rest/v1/user_subscriptions?select=user_email",
-                    headers=base_headers,
-                )
-                if resp.status_code in (200, 206):
-                    content_range = resp.headers.get("Content-Range", "")
-                    if "/" in content_range:
-                        total_users = int(content_range.split("/")[1])
+            client = await get_http_client()
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/user_subscriptions?select=user_email",
+                headers=base_headers,
+            )
+            if resp.status_code in (200, 206):
+                content_range = resp.headers.get("Content-Range", "")
+                if "/" in content_range:
+                    total_users = int(content_range.split("/")[1])
         except Exception as e:
             logger.warning(f"Admin stats user count failed: {e}")
 
@@ -335,9 +336,7 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
     }
 
 
-from pydantic import BaseModel
-
-
+from pydantic import BaseModel  # noqa: E402
 class SharePayload(BaseModel):
     is_public: bool
 

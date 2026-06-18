@@ -355,3 +355,46 @@ class TestWebhookIdempotency:
         # Second call with duplicate event ID must return {status: duplicate}
         assert r2.status_code == 200
         assert r2.json().get("status") == "duplicate"
+
+
+# ── TEST: BACK-01 sys.modules hack removed ──
+
+class TestBackendCleanup:
+    """BACK-01: Verify sys.modules inspection has been removed from quota.py."""
+
+    def test_quota_py_has_no_sys_modules_inspection(self):
+        """Verify the sys.modules is_testing hack is gone from quota.py source.
+        The correct pattern is os.getenv('TESTING', 'false') == 'true'.
+        """
+        import inspect
+        import app.core.quota as quota_module
+
+        source = inspect.getsource(quota_module)
+        # The old anti-pattern must be gone
+        assert '"pytest" in sys.modules' not in source, (
+            "BACK-01 regression: quota.py must not use sys.modules for test detection. "
+            "Use os.getenv('TESTING') instead."
+        )
+
+    def test_testing_env_var_is_set_in_test_suite(self):
+        """BACK-01: Confirm TESTING=true is set so quota pruning behaves correctly."""
+        import os
+        assert os.getenv("TESTING") == "true", (
+            "TESTING env var must be set to 'true' in conftest.py for quota.py pruning to work correctly."
+        )
+
+    def test_sec08_localhost_bypass_respects_environment(self):
+        """SEC-08: Verify 127.0.0.1 bypass is guarded by IS_PRODUCTION check in source."""
+        import os
+
+        # Read the actual app/main.py from the filesystem (not the pytest bootstrap stub)
+        app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        main_py_path = os.path.join(app_root, "app", "main.py")
+        with open(main_py_path, "r", encoding="utf-8") as f:
+            source = f.read()
+
+        # The new pattern must include the IS_PRODUCTION guard
+        assert '127.0.0.1" and not IS_PRODUCTION' in source, (
+            "SEC-08 regression: 127.0.0.1 rate limit bypass must be guarded by `and not IS_PRODUCTION`."
+        )
+

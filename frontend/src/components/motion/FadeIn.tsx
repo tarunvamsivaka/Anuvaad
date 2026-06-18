@@ -47,7 +47,7 @@ export function FadeIn({
   useEffect(() => {
     if (!motionSafe || !ref.current) return;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     let ctx: any;
 
     (async () => {

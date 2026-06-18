@@ -59,7 +59,6 @@ class CodeToCodePayload(BaseModel):
 
 
 class SaveTranslationPayload(BaseModel):
-    access_token: str = Field(..., min_length=1)
     mode: str = Field(..., min_length=1)
     source_language: str = Field(..., min_length=1)
     target_language: str = Field(..., min_length=1)
@@ -85,7 +84,6 @@ class SyncEnglishToCodePayload(BaseModel):
     blocks: list[BlockItem]
     language: str
     custom_instructions: str | None = None
-    access_token: str | None = None
     workspace_id: str | None = None
     session_id: str | None = None
     repository_name: str | None = None
@@ -93,12 +91,13 @@ class SyncEnglishToCodePayload(BaseModel):
 
 
 class CheckoutPayload(BaseModel):
+    """BACK-06: access_token removed — auth via Authorization header (Depends)."""
     user_email: str = Field(..., min_length=5, max_length=254)
-    access_token: str = Field(..., min_length=10)
 
 
 class SubscriptionCheckPayload(BaseModel):
-    access_token: str | None = Field(default=None, min_length=10)
+    """GET endpoints only — no access_token needed (uses Authorization header)."""
+    pass  # Placeholder retained for schema compatibility
 
 
 class WorkspaceCreate(BaseModel):
@@ -130,7 +129,8 @@ class ApiKeyCreate(BaseModel):
 
 
 class CreditCheckoutPayload(BaseModel):
-    access_token: str | None = Field(default=None, min_length=10)
+    """BACK-06: access_token removed — auth via Authorization header (Depends)."""
+    pass  # No fields needed; auth is header-only
 
 
 class VerifyPaymentPayload(BaseModel):
@@ -138,7 +138,7 @@ class VerifyPaymentPayload(BaseModel):
     razorpay_order_id: str | None = None
     razorpay_subscription_id: str | None = None
     razorpay_signature: str = Field(..., min_length=5)
-    access_token: str = Field(..., min_length=10)
+    # BACK-06: access_token removed — auth via Authorization header (Depends)
     payment_type: str = Field(..., pattern="^(subscription|credits)$")
 
 

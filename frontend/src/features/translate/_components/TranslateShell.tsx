@@ -1,9 +1,11 @@
 import React from "react";
+import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Settings, Zap } from "lucide-react";
+import { Settings, Zap, Maximize, Minimize } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ChatInterface } from "./ChatInterface";
 
 interface TranslateShellProps {
   currentModeLabel: string;
@@ -40,12 +42,21 @@ export function TranslateShell({
   inputPanel,
   outputPanel,
 }: TranslateShellProps) {
+  const [zenMode, setZenMode] = React.useState(false);
+
   return (
-    <div className="h-screen flex flex-col overflow-hidden relative">
+    <div className={cn("flex flex-col overflow-hidden relative transition-all duration-300", 
+      zenMode ? "fixed inset-0 z-50 bg-background h-screen" : "h-screen"
+    )}>
       <div className="apple-mesh-bg"></div>
 
       {/* ── Top bar ── */}
-      <header className="shrink-0 z-20 glass-apple border-b border-slate-200/50 dark:border-white/5">
+      <motion.header
+        initial={{ y: -10, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="shrink-0 z-20 glass-apple border-b border-slate-200/50 dark:border-white/5"
+      >
         <div className="flex h-14 items-center justify-between pl-14 pr-6 md:px-6">
           <div className="flex items-center gap-3">
             <h1 className="text-base font-bold tracking-tight">Workspace</h1>
@@ -71,7 +82,7 @@ export function TranslateShell({
             </Badge>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       {/* ── Custom instructions panel (slides in below header) ── */}
       {showSettings && (
@@ -128,11 +139,28 @@ export function TranslateShell({
       {/* ── Main split workspace — fills all remaining height ── */}
       <div className="flex-1 overflow-hidden flex flex-col p-4 md:p-6 pt-2">
         {/* ── macOS-style window chrome + split grid ── */}
-        <div className="flex-1 overflow-hidden flex flex-col bg-slate-50/50 dark:bg-surface-charcoal/50 glass-apple rounded-xl shadow-2xl border border-white/20 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/10">
+        <motion.div
+          initial={{ opacity: 0, y: 16, scale: 0.99 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          className="flex-1 overflow-hidden flex flex-col bg-slate-50/50 dark:bg-surface-charcoal/50 glass-apple rounded-xl shadow-2xl border border-white/20 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/10"
+        >
           {/* Title bar */}
-          <div className="shrink-0 h-10 border-b border-border-subtle flex items-center px-4 relative bg-surface-base">
-            <div className="w-full text-center text-xs font-semibold text-text-secondary select-none">
+          <div className="shrink-0 h-10 border-b border-border-subtle flex items-center justify-between px-4 relative bg-surface-base group">
+            <div className="flex-1"></div>
+            <div className="text-center text-xs font-semibold text-text-secondary select-none">
               Translation Workspace
+            </div>
+            <div className="flex-1 flex justify-end">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
+                onClick={() => setZenMode(!zenMode)}
+                title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
+              >
+                {zenMode ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}
+              </Button>
             </div>
           </div>
 
@@ -141,8 +169,11 @@ export function TranslateShell({
             {inputPanel}
             {outputPanel}
           </div>
-        </div>
+        </motion.div>
       </div>
+
+      {/* ── Conversational AI Chat ── */}
+      <ChatInterface />
     </div>
   );
 }

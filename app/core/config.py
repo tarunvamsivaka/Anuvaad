@@ -1,4 +1,5 @@
 import asyncio
+import weakref
 import os
 import sys
 import time
@@ -62,6 +63,7 @@ RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 SENTRY_DSN = os.getenv("SENTRY_DSN", "")
 METRICS_USERNAME = os.getenv("METRICS_USERNAME", "")
@@ -69,7 +71,6 @@ METRICS_PASSWORD = os.getenv("METRICS_PASSWORD", "")
 
 
 # ── GLOBAL HTTP CLIENT (with asyncio.Lock for thread-safe init) ──
-import weakref
 
 _client_locks = weakref.WeakKeyDictionary()
 _client_instances = weakref.WeakKeyDictionary()
@@ -140,7 +141,17 @@ class MetricsCollector:
         self.cache_misses: int = 0
         self._latencies: dict[str, deque] = {}
 
-    def record_request(self, endpoint: str, latency_ms: float, is_error: bool = False):
+    async def record_request(self, endpoint: str, latency_ms: float, is_error: bool = False):
+        from app.core.cache import cache
+        if cache.client:
+            try:
+                await cache.client.hincrby("metrics:total_requests", endpoint, 1)
+                if is_error:
+                    await cache.client.hincrby("metrics:total_errors", endpoint, 1)
+            except Exception as e:
+                logger.error(f"Redis metrics error: {e}")
+
+        # Fallback to in-memory
         self.total_requests[endpoint] = self.total_requests.get(endpoint, 0) + 1
         if is_error:
             self.total_errors[endpoint] = self.total_errors.get(endpoint, 0) + 1
@@ -148,15 +159,36 @@ class MetricsCollector:
             self._latencies[endpoint] = deque(maxlen=100)
         self._latencies[endpoint].append(latency_ms)
 
-    def record_model_call(self, model_name: str, is_error: bool = False):
+    async def record_model_call(self, model_name: str, is_error: bool = False):
+        from app.core.cache import cache
+        if cache.client:
+            try:
+                await cache.client.hincrby("metrics:model_calls", model_name, 1)
+                if is_error:
+                    await cache.client.hincrby("metrics:model_errors", model_name, 1)
+            except Exception as e:
+                pass
+        
         self.model_calls[model_name] = self.model_calls.get(model_name, 0) + 1
         if is_error:
             self.model_errors[model_name] = self.model_errors.get(model_name, 0) + 1
 
-    def record_cache_hit(self):
+    async def record_cache_hit(self):
+        from app.core.cache import cache
+        if cache.client:
+            try:
+                await cache.client.incr("metrics:cache_hits")
+            except Exception:
+                pass
         self.cache_hits += 1
 
-    def record_cache_miss(self):
+    async def record_cache_miss(self):
+        from app.core.cache import cache
+        if cache.client:
+            try:
+                await cache.client.incr("metrics:cache_misses")
+            except Exception:
+                pass
         self.cache_misses += 1
 
     @property
@@ -170,7 +202,41 @@ class MetricsCollector:
     def uptime_seconds(self) -> int:
         return int(time.time() - self.start_time)
 
-    def snapshot(self) -> dict:
+    async def snapshot(self) -> dict:
+        from app.core.cache import cache
+        
+        # Merge Redis metrics if available
+        if cache.client:
+            try:
+                redis_requests = await cache.client.hgetall("metrics:total_requests")
+                redis_errors = await cache.client.hgetall("metrics:total_errors")
+                redis_model_calls = await cache.client.hgetall("metrics:model_calls")
+                redis_model_errors = await cache.client.hgetall("metrics:model_errors")
+                redis_cache_hits = await cache.client.get("metrics:cache_hits") or 0
+                redis_cache_misses = await cache.client.get("metrics:cache_misses") or 0
+                
+                # Convert string counts to int
+                redis_requests = {k: int(v) for k, v in redis_requests.items()}
+                redis_errors = {k: int(v) for k, v in redis_errors.items()}
+                redis_model_calls = {k: int(v) for k, v in redis_model_calls.items()}
+                redis_model_errors = {k: int(v) for k, v in redis_model_errors.items()}
+                
+                return {
+                    "uptime_seconds": self.uptime_seconds,
+                    "python_version": sys.version,
+                    "total_requests": redis_requests or dict(self.total_requests),
+                    "total_errors": redis_errors or dict(self.total_errors),
+                    "model_calls": redis_model_calls or dict(self.model_calls),
+                    "model_errors": redis_model_errors or dict(self.model_errors),
+                    "cache_hits": int(redis_cache_hits) or self.cache_hits,
+                    "cache_misses": int(redis_cache_misses) or self.cache_misses,
+                    "average_latency_ms": self.average_latency_ms,
+                }
+            except Exception as e:
+                logger.error(f"Failed to snapshot Redis metrics: {e}")
+
+        # Fallback: if Redis fails or isn't configured, execution falls through to this
+        # return statement, guaranteeing a dict is always returned, not None.
         return {
             "uptime_seconds": self.uptime_seconds,
             "python_version": sys.version,

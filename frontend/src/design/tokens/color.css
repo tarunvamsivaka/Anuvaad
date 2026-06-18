@@ -1,16 +1,15 @@
 /* ============================================================
    ANUVAAD DESIGN SYSTEM V2 — COLOR TOKENS
    Tier 1: Primitives (never used directly in components)
-   Tier 2: Surfaces
-   Tier 3: Borders
-   Tier 4: Text
+   Tier 2: Surfaces   — theme-aware (light/dark)
+   Tier 3: Borders    — theme-aware
+   Tier 4: Text       — theme-aware
    Tier 5: Glows
    Tier 6: Status
    ============================================================ */
 
+/* ── TIER 1: COLOR PRIMITIVES (static, both modes) ─────────── */
 :root {
-  /* ── TIER 1: COLOR PRIMITIVES ─────────────────────────────── */
-
   /* Amber scale */
   --amber-50:  #fffbeb;
   --amber-100: #fef3c7;
@@ -47,57 +46,98 @@
   --neutral-800: #1e293b;
   --neutral-900: #0f172a;
 
-  /* ── TIER 2: SURFACE TOKENS ────────────────────────────────── */
-  --surface-base:     #030014;  /* deepest background — WebGL canvas bg */
-  --surface-low:      #080c14;  /* page background */
-  --surface-mid:      #0c0f1a;  /* panels, sidebar */
-  --surface-high:     #111520;  /* cards */
-  --surface-overlay:  #161b28;  /* elevated cards, modals */
-  --surface-card:     #0e1219;  /* inner card surfaces */
+  /* ── TIER 2: SURFACE TOKENS — LIGHT MODE (default) ─────── */
+  --surface-base:     #f8fafc;   /* page root background */
+  --surface-low:      #f1f5f9;   /* main page background */
+  --surface-mid:      #e8edf4;   /* sidebar, panels */
+  --surface-high:     #ffffff;   /* cards */
+  --surface-overlay:  #ffffff;   /* modals, dropdowns */
+  --surface-card:     #f8fafc;   /* inner card surfaces */
 
-  /* Landing-specific surfaces */
-  --surface-landing:  #020204;
+  /* Landing/special surfaces */
+  --surface-landing:  #020204;   /* keeps landing dark — intentional cinematic look */
+  --surface-charcoal: #ffffff;   /* used in workspace — white in light mode */
+  --surface-panel:    rgba(248, 250, 252, 0.90);
+
+  /* ── TIER 3: BORDER TOKENS — LIGHT MODE ────────────────── */
+  --border-faint:   rgba(15, 23, 42, 0.05);   /* barely visible */
+  --border-subtle:  rgba(15, 23, 42, 0.09);   /* default subtle */
+  --border-default: rgba(15, 23, 42, 0.14);   /* standard */
+  --border-medium:  rgba(15, 23, 42, 0.22);   /* visible */
+  --border-active:  rgba(217, 119, 6, 0.45);  /* hover/active — amber-600 tinted */
+  --border-focus:   rgba(217, 119, 6, 0.80);  /* focus state */
+
+  /* ── TIER 4: TEXT TOKENS — LIGHT MODE ──────────────────── */
+  --text-primary:   #0f172a;   /* deep slate — strong contrast */
+  --text-secondary: #475569;   /* slate-600 */
+  --text-muted:     #94a3b8;   /* slate-400 */
+  --text-amber:     #d97706;   /* amber-600 — WCAG AA on white */
+  --text-on-brand:  #ffffff;   /* text on amber buttons */
+
+  /* ── TIER 5: GLOW TOKENS ────────────────────────────────── */
+  /* Lighter, more subtle glows for light mode */
+  --glow-xs: 0 0 8px  rgba(217, 119, 6, 0.15);
+  --glow-sm: 0 0 12px rgba(217, 119, 6, 0.18);
+  --glow-md: 0 0 24px rgba(217, 119, 6, 0.22);
+  --glow-lg: 0 0 48px rgba(217, 119, 6, 0.18), 0 0 100px rgba(217, 119, 6, 0.08);
+
+  /* Legacy aliases */
+  --glow-amber-sm: var(--glow-sm);
+  --glow-amber-md: var(--glow-md);
+  --glow-amber-lg: var(--glow-lg);
+
+  /* Landing aurora overlays (always rich — landing is always dark) */
+  --amber-glow: rgba(245, 158, 11, 0.60);
+  --amber-mid:  rgba(217, 119, 6, 0.40);
+  --amber-soft: rgba(252, 211, 77, 0.15);
+
+  /* ── TIER 6: STATUS TOKENS (same in both modes) ─────────── */
+  --status-success:       #10b981;
+  --status-success-glow:  rgba(16, 185, 129, 0.30);
+  --status-warning:       #f59e0b;
+  --status-warning-glow:  rgba(245, 158, 11, 0.30);
+  --status-danger:        #ef4444;
+  --status-danger-glow:   rgba(239, 68, 68, 0.30);
+  --status-info:          #06b6d4;
+  --status-info-glow:     rgba(6, 182, 212, 0.30);
+}
+
+/* ── DARK MODE OVERRIDES ─────────────────────────────────────── */
+.dark {
+  /* TIER 2: SURFACE TOKENS — DARK MODE */
+  --surface-base:     #030014;
+  --surface-low:      #080c14;
+  --surface-mid:      #0c0f1a;
+  --surface-high:     #111520;
+  --surface-overlay:  #161b28;
+  --surface-card:     #0e1219;
   --surface-charcoal: #0c0c0f;
   --surface-panel:    rgba(18, 18, 24, 0.85);
 
-  /* ── TIER 3: BORDER TOKENS ─────────────────────────────────── */
-  --border-faint:   rgba(245, 158, 11, 0.06);  /* 6% — barely visible */
-  --border-subtle:  rgba(245, 158, 11, 0.08);  /* 8% — default subtle */
-  --border-default: rgba(245, 158, 11, 0.12);  /* 12% — standard border */
-  --border-medium:  rgba(245, 158, 11, 0.20);  /* 20% — visible border */
-  --border-active:  rgba(245, 158, 11, 0.35);  /* 35% — hover/active */
-  --border-focus:   rgba(245, 158, 11, 0.70);  /* 70% — focus state */
+  /* TIER 3: BORDER TOKENS — DARK MODE */
+  --border-faint:   rgba(245, 158, 11, 0.06);
+  --border-subtle:  rgba(245, 158, 11, 0.08);
+  --border-default: rgba(245, 158, 11, 0.12);
+  --border-medium:  rgba(245, 158, 11, 0.20);
+  --border-active:  rgba(245, 158, 11, 0.35);
+  --border-focus:   rgba(245, 158, 11, 0.70);
 
-  /* ── TIER 4: TEXT TOKENS ───────────────────────────────────── */
-  --text-primary:   #e8ecf0;  /* body text */
-  --text-secondary: #8899aa;  /* secondary labels */
-  --text-muted:     #5a6a7a;  /* placeholders, disabled */
-  --text-amber:     #f59e0b;  /* brand amber text */
-  --text-on-brand:  #020204;  /* text on amber backgrounds */
+  /* TIER 4: TEXT TOKENS — DARK MODE */
+  --text-primary:   #e8ecf0;
+  --text-secondary: #8899aa;
+  --text-muted:     #5a6a7a;
+  --text-amber:     #f59e0b;
+  --text-on-brand:  #020204;
 
-  /* ── TIER 5: GLOW TOKENS ───────────────────────────────────── */
+  /* TIER 5: GLOW TOKENS — DARK MODE (richer, more vibrant) */
   --glow-xs: 0 0 8px  rgba(245, 158, 11, 0.20);
   --glow-sm: 0 0 12px rgba(245, 158, 11, 0.25);
   --glow-md: 0 0 24px rgba(245, 158, 11, 0.35);
   --glow-lg: 0 0 48px rgba(245, 158, 11, 0.25), 0 0 100px rgba(245, 158, 11, 0.10);
 
-  /* Legacy aliases — kept for backward compat during migration */
-  --glow-amber-sm: var(--glow-sm);
-  --glow-amber-md: var(--glow-md);
-  --glow-amber-lg: var(--glow-lg);
-
-  /* Landing aurora overlays */
-  --amber-glow: rgba(245, 158, 11, 0.60);
-  --amber-mid:  rgba(217, 119, 6, 0.40);
-  --amber-soft: rgba(252, 211, 77, 0.15);
-
-  /* ── TIER 6: STATUS TOKENS ─────────────────────────────────── */
-  --status-success:       #10b981;
-  --status-success-glow:  rgba(16, 185, 129, 0.40);
-  --status-warning:       #f59e0b;
-  --status-warning-glow:  rgba(245, 158, 11, 0.40);
-  --status-danger:        #ef4444;
-  --status-danger-glow:   rgba(239, 68, 68, 0.40);
-  --status-info:          #06b6d4;
-  --status-info-glow:     rgba(6, 182, 212, 0.40);
+  /* TIER 6: STATUS (slightly stronger glow in dark) */
+  --status-success-glow: rgba(16, 185, 129, 0.40);
+  --status-warning-glow: rgba(245, 158, 11, 0.40);
+  --status-danger-glow:  rgba(239, 68, 68, 0.40);
+  --status-info-glow:    rgba(6, 182, 212, 0.40);
 }

@@ -8,13 +8,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Check, Zap, CreditCard, Loader2, X, PartyPopper } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import { useSubscriptionStatus, useTranslationStats } from "@/lib/hooks";
 import Script from "next/script";
 
 function BillingPageContent() {
+  const router = useRouter();
   const { isPro, session } = useAuth();
   const [loading, setLoading] = useState(false);
   // const [portalLoading, setPortalLoading] = useState(false);
@@ -58,10 +59,13 @@ function BillingPageContent() {
       const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const res = await fetch(`${API}/api/create-checkout-session`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        // BACK-06: auth via Authorization header, not request body
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           user_email: session.user.email,
-          access_token: session.access_token,
         }),
       });
       if (res.ok) {
@@ -84,18 +88,23 @@ function BillingPageContent() {
             try {
               const verifyRes = await fetch(`${API}/api/verify-payment`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                // BACK-06: auth via Authorization header, not request body
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${session.access_token}`,
+                },
                 body: JSON.stringify({
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_subscription_id: response.razorpay_subscription_id || data.subscription_id,
                   razorpay_signature: response.razorpay_signature,
-                  access_token: session.access_token,
                   payment_type: "subscription",
                 }),
               });
               if (verifyRes.ok) {
                 toast.success("Payment verified! Welcome to Pro.");
-                window.location.href = "/dashboard/billing?payment=success";
+                // FRONT-05: Use router.push instead of window.location.href
+                // This preserves SPA navigation and allows SWR to revalidate.
+                router.push("/dashboard/billing?payment=success");
               } else {
                 const err = await verifyRes.json().catch(() => null);
                 toast.error(err?.detail || "Payment verification failed. Please contact support.");

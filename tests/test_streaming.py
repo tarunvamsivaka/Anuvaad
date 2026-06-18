@@ -120,9 +120,11 @@ class TestStreamingEndpoint:
         app_module.app.dependency_overrides[app_module.get_user_email] = (
             fake_get_user_email
         )
+        import app.core.cache as cache_module
         try:
-            with patch.object(app_module, "cache", fake_redis):
-                with patch.object(app_module, "AsyncOpenAI", TrackingMock):
+            with patch.object(app_module, "cache", fake_redis), \
+                 patch.object(cache_module, "cache_override", fake_redis), \
+                 patch.object(app_module, "AsyncOpenAI", TrackingMock):
                     from fastapi.testclient import TestClient
 
                     with TestClient(app_module.app) as tc:
