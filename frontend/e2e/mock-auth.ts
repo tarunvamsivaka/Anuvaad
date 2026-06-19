@@ -102,11 +102,31 @@ export async function mockSupabaseAuth(page: Page) {
     });
   });
 
-  // Mock GET **/auth/v1/user*
+  // Mock GET and PUT **/auth/v1/user*
+  // GET: used by supabase.auth.getUser()
+  // PUT: used by supabase.auth.updateUser() (e.g. onboarding welcome page sets onboarded:true)
   await page.route('**/auth/v1/user*', async route => {
     const request = route.request();
     if (request.method() === 'OPTIONS') {
       await route.fulfill({ status: 200, headers: corsHeaders });
+      return;
+    }
+    if (request.method() === 'PUT') {
+      // Return the updated user with merged metadata so auth state listeners
+      // see the change (e.g. onboarded:true) and don't re-trigger the onboarding redirect.
+      let updatedMetadata = { ...mockUser.user_metadata };
+      try {
+        const body = request.postDataJSON();
+        if (body?.data) {
+          updatedMetadata = { ...updatedMetadata, ...body.data };
+        }
+      } catch { /* ignore parse errors */ }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: corsHeaders,
+        body: JSON.stringify({ ...mockUser, user_metadata: updatedMetadata })
+      });
       return;
     }
     await route.fulfill({

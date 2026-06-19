@@ -25,16 +25,29 @@ setup('signup-new-user', async ({ page }) => {
   // Click the submit button
   await page.click('button[type="submit"]');
 
-  // Wait for redirect to dashboard or welcome onboarding page
+  // Wait for redirect to dashboard or welcome onboarding page.
+  // The app may redirect to /dashboard/welcome first if the user hasn't onboarded yet.
   try {
-    await expect(page.locator('text=All Time')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Initialize Translation Engine")'))).toBeVisible({ timeout: 15000 });
   } catch (err) {
-    // If auto-redirect failed due to email verification being required, we check for verification prompt
+    // If auto-redirect failed due to email verification being required, check for that prompt
     const hasVerificationText = await page.isVisible('text=Check your email');
     if (!hasVerificationText) {
+      console.error('[E2E Signup Setup] Current URL:', page.url());
       throw err;
     }
     console.log('[E2E Signup Setup] Email verification required screen shown.');
+  }
+
+  // Self-healing onboarding skip: if redirected to welcome/onboarding, skip it
+  try {
+    await page.waitForURL('**/dashboard/welcome', { timeout: 5000 });
+    console.log('[E2E Signup Setup] Onboarding welcome page detected. Skipping...');
+    await page.click('button:has-text("Skip onboarding")');
+    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')))
+      .toBeVisible({ timeout: 20000 });
+  } catch {
+    // Already on dashboard or onboarding not shown — this is fine
   }
 
   // Save the registration state for specific tests that require a fresh registration state
