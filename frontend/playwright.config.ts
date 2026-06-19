@@ -35,7 +35,7 @@ export default defineConfig({
    * TEST-02: Cross-browser coverage is preserved for local dev. */
   projects: process.env.CI
     ? [
-        { name: 'setup', testMatch: /.*\.setup\.ts/ },
+        { name: 'setup', testMatch: 'e2e/auth.setup.ts' },
         {
           name: 'chromium',
           use: {
