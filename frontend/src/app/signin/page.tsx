@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { useState, Suspense, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/lib/auth-context";
 import { track } from "@/lib/analytics";
@@ -135,7 +134,6 @@ function AuthTypewriter() {
 }
 
 function SignInPageContent() {
-  const searchParams = useSearchParams();
   const { signInWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -143,9 +141,14 @@ function SignInPageContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [honeypot, setHoneypot] = useState("");
+  const [redirectTo, setRedirectTo] = useState("/dashboard");
 
-  const rawRedirect = searchParams.get("redirectTo") || "/dashboard";
-  const redirectTo = rawRedirect.startsWith("/") && !rawRedirect.startsWith("//") ? rawRedirect : "/dashboard";
+  // Read redirectTo from the URL after mount — avoids useSearchParams() Suspense
+  // requirement which prevents the form from appearing in the initial SSR HTML.
+  useEffect(() => {
+    const raw = new URLSearchParams(window.location.search).get("redirectTo") || "/dashboard";
+    setRedirectTo(raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard");
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -355,13 +358,5 @@ function SignInPageContent() {
 }
 
 export default function SignInPage() {
-  return (
-    <Suspense fallback={
-      <div className="auth-bg flex min-h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
-      </div>
-    }>
-      <SignInPageContent />
-    </Suspense>
-  );
+  return <SignInPageContent />;
 }
