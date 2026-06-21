@@ -51,6 +51,7 @@ export function ChatInterface() {
       >
         <Button
           size="icon"
+          aria-label={isOpen ? "Close Copilot" : "Open Copilot"}
           className={cn(
             "h-12 w-12 rounded-full shadow-2xl transition-colors duration-300",
             isOpen ? "bg-amber-600 hover:bg-amber-700" : "bg-amber-500 hover:bg-amber-600"
@@ -149,6 +150,7 @@ export function ChatInterface() {
                   type="submit" 
                   size="icon" 
                   variant="ghost" 
+                  aria-label="Send message"
                   className="absolute right-1 h-8 w-8 rounded-full text-slate-400 hover:text-amber-500 hover:bg-amber-500/10"
                   disabled={!input.trim()}
                 >

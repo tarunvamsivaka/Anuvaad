@@ -141,7 +141,7 @@ int main() {
   await page.waitForTimeout(300); // Let CSS transition settle
   
   // Get the Edit button and click it programmatically to avoid layout overlap interception in WebKit (mobile-safari)
-  const editBtn = firstEnglishPanel.locator('button:has-text("Edit")');
+  const editBtn = firstEnglishPanel.locator('button[aria-label="Edit explanation"]');
   await editBtn.evaluate((node) => (node as HTMLElement).click());
   
   // 2. Modify the explanation in the inline textarea

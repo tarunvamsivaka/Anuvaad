@@ -121,7 +121,8 @@ export function InputPanel({
         <div className="flex items-center gap-3">
           <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{input.length.toLocaleString()} chars</span>
           <Button variant="ghost" size="sm" aria-label="Clear" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
-          <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} aria-disabled={!input.trim() && !isStreaming}
+          <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} 
+            aria-label={isStreaming ? "Stop translation" : "Translate code"}
             size="sm"
             className={cn(
               "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs font-bold",
