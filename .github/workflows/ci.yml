@@ -149,8 +149,10 @@ jobs:
         # `node .next/standalone/server.js` does NOT auto-include .next/static or public.
         # We must copy them so the standalone server serves CSS/JS/images correctly.
         run: |
-          cp -r .next/static .next/standalone/.next/static
-          cp -r public .next/standalone/public
+          mkdir -p .next/standalone/.next/static
+          cp -r .next/static/. .next/standalone/.next/static/
+          mkdir -p .next/standalone/public
+          cp -r public/. .next/standalone/public/
 
       - name: Run Playwright tests
         env:
