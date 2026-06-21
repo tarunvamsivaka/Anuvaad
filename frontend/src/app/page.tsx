@@ -36,7 +36,8 @@ const jsonLd = {
 };
 
 export default function Home() {
-  const showLandingV2 = process.env.NEXT_PUBLIC_LANDING_V2 === "true";
+  // Default to true unless explicitly disabled via environment variable
+  const showLandingV2 = process.env.NEXT_PUBLIC_LANDING_V2 !== "false";
 
   return (
     <>
