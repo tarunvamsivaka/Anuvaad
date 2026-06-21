@@ -36,10 +36,9 @@ COPY main.py .
 COPY app/ ./app
 
 # Copy built frontend
-COPY --from=frontend-builder /frontend/.next ./frontend/.next
-COPY --from=frontend-builder /frontend/node_modules ./frontend/node_modules
-COPY --from=frontend-builder /frontend/package.json ./frontend/package.json
 COPY --from=frontend-builder /frontend/public ./frontend/public
+COPY --from=frontend-builder /frontend/.next/standalone ./frontend/
+COPY --from=frontend-builder /frontend/.next/static ./frontend/.next/static
 
 # Copy static files (served by Nginx or FastAPI)
 COPY robots.txt .
@@ -56,7 +55,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
 # INFRA-04: Gunicorn multi-worker production server
 # WEB_CONCURRENCY controls worker count (default: 4 workers)
 # Use uvicorn.workers.UvicornWorker for async/ASGI support
-CMD sh -c "cd /app/frontend && npm start & \
+CMD sh -c "cd /app/frontend && node server.js & \
   gunicorn main:app \
     --workers ${WEB_CONCURRENCY:-4} \
     --worker-class uvicorn.workers.UvicornWorker \
