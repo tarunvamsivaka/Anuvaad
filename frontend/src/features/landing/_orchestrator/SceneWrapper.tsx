@@ -17,12 +17,13 @@ export function SceneWrapper({ config, globalProgress, children }: SceneWrapperP
   const [active, setActive] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     let triggerInstance: any = null;
 
     if (!containerRef.current) return;
 
     registerScrollTrigger().then(({ ScrollTrigger }) => {
-      if (!containerRef.current) return;
+      if (!isMounted || !containerRef.current) return;
 
       triggerInstance = ScrollTrigger.create({
         trigger: containerRef.current,
@@ -40,6 +41,7 @@ export function SceneWrapper({ config, globalProgress, children }: SceneWrapperP
     });
 
     return () => {
+      isMounted = false;
       if (triggerInstance) {
         triggerInstance.kill();
       }

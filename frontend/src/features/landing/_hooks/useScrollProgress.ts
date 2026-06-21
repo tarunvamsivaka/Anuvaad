@@ -15,12 +15,13 @@ export function useScrollProgress({
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    let isMounted = true;
     let scrollTriggerInstance: any = null;
 
     if (!triggerRef.current) return;
 
     registerScrollTrigger().then(({ ScrollTrigger }) => {
-      if (!triggerRef.current) return;
+      if (!isMounted || !triggerRef.current) return;
 
       scrollTriggerInstance = ScrollTrigger.create({
         trigger: triggerRef.current,
@@ -34,6 +35,7 @@ export function useScrollProgress({
     });
 
     return () => {
+      isMounted = false;
       if (scrollTriggerInstance) {
         scrollTriggerInstance.kill();
       }

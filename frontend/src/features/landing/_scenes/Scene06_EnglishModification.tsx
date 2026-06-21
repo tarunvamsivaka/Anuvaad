@@ -23,8 +23,10 @@ export function Scene06_EnglishModification({ id, active, progress, globalProgre
 
   React.useEffect(() => {
     if (!isMotionSafe()) return;
+    let isMounted = true;
     let ctx: gsap.Context;
     getContext().then((context) => {
+      if (!isMounted) return;
       ctx = context;
       ctx.add(() => {
         const tl = gsap.timeline({ paused: true });
@@ -60,9 +62,13 @@ export function Scene06_EnglishModification({ id, active, progress, globalProgre
         tl.set(".status-translating", { display: "none" }, 0.8);
         tl.set(".status-ready", { display: "inline" }, 0.8);
         
-        // Spin icon
-        tl.set(".spin-icon", { className: "+=animate-spin" }, 0.3);
-        tl.set(".spin-icon", { className: "-=animate-spin" }, 0.8);
+        // Spin icon rotation
+        tl.to(".spin-icon", {
+          rotation: 360,
+          transformOrigin: "50% 50%",
+          ease: "none",
+          duration: 0.5
+        }, 0.3);
 
         // Bottom Footer
         tl.set(".footer-ctrl", { display: "none" }, 0.8);
@@ -82,6 +88,7 @@ export function Scene06_EnglishModification({ id, active, progress, globalProgre
     });
 
     return () => {
+      isMounted = false;
       ctx?.revert();
     };
   }, [getContext, originalEndChars.length, newEndChars.length]);

@@ -30,8 +30,10 @@ export function Scene01_RepositoryDiscovery({ id, active, progress, globalProgre
 
   React.useEffect(() => {
     if (!isMotionSafe()) return;
+    let isMounted = true;
     let ctx: gsap.Context;
     getContext().then((context) => {
+      if (!isMounted) return;
       ctx = context;
       ctx.add(() => {
         const tl = gsap.timeline({ paused: true });
@@ -79,6 +81,7 @@ export function Scene01_RepositoryDiscovery({ id, active, progress, globalProgre
     });
 
     return () => {
+      isMounted = false;
       ctx?.revert();
     };
   }, [getContext]);

@@ -17,8 +17,10 @@ export function Scene05_RepositoryIntelligence({ id, active, progress, globalPro
 
   React.useEffect(() => {
     if (!isMotionSafe()) return;
+    let isMounted = true;
     let ctx: gsap.Context;
     getContext().then((context) => {
+      if (!isMounted) return;
       ctx = context;
       ctx.add(() => {
         const tl = gsap.timeline({ paused: true });
@@ -44,6 +46,7 @@ export function Scene05_RepositoryIntelligence({ id, active, progress, globalPro
     });
 
     return () => {
+      isMounted = false;
       ctx?.revert();
     };
   }, [getContext]);

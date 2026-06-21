@@ -10,7 +10,6 @@ interface WebGLCanvasProps {
 
 export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const managerRef = useRef<WebGLSceneManager | null>(null);
 
@@ -55,8 +54,10 @@ export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
       return;
     }
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!containerRef.current) return;
+    const canvas = document.createElement("canvas");
+    canvas.className = "block h-full w-full";
+    containerRef.current.appendChild(canvas);
 
     const { particleCount, dpr } = getQualityTier();
     const width = window.innerWidth;
@@ -151,6 +152,10 @@ export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
         managerRef.current.destroy();
         managerRef.current = null;
       }
+
+      if (containerRef.current) {
+        containerRef.current.innerHTML = "";
+      }
     };
   }, [webglSupported, motionSafe]);
 
@@ -169,9 +174,7 @@ export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
   }
 
   return (
-    <div ref={containerRef} className="fixed inset-0 -z-10 h-screen w-screen overflow-hidden bg-surface-base">
-      <canvas ref={canvasRef} className="block h-full w-full" />
-    </div>
+    <div ref={containerRef} className="fixed inset-0 -z-10 h-screen w-screen overflow-hidden bg-surface-base" />
   );
 }
 

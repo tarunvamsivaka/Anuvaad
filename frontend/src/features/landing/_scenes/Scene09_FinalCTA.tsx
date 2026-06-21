@@ -17,8 +17,10 @@ export function Scene09_FinalCTA({ id, active, progress, globalProgress: _global
 
   React.useEffect(() => {
     if (!isMotionSafe()) return;
+    let isMounted = true;
     let ctx: gsap.Context;
     getContext().then((context) => {
+      if (!isMounted) return;
       ctx = context;
       ctx.add(() => {
         const tl = gsap.timeline({ paused: true });
@@ -55,6 +57,7 @@ export function Scene09_FinalCTA({ id, active, progress, globalProgress: _global
     });
 
     return () => {
+      isMounted = false;
       ctx?.revert();
     };
   }, [getContext]);

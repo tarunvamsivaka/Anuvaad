@@ -347,7 +347,7 @@ export class WebGLSceneManager {
       }
     }
 
-    if (scrollVal >= 1.0) {
+    if (scrollVal >= states[states.length - 1].progress) {
       fromState = states[states.length - 1];
       toState = states[states.length - 1];
       t = 1.0;
