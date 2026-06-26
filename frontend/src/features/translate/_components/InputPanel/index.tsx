@@ -211,6 +211,7 @@ export function InputPanel({
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+                <div className="p-2 overflow-y-auto flex-1 custom-scrollbar">
                   {fileList.length === 0 ? (
                     <div className="p-8 text-center text-sm text-slate-500">No files or folders found.</div>
                   ) : (
