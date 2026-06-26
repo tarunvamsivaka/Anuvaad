@@ -224,7 +224,7 @@ def process_large_file_task(file_content: str, user_email: str, language: str = 
 @celery_app.task(name="tasks.process_github_repo")
 def process_github_repo_task(repo_name: str, installation_id: str):
     """Background pipeline for GitHub repo embeddings.
-    
+
     Arch#2.7: This task previously used hardcoded mock data, silently doing nothing useful.
     Real GitHub API integration is required before this can be production-ready.
     Marked as not-implemented until GitHub API credentials and integration are added.

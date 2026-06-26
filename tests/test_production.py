@@ -102,9 +102,9 @@ async def test_supabase_request_fallback(monkeypatch):
     import app.core.database as db_module
     from unittest.mock import patch
     import importlib
-    
+
     importlib.reload(db_module)
-    
+
     with patch("app.core.database.AsyncSessionLocal", side_effect=Exception("DB Error")):
         result = await db_module.supabase_request("test_table", "select", {"id": "1"})
         assert result is None

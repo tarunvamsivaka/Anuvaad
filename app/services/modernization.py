@@ -20,7 +20,7 @@ class LegacyModernizationOrchestrator:
         logger.info(f"Analyzing {len(files)} files for dependency graph.")
 
         system_prompt = """
-        You are an expert Systems Architect. Analyze the provided legacy files and extract the dependency graph, 
+        You are an expert Systems Architect. Analyze the provided legacy files and extract the dependency graph,
         shared global state, and data flow. Return a JSON object with 'nodes' (files) and 'edges' (dependencies).
         """
 
@@ -39,8 +39,8 @@ class LegacyModernizationOrchestrator:
         logger.info("Generating microservice scaffolding...")
 
         system_prompt = f"""
-        You are a principal engineer. Based on the provided architecture graph of a legacy monolithic system, 
-        generate a modern, idiomatic {self.target_stack} microservice scaffolding. 
+        You are a principal engineer. Based on the provided architecture graph of a legacy monolithic system,
+        generate a modern, idiomatic {self.target_stack} microservice scaffolding.
         Return a JSON object where keys are file paths and values are the initial boilerplate code.
         """
 

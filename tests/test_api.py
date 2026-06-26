@@ -291,11 +291,11 @@ class TestImportGist:
         mock_contents_response.json.return_value = [
             {"name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py"}
         ]
-        
+
         mock_download_response = MagicMock()
         mock_download_response.status_code = 200
         mock_download_response.text = "print('hello from repo root')"
-        
+
         # Side effect for the two get calls
         mock_get.side_effect = [mock_contents_response, mock_download_response]
 

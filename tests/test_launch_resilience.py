@@ -202,9 +202,9 @@ class TestStaleRecoveryFallback:
         # Mock get_completion to throw an exception
         with patch("app.routers.translate.code_to_english.get_completion", side_effect=Exception("API limit exceeded")):
             with patch.object(
-                app_module.cache, 
-                "get", 
-                new_callable=AsyncMock, 
+                app_module.cache,
+                "get",
+                new_callable=AsyncMock,
                 side_effect=[None, mock_blocks, mock_blocks, mock_blocks, mock_blocks, mock_blocks]
             ):
                 res = client.post(
