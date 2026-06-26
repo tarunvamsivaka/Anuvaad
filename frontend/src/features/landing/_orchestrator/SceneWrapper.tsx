@@ -27,9 +27,9 @@ export function SceneWrapper({ config, globalProgress, children }: SceneWrapperP
 
       triggerInstance = ScrollTrigger.create({
         trigger: containerRef.current,
-        start: config.isPinned ? "top top" : "top bottom",
-        end: config.isPinned ? "bottom bottom" : "bottom top",
-        pin: config.isPinned ? pinRef.current ?? undefined : undefined,
+        start: "top bottom",
+        end: "bottom top",
+        pin: undefined,
         scrub: true,
         onToggle: (self) => {
           setActive(self.isActive);
@@ -48,21 +48,15 @@ export function SceneWrapper({ config, globalProgress, children }: SceneWrapperP
     };
   }, [config]);
 
-  // Style height based on scroll weight (e.g. weight of 1 = 100vh)
-  const heightStyle = {
-    height: `${config.scrollWeight * 100}vh`,
-  };
-
   return (
     <div
       ref={containerRef}
-      style={heightStyle}
       className="relative w-full"
       data-scene-id={config.id}
     >
       <div
         ref={pinRef}
-        className="w-full h-screen relative overflow-hidden"
+        className="w-full h-screen relative overflow-hidden bg-transparent"
       >
         {children({
           id: config.id,

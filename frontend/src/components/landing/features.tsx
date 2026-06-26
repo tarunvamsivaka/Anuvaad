@@ -16,11 +16,11 @@ const LARGE_FEATURES = [
     badge: "Core",
     highlight: true,
     preview: (
-      <div className="mt-5 rounded-xl border border-amber-500/12 bg-[#020204]/60 p-4">
-        <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-amber-500/40">Translation preview</p>
-        <p className="font-mono text-[11px] text-amber-300/60 leading-relaxed">
+      <div className="mt-5 rounded-2xl border border-black/07 bg-neutral-50 p-4">
+        <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-neutral-400">Translation preview</p>
+        <p className="font-mono text-[11px] text-neutral-500 leading-relaxed">
           {"// calculateTotal(items, taxRate)"}<br />
-          <span className="text-amber-100/80 block mt-2" style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic", fontSize: "12px", lineHeight: "1.6" }}>
+          <span className="text-neutral-800 block mt-2" style={{ fontFamily: "var(--font-garamond, Georgia, serif)", fontStyle: "italic", fontSize: "13px", lineHeight: "1.65" }}>
             Sums all item prices, applies the tax rate as a multiplier, and returns the final amount rounded to 2 decimal places.
           </span>
         </p>
@@ -84,30 +84,33 @@ export function Features() {
     <section
       id="features"
       ref={sectionRef}
-      className="landing-section relative border-t border-amber-500/8 py-32 overflow-hidden"
+      className="wispr-section-light relative py-32 overflow-hidden"
     >
-      {/* Ambient glows */}
-      <div className="pointer-events-none absolute bottom-0 right-0 -z-10 h-[600px] w-[600px] rounded-full opacity-60"
-        style={{ background: "radial-gradient(circle, rgba(245,158,11,0.05) 0%, transparent 65%)" }}
-      />
-      <div className="pointer-events-none absolute top-1/2 left-0 -z-10 h-[400px] w-[400px] rounded-full opacity-40"
-        style={{ background: "radial-gradient(circle, rgba(245,158,11,0.04) 0%, transparent 65%)" }}
+      {/* Subtle noise texture */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.018]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: "256px 256px",
+        }}
       />
 
       <div className="mx-auto max-w-7xl px-6">
         {/* Section header */}
         <div className="feature-card-reveal mb-16 max-w-2xl">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-400/80">
-            <Sparkles className="h-3 w-3" />
+          <div className="wispr-eyebrow-pill-light mb-5">
+            <Sparkles className="h-3 w-3 opacity-60" />
             Everything You Need
           </div>
           <h2
-            className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl leading-tight"
+            className="wispr-headline text-neutral-900 mb-5"
+            style={{ fontSize: "clamp(36px, 5vw, 56px)" }}
           >
             Built for developers who{" "}
-            <span className="headline-gradient">understand code.</span>
+            <span style={{ color: "#c8860a", fontStyle: "italic" }}>understand code.</span>
           </h2>
-          <p className="mt-5 text-lg text-slate-400 leading-relaxed">
+          <p className="text-[17px] text-neutral-500 leading-relaxed">
             Three powerful translation modes, 35+ languages, and a suite of professional tools — all built around one mission: making code comprehensible.
           </p>
         </div>
@@ -118,25 +121,41 @@ export function Features() {
           {LARGE_FEATURES.map((f) => (
             <div
               key={f.title}
-              className={`feature-card-reveal group rounded-2xl border p-7 transition-all duration-500 cursor-default overflow-hidden relative ${
+              className={`feature-card-reveal group rounded-3xl border p-7 transition-all duration-400 cursor-default overflow-hidden relative ${
                 f.highlight
-                  ? "border-amber-500/20 bg-gradient-to-br from-amber-500/10 via-[#0c0c0f] to-[#0c0c0f] shadow-[0_0_60px_rgba(245,158,11,0.07)] col-span-1 md:col-span-2 lg:col-span-1"
-                  : "border-white/5 bg-surface-charcoal/80 shadow-xl shadow-black/40 backdrop-blur-sm hover:border-amber-500/15 hover:shadow-[0_8px_40px_rgba(0,0,0,0.6)]"
+                  ? "border-amber-200/80 bg-white shadow-[0_8px_40px_rgba(200,134,10,0.08)] col-span-1 md:col-span-2 lg:col-span-1 hover:shadow-[0_12px_60px_rgba(200,134,10,0.12)]"
+                  : "border-black/07 bg-white shadow-[0_4px_24px_rgba(0,0,0,0.06)] hover:shadow-[0_8px_40px_rgba(0,0,0,0.10)] hover:border-amber-200/60"
               }`}
+              style={{ transition: "all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
             >
-              {/* Hover shimmer overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 via-amber-500/2 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+              {/* Hover shimmer — very subtle warm */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-50/0 to-amber-50/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-3xl" />
 
               <div className="flex items-start justify-between relative z-10">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-amber-500/15 bg-amber-500/8 transition-all duration-300 group-hover:bg-amber-500/18 group-hover:border-amber-500/30 group-hover:shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-                  <f.icon className="h-5 w-5 text-amber-400" />
+                <div className={`flex h-11 w-11 items-center justify-center rounded-xl border transition-all duration-300 ${
+                  f.highlight
+                    ? "border-amber-200 bg-amber-50 group-hover:bg-amber-100 group-hover:border-amber-300"
+                    : "border-neutral-200 bg-neutral-50 group-hover:bg-amber-50 group-hover:border-amber-200"
+                }`}>
+                  <f.icon className="h-5 w-5 text-amber-600" />
                 </div>
-                <span className="rounded-full border border-amber-500/20 bg-amber-500/6 px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-400/70">
+                <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+                  f.highlight
+                    ? "border border-amber-200 bg-amber-50 text-amber-700"
+                    : "border border-neutral-200 bg-neutral-50 text-neutral-500"
+                }`}>
                   {f.badge}
                 </span>
               </div>
-              <h3 className="relative z-10 mt-5 text-xl font-bold tracking-tight text-white group-hover:text-amber-50 transition-colors">{f.title}</h3>
-              <p className="relative z-10 mt-2.5 text-sm leading-relaxed text-slate-400 group-hover:text-slate-300 transition-colors">{f.description}</p>
+              <h3
+                className="relative z-10 mt-5 text-xl font-semibold tracking-tight text-neutral-900"
+                style={{ fontFamily: "var(--font-garamond, Georgia, serif)" }}
+              >
+                {f.title}
+              </h3>
+              <p className="relative z-10 mt-2.5 text-sm leading-relaxed text-neutral-500 group-hover:text-neutral-600 transition-colors">
+                {f.description}
+              </p>
               {f.preview}
             </div>
           ))}
@@ -145,15 +164,16 @@ export function Features() {
           {SMALL_FEATURES.map((f) => (
             <div
               key={f.title}
-              className="feature-card-reveal group rounded-2xl border border-white/5 bg-surface-charcoal/80 p-5 shadow-lg shadow-black/30 backdrop-blur-sm transition-all duration-300 hover:border-amber-500/15 hover:shadow-[0_8px_32px_rgba(0,0,0,0.5)] cursor-default relative overflow-hidden"
+              className="feature-card-reveal group rounded-3xl border border-black/07 bg-white p-5 shadow-[0_2px_16px_rgba(0,0,0,0.05)] cursor-default relative overflow-hidden hover:shadow-[0_6px_32px_rgba(0,0,0,0.09)] hover:border-amber-200/60"
+              style={{ transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
             >
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/0 to-amber-500/3 opacity-0 group-hover:opacity-100 transition-opacity duration-400 pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-br from-transparent to-amber-50/30 opacity-0 group-hover:opacity-100 transition-opacity duration-400 pointer-events-none" />
 
-              <div className="relative z-10 mb-3.5 flex h-9 w-9 items-center justify-center rounded-lg border border-amber-500/12 bg-amber-500/6 transition-all duration-300 group-hover:bg-amber-500/15 group-hover:border-amber-500/25 group-hover:shadow-[0_0_12px_rgba(245,158,11,0.15)]">
-                <f.icon className="h-4 w-4 text-amber-400/80 group-hover:text-amber-400 transition-colors" />
+              <div className="relative z-10 mb-3.5 flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 group-hover:bg-amber-50 group-hover:border-amber-200 transition-all duration-300">
+                <f.icon className="h-4 w-4 text-neutral-400 group-hover:text-amber-600 transition-colors" />
               </div>
-              <h3 className="relative z-10 text-sm font-bold text-white tracking-tight group-hover:text-amber-50 transition-colors">{f.title}</h3>
-              <p className="relative z-10 mt-1.5 text-xs leading-relaxed text-slate-500 group-hover:text-slate-400 transition-colors">{f.description}</p>
+              <h3 className="relative z-10 text-sm font-semibold text-neutral-900 tracking-tight">{f.title}</h3>
+              <p className="relative z-10 mt-1.5 text-xs leading-relaxed text-neutral-400 group-hover:text-neutral-500 transition-colors">{f.description}</p>
             </div>
           ))}
         </div>

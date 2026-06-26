@@ -290,7 +290,7 @@ class TestEnglishToCodeSanitisation:
         """Unit-test sanitise_input() for injections embedded in code comments.
         sanitise_input() targets injections hidden inside code comments (// # /* */).
         """
-        from app.routers.translate import sanitise_input
+        from app.routers.translate.dependencies import sanitise_input
         mode = "Code \u2192 English"
 
         # These injection patterns INSIDE comments should be redacted

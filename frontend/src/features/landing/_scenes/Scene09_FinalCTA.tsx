@@ -2,15 +2,12 @@
 
 import React from "react";
 import { SceneProps } from "../_types";
-import { SceneBase } from "./SceneBase";
-import { Button } from "@/design/components";
-import { FadeIn, SlideUp } from "@/components/motion";
+import Link from "next/link";
 import { Check, ArrowRight } from "lucide-react";
-
 import { useGsapContext, isMotionSafe } from "@/lib/motion";
 import gsap from "gsap";
 
-export function Scene09_FinalCTA({ id, active, progress, globalProgress: _globalProgress }: SceneProps) {
+export function Scene09_FinalCTA({ id, active, progress }: SceneProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const tlRef = React.useRef<gsap.core.Timeline | null>(null);
   const { getContext } = useGsapContext(containerRef);
@@ -19,36 +16,51 @@ export function Scene09_FinalCTA({ id, active, progress, globalProgress: _global
     if (!isMotionSafe()) return;
     let isMounted = true;
     let ctx: gsap.Context;
+
     getContext().then((context) => {
       if (!isMounted) return;
       ctx = context;
       ctx.add(() => {
         const tl = gsap.timeline({ paused: true });
 
-        // Orb Scale and Glow
-        tl.fromTo(".orb-glow", 
-          { scale: 0.85, boxShadow: "0 0 0px rgba(245, 158, 11, 0.1)" }, 
-          { scale: 1.1, boxShadow: "0 0 70px rgba(245, 158, 11, 0.3)", duration: 1, ease: "none" }, 
+        // Watermark rises from bottom
+        tl.fromTo(
+          ".wispr-watermark",
+          { y: 60, opacity: 0 },
+          { y: 0, opacity: 1, duration: 1, ease: "power4.out" },
           0
         );
 
-        tl.fromTo(".orb-core", 
-          { scale: 0.85 }, 
-          { scale: 1.1, duration: 1, ease: "none" }, 
-          0
+        // Headline reveals
+        tl.fromTo(
+          ".cta-headline",
+          { y: 40, opacity: 0, filter: "blur(8px)" },
+          { y: 0, opacity: 1, filter: "blur(0px)", duration: 0.9, ease: "power4.out", stagger: 0.12 },
+          0.1
         );
 
-        tl.fromTo(".orb-ring", 
-          { scale: 0.85 }, 
-          { scale: 1.1, duration: 1, ease: "none" }, 
-          0
+        // Sub text
+        tl.fromTo(
+          ".cta-sub",
+          { y: 20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.7, ease: "power3.out" },
+          0.4
         );
 
-        // Center Text
-        tl.fromTo(".center-text", 
-          { opacity: 0 }, 
-          { opacity: 1, duration: 0.75, ease: "none" }, 
-          0.25
+        // Check items stagger
+        tl.fromTo(
+          ".cta-check",
+          { x: -16, opacity: 0 },
+          { x: 0, opacity: 1, duration: 0.5, ease: "power3.out", stagger: 0.08 },
+          0.55
+        );
+
+        // CTA buttons
+        tl.fromTo(
+          ".cta-buttons",
+          { y: 20, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" },
+          0.7
         );
 
         tlRef.current = tl;
@@ -69,109 +81,107 @@ export function Scene09_FinalCTA({ id, active, progress, globalProgress: _global
   }, [progress]);
 
   return (
-    <SceneBase
+    <div
+      ref={containerRef}
       id={id}
-      active={active}
-      sceneName="09 / Final CTA"
-      sceneNumber="SCENE_FINAL"
+      className="relative w-full h-full overflow-hidden flex flex-col items-center justify-center"
+      style={{ background: "#f5f3ef" }}
     >
-      <div ref={containerRef} className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center w-full">
-        {/* Left Column: Headline and Bullet points */}
-        <div className="lg:col-span-6 flex flex-col justify-center space-y-6 text-left">
-          <SlideUp delay={100}>
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight font-sans">
-              Start Reading Your{" "}
-              <span className="bg-gradient-to-r from-amber-400 to-yellow-300 bg-clip-text text-transparent">
-                Codebase today.
-              </span>
-            </h2>
-          </SlideUp>
+      {/* ── SUBTLE RADIAL GLOW ────────────────────────────────── */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background: "radial-gradient(ellipse 80% 60% at 50% 100%, rgba(200,134,10,0.08) 0%, transparent 70%)",
+        }}
+      />
 
-          <SlideUp delay={200}>
-            <p className="text-base text-slate-400 leading-relaxed">
-              Join thousands of developers turning cryptic repositories into readable documentation. Connect your codebase in under a minute.
-            </p>
-          </SlideUp>
+      {/* ── DECORATIVE DOT GRID ───────────────────────────────── */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+          backgroundSize: "28px 28px",
+        }}
+      />
 
-          <SlideUp delay={300}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 font-mono text-xs text-slate-400">
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-amber-400" />
-                <span>10 FREE TRANSLATIONS/DAY</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-amber-400" />
-                <span>NO CREDIT CARD REQUIRED</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-amber-400" />
-                <span>35+ LANGUAGES SUPPORTED</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-amber-400" />
-                <span>NATIVE GIT INTEGRATION</span>
-              </div>
-            </div>
-          </SlideUp>
+      {/* ── GIANT WATERMARK ───────────────────────────────────── */}
+      <div className="wispr-watermark absolute bottom-0 left-0 right-0 text-center leading-none select-none overflow-hidden">
+        Anuvaad
+      </div>
 
-          <SlideUp delay={400}>
-            <div className="flex flex-wrap gap-4 items-center pt-2">
-              <Button variant="amber" size="lg" className="h-12 rounded-xl text-sm font-semibold flex items-center gap-1.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] transition-all">
-                <span>Start Free Now</span>
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="lg" className="h-12 rounded-xl text-sm text-slate-400 hover:text-white border border-white/5 bg-white/2 hover:bg-white/5">
-                Sign In to Account
-              </Button>
-            </div>
-          </SlideUp>
+      {/* ── MAIN CONTENT ──────────────────────────────────────── */}
+      <div className="relative z-10 mx-auto max-w-3xl px-8 text-center">
+
+        {/* Eyebrow */}
+        <div className="wispr-eyebrow text-amber-500/60 mb-8">
+          Ready to Understand Your Code?
         </div>
 
-        {/* Right Column: WebGL Particle Sphere placeholder -> Replaced with beautiful glowing CSS gradient Orb */}
-        <div className="lg:col-span-6 flex justify-center items-center relative w-full h-[360px] lg:h-[440px]">
-          <div className="absolute inset-0 bg-radial-gradient from-amber-500/5 via-indigo-500/5 to-transparent blur-3xl -z-10 animate-pulse" />
+        {/* Headline — large serif like WisprFlow */}
+        <h2
+          className="wispr-headline text-neutral-900 mb-6"
+          style={{ fontSize: "clamp(44px, 7vw, 88px)" }}
+        >
+          <span className="cta-headline block opacity-0">Start Reading</span>
+          <span
+            className="cta-headline block opacity-0"
+            style={{ color: "#c8860a", fontStyle: "italic" }}
+          >
+            Any Codebase.
+          </span>
+        </h2>
 
-          <FadeIn className="relative flex items-center justify-center">
-            {/* Pulsing Outer Glow Aura */}
-            <div 
-              className="orb-glow absolute rounded-full bg-gradient-to-tr from-amber-500/10 via-indigo-500/15 to-purple-500/10 animate-[float-slow_7s_infinite_ease-in-out]"
-              style={{
-                width: "240px",
-                height: "240px",
-                filter: "blur(2px)",
-              }}
-            />
+        <p className="cta-sub opacity-0 text-[17px] text-neutral-500 leading-relaxed max-w-lg mx-auto mb-10">
+          Join thousands of developers turning cryptic repositories into readable documentation. Connect in under a minute.
+        </p>
 
-            {/* Core Mesh CSS Orb */}
-            <div 
-              className="orb-core rounded-full bg-gradient-to-tr from-amber-500/25 via-indigo-600/35 to-purple-500/25 border border-white/10 shadow-[0_0_50px_rgba(245,158,11,0.1)] flex flex-col items-center justify-center relative overflow-hidden animate-[float-slow_6s_infinite_ease-in-out] z-10"
-              style={{
-                width: "200px",
-                height: "200px",
-              }}
-            >
-              {/* Inner ambient shadows and highlights */}
-              <div className="absolute inset-0 bg-radial-gradient from-transparent via-black/40 to-black/85 mix-blend-multiply" />
-              <div className="absolute top-2 left-6 w-12 h-6 bg-white/10 blur-md rounded-full rotate-[-15deg] pointer-events-none" />
-
-              {/* Centered code typography floating inside the orb */}
-              <div className="center-text z-20 font-mono text-center opacity-0">
-                <span className="text-[10px] text-amber-300/80 font-bold uppercase tracking-widest block mb-1">Anuvaad</span>
-                <span className="text-[8px] text-slate-400 block font-semibold">&lt;Living Code&gt;</span>
-              </div>
+        {/* Feature checklist */}
+        <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 mb-10">
+          {[
+            "10 FREE translations / day",
+            "35+ languages supported",
+            "No credit card required",
+            "Native Git integration",
+          ].map((item) => (
+            <div key={item} className="cta-check opacity-0 flex items-center gap-2 text-[13px] text-neutral-500">
+              <Check className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span>{item}</span>
             </div>
+          ))}
+        </div>
 
-            {/* Decorative orbit ring */}
-            <div 
-              className="orb-ring absolute border border-white/5 rounded-full z-0 pointer-events-none rotate-[30deg]"
-              style={{
-                width: "300px",
-                height: "120px",
-              }}
-            />
-          </FadeIn>
+        {/* CTA Buttons */}
+        <div className="cta-buttons opacity-0 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/signup"
+            id="final-cta-start-btn"
+            className="wispr-btn-primary"
+          >
+            Start Free Now <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/signin"
+            id="final-cta-signin-btn"
+            className="wispr-btn-secondary"
+          >
+            Sign in to account
+          </Link>
         </div>
       </div>
-    </SceneBase>
+
+      {/* ── SCROLL PROGRESS DOT ── */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-1.5 rounded-full transition-all duration-500"
+            style={{
+              width: i === 2 ? 20 : 6,
+              background: i === 2 ? "rgba(200,134,10,0.5)" : "rgba(0,0,0,0.12)",
+            }}
+          />
+        ))}
+      </div>
+    </div>
   );
 }

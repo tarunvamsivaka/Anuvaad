@@ -5,11 +5,12 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const sections = [
-  { id: "hero", label: "INTRO" },
-  { id: "story", label: "STORY" },
-  { id: "demo", label: "DEMO" },
+  { id: "hero",     label: "INTRO"    },
+  { id: "story",    label: "STORY"    },
+  { id: "demo",     label: "DEMO"     },
   { id: "features", label: "FEATURES" },
-  { id: "faq", label: "FAQ" },
+  { id: "faq",      label: "FAQ"      },
+  { id: "cta",      label: "START"    },
 ];
 
 export function SmoothScroll() {
@@ -81,7 +82,7 @@ export function SmoothScroll() {
         className="fixed right-6 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-6 md:flex"
       >
         {/* Progress bar */}
-        <div className="relative h-48 w-0.5 rounded-full bg-white/10">
+        <div className="relative h-48 w-0.5 rounded-full bg-black/10">
           <div
             className="absolute top-0 w-full rounded-full bg-gradient-to-b from-amber-400 to-amber-600 shadow-[0_0_8px_rgba(245,158,11,0.8)] transition-all duration-75"
             style={{ height: `${progress}%` }}
@@ -108,7 +109,7 @@ export function SmoothScroll() {
                 {/* Inner dot */}
                 <span
                   className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
-                    isActive ? "bg-amber-400" : "bg-white/40 group-hover:bg-white"
+                    isActive ? "bg-amber-400" : "bg-neutral-400/60 group-hover:bg-neutral-600"
                   }`}
                 />
                 {/* Floating label */}

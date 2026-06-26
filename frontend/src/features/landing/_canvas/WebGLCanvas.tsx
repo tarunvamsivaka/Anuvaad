@@ -170,11 +170,11 @@ export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
 
   // Renders static CSS gradient fallback if not motion-safe or if WebGL is disabled
   if (hasRenderedFallback || !webglSupported || !motionSafe) {
-    return <div className="css-backdrop fixed inset-0 -z-10 h-screen w-screen" />;
+    return <div className="css-backdrop fixed inset-0 -z-10 h-screen w-screen bg-[#f5f3ef]" />;
   }
 
   return (
-    <div ref={containerRef} className="fixed inset-0 -z-10 h-screen w-screen overflow-hidden bg-surface-base" />
+    <div ref={containerRef} className="fixed inset-0 -z-10 h-screen w-screen overflow-hidden bg-transparent" />
   );
 }
 

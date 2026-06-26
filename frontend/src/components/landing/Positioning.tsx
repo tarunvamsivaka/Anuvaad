@@ -5,20 +5,38 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const CONCEPTS = [
-  { label: "Understanding", description: "Not just generation" },
-  { label: "Collaboration", description: "Across time & teams" },
-  { label: "Knowledge Transfer", description: "From expert to novice" },
-];
-
-// Floating ambient particles
-const PARTICLES = [
-  { x: "8%", y: "20%", size: 2, duration: "4s", delay: "0s" },
-  { x: "88%", y: "15%", size: 1.5, duration: "5.5s", delay: "1.2s" },
-  { x: "15%", y: "75%", size: 1, duration: "3.8s", delay: "0.4s" },
-  { x: "78%", y: "65%", size: 2.5, duration: "6s", delay: "2s" },
-  { x: "50%", y: "88%", size: 1, duration: "4.5s", delay: "0.8s" },
-  { x: "35%", y: "30%", size: 1.5, duration: "5s", delay: "1.6s" },
-  { x: "65%", y: "40%", size: 1, duration: "3.5s", delay: "2.4s" },
+  {
+    label: "Understanding",
+    description: "Not just generation",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.5">
+        <path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7z" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 21h6M10 17v-1h4v1" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "Collaboration",
+    description: "Across time & teams",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.5">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="9" cy="7" r="4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "Knowledge Transfer",
+    description: "From expert to novice",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.5">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M9 9h6M9 13h4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
 ];
 
 export function Positioning() {
@@ -27,37 +45,21 @@ export function Positioning() {
   useEffect(() => {
     gsap.registerPlugin(ScrollTrigger);
     const ctx = gsap.context(() => {
-      // Word-by-word reveal for headline
       gsap.fromTo(
         ".positioning-word",
         { opacity: 0, y: 30, filter: "blur(8px)" },
         {
-          opacity: 1,
-          y: 0,
-          filter: "blur(0px)",
-          duration: 0.8,
-          ease: "power4.out",
-          stagger: 0.08,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 70%",
-          },
+          opacity: 1, y: 0, filter: "blur(0px)",
+          duration: 0.8, ease: "power4.out", stagger: 0.08,
+          scrollTrigger: { trigger: sectionRef.current, start: "top 70%" },
         }
       );
-      // Fade in sub-elements
       gsap.fromTo(
         ".positioning-fade",
         { opacity: 0, y: 25 },
         {
-          opacity: 1,
-          y: 0,
-          duration: 0.9,
-          ease: "power3.out",
-          stagger: 0.15,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 65%",
-          },
+          opacity: 1, y: 0, duration: 0.9, ease: "power3.out", stagger: 0.15,
+          scrollTrigger: { trigger: sectionRef.current, start: "top 65%" },
         }
       );
     }, sectionRef);
@@ -67,60 +69,41 @@ export function Positioning() {
   return (
     <section
       ref={sectionRef}
-      className="landing-section relative border-t border-amber-500/8 py-40 overflow-hidden"
+      className="wispr-section-light relative py-36 overflow-hidden"
     >
-      {/* Dark textured background */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        {/* Sweeping gradient */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(245,158,11,0.03) 0%, transparent 70%)",
-          }}
-        />
-        {/* Subtle grid */}
-        <div
-          className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: "linear-gradient(rgba(245,158,11,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.5) 1px, transparent 1px)",
-            backgroundSize: "80px 80px",
-          }}
-        />
-        {/* Floating particles */}
-        {PARTICLES.map((p, i) => (
-          <div
-            key={i}
-            className="particle-amber absolute rounded-full bg-amber-400"
-            style={{
-              left: p.x,
-              top: p.y,
-              width: `${p.size}px`,
-              height: `${p.size}px`,
-              opacity: 0.35,
-              "--duration": p.duration,
-              "--delay": p.delay,
-            } as React.CSSProperties}
-          />
-        ))}
-      </div>
+      {/* Subtle noise */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.018]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: "256px 256px",
+        }}
+      />
+
+      {/* Very subtle amber vignette at centre */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 60% 50% at 50% 60%, rgba(200,134,10,0.03) 0%, transparent 70%)" }}
+      />
 
       <div className="mx-auto max-w-5xl px-6 text-center">
-        {/* Large serif headline */}
+        {/* Headline */}
         <h2
-          className="mb-8 leading-[1.1] tracking-tight"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          className="mb-8 leading-[1.08] tracking-tight"
+          style={{ fontFamily: "var(--font-garamond, Georgia, serif)" }}
         >
-          {/* Line 1 */}
-          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-4">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 mb-2">
             {["Not", "another"].map((word, i) => (
               <span
                 key={i}
-                className="positioning-word inline-block text-4xl font-bold text-white/80 sm:text-5xl md:text-7xl opacity-0"
+                className="positioning-word inline-block text-4xl font-normal text-neutral-800 sm:text-5xl md:text-7xl opacity-0"
               >
                 {word}
               </span>
             ))}
-            <span className="positioning-word inline-block text-4xl font-bold sm:text-5xl md:text-7xl opacity-0 headline-gradient">
+            <span className="positioning-word inline-block text-4xl font-normal sm:text-5xl md:text-7xl opacity-0"
+              style={{ color: "#c8860a", fontStyle: "italic" }}>
               AI&nbsp;coding&nbsp;tool.
             </span>
           </div>
@@ -128,38 +111,44 @@ export function Positioning() {
 
         {/* Sub-headline */}
         <p
-          className="positioning-fade opacity-0 mx-auto mb-4 max-w-3xl text-2xl font-light leading-relaxed text-slate-300 sm:text-3xl"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+          className="positioning-fade opacity-0 mx-auto mb-3 max-w-3xl text-2xl font-light leading-relaxed text-neutral-500 sm:text-3xl"
+          style={{ fontFamily: "var(--font-garamond, Georgia, serif)", fontStyle: "italic" }}
         >
           Anuvaad helps developers{" "}
-          <span className="font-semibold not-italic text-amber-300">understand</span>{" "}
+          <span className="font-semibold not-italic text-neutral-800">understand</span>{" "}
           software.
         </p>
-        <p className="positioning-fade opacity-0 mx-auto mb-20 max-w-xl text-lg text-slate-500">
+        <p className="positioning-fade opacity-0 mx-auto mb-20 max-w-xl text-lg text-neutral-400">
           Not merely generate it.
         </p>
 
-        {/* Concept pills */}
+        {/* Concept pills — light card style */}
         <div className="positioning-fade opacity-0 flex flex-wrap justify-center gap-4 mb-20">
           {CONCEPTS.map((c) => (
-            <div
-              key={c.label}
-              className="group flex flex-col items-center rounded-2xl border border-amber-500/15 bg-amber-500/5 px-8 py-6 backdrop-blur-sm transition-all duration-300 hover:border-amber-500/30 hover:bg-amber-500/8 hover:shadow-[0_0_20px_rgba(245,158,11,0.08)]"
-            >
-              <span className="text-lg font-bold text-white group-hover:text-amber-300 transition-colors duration-300">{c.label}</span>
-              <span className="mt-1 text-xs font-medium text-slate-500 uppercase tracking-widest">{c.description}</span>
-            </div>
-          ))}
+              <div
+                key={c.label}
+                className="group flex flex-col items-center rounded-2xl border border-black/07 bg-white px-8 py-7 shadow-[0_2px_16px_rgba(0,0,0,0.06)] cursor-default transition-all duration-300 hover:shadow-[0_6px_32px_rgba(0,0,0,0.09)] hover:border-amber-200/60"
+                style={{ transition: "all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+              >
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-400 group-hover:bg-amber-50 group-hover:border-amber-200 group-hover:text-amber-600 transition-all duration-300">
+                  {c.icon}
+                </div>
+                <span className="text-lg font-semibold text-neutral-900 group-hover:text-amber-700 transition-colors duration-300"
+                  style={{ fontFamily: "var(--font-garamond, Georgia, serif)" }}
+                >{c.label}</span>
+                <span className="mt-1 text-xs font-medium text-neutral-400 uppercase tracking-widest">{c.description}</span>
+              </div>
+            ))}
         </div>
 
         {/* Divider quote */}
-        <div className="positioning-fade opacity-0 mx-auto max-w-3xl border-t border-amber-500/10 pt-16">
+        <div className="positioning-fade opacity-0 mx-auto max-w-3xl border-t border-neutral-200 pt-16">
           <blockquote
-            className="text-2xl font-bold leading-relaxed text-white/70 sm:text-3xl"
-            style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontStyle: "italic" }}
+            className="text-2xl font-light leading-relaxed text-neutral-500 sm:text-3xl"
+            style={{ fontFamily: "var(--font-garamond, Georgia, serif)", fontStyle: "italic" }}
           >
             &ldquo;Code is language. Every codebase has a story.{" "}
-            <span className="text-amber-400 not-italic">Anuvaad speaks both.</span>&rdquo;
+            <span style={{ color: "#c8860a", fontStyle: "normal" }}>Anuvaad speaks both.</span>&rdquo;
           </blockquote>
         </div>
       </div>

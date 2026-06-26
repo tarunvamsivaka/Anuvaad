@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import { useSubscriptionStatus, useTranslationStats } from "@/lib/hooks";
 import Script from "next/script";
+import { mutate } from "swr";
 
 function BillingPageContent() {
   const router = useRouter();
@@ -105,6 +106,8 @@ function BillingPageContent() {
                 // FRONT-05: Use router.push instead of window.location.href
                 // This preserves SPA navigation and allows SWR to revalidate.
                 router.push("/dashboard/billing?payment=success");
+                mutate([`${API}/api/subscription-status`, session.access_token]);
+                mutate([`${API}/api/check-credits`, session.access_token]);
               } else {
                 const err = await verifyRes.json().catch(() => null);
                 toast.error(err?.detail || "Payment verification failed. Please contact support.");
@@ -133,114 +136,6 @@ function BillingPageContent() {
       setLoading(false);
     }
   }
-
-  /*
-  async function handleManageBilling() {
-    if (!enableBilling) {
-      toast.info("Subscription management is currently offline since billing is paused.");
-      return;
-    }
-    if (!session?.access_token) return;
-    setPortalLoading(true);
-    track("portal_opened", {});
-    try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/create-portal-session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ access_token: session.access_token }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPortalInfo(data);
-      } else {
-        const err = await res.json().catch(() => null);
-        toast.error(err?.detail || "Could not retrieve subscription details.");
-      }
-    } catch {
-      toast.error("Could not connect to billing service. Please try again.");
-    } finally {
-      setPortalLoading(false);
-    }
-  }
-
-  async function handleBuyCredits() {
-    if (!enableBilling) {
-      toast.info("Credit purchases are temporarily paused during our launch.");
-      return;
-    }
-    if (!session?.access_token) return;
-    setCreditLoading(true);
-    try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/create-credit-checkout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ access_token: session.access_token }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        
-        // Open Razorpay Checkout modal for order payment
-        const options = {
-          key: data.key_id,
-          amount: data.amount,
-          currency: data.currency,
-          name: data.name,
-          description: data.description,
-          order_id: data.order_id,
-          prefill: {
-            email: session.user.email || "",
-          },
-          theme: {
-            color: "#f5a623", // bright amber-glow
-          },
-          handler: async function (response: any) {
-            setCreditLoading(true);
-            try {
-              const verifyRes = await fetch(`${API}/api/verify-payment`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_order_id: response.razorpay_order_id || data.order_id,
-                  razorpay_signature: response.razorpay_signature,
-                  access_token: session.access_token,
-                  payment_type: "credits",
-                }),
-              });
-              if (verifyRes.ok) {
-                toast.success("Credits added successfully!");
-                window.location.reload();
-              } else {
-                const err = await verifyRes.json().catch(() => null);
-                toast.error(err?.detail || "Credits verification failed. Please contact support.");
-              }
-            } catch {
-              toast.error("Could not verify credits. Please contact support.");
-            } finally {
-              setCreditLoading(false);
-            }
-          },
-          modal: {
-            ondismiss: function () {
-              setCreditLoading(false);
-            }
-          }
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      } else {
-        const err = await res.json().catch(() => null);
-        toast.error(err?.detail || "Could not open credit checkout.");
-        setCreditLoading(false);
-      }
-    } catch {
-      toast.error("Could not connect to billing service. Please try again.");
-      setCreditLoading(false);
-    }
-  }
-  */
 
   const isActuallyPro = isPro || subscription?.plan === "pro";
   const limit = 10;

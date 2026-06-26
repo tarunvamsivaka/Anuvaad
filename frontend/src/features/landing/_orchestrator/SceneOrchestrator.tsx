@@ -28,37 +28,37 @@ const SCENE_CONFIGS: SceneConfig[] = [
   {
     id: "code-confusion",
     title: "Code Confusion",
-    isPinned: true,
+    isPinned: false,
     scrollWeight: 2.0,
   },
   {
     id: "recognition",
     title: "Recognition",
-    isPinned: true,
+    isPinned: false,
     scrollWeight: 1.5,
   },
   {
     id: "understanding",
     title: "Understanding",
-    isPinned: true,
+    isPinned: false,
     scrollWeight: 2.0,
   },
   {
     id: "repository-intelligence",
     title: "Repository Intelligence",
-    isPinned: true,
+    isPinned: false,
     scrollWeight: 1.5,
   },
   {
     id: "english-modification",
     title: "English Modification",
-    isPinned: true,
+    isPinned: false,
     scrollWeight: 2.0,
   },
   {
     id: "code-updates",
     title: "Code Updates",
-    isPinned: true,
+    isPinned: false,
     scrollWeight: 2.0,
   },
   {
@@ -70,7 +70,7 @@ const SCENE_CONFIGS: SceneConfig[] = [
   {
     id: "final-cta",
     title: "Final CTA",
-    isPinned: true,
+    isPinned: false,
     scrollWeight: 1.5,
   },
 ];
@@ -113,13 +113,12 @@ export function SceneOrchestrator() {
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-transparent"
-      style={{ minHeight: `${SCENE_CONFIGS.reduce((sum, s) => sum + s.scrollWeight, 0) * 100}vh` }}
+      className="relative w-full bg-transparent flex flex-col"
     >
       {/* Background WebGL particle canvas */}
       <WebGLCanvas globalProgress={globalProgress} />
       {/* Universal Scroll Indicator */}
-      <div className="fixed top-0 left-0 w-full h-[2px] bg-white/5 z-50 pointer-events-none">
+      <div className="fixed top-0 left-0 w-full h-[2px] bg-black/5 z-50 pointer-events-none">
         <div
           className="h-full bg-gradient-to-r from-amber-600 via-amber-400 to-yellow-300 shadow-[0_0_10px_rgba(245,158,11,0.6)] transition-all duration-75"
           style={{ width: `${globalProgress * 100}%` }}
@@ -133,7 +132,20 @@ export function SceneOrchestrator() {
           config={config}
           globalProgress={globalProgress}
         >
-          {(props) => renderScene(config, props)}
+          {(props) => (
+            <div
+              className="w-full h-full relative"
+              id={
+                config.id === "repository-discovery"
+                  ? "story"
+                  : config.id === "understanding"
+                  ? "demo"
+                  : undefined
+              }
+            >
+              {renderScene(config, props)}
+            </div>
+          )}
         </SceneWrapper>
       ))}
     </div>

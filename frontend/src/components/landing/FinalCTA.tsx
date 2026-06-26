@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -16,16 +16,9 @@ export function FinalCTA() {
         ".final-cta-reveal",
         { opacity: 0, y: 50, filter: "blur(6px)" },
         {
-          opacity: 1,
-          y: 0,
-          filter: "blur(0px)",
-          duration: 1.0,
-          ease: "power4.out",
-          stagger: 0.15,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 70%",
-          },
+          opacity: 1, y: 0, filter: "blur(0px)",
+          duration: 1.0, ease: "power4.out", stagger: 0.15,
+          scrollTrigger: { trigger: sectionRef.current, start: "top 70%" },
         }
       );
     }, sectionRef);
@@ -35,72 +28,99 @@ export function FinalCTA() {
   return (
     <section
       ref={sectionRef}
-      className="landing-section relative border-t border-amber-500/8 py-40 overflow-hidden"
+      className="relative overflow-hidden"
+      style={{ background: "#f5f3ef" }}
     >
-      {/* Background — let the WebGL canvas show through, add amber vignette */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "radial-gradient(ellipse 70% 70% at 50% 50%, rgba(245,158,11,0.06) 0%, transparent 70%)",
-          }}
-        />
-        {/* Corner fades */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#020204]/40" />
-      </div>
+      {/* Top divider */}
+      <div className="wispr-divider-light" />
 
-      <div className="mx-auto max-w-4xl px-6 text-center">
+      {/* Subtle warm radial */}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ background: "radial-gradient(ellipse 70% 60% at 50% 70%, rgba(200,134,10,0.04) 0%, transparent 65%)" }}
+      />
+
+      {/* Noise */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: "256px 256px",
+        }}
+      />
+
+      <div className="mx-auto max-w-4xl px-6 py-40 text-center relative z-10">
+
         {/* Eyebrow */}
-        <div className="final-cta-reveal opacity-0 mb-8 inline-flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/5 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-400/80">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-          Ready when you are
+        <div className="final-cta-reveal opacity-0 mb-8 flex justify-center">
+          <div className="wispr-eyebrow-pill-light">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+            Ready when you are
+          </div>
         </div>
 
-        {/* Headline */}
+        {/* Giant headline — WisprFlow style */}
         <h2
-          className="final-cta-reveal opacity-0 mb-6 text-5xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-6xl md:text-7xl"
-          style={{ fontFamily: "var(--font-lora, Georgia, serif)" }}
+          className="final-cta-reveal opacity-0 wispr-headline text-neutral-900 mb-6"
+          style={{ fontSize: "clamp(52px, 8vw, 96px)" }}
         >
-          Understand software{" "}
-          <br className="hidden sm:block" />
-          <span className="headline-gradient">like never before.</span>
+          Start Reading.<br />
+          <span style={{ color: "#c8860a", fontStyle: "italic" }}>Any Codebase.</span>
         </h2>
 
-        {/* Sub */}
-        <p className="final-cta-reveal opacity-0 mx-auto mb-12 max-w-xl text-xl leading-relaxed text-slate-400">
-          Start translating in seconds. Free to start.{" "}
-          <span className="text-slate-300">No credit card required.</span>
+        <p className="final-cta-reveal opacity-0 mx-auto mb-10 max-w-xl text-[18px] leading-relaxed text-neutral-500">
+          Join thousands of developers turning cryptic repositories into readable documentation. Connect in under a minute.
         </p>
 
-        {/* CTA Buttons */}
-        <div className="final-cta-reveal opacity-0 flex flex-col items-center justify-center gap-5 sm:flex-row mb-16">
+        {/* Feature checklist */}
+        <div className="final-cta-reveal opacity-0 flex flex-wrap justify-center gap-x-8 gap-y-3 mb-12">
+          {[
+            "10 FREE translations / day",
+            "35+ languages supported",
+            "No credit card required",
+            "Native Git integration",
+          ].map((item) => (
+            <div key={item} className="flex items-center gap-2 text-[13px] text-neutral-500">
+              <Check className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* CTAs — WisprFlow pill style */}
+        <div className="final-cta-reveal opacity-0 flex flex-col sm:flex-row items-center justify-center gap-3 mb-16">
           <Link
             href="/signup"
             id="final-signup-btn"
-            className="inline-flex items-center gap-2 rounded-2xl px-10 py-5 text-lg font-bold tracking-wide btn-amber-shimmer shadow-[0_0_40px_rgba(245,158,11,0.35)] hover:shadow-[0_0_60px_rgba(245,158,11,0.55)] transition-all duration-300 hover:scale-105"
+            className="wispr-btn-primary"
           >
-            Start for Free
-            <ArrowRight className="h-5 w-5" />
+            Start for Free <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/signin"
             id="final-signin-btn"
-            className="inline-flex items-center rounded-2xl border border-white/10 bg-white/5 px-10 py-5 text-lg font-semibold text-slate-300 backdrop-blur-md transition-all duration-300 hover:border-amber-500/30 hover:text-white hover:scale-105"
+            className="wispr-btn-secondary"
           >
             Sign In
           </Link>
         </div>
 
         {/* Trust micro-copy */}
-        <p className="final-cta-reveal opacity-0 text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
+        <p className="final-cta-reveal opacity-0 text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">
           10 free translations per day · No code stored · Cancel anytime
         </p>
 
         {/* Decorative separator */}
         <div className="final-cta-reveal opacity-0 mt-24 flex items-center gap-6">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-amber-500/20" />
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-amber-500/30">Anuvaad</span>
-          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-amber-500/20" />
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-amber-300/30" />
+          <span
+            className="text-[11px] font-bold uppercase tracking-[0.3em] text-neutral-300"
+            style={{ fontFamily: "var(--font-garamond, Georgia, serif)" }}
+          >
+            Anuvaad
+          </span>
+          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-amber-300/30" />
         </div>
       </div>
     </section>

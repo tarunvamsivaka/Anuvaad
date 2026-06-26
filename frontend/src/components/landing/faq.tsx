@@ -1,7 +1,9 @@
 "use client";
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect, useRef } from "react";
+import { Plus } from "lucide-react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 const faqs = [
   { q: "What programming languages are supported?", a: "Anuvaad supports 35+ languages including Python, JavaScript, TypeScript, Java, C++, C#, Go, Rust, Swift, Kotlin, PHP, Ruby, SQL, HTML, CSS, Dart, Lua, R, Haskell, and more. We're adding new languages regularly." },
@@ -12,35 +14,99 @@ const faqs = [
   { q: "Can I cancel my subscription anytime?", a: "Absolutely. You can cancel your Pro subscription at any time. Your access continues until the end of your current billing period. We also offer a 7-day refund policy." },
 ];
 
-export function FAQ() {
+function FAQItem({ q, a, isLast }: { q: string; a: string; isLast: boolean }) {
+  const [open, setOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+
   return (
-    <section className="relative border-t border-white/5 py-32 bg-transparent">
+    <div className={`${isLast ? "" : "border-b border-neutral-100"}`}>
+      <button
+        className="w-full flex items-center justify-between py-5 text-left group"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <span
+          className="text-[15px] font-medium text-neutral-800 group-hover:text-amber-700 transition-colors pr-4"
+          style={{ fontFamily: "var(--font-garamond, Georgia, serif)" }}
+        >
+          {q}
+        </span>
+        <span className="flex-shrink-0 flex items-center justify-center h-6 w-6 rounded-full border border-neutral-200 bg-neutral-50 group-hover:border-amber-300 group-hover:bg-amber-50 transition-all duration-300">
+          <Plus
+            className="h-3 w-3 text-neutral-400 group-hover:text-amber-600 transition-all duration-300"
+            style={{ transform: open ? "rotate(45deg)" : "rotate(0deg)" }}
+          />
+        </span>
+      </button>
+      <div
+        ref={contentRef}
+        className="overflow-hidden"
+        style={{
+          maxHeight: open ? "500px" : "0px",
+          opacity: open ? 1 : 0,
+          transition: "max-height 0.35s ease, opacity 0.25s ease",
+        }}
+      >
+        <p className="pb-5 text-sm text-neutral-500 leading-relaxed max-w-2xl">
+          {a}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function FAQ() {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        ".faq-reveal",
+        { opacity: 0, y: 30 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          ease: "power3.out",
+          stagger: 0.1,
+          scrollTrigger: { trigger: sectionRef.current, start: "top 75%" },
+        }
+      );
+    }, sectionRef);
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <section id="faq" ref={sectionRef} className="wispr-section-light relative py-32">
+      {/* Subtle noise */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.015]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: "256px 256px",
+        }}
+      />
+
       <div className="mx-auto max-w-3xl px-6">
-        <div className="cinematic-reveal text-center">
-          <Badge
-            variant="secondary"
-            className="mb-4 border-indigo-500/20 bg-indigo-500/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-indigo-400"
+        {/* Header */}
+        <div className="faq-reveal opacity-0 text-center mb-14">
+          <div className="wispr-eyebrow-pill-light mb-5">FAQ</div>
+          <h2
+            className="wispr-headline text-neutral-900"
+            style={{ fontSize: "clamp(36px, 5vw, 56px)" }}
           >
-            FAQ
-          </Badge>
-          <h2 className="text-3xl font-extrabold tracking-tight sm:text-5xl text-white">
-            Frequently asked questions
+            Frequently asked{" "}
+            <span style={{ color: "#c8860a", fontStyle: "italic" }}>questions</span>
           </h2>
         </div>
-        
-        <div className="cinematic-reveal mt-16 rounded-2xl border border-white/5 bg-[#060613]/50 p-6 backdrop-blur-md shadow-2xl shadow-black/40">
-          <Accordion className="w-full">
-            {faqs.map((faq, i) => (
-              <AccordionItem key={i} value={`item-${i}`} className="border-b border-white/5 last:border-b-0">
-                <AccordionTrigger className="text-left text-sm font-semibold tracking-wide text-slate-200 hover:text-white hover:no-underline transition-colors py-4">
-                  {faq.q}
-                </AccordionTrigger>
-                <AccordionContent className="text-slate-400 text-xs leading-relaxed pb-4">
-                  {faq.a}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+
+        {/* Accordion */}
+        <div className="faq-reveal opacity-0 bg-white rounded-3xl border border-black/07 shadow-[0_4px_24px_rgba(0,0,0,0.06)] px-8 py-2">
+          {faqs.map((faq, i) => (
+            <FAQItem key={i} q={faq.q} a={faq.a} isLast={i === faqs.length - 1} />
+          ))}
         </div>
       </div>
     </section>

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Playfair_Display, Outfit } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display, Outfit, EB_Garamond } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -31,6 +31,14 @@ const playfair = Playfair_Display({
 const outfit = Outfit({
   variable: "--font-outfit",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const garamond = EB_Garamond({
+  variable: "--font-garamond",
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -115,7 +123,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrains.variable} ${playfair.variable} ${outfit.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrains.variable} ${playfair.variable} ${outfit.variable} ${garamond.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

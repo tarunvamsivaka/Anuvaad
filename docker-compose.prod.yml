@@ -45,8 +45,11 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ENV=production
       - WEB_CONCURRENCY=${WEB_CONCURRENCY:-4}
+      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:5432/postgres
     depends_on:
       redis:
+        condition: service_healthy
+      pgbouncer:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
@@ -73,10 +76,13 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:5432/postgres
     depends_on:
       redis:
         condition: service_healthy
       backend:
+        condition: service_healthy
+      pgbouncer:
         condition: service_healthy
     restart: unless-stopped
     deploy:
@@ -130,6 +136,28 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1
+    container_name: anuvaad-pgbouncer-prod
+    environment:
+      - DB_URL=${DATABASE_URL}
+      - POOL_MODE=transaction
+      - MAX_CLIENT_CONN=500
+      - DEFAULT_POOL_SIZE=20
+      - AUTH_TYPE=any
+      - IGNORE_STARTUP_PARAMETERS=extra_float_digits
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     deploy:
       resources:
         limits:

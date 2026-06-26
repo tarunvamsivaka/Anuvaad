@@ -21,7 +21,7 @@ from app.models.schemas import (  # noqa: F401
     WorkspaceInvite,
 )
 from app.services.ai import normalize_blocks, get_completion  # noqa: F401
-from app.routers.translate import sanitise_input, validate_code_input  # noqa: F401
+from app.routers.translate.dependencies import sanitise_input, validate_code_input  # noqa: F401
 from openai import AsyncOpenAI  # noqa: F401
 
 _frontend_url = FRONTEND_URL

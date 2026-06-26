@@ -38,3 +38,7 @@ task-*.md
 .DS_Store
 Thumbs.db
 scratch/
+
+# Large generated documents
+all_source_code.md
+combined_markdown_files.md

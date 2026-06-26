@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { TranslateFeature } from "@/features/translate";
 import { Metadata } from "next";
 
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function TranslatePage() {
-  return <TranslateFeature />;
+  return (
+    <Suspense>
+      <TranslateFeature />
+    </Suspense>
+  );
 }

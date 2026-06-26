@@ -21,6 +21,11 @@ import { FAQ } from "@/components/landing/faq";
 import { Footer } from "@/components/landing/footer";
 import { SmoothScroll } from "@/components/landing/SmoothScroll";
 import { WebGLScrollProvider } from "@/components/landing/WebGLScrollProvider";
+import { LogoMarquee } from "@/features/landing/_components/LogoMarquee";
+import { MouseOrb } from "@/features/landing/_components/MouseOrb";
+import { LiveActivityFeed } from "@/features/landing/_components/LiveActivityFeed";
+import { StatsBanner } from "@/components/landing/StatsBanner";
+import { ExitIntentModal } from "@/components/landing/ExitIntentModal";
 
 export default function LandingV1Page() {
   return (
@@ -31,10 +36,19 @@ export default function LandingV1Page() {
       {/* Smooth scroll side-nav tracker */}
       <SmoothScroll />
 
+      {/* Ambient cursor glow */}
+      <MouseOrb />
+
+      {/* Live activity feed toast */}
+      <LiveActivityFeed />
+
+      {/* Exit-intent email capture overlay */}
+      <ExitIntentModal />
+
       {/* The full landing page */}
       <div
-        className="relative z-10 flex min-h-screen flex-col text-slate-100 selection:bg-amber-500/30 selection:text-amber-200"
-        style={{ background: "var(--landing-bg, #020204)" }}
+        className="relative z-10 flex min-h-screen flex-col selection:bg-amber-500/30"
+        style={{ background: "#f5f3ef" }}
       >
         <Navbar />
 
@@ -42,6 +56,9 @@ export default function LandingV1Page() {
           <div id="hero">
             <Hero />
           </div>
+
+          {/* Stats strip — immediately after hero for max conversion impact */}
+          <StatsBanner />
 
           <div id="story">
             <ScrollStory />
@@ -56,6 +73,7 @@ export default function LandingV1Page() {
           </div>
 
           <Positioning />
+          <LogoMarquee />
           <Trust />
           <Testimonials />
 

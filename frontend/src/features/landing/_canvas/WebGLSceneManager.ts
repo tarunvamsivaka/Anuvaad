@@ -41,7 +41,7 @@ export class WebGLSceneManager {
   private init() {
     // ── 1. INITIALIZE SCENE, CAMERA, RENDERER ──
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x030014, 0.015);
+    this.scene.fog = new THREE.FogExp2(0xf5f3ef, 0.015);
 
     const width = this.canvas.width || 800;
     const height = this.canvas.height || 600;
@@ -65,7 +65,7 @@ export class WebGLSceneManager {
 
     this.renderer.setPixelRatio(this.dpr);
     this.renderer.setSize(width, height, false);
-    this.renderer.setClearColor(0x030014, 1);
+    this.renderer.setClearColor(0xf5f3ef, 1);
 
     // ── 2. PRE-COMPUTE PARTICLE STATES ──
     this.initParticles();

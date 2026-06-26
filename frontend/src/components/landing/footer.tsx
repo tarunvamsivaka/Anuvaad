@@ -1,12 +1,10 @@
 import Link from "next/link";
-import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/landing/Logo";
 
 const footerLinks = {
   Product: [
     { label: "Features", href: "#features" },
     { label: "Demo", href: "#demo" },
-    { label: "Pricing", href: "#pricing" },
     { label: "FAQ", href: "#faq" },
     { label: "Dashboard", href: "/dashboard" },
   ],
@@ -29,29 +27,35 @@ const STATUS_SERVICES = [
 
 export function Footer() {
   return (
-    <footer className="relative border-t border-amber-500/8 bg-[#020204]">
-      {/* Top gradient accent line */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/25 to-transparent" />
+    <footer className="relative" style={{ background: "#0d1117" }}>
+      {/* Warm amber gradient line at top */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
 
-      <div className="mx-auto max-w-6xl px-6 py-16">
+      {/* Subtle ambient glow */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{ background: "radial-gradient(ellipse 80% 40% at 50% 0%, rgba(200,134,10,0.04) 0%, transparent 60%)" }}
+      />
+
+      <div className="mx-auto max-w-6xl px-6 py-16 relative z-10">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           {/* Brand column — spans 2 */}
           <div className="lg:col-span-2">
             <Link href="/" className="block w-fit">
-              <Logo />
+              <Logo theme="dark" />
             </Link>
-            <p className="mt-4 text-sm leading-relaxed text-slate-500 max-w-xs">
+            <p className="mt-4 text-sm leading-relaxed text-neutral-500 max-w-xs">
               AI-powered code translation for developers, students, and teams.
               Understand any codebase in minutes, not weeks.
             </p>
 
-            {/* GitHub + social */}
-            <div className="mt-6 flex items-center gap-4">
+            {/* Social links */}
+            <div className="mt-6 flex items-center gap-3">
               <a
                 href="https://github.com/tarunvamsivaka/Anuvaad"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center h-9 w-9 rounded-lg border border-white/8 bg-white/4 text-slate-500 hover:text-amber-400 hover:border-amber-500/20 hover:bg-amber-500/6 transition-all"
+                className="flex items-center justify-center h-9 w-9 rounded-xl border border-white/07 bg-white/03 text-neutral-500 hover:text-amber-400 hover:border-amber-500/20 hover:bg-amber-500/06 transition-all duration-200"
                 aria-label="GitHub"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
@@ -61,7 +65,7 @@ export function Footer() {
             </div>
 
             {/* Status indicator */}
-            <div className="mt-6 flex items-center gap-2 rounded-xl border border-white/5 bg-white/2 px-3 py-2.5 w-fit">
+            <div className="mt-6 flex items-center gap-2 rounded-xl border border-white/06 bg-white/02 px-3 py-2.5 w-fit">
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-1.5 w-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -69,9 +73,9 @@ export function Footer() {
                 </span>
                 <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">All Systems Operational</span>
               </div>
-              <div className="flex items-center gap-2 border-l border-white/5 pl-2">
+              <div className="flex items-center gap-2 border-l border-white/06 pl-2">
                 {STATUS_SERVICES.map(s => (
-                  <span key={s.label} className="text-[9px] text-slate-600 font-medium">{s.label}</span>
+                  <span key={s.label} className="text-[9px] text-neutral-600 font-medium">{s.label}</span>
                 ))}
               </div>
             </div>
@@ -80,7 +84,7 @@ export function Footer() {
           {/* Link columns */}
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
-              <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-5">{category}</h4>
+              <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-600 mb-5">{category}</h4>
               <ul className="space-y-3.5">
                 {links.map((link) => (
                   <li key={link.label}>
@@ -89,14 +93,14 @@ export function Footer() {
                         href={link.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-slate-500 hover:text-amber-400 transition-colors animated-underline inline-block"
+                        className="text-sm text-neutral-500 hover:text-amber-400 transition-colors duration-200 inline-block"
                       >
                         {link.label}
                       </a>
                     ) : (
                       <Link
                         href={link.href}
-                        className="text-sm text-slate-500 hover:text-amber-400 transition-colors animated-underline inline-block"
+                        className="text-sm text-neutral-500 hover:text-amber-400 transition-colors duration-200 inline-block"
                       >
                         {link.label}
                       </Link>
@@ -108,13 +112,17 @@ export function Footer() {
           ))}
         </div>
 
-        <Separator className="my-10 bg-white/4" />
+        {/* Divider */}
+        <div className="my-10 wispr-divider-dark" />
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="text-xs text-slate-600">
-            © {new Date().getFullYear()} Anuvaad. All rights reserved.
+          <p className="text-xs text-neutral-600">
+            © {new Date().getFullYear()} Anuvaad. All rights reserved. · Made in India 🇮🇳
           </p>
-          <p className="text-xs text-slate-700 font-mono">
+          <p
+            className="text-xs text-neutral-700 font-medium"
+            style={{ fontFamily: "var(--font-garamond, Georgia, serif)", fontStyle: "italic" }}
+          >
             Built with ♥ for developers who care about understanding.
           </p>
         </div>

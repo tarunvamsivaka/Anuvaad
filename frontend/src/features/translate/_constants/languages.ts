@@ -45,10 +45,4 @@ export const languages: { value: string; label: string; monacoId: string }[] = [
   { value: "assembly", label: "Assembly", monacoId: "mips" },
 ];
 
-export const EXT_TO_LANGUAGE: Record<string, string> = {
-  ".py": "python", ".js": "javascript", ".ts": "typescript",
-  ".java": "java", ".cpp": "cpp", ".rs": "rust",
-  ".go": "go", ".c": "c", ".cs": "csharp",
-};
-
-export const ACCEPTED_EXTENSIONS = Object.keys(EXT_TO_LANGUAGE);
+export { EXT_TO_LANGUAGE, ACCEPTED_EXTENSIONS } from "@/lib/detect-language";

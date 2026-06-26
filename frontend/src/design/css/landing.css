@@ -1,10 +1,455 @@
 /* ============================================================
-   ANUVAAD — LANDING PAGE CSS
-   Aurora orbs, perspective, marquee, scan-line.
+   ANUVAAD — LANDING PAGE CSS  (WisprFlow Theme)
    Loaded ONLY on landing page routes — not dashboard, not auth.
    ============================================================ */
 
-/* ── APPLE MESH BACKGROUND ────────────────────────────────── */
+/* ── FONT ALIASES ───────────────────────────────────────────── */
+:root {
+  --font-serif: var(--font-garamond), "EB Garamond", Georgia, "Times New Roman", serif;
+
+  /* WisprFlow brand palette */
+  --wispr-cream:        #f5f3ef;
+  --wispr-cream-dark:   #ede9e3;
+  --wispr-dark:         #0d1117;
+  --wispr-darker:       #0a0c10;
+  --wispr-teal:         #034f46;
+  --wispr-teal-hover:   #026157;
+  --wispr-amber:        #c8860a;
+  --wispr-amber-light:  #e8a830;
+  --wispr-neutral-900:  #1a1a1a;
+  --wispr-neutral-500:  #7a7570;
+  --wispr-neutral-400:  #9a9490;
+  --wispr-neutral-200:  #e8e4de;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   NAVBAR
+   ══════════════════════════════════════════════════════════════ */
+
+.wispr-nav-pill {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 100px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07), 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+}
+
+.wispr-nav-pill.scrolled {
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Dark pill — for use when navbar floats over dark sections */
+.wispr-nav-pill-dark {
+  background: rgba(13, 17, 23, 0.90);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 100px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.3s ease, background 0.3s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SECTION BACKGROUNDS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Cream / light background section */
+.wispr-section-light {
+  background: var(--wispr-cream);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(200, 134, 10, 0.03) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(160, 120, 60, 0.02) 0%, transparent 50%);
+}
+
+/* Dark section (full-width dark) */
+.wispr-section-dark {
+  background: var(--wispr-dark);
+}
+
+/* ── WISPR HERO — LIGHT CREAM BACKGROUND ────────────────────── */
+.wispr-hero-bg {
+  background: var(--wispr-cream);
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(200, 134, 10, 0.04) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(160, 120, 60, 0.03) 0%, transparent 50%);
+}
+
+/* ── WISPR DARK ROUNDED PANELS ───────────────────────────────── */
+
+/* Panel that sits INSIDE a light section */
+.wispr-dark-section {
+  background: var(--wispr-dark);
+  border-radius: 40px;
+  overflow: hidden;
+  position: relative;
+}
+
+.wispr-dark-section-lg {
+  background: var(--wispr-dark);
+  border-radius: 56px;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Extra-dark inner sections for contrast */
+.wispr-dark-inner {
+  background: var(--wispr-darker);
+  border-radius: 28px;
+}
+
+/* ── LIGHT CARD ──────────────────────────────────────────────── */
+.wispr-card-light {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 24px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+  transition: box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wispr-card-light:hover {
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.05);
+  transform: translateY(-3px);
+}
+
+/* Dark card (for dark sections) */
+.wispr-card-dark {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 24px;
+  backdrop-filter: blur(12px);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.wispr-card-dark:hover {
+  border-color: rgba(200, 134, 10, 0.2);
+  box-shadow: 0 0 30px rgba(200, 134, 10, 0.06);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TYPOGRAPHY
+   ══════════════════════════════════════════════════════════════ */
+
+.wispr-headline {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.wispr-headline-bold {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.0;
+}
+
+/* Section eyebrow label */
+.wispr-eyebrow {
+  font-family: var(--font-sans, Inter, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* Amber pill eyebrow (for dark sections) */
+.wispr-eyebrow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 1px solid rgba(200, 134, 10, 0.25);
+  border-radius: 100px;
+  background: rgba(200, 134, 10, 0.07);
+  font-family: var(--font-sans, Inter, sans-serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(200, 134, 10, 0.85);
+}
+
+/* Neutral pill eyebrow (for light sections) */
+.wispr-eyebrow-pill-light {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  border-radius: 100px;
+  background: rgba(0, 0, 0, 0.04);
+  font-family: var(--font-sans, Inter, sans-serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--wispr-neutral-500);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CTA BUTTONS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Primary — Amber (matches brand colour) */
+.wispr-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--wispr-amber);
+  color: #fff;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 20px rgba(200, 134, 10, 0.28);
+}
+
+.wispr-btn-primary:hover {
+  background: #b07308;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(200, 134, 10, 0.38);
+}
+
+/* Primary — Teal (WisprFlow-style CTA for emphasis) */
+.wispr-btn-primary-teal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: var(--wispr-teal);
+  color: #fff;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 20px rgba(3, 79, 70, 0.3);
+}
+
+.wispr-btn-primary-teal:hover {
+  background: var(--wispr-teal-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(3, 79, 70, 0.4);
+}
+
+/* Secondary — ghost pill */
+.wispr-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: transparent;
+  color: var(--wispr-neutral-900);
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.wispr-btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Secondary — ghost pill for dark backgrounds */
+.wispr-btn-secondary-dark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  background: transparent;
+  color: rgba(240, 235, 225, 0.85);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.wispr-btn-secondary-dark:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ANIMATIONS & INTERACTIVE ELEMENTS
+   ══════════════════════════════════════════════════════════════ */
+
+/* Waveform */
+.wispr-wave-bar {
+  border-radius: 2px;
+  background: currentColor;
+  animation: wispr-wave var(--wave-dur, 1s) ease-in-out infinite alternate;
+  animation-delay: var(--wave-delay, 0s);
+  transform-origin: bottom center;
+}
+
+@keyframes wispr-wave {
+  0%   { transform: scaleY(0.25); opacity: 0.45; }
+  40%  { transform: scaleY(0.85); opacity: 0.85; }
+  70%  { transform: scaleY(0.55); opacity: 0.65; }
+  100% { transform: scaleY(1.0);  opacity: 1.0;  }
+}
+
+/* Circular arc text */
+.wispr-arc-text {
+  animation: wispr-rotate 22s linear infinite;
+  transform-origin: center center;
+}
+
+.wispr-circle-text {
+  animation: wispr-rotate 18s linear infinite;
+}
+
+@keyframes wispr-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Animated speaking dot */
+.wispr-speaking-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--wispr-amber);
+  animation: wispr-pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes wispr-pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.4); opacity: 0.7; }
+}
+
+/* ── LOGO MARQUEE ───────────────────────────────────────────── */
+
+.wispr-marquee-track {
+  display: flex;
+  gap: 56px;
+  align-items: center;
+  animation: wispr-marquee 32s linear infinite;
+  will-change: transform;
+  width: max-content;
+}
+
+.wispr-marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes wispr-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ── APP ICON ────────────────────────────────────────────────── */
+
+.wispr-app-icon {
+  border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.wispr-app-icon:hover {
+  transform: translateY(-4px) scale(1.05);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* ── FEATURE CARD HOVER ─────────────────────────────────────── */
+
+.wispr-feature-card {
+  border-radius: 28px;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wispr-feature-card:hover {
+  transform: translateY(-4px);
+}
+
+/* ── HERO STAT BADGE ────────────────────────────────────────── */
+
+.wispr-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px 8px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 100px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+/* ── LARGE WATERMARK TEXT ───────────────────────────────────── */
+
+.wispr-watermark {
+  font-family: var(--font-serif);
+  font-size: clamp(80px, 16vw, 240px);
+  font-weight: 800;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.08);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ── SCROLL-REVEAL CLIP PATH ────────────────────────────────── */
+
+.wispr-reveal {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wispr-reveal.visible {
+  clip-path: inset(0 0% 0 0);
+}
+
+/* ── SECTION DIVIDERS ───────────────────────────────────────── */
+
+.wispr-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.08), transparent);
+}
+
+.wispr-divider-light {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.10), transparent);
+}
+
+.wispr-divider-dark {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LEGACY COMPATIBILITY
+   ══════════════════════════════════════════════════════════════ */
+
+.noise-glitch {
+  animation: glitch-jitter 0.15s infinite linear;
+}
+
+.critical-warning-glow {
+  box-shadow: 0 0 30px rgba(239, 68, 68, 0.25), inset 0 0 20px rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+@keyframes glitch-jitter {
+  0%   { transform: translate(0, 0) skewX(0deg); }
+  25%  { transform: translate(-1px, 1.5px) skewX(-1.5deg); }
+  50%  { transform: translate(1.5px, -1px) skewX(1deg); }
+  75%  { transform: translate(-1.5px, -1.5px) skewX(-1deg); }
+  100% { transform: translate(1px, 1px) skewX(0deg); }
+}
 
 .apple-mesh-bg {
   position: absolute;
@@ -21,106 +466,59 @@
   opacity: 0.90;
 }
 
-.dark .apple-mesh-bg {
-  background:
-    radial-gradient(circle at 15% 50%, rgba(2, 132, 199, 0.50), transparent 50%),
-    radial-gradient(circle at 85% 30%, rgba(76, 29, 149, 0.40), transparent 50%),
-    radial-gradient(circle at 90% 80%, rgba(157, 23, 77, 0.40), transparent 50%),
-    radial-gradient(circle at 20% 90%, rgba(29, 78, 216, 0.50), transparent 50%);
-  opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .apple-mesh-bg { animation: none; }
-}
-
-/* ── CSS GRADIENT FALLBACK (no WebGL) ─────────────────────── */
-
-.css-backdrop {
-  background:
-    radial-gradient(ellipse at 30% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
-    radial-gradient(ellipse at 70% 20%, rgba(245, 158, 11, 0.12) 0%, transparent 50%),
-    var(--surface-base);
-  animation: aurora-drift 14s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .css-backdrop { animation: none; }
-}
-
-/* ── AURORA ORB ───────────────────────────────────────────── */
-
 .aurora-orb-1 {
-  position: absolute;
-  top: -30%;
-  left: -20%;
-  width: 60%;
-  height: 80%;
-  background: radial-gradient(ellipse, rgba(245, 158, 11, 0.06) 0%, transparent 70%);
+  position: absolute; top: -30%; left: -20%;
+  width: 60%; height: 80%;
+  background: radial-gradient(ellipse, rgba(200, 134, 10, 0.06) 0%, transparent 70%);
   pointer-events: none;
   animation: aurora-drift 14s ease-in-out infinite;
 }
 
 .aurora-orb-2 {
-  position: absolute;
-  bottom: -20%;
-  right: -15%;
-  width: 50%;
-  height: 60%;
-  background: radial-gradient(ellipse, rgba(217, 119, 6, 0.05) 0%, transparent 70%);
+  position: absolute; bottom: -20%; right: -15%;
+  width: 50%; height: 60%;
+  background: radial-gradient(ellipse, rgba(176, 115, 8, 0.05) 0%, transparent 70%);
   pointer-events: none;
   animation: aurora-drift-2 18s ease-in-out infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .aurora-orb-1,
-  .aurora-orb-2 { animation: none; }
-}
-
-/* ── SCROLL CUE ───────────────────────────────────────────── */
-
 .scroll-cue {
   width: 1px;
-  background: var(--amber-500);
+  background: var(--wispr-amber);
   animation: blink 2s ease-in-out infinite;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .scroll-cue { animation: none; opacity: 0.6; }
-}
-
-/* ── PERSPECTIVE HERO ─────────────────────────────────────── */
 
 .hero-perspective {
   perspective: 1000px;
   perspective-origin: 50% 40%;
 }
 
-/* ── EYEBROW LABEL ────────────────────────────────────────── */
-
 .eyebrow-label {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-widest);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--amber-500);
+  color: var(--wispr-amber);
 }
 
-/* ── SCENE 2 GLITCH & COGNITIVE WARNING ───────────────────── */
-.noise-glitch {
-  animation: glitch-jitter 0.15s infinite linear;
+/* Glass card variant (amber-tinted — for dark sections only) */
+.glass-amber {
+  background: rgba(200, 134, 10, 0.04);
+  border: 1px solid rgba(200, 134, 10, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
-.critical-warning-glow {
-  box-shadow: 0 0 30px rgba(239, 68, 68, 0.25), inset 0 0 20px rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.4) !important;
-}
+/* ── REDUCED MOTION ──────────────────────────────────────────── */
 
-@keyframes glitch-jitter {
-  0% { transform: translate(0, 0) skewX(0deg); }
-  25% { transform: translate(-1px, 1.5px) skewX(-1.5deg); }
-  50% { transform: translate(1.5px, -1px) skewX(1deg); }
-  75% { transform: translate(-1.5px, -1.5px) skewX(-1deg); }
-  100% { transform: translate(1px, 1px) skewX(0deg); }
+@media (prefers-reduced-motion: reduce) {
+  .apple-mesh-bg,
+  .aurora-orb-1,
+  .aurora-orb-2,
+  .scroll-cue { animation: none; }
+  .wispr-marquee-track { animation: none; }
+  .wispr-circle-text,
+  .wispr-arc-text,
+  .wispr-wave-bar,
+  .wispr-speaking-dot { animation: none; }
 }
-

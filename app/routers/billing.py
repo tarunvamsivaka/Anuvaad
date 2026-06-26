@@ -293,33 +293,6 @@ async def razorpay_webhook(request: Request):
     return {"received": True}
 
 
-@router.post("/subscription-status")
-async def check_subscription_status(
-    email: str | None = Depends(get_user_email),
-):
-    """Check if the authenticated user has an active Pro subscription.
-    Returns {plan, status, isPro} for the frontend to gate features.
-    BACK-06: Auth via Authorization header only.\""""
-    user_email = email
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{user_email}&select=is_pro"
-    )
-
-    if sub and isinstance(sub, dict):
-        is_pro = bool(sub.get("is_pro", False))
-        plan = "pro" if is_pro else "free"
-        status = "active"
-    else:
-        plan = "free"
-        status = "active"
-        is_pro = False
-
-    return {"plan": plan, "status": status, "isPro": is_pro}
-
-
 @router.get("/subscription-status")
 async def get_subscription_status(
     email: str | None = Depends(get_user_email),

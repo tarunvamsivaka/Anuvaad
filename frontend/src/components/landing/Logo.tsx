@@ -7,6 +7,7 @@ interface LogoProps {
   showText?: boolean;
   iconSize?: number;
   textSize?: string;
+  theme?: "light" | "dark";
 }
 
 export function Logo({
@@ -14,6 +15,7 @@ export function Logo({
   showText = true,
   iconSize = 28,
   textSize = "text-xl",
+  theme = "dark",
 }: LogoProps) {
   return (
     <div className={cn("flex items-center gap-2.5 select-none", className)}>
@@ -98,13 +100,23 @@ export function Logo({
         <div className="flex items-center gap-1.5">
           <span
             className={cn(
-              "font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent",
+              "font-bold tracking-tight bg-clip-text text-transparent",
+              theme === "light"
+                ? "bg-gradient-to-r from-neutral-900 via-neutral-700 to-neutral-500"
+                : "bg-gradient-to-r from-white via-slate-200 to-slate-400",
               textSize
             )}
           >
             Anuvaad
           </span>
-          <span className="rounded-md border border-indigo-500/30 bg-indigo-500/10 px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.15)]">
+          <span
+            className={cn(
+              "rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider",
+              theme === "light"
+                ? "border border-indigo-200 bg-indigo-50 text-indigo-700"
+                : "border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 shadow-[0_0_10px_rgba(99,102,241,0.15)]"
+            )}
+          >
             AI
           </span>
         </div>

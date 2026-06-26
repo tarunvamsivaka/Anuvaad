@@ -200,7 +200,7 @@ class TestStaleRecoveryFallback:
 
         from unittest.mock import AsyncMock
         # Mock get_completion to throw an exception
-        with patch("app.routers.translate.get_completion", side_effect=Exception("API limit exceeded")):
+        with patch("app.routers.translate.code_to_english.get_completion", side_effect=Exception("API limit exceeded")):
             with patch.object(
                 app_module.cache, 
                 "get", 
