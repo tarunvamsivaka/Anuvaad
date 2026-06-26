@@ -3,7 +3,7 @@ uvicorn==0.46.0
 razorpay>=1.4.1,<2.0.0
 openai>=1.0.0
 python-dotenv==1.2.2
-pydantic==2.13.3
+pydantic==2.13.4
 httpx==0.28.1
 upstash-redis==1.7.0
 redis>=5.0.0
