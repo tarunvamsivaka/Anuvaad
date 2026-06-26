@@ -174,7 +174,7 @@ async def health_check():
 
 
 @router.get("/import-gist")
-async def import_gist(url: str):
+async def import_gist(url: str, file_path: str | None = None):
     """Fetch a public GitHub Gist, Raw file, Repository file, or Repository's default file and return its content."""
     clean_url = url.strip()
 
@@ -239,6 +239,7 @@ async def import_gist(url: str):
         detected_language = GIST_LANGUAGE_MAP.get(raw_language, "python")
 
         return {
+            "type": "file",
             "filename": first_filename,
             "language": detected_language,
             "content": content,
@@ -266,6 +267,7 @@ async def import_gist(url: str):
 
         detected_language = get_language_from_filename(filename)
         return {
+            "type": "file",
             "filename": filename,
             "language": detected_language,
             "content": content,
@@ -294,6 +296,7 @@ async def import_gist(url: str):
 
         detected_language = get_language_from_filename(filename)
         return {
+            "type": "file",
             "filename": filename,
             "language": detected_language,
             "content": content,
@@ -306,11 +309,19 @@ async def import_gist(url: str):
     if repo_match:
         owner = repo_match.group(1)
         repo = repo_match.group(2)
+        
+        # GitHub API does not accept the .git extension in the repo path
+        if repo.endswith(".git"):
+            repo = repo[:-4]
+
+        api_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
+        if file_path:
+            api_url = f"{api_url}/{file_path.strip('/')}"
 
         try:
             client = await get_http_client()
             resp = await client.get(
-                f"https://api.github.com/repos/{owner}/{repo}/contents",
+                api_url,
                 headers={
                     "Accept": "application/vnd.github.v3+json",
                     "User-Agent": "Anuvaad-App",
@@ -327,7 +338,7 @@ async def import_gist(url: str):
 
         if resp.status_code == 404:
             raise HTTPException(
-                status_code=404, detail="Repository not found or is private."
+                status_code=404, detail="Repository or file not found. It may be private or deleted."
             )
         if resp.status_code == 403:
             raise HTTPException(
@@ -339,68 +350,47 @@ async def import_gist(url: str):
             )
 
         contents = resp.json()
+        
+        # If fetching a specific file, it returns a dict instead of a list
+        if isinstance(contents, dict) and contents.get("type") == "file":
+            download_url = contents.get("download_url")
+            filename = contents.get("name", "code.txt")
+            if not download_url:
+                raise HTTPException(status_code=400, detail="Could not get download URL for selected file.")
+
+            client = await get_http_client()
+            content = await fetch_raw_content(client, download_url)
+
+            if len(content.encode("utf-8")) > GIST_MAX_SIZE:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
+                )
+
+            detected_language = get_language_from_filename(filename)
+            return {
+                "type": "file",
+                "filename": filename,
+                "language": detected_language,
+                "content": content,
+                "char_count": len(content),
+                "username": owner,
+            }
+
         if not isinstance(contents, list):
             raise HTTPException(status_code=400, detail="Could not read repository contents.")
 
-        files = [item for item in contents if item.get("type") == "file"]
-        if not files:
-            raise HTTPException(status_code=400, detail="No files found in the repository root.")
-
-        # Priority 1: Common entry points
-        preferred_names = ["main.py", "app.py", "index.js", "index.ts", "main.go", "main.rs", "index.html"]
-        selected_file = None
-        for name in preferred_names:
-            for f in files:
-                if f.get("name") == name:
-                    selected_file = f
-                    break
-            if selected_file:
-                break
-
-        # Priority 2: Any code file with supported extensions
-        if not selected_file:
-            supported_extensions = [
-                ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".cpp", ".cc", ".c", ".cs",
-                ".go", ".rs", ".swift", ".kt", ".dart", ".php", ".rb", ".sql", ".sh", ".html", ".css"
-            ]
-            for f in files:
-                ext = os.path.splitext(f.get("name", ""))[1].lower()
-                if ext in supported_extensions:
-                    selected_file = f
-                    break
-
-        # Priority 3: README.md
-        if not selected_file:
-            for f in files:
-                if f.get("name", "").lower() == "readme.md":
-                    selected_file = f
-                    break
-
-        # Priority 4: First file in the list
-        if not selected_file:
-            selected_file = files[0]
-
-        download_url = selected_file.get("download_url")
-        filename = selected_file.get("name", "code.txt")
-        if not download_url:
-            raise HTTPException(status_code=400, detail="Could not get download URL for selected file.")
-
-        client = await get_http_client()
-        content = await fetch_raw_content(client, download_url)
-
-        if len(content.encode("utf-8")) > GIST_MAX_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
-            )
-
-        detected_language = get_language_from_filename(filename)
+        # It's a directory, return list of files/folders
+        files_list = [
+            {"name": item.get("name"), "path": item.get("path"), "type": item.get("type")} 
+            for item in contents
+        ]
+        
         return {
-            "filename": filename,
-            "language": detected_language,
-            "content": content,
-            "char_count": len(content),
+            "type": "directory",
             "username": owner,
+            "repo": repo,
+            "files": files_list
         }
 
     raise HTTPException(

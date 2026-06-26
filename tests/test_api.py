@@ -285,26 +285,47 @@ class TestImportGist:
 
     @patch("httpx.AsyncClient.get")
     def test_import_repo_root_success(self, mock_get, client):
-        # Mock API contents response and download response
+        # Mock API contents response (directory listing)
         mock_contents_response = MagicMock()
         mock_contents_response.status_code = 200
         mock_contents_response.json.return_value = [
-            {"name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py"}
+            {"name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py", "path": "main.py"}
         ]
-
-        mock_download_response = MagicMock()
-        mock_download_response.status_code = 200
-        mock_download_response.text = "print('hello from repo root')"
-
-        # Side effect for the two get calls
-        mock_get.side_effect = [mock_contents_response, mock_download_response]
-
+    
+        mock_get.side_effect = [mock_contents_response]
+    
         res = client.get("/api/import-gist?url=https://github.com/owner/repo")
         assert res.status_code == 200
         data = res.json()
+        assert data["type"] == "directory"
+        assert data["username"] == "owner"
+        assert data["repo"] == "repo"
+        assert len(data["files"]) == 1
+        assert data["files"][0]["name"] == "main.py"
+
+    @patch("httpx.AsyncClient.get")
+    def test_import_repo_specific_file_success(self, mock_get, client):
+        # Mock API contents response and download response for a specific file
+        mock_contents_response = MagicMock()
+        mock_contents_response.status_code = 200
+        mock_contents_response.json.return_value = {
+            "name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py"
+        }
+    
+        mock_download_response = MagicMock()
+        mock_download_response.status_code = 200
+        mock_download_response.text = "print('hello from specific file')"
+    
+        # Side effect for the two get calls
+        mock_get.side_effect = [mock_contents_response, mock_download_response]
+    
+        res = client.get("/api/import-gist?url=https://github.com/owner/repo&file_path=main.py")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["type"] == "file"
         assert data["filename"] == "main.py"
         assert data["language"] == "python"
-        assert data["content"] == "print('hello from repo root')"
+        assert data["content"] == "print('hello from specific file')"
 
     def test_invalid_url_rejected(self, client):
         res = client.get("/api/import-gist?url=https://google.com")

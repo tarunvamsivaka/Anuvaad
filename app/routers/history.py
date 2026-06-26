@@ -62,63 +62,41 @@ async def get_translation_history(
         return cached
     await metrics.record_cache_miss()
 
-    history = await translation_repo.get_history(email, limit=limit, offset=0)
-    await cache.put(cache_key, history, ttl=300)
+    history = await translation_repo.get_history(email, workspace_id=workspace_id, limit=limit, offset=0)
+    
+    # Safely encode UUIDs and datetimes for JSON caching
+    from fastapi.encoders import jsonable_encoder
+    await cache.put(cache_key, jsonable_encoder(history), ttl=300)
+    
     return history
 
 
 @router.get("/stats")
-async def get_translation_stats(email: str = Depends(get_user_email)):
+async def get_translation_stats(
+    workspace_id: str = None,
+    email: str = Depends(get_user_email),
+):
     """Return accurate translation counts (total, this week, today) for the dashboard."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    cache_key = f"user_stats:{email}"
+    cache_key = f"user_stats:{email}:{workspace_id}"
     cached = await cache.get(cache_key)
     if cached is not None:
         await metrics.record_cache_hit()
         return cached
     await metrics.record_cache_miss()
 
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        return {"total": 0, "week": 0, "today": 0}
-
-    base_headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        "Prefer": "count=exact",
-        "Range-Unit": "items",
-        "Range": "0-0",
-    }
-
     now_utc = datetime.now(timezone.utc)
-    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0).strftime(
-        "%Y-%m-%dT00:00:00Z"
-    )
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start_dt = (now_utc - timedelta(days=now_utc.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
-    week_start = week_start_dt.strftime("%Y-%m-%dT00:00:00Z")
-
-    base_filter = f"user_email=eq.{email}&workspace_id=is.null"
-
-    async def count_rows(extra_filter: str) -> int:
-        url = f"{SUPABASE_URL}/rest/v1/translation_history?{base_filter}&{extra_filter}"
-        try:
-            client = await get_http_client()
-            resp = await client.get(url, headers=base_headers)
-            if resp.status_code in (200, 206):
-                content_range = resp.headers.get("Content-Range", "")
-                if "/" in content_range:
-                    return int(content_range.split("/")[1])
-        except Exception as e:
-            logger.warning(f"Count query failed: {e}")
-        return 0
 
     total, week, today = await asyncio.gather(
-        count_rows("select=id"),
-        count_rows(f"created_at=gte.{week_start}&select=id"),
-        count_rows(f"created_at=gte.{today_start}&select=id"),
+        translation_repo.get_count_since(email, workspace_id=workspace_id, since=None),
+        translation_repo.get_count_since(email, workspace_id=workspace_id, since=week_start_dt),
+        translation_repo.get_count_since(email, workspace_id=workspace_id, since=today_start),
     )
 
     res = {"total": total, "week": week, "today": today}

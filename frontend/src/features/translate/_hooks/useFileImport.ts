@@ -25,6 +25,8 @@ export function useFileImport({
   const [gistUrl, setGistUrl] = useState("");
   const [gistLoading, setGistLoading] = useState(false);
   const [isTypingManually, setIsTypingManually] = useState(false);
+  const [fileList, setFileList] = useState<{name: string; path: string; type: string}[] | null>(null);
+  const [repoInfo, setRepoInfo] = useState<{username: string; repo: string} | null>(null);
 
   const onFileDrop = useCallback((acceptedFiles: globalThis.File[]) => {
     const file = acceptedFiles[0];
@@ -67,16 +69,51 @@ export function useFileImport({
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
       const data = await res.json();
-      setInput(data.content);
-      setSourceLanguage(data.language);
-      setGistSource({ username: data.username, filename: data.filename });
-      setUploadedFile(null);
-      setShowGistInput(false);
-      setGistUrl("");
-      toast.success(`Imported ${data.filename} (${data.char_count.toLocaleString()} chars)`);
-      track("gist_imported", { language: data.language, char_count: data.char_count, username: data.username });
+      if (data.type === "directory") {
+        setFileList(data.files);
+        setRepoInfo({ username: data.username, repo: data.repo });
+      } else {
+        setInput(data.content);
+        setSourceLanguage(data.language);
+        setGistSource({ username: data.username, filename: data.filename });
+        setUploadedFile(null);
+        setShowGistInput(false);
+        // Do not clear gistUrl here if we might need it for file tree, but we imported directly
+        toast.success(`Imported ${data.filename} (${data.char_count.toLocaleString()} chars)`);
+        track("gist_imported", { language: data.language, char_count: data.char_count, username: data.username });
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to import Gist";
+      toast.error(message);
+    } finally {
+      setGistLoading(false);
+    }
+  };
+
+  const handleSelectFile = async (path: string) => {
+    if (!gistUrl.trim()) return;
+    setGistLoading(true);
+    try {
+      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const res = await fetch(`${API}/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(path)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => null);
+        throw new Error(err?.detail || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      if (data.type === "file") {
+        setInput(data.content);
+        setSourceLanguage(data.language);
+        setGistSource({ username: data.username, filename: data.filename });
+        setUploadedFile(null);
+        setShowGistInput(false);
+        setFileList(null);
+        setGistUrl("");
+        toast.success(`Imported ${data.filename} (${data.char_count.toLocaleString()} chars)`);
+        track("gist_imported", { language: data.language, char_count: data.char_count, username: data.username });
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to import file";
       toast.error(message);
     } finally {
       setGistLoading(false);
@@ -103,5 +140,9 @@ export function useFileImport({
     isDragActive,
     handleGistImport,
     handleClearFile,
+    fileList,
+    repoInfo,
+    handleSelectFile,
+    setFileList,
   };
 }

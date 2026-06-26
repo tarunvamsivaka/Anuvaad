@@ -1,4 +1,4 @@
-﻿"""
+"""
 app/repositories/translation.py
 
 Typed repository for translation_history table.
@@ -13,14 +13,18 @@ from app.models.db_models import TranslationHistory
 from app.core.config import logger, HISTORY_LIMIT_PRO, HISTORY_LIMIT_FREE
 
 
-async def get_history(email: str, limit: int = 20, offset: int = 0) -> list[dict]:
+async def get_history(email: str, workspace_id: str | None = None, limit: int = 20, offset: int = 0) -> list[dict]:
     """Return paginated translation history for *email*, newest first."""
     async with AsyncSessionLocal() as session:
         try:
+            query = select(TranslationHistory)
+            if workspace_id:
+                query = query.where(TranslationHistory.workspace_id == workspace_id)
+            else:
+                query = query.where(TranslationHistory.user_email == email).where(TranslationHistory.workspace_id.is_(None))
+                
             result = await session.execute(
-                select(TranslationHistory)
-                .where(TranslationHistory.user_email == email)
-                .order_by(TranslationHistory.created_at.desc())
+                query.order_by(TranslationHistory.created_at.desc())
                 .limit(limit)
                 .offset(offset)
             )
@@ -31,19 +35,22 @@ async def get_history(email: str, limit: int = 20, offset: int = 0) -> list[dict
             return []
 
 
-async def get_count_since(email: str, since: datetime) -> int:
+async def get_count_since(email: str, workspace_id: str | None = None, since: datetime | None = None) -> int:
     """Return the number of translations for *email* since *since* (server-side COUNT).
-
-    H-2: Uses SQL COUNT(*) — never fetches rows into Python.
+    If *since* is None, returns the total count.
     """
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(func.count())
-                .select_from(TranslationHistory)
-                .where(TranslationHistory.user_email == email)
-                .where(TranslationHistory.created_at >= since)
-            )
+            query = select(func.count()).select_from(TranslationHistory)
+            if workspace_id:
+                query = query.where(TranslationHistory.workspace_id == workspace_id)
+            else:
+                query = query.where(TranslationHistory.user_email == email).where(TranslationHistory.workspace_id.is_(None))
+                
+            if since:
+                query = query.where(TranslationHistory.created_at >= since)
+                
+            result = await session.execute(query)
             return result.scalar() or 0
         except Exception as e:
             logger.error(f"translation.get_count_since({email}): {e}")

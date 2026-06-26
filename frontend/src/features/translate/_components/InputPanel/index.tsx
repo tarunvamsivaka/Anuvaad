@@ -60,6 +60,10 @@ interface InputPanelProps {
   gistLoading: boolean;
   handleGistImport: () => void;
   hasOutputBlocks: boolean;
+  fileList: {name: string; path: string; type: string}[] | null;
+  repoInfo: {username: string; repo: string} | null;
+  handleSelectFile: (path: string) => void;
+  setFileList: (list: {name: string; path: string; type: string}[] | null) => void;
 }
 
 export function InputPanel({
@@ -91,6 +95,10 @@ export function InputPanel({
   gistLoading,
   handleGistImport,
   hasOutputBlocks,
+  fileList,
+  repoInfo,
+  handleSelectFile,
+  setFileList,
 }: InputPanelProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
@@ -178,7 +186,7 @@ export function InputPanel({
               </Button>
             </div>
           )}
-          {!input && !isTypingManually && (
+          {!input && !isTypingManually && !fileList && (
             <FileDropZone
               getRootProps={getRootProps}
               getInputProps={getInputProps}
@@ -189,7 +197,75 @@ export function InputPanel({
             />
           )}
 
-          {!input && mode !== "english-to-code" && (
+          {!input && fileList && (
+            <div className="absolute inset-0 z-40 bg-white/95 dark:bg-[#0c1222]/95 backdrop-blur-sm p-6 flex flex-col items-center justify-center animate-in fade-in duration-300">
+              <div className="w-full max-w-lg bg-white dark:bg-surface-charcoal border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
+                  <div className="flex items-center gap-2">
+                    <GithubIcon className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                    <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                      {repoInfo?.username}/{repoInfo?.repo}
+                    </h3>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setFileList(null)} className="h-7 w-7 p-0 rounded-full hover:bg-slate-200 dark:hover:bg-white/10">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                  {fileList.length === 0 ? (
+                    <div className="p-8 text-center text-sm text-slate-500">No files or folders found.</div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {/* Render directories first */}
+                      {fileList.filter(f => f.type === "dir").map((dir) => (
+                        <button
+                          key={dir.path}
+                          onClick={async () => {
+                            // Update fileList to the contents of this directory
+                            try {
+                              const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+                              const res = await fetch(`${API}/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(dir.path)}`);
+                              if (res.ok) {
+                                const data = await res.json();
+                                if (data.type === "directory") {
+                                  setFileList(data.files);
+                                }
+                              }
+                            } catch (err) {
+                              console.error(err);
+                            }
+                          }}
+                          disabled={gistLoading}
+                          className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 transition-colors group disabled:opacity-50"
+                        >
+                          <svg className="h-4 w-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white truncate flex-1">
+                            {dir.name}
+                          </span>
+                        </button>
+                      ))}
+                      {/* Render files */}
+                      {fileList.filter(f => f.type === "file").map((file) => (
+                        <button
+                          key={file.path}
+                          onClick={() => handleSelectFile(file.path)}
+                          disabled={gistLoading}
+                          className="flex items-center gap-3 w-full text-left px-3 py-2.5 rounded-lg hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 transition-colors group disabled:opacity-50"
+                        >
+                          <FileCode className="h-4 w-4 text-slate-400 group-hover:text-amber-500 transition-colors" />
+                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-amber-600 dark:group-hover:text-amber-400 truncate flex-1">
+                            {file.name}
+                          </span>
+                          <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all text-amber-500" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!input && mode !== "english-to-code" && !fileList && (
             <div className="absolute bottom-4 left-0 right-0 z-20 flex justify-center">
               {showGistInput ? (
                 <div className="flex items-center gap-2 bg-white dark:bg-surface-charcoal border border-slate-200 dark:border-amber-500/20 rounded-lg px-3 py-2 shadow-lg w-[90%] max-w-md animate-in fade-in slide-in-from-bottom-2 duration-200">

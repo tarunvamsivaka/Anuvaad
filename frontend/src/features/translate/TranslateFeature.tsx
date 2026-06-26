@@ -128,6 +128,10 @@ export function TranslateFeature() {
     isDragActive,
     handleGistImport,
     handleClearFile,
+    fileList,
+    repoInfo,
+    handleSelectFile,
+    setFileList,
   } = useFileImport({
     mode,
     setInput,
@@ -231,6 +235,10 @@ export function TranslateFeature() {
           gistLoading={gistLoading}
           handleGistImport={handleGistImport}
           hasOutputBlocks={!!outputBlocks && outputBlocks.length > 0}
+          fileList={fileList}
+          repoInfo={repoInfo}
+          handleSelectFile={handleSelectFile}
+          setFileList={setFileList}
         />
       }
       outputPanel={
