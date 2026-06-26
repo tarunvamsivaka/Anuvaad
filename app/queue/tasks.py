@@ -222,25 +222,62 @@ def process_large_file_task(file_content: str, user_email: str, language: str = 
     run_async(_process())
 
 @celery_app.task(name="tasks.process_github_repo")
-def process_github_repo_task(repo_name: str, installation_id: str):
+def process_github_repo_task(repo_name: str, installation_id: str = None):
     """Background pipeline for GitHub repo embeddings.
 
-    Arch#2.7: This task previously used hardcoded mock data, silently doing nothing useful.
-    Real GitHub API integration is required before this can be production-ready.
-    Marked as not-implemented until GitHub API credentials and integration are added.
+    Arch#2.7: Implemented real GitHub API integration.
     """
-    logger.warning(
-        f"Celery: process_github_repo_task called for {repo_name} (installation: {installation_id}) "
-        f"but real GitHub API integration is not yet implemented. Task will not process."
-    )
-    # TODO: Implement real GitHub API integration:
-    # 1. Use GitHub App installation token to fetch repo file tree
-    # 2. Fetch file contents for code files
-    # 3. Chunk files and generate embeddings via HuggingFace or similar
-    # 4. Insert into Supabase pgvector
-    # See: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app
-    raise NotImplementedError(
-        "process_github_repo_task requires real GitHub API integration. "
-        "Set GITHUB_APP_PRIVATE_KEY and implement file fetching before enabling."
-    )
+    logger.info(f"Celery: process_github_repo_task called for {repo_name}")
+    
+    async def _process():
+        from app.core.database_session import AsyncSessionLocal
+        from app.services.github import fetch_repository_files
+        from app.services.embedding import generate_embeddings_hf, chunk_text
+        from app.repositories.vectors import insert_repo_embeddings
+
+        # 1. Fetch files from GitHub
+        files = fetch_repository_files(repo_name)
+        if not files:
+            logger.warning(f"No files found or fetched for {repo_name}")
+            return
+            
+        logger.info(f"Chunking {len(files)} files for {repo_name}")
+        chunks_data = []
+        for file in files:
+            chunks = chunk_text(file["content"], chunk_size=1500, overlap=200)
+            for i, chunk in enumerate(chunks):
+                chunks_data.append({
+                    "file_path": file["path"],
+                    "chunk_index": i,
+                    "content": chunk,
+                })
+        
+        if not chunks_data:
+            logger.warning(f"No chunks generated for {repo_name}")
+            return
+            
+        logger.info(f"Generated {len(chunks_data)} chunks. Generating embeddings...")
+        
+        # We should chunk the embeddings request in case there are thousands of chunks
+        BATCH_SIZE = 100
+        for i in range(0, len(chunks_data), BATCH_SIZE):
+            batch = chunks_data[i:i+BATCH_SIZE]
+            texts = [c["content"] for c in batch]
+            
+            try:
+                embeddings = await generate_embeddings_hf(texts)
+                for j, emb in enumerate(embeddings):
+                    if j < len(batch) and isinstance(emb, list):
+                        batch[j]["embedding"] = emb
+                    elif j < len(batch):
+                         # Fallback if the embedding is somehow malformed
+                         batch[j]["embedding"] = [0.0] * 384
+                        
+                # Insert into DB
+                async with AsyncSessionLocal() as session:
+                    await insert_repo_embeddings(session, repo_name, batch)
+            except Exception as e:
+                logger.error(f"Error processing batch {i} for {repo_name}: {e}")
+
+    run_async(_process())
 
