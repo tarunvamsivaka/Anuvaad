@@ -2,8 +2,6 @@
 
 > Understand any codebase instantly. Translate code to plain English and back.
 
-[![CI](https://github.com/tarunvamsivaka/Anuvaad/actions/workflows/ci.yml/badge.svg)](https://github.com/tarunvamsivaka/Anuvaad/actions)
-[![Release](https://img.shields.io/github/v/release/tarunvamsivaka/Anuvaad?label=Release&color=blue)](https://github.com/tarunvamsivaka/Anuvaad/releases)
 [![Powered by Groq + DeepSeek](https://img.shields.io/badge/Powered%20by-Groq%20%2B%20DeepSeek-orange.svg)](https://groq.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
