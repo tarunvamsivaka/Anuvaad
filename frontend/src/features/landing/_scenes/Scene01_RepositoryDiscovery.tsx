@@ -299,6 +299,8 @@ export function Scene01_RepositoryDiscovery({ id }: SceneProps) {
                 <span className="opacity-0 group-hover:opacity-100 transition-opacity text-amber-500/50">Edit me</span>
               </p>
               <textarea 
+                aria-label="Code editor"
+                title="Code editor"
                 value={codeText}
                 onChange={handleCodeChange}
                 spellCheck={false}

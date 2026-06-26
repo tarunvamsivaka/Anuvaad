@@ -227,6 +227,8 @@ export function Hero() {
                     Your Code · <span className="text-white/15">.{activeLang.ext}</span>
                   </p>
                   <textarea
+                    aria-label="Code editor"
+                    title="Code editor"
                     value={code}
                     onChange={(e) => { setCode(e.target.value); setDemoState("idle"); }}
                     onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") runTranslation(activeLang.key, code); }}

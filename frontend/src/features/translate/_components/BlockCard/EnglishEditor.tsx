@@ -18,6 +18,8 @@ export function EnglishEditor({ initialText, onSave, onCancel }: EnglishEditorPr
   return (
     <div className="flex flex-col gap-2 w-full animate-in fade-in duration-200">
       <textarea
+        aria-label="English text editor"
+        title="English text editor"
         value={editedText}
         onChange={(e) => setEditedText(e.target.value)}
         className="w-full text-sm leading-relaxed p-2.5 border border-border/80 rounded-md bg-background focus:ring-1 focus:ring-amber-500 focus:border-amber-500 outline-none resize-y min-h-[80px] font-sans"

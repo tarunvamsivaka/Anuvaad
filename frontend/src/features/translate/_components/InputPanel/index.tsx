@@ -138,7 +138,10 @@ export function InputPanel({
       </div>
       
       {mode === "english-to-code" ? (
-        <textarea value={input} onChange={(e) => setInput(e.target.value)}
+        <textarea 
+          aria-label="Input editor"
+          title="Input editor"
+          value={input} onChange={(e) => setInput(e.target.value)}
           placeholder="Describe the functionality you need. Be as detailed as possible..."
           className="flex-1 resize-none border-0 bg-transparent p-6 font-sans text-sm leading-relaxed focus:outline-none min-h-0"
           onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleTranslate(); }}
