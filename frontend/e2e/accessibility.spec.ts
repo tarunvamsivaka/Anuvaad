@@ -141,6 +141,9 @@ test.describe("Axe Accessibility Audit", () => {
         break;
       }
     }
+    
+    expect(found, "Should be able to tab to translate button").toBe(true);
+    
     // At minimum, focus must move past the first element (non-trapped)
     const firstFocused = await page.evaluate(
       () => document.activeElement?.tagName

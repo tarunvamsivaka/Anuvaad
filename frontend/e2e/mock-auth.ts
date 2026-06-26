@@ -54,7 +54,7 @@ export async function mockSupabaseAuth(page: Page) {
           });
           return;
         }
-      } catch (err) {
+      } catch {
         // Fallback
       }
     }
@@ -89,7 +89,7 @@ export async function mockSupabaseAuth(page: Page) {
           });
           return;
         }
-      } catch (err) {
+      } catch {
         // Fallback
       }
     }

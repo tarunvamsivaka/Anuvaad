@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { LiveCounter } from "@/features/landing/_components/LiveCounter";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";

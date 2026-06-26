@@ -9,7 +9,7 @@
 
 import * as React from 'react';
 import { useRef, useEffect } from 'react';
-import { motionConfig, registerScrollTrigger } from '@/lib/motion';
+import { motionConfig } from '@/lib/motion';
 import { useReducedMotionContext } from './ReducedMotion';
 import { cn } from '@/lib/utils';
 
@@ -103,6 +103,7 @@ export function RevealText({
     })();
 
     return () => cleanup?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [motionSafe, by, delay, duration, useScrollTrigger]);
 
   return (

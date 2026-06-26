@@ -8,7 +8,7 @@
 
 import * as React from 'react';
 import { useRef, useEffect } from 'react';
-import { motionConfig, isMotionSafe } from '@/lib/motion';
+import { motionConfig } from '@/lib/motion';
 import { useReducedMotionContext } from './ReducedMotion';
 
 export interface FadeInProps extends React.HTMLAttributes<HTMLDivElement> {

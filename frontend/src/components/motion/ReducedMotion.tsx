@@ -8,7 +8,6 @@
 'use client';
 
 import * as React from 'react';
-import { useMotionSafe } from '@/lib/motion';
 
 export interface ReducedMotionProps {
   children: React.ReactNode;
