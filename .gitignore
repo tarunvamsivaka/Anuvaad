@@ -42,3 +42,13 @@ scratch/
 # Large generated documents
 all_source_code.md
 combined_markdown_files.md
+
+# Logs and test artifacts
+failed_e2e_log.txt
+frontend-log.txt
+playwright-report.zip
+.playwright-report/
+
+# Playwright dynamic state
+frontend/playwright/.auth/
+frontend/playwright/*.png
