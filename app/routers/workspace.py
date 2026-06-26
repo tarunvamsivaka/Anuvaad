@@ -5,7 +5,7 @@ from app.core.auth import get_user_email
 from app.core.database import supabase_request, supabase_request_list
 from app.models.schemas import WorkspaceCreate, WorkspaceInvite
 
-router = APIRouter(prefix="/api", tags=["workspaces"])
+router = APIRouter(prefix="", tags=["workspaces"])
 
 @router.post("/workspaces")
 async def create_workspace(

@@ -5,7 +5,6 @@ import sys
 import time
 import logging
 import httpx
-from collections import deque
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -55,6 +54,42 @@ LLM_TIMEOUT = 60
 FREE_TIER_DAILY_LIMIT = 10
 GIST_MAX_SIZE = 50 * 1024
 
+# ── FILE UPLOAD LIMITS ──
+FREE_MAX_FILE_SIZE = 50 * 1024    # 50 KB
+PRO_MAX_FILE_SIZE  = 200 * 1024   # 200 KB
+
+# ── HISTORY PRUNING LIMITS (Arch#2.8: single source of truth) ──
+HISTORY_LIMIT_PRO  = int(os.getenv("HISTORY_LIMIT_PRO",  "1000"))
+HISTORY_LIMIT_FREE = int(os.getenv("HISTORY_LIMIT_FREE", "100"))
+
+# ── EXTENSION → LANGUAGE MAP (Arch#2.9: single definition, shared by upload.py & dependencies.py) ──
+EXTENSION_TO_LANGUAGE: dict[str, str] = {
+    ".py":   "python",
+    ".js":   "javascript",
+    ".ts":   "typescript",
+    ".jsx":  "javascript",
+    ".tsx":  "typescript",
+    ".java": "java",
+    ".cpp":  "cpp",
+    ".cc":   "cpp",
+    ".cxx":  "cpp",
+    ".rs":   "rust",
+    ".go":   "go",
+    ".c":    "c",
+    ".cs":   "csharp",
+    ".rb":   "ruby",
+    ".php":  "php",
+    ".kt":   "kotlin",
+    ".swift":"swift",
+    ".r":    "r",
+    ".sh":   "bash",
+    ".sql":  "sql",
+    ".html": "html",
+    ".css":  "css",
+}
+ALLOWED_EXTENSIONS: frozenset[str] = frozenset(EXTENSION_TO_LANGUAGE.keys())
+
+
 # ── API KEY & SUPABASE SECRETS ──
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
@@ -68,6 +103,14 @@ RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
 SENTRY_DSN = os.getenv("SENTRY_DSN", "")
 METRICS_USERNAME = os.getenv("METRICS_USERNAME", "")
 METRICS_PASSWORD = os.getenv("METRICS_PASSWORD", "")
+
+# ── PRE-PARSED EMAIL SETS (H-7: parsed once at startup, O(1) lookups) ──
+ADMIN_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower() for e in os.getenv("ADMIN_USERS", "").split(",") if e.strip()
+)
+TRUSTED_EMAILS: frozenset[str] = frozenset(
+    e.strip().lower() for e in os.getenv("TRUSTED_USERS", "").split(",") if e.strip()
+)
 
 
 # ── GLOBAL HTTP CLIENT (with asyncio.Lock for thread-safe init) ──
@@ -126,129 +169,6 @@ async def lifespan(app: FastAPI):
         await _fallback_client.aclose()
 
 
-
-
-class MetricsCollector:
-    """In-memory metrics for API observability. Resets on process restart."""
-
-    def __init__(self):
-        self.start_time = time.time()
-        self.total_requests: dict[str, int] = {}
-        self.total_errors: dict[str, int] = {}
-        self.model_calls: dict[str, int] = {}
-        self.model_errors: dict[str, int] = {}
-        self.cache_hits: int = 0
-        self.cache_misses: int = 0
-        self._latencies: dict[str, deque] = {}
-
-    async def record_request(self, endpoint: str, latency_ms: float, is_error: bool = False):
-        from app.core.cache import cache
-        if cache.client:
-            try:
-                await cache.client.hincrby("metrics:total_requests", endpoint, 1)
-                if is_error:
-                    await cache.client.hincrby("metrics:total_errors", endpoint, 1)
-            except Exception as e:
-                logger.error(f"Redis metrics error: {e}")
-
-        # Fallback to in-memory
-        self.total_requests[endpoint] = self.total_requests.get(endpoint, 0) + 1
-        if is_error:
-            self.total_errors[endpoint] = self.total_errors.get(endpoint, 0) + 1
-        if endpoint not in self._latencies:
-            self._latencies[endpoint] = deque(maxlen=100)
-        self._latencies[endpoint].append(latency_ms)
-
-    async def record_model_call(self, model_name: str, is_error: bool = False):
-        from app.core.cache import cache
-        if cache.client:
-            try:
-                await cache.client.hincrby("metrics:model_calls", model_name, 1)
-                if is_error:
-                    await cache.client.hincrby("metrics:model_errors", model_name, 1)
-            except Exception as e:
-                pass
-        
-        self.model_calls[model_name] = self.model_calls.get(model_name, 0) + 1
-        if is_error:
-            self.model_errors[model_name] = self.model_errors.get(model_name, 0) + 1
-
-    async def record_cache_hit(self):
-        from app.core.cache import cache
-        if cache.client:
-            try:
-                await cache.client.incr("metrics:cache_hits")
-            except Exception:
-                pass
-        self.cache_hits += 1
-
-    async def record_cache_miss(self):
-        from app.core.cache import cache
-        if cache.client:
-            try:
-                await cache.client.incr("metrics:cache_misses")
-            except Exception:
-                pass
-        self.cache_misses += 1
-
-    @property
-    def average_latency_ms(self) -> dict[str, float]:
-        return {
-            ep: round(sum(dq) / len(dq), 2) if dq else 0.0
-            for ep, dq in self._latencies.items()
-        }
-
-    @property
-    def uptime_seconds(self) -> int:
-        return int(time.time() - self.start_time)
-
-    async def snapshot(self) -> dict:
-        from app.core.cache import cache
-        
-        # Merge Redis metrics if available
-        if cache.client:
-            try:
-                redis_requests = await cache.client.hgetall("metrics:total_requests")
-                redis_errors = await cache.client.hgetall("metrics:total_errors")
-                redis_model_calls = await cache.client.hgetall("metrics:model_calls")
-                redis_model_errors = await cache.client.hgetall("metrics:model_errors")
-                redis_cache_hits = await cache.client.get("metrics:cache_hits") or 0
-                redis_cache_misses = await cache.client.get("metrics:cache_misses") or 0
-                
-                # Convert string counts to int
-                redis_requests = {k: int(v) for k, v in redis_requests.items()}
-                redis_errors = {k: int(v) for k, v in redis_errors.items()}
-                redis_model_calls = {k: int(v) for k, v in redis_model_calls.items()}
-                redis_model_errors = {k: int(v) for k, v in redis_model_errors.items()}
-                
-                return {
-                    "uptime_seconds": self.uptime_seconds,
-                    "python_version": sys.version,
-                    "total_requests": redis_requests or dict(self.total_requests),
-                    "total_errors": redis_errors or dict(self.total_errors),
-                    "model_calls": redis_model_calls or dict(self.model_calls),
-                    "model_errors": redis_model_errors or dict(self.model_errors),
-                    "cache_hits": int(redis_cache_hits) or self.cache_hits,
-                    "cache_misses": int(redis_cache_misses) or self.cache_misses,
-                    "average_latency_ms": self.average_latency_ms,
-                }
-            except Exception as e:
-                logger.error(f"Failed to snapshot Redis metrics: {e}")
-
-        # Fallback: if Redis fails or isn't configured, execution falls through to this
-        # return statement, guaranteeing a dict is always returned, not None.
-        return {
-            "uptime_seconds": self.uptime_seconds,
-            "python_version": sys.version,
-            "total_requests": dict(self.total_requests),
-            "total_errors": dict(self.total_errors),
-            "model_calls": dict(self.model_calls),
-            "model_errors": dict(self.model_errors),
-            "cache_hits": self.cache_hits,
-            "cache_misses": self.cache_misses,
-            "average_latency_ms": self.average_latency_ms,
-        }
-
-
-metrics = MetricsCollector()
-
+# Arch#2.4: MetricsCollector extracted to app/core/metrics.py (breaks config->cache circular import).
+# Re-exported here for backward-compat — all existing `from app.core.config import metrics` still work.
+from app.core.metrics import MetricsCollector, metrics  # noqa: F401

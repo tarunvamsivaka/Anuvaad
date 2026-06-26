@@ -52,9 +52,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    requestAnimationFrame(() => {
-      refreshWorkspaces();
-    });
+    // M-5: Removed requestAnimationFrame() wrapper — rAF is for paint callbacks,
+    // not async data fetching. Direct call loads workspace data one frame sooner.
+    refreshWorkspaces();
   }, [refreshWorkspaces]);
 
   const value = useMemo(() => ({

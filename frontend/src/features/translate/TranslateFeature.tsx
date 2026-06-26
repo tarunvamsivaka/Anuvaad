@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "next-themes";
 import useSWR from "swr";
@@ -17,6 +17,24 @@ import { useTranslationStream } from "./_hooks/useTranslationStream";
 import { detectLanguage } from "./_hooks/useLanguageDetection";
 import { useFileImport } from "./_hooks/useFileImport";
 import { useTranslationSession } from "./_hooks/useTranslationSession";
+
+// ── M-1: Lifted to module scope so the object is never re-created on render ──
+const MONACO_OPTIONS: Record<string, unknown> = {
+  minimap: { enabled: false },
+  fontSize: 13,
+  lineHeight: 1.6,
+  padding: { top: 16, bottom: 16 },
+  scrollBeyondLastLine: false,
+  smoothScrolling: true,
+  cursorBlinking: "smooth",
+  cursorSmoothCaretAnimation: "on",
+  formatOnPaste: true,
+  fontFamily: "'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace",
+  fontLigatures: true,
+  renderWhitespace: "selection",
+  guides: { bracketPairs: true, indentation: true },
+  bracketPairColorization: { enabled: true },
+};
 
 export function TranslateFeature() {
   const { session } = useAuth();
@@ -47,22 +65,7 @@ export function TranslateFeature() {
   const credits = creditsData?.credits ?? (session as any)?.user?.credits;
   const isPro = creditsData?.tier === "pro" || (session as any)?.user?.tier === "pro";
 
-  const monacoOptions: any = {
-    minimap: { enabled: false },
-    fontSize: 13,
-    lineHeight: 1.6,
-    padding: { top: 16, bottom: 16 },
-    scrollBeyondLastLine: false,
-    smoothScrolling: true,
-    cursorBlinking: "smooth",
-    cursorSmoothCaretAnimation: "on",
-    formatOnPaste: true,
-    fontFamily: "'JetBrains Mono', 'Fira Code', 'Roboto Mono', monospace",
-    fontLigatures: true,
-    renderWhitespace: "selection",
-    guides: { bracketPairs: true, indentation: true },
-    bracketPairColorization: { enabled: true },
-  };
+  // M-1: monacoOptions is now the module-level MONACO_OPTIONS constant (no per-render allocation)
 
   const {
     outputBlocks,
@@ -209,7 +212,7 @@ export function TranslateFeature() {
           sourceLanguage={sourceLanguage}
           setSourceLanguage={setSourceLanguage}
           isDark={isDark}
-          monacoOptions={monacoOptions}
+          monacoOptions={MONACO_OPTIONS}
           detectedLang={detectedLang}
           setDetectedLang={setDetectedLang}
           isTypingManually={isTypingManually}
@@ -246,7 +249,7 @@ export function TranslateFeature() {
           input={input}
           targetLanguage={targetLanguage}
           isDark={isDark}
-          monacoOptions={monacoOptions}
+          monacoOptions={MONACO_OPTIONS}
           modelUsed={modelUsed}
         />
       }

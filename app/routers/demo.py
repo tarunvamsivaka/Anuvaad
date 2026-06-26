@@ -13,7 +13,7 @@ from app.core.cache import cache
 from app.core.config import logger
 from app.core.auth import get_client_ip
 
-router = APIRouter(prefix="/api", tags=["demo"])
+router = APIRouter(prefix="", tags=["demo"])
 
 DEMO_RATE_LIMIT = int(os.getenv("DEMO_RATE_LIMIT_PER_DAY", "3"))
 DEMO_RATE_WINDOW = 86400  # 24 hours in seconds

@@ -14,7 +14,7 @@ from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
 from app.core.auth import get_user_email
 from app.core.cache import cache
 
-router = APIRouter(prefix="/api", tags=["billing"])
+router = APIRouter(prefix="", tags=["billing"])
 
 RAZORPAY_PRO_PLAN_ID = os.getenv("RAZORPAY_PRO_PLAN_ID", "")
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
@@ -181,17 +181,31 @@ async def verify_payment(
                 "GET",
                 f"user_subscriptions?user_email=eq.{user_email}&select=user_email",
             )
-            await supabase_request(
-                "POST",
-                "user_subscriptions",
-                {
-                    "user_email": user_email,
-                    "razorpay_subscription_id": payload.razorpay_subscription_id,
-                    "is_pro": True,
-                    "onboarded": False,
-                },
-            )
-            if not existing:
+            # BUG#2 FIX: Always upsert — never blindly INSERT.
+            # A user may already have a row (e.g., purchased credits first).
+            # Inserting again fails silently on the UNIQUE constraint and
+            # leaves them permanently stuck on the free tier despite paying.
+            if existing:
+                await supabase_request(
+                    "PATCH",
+                    f"user_subscriptions?user_email=eq.{user_email}",
+                    {
+                        "razorpay_subscription_id": payload.razorpay_subscription_id,
+                        "is_pro": True,
+                        "onboarded": False,
+                    },
+                )
+            else:
+                await supabase_request(
+                    "POST",
+                    "user_subscriptions",
+                    {
+                        "user_email": user_email,
+                        "razorpay_subscription_id": payload.razorpay_subscription_id,
+                        "is_pro": True,
+                        "onboarded": False,
+                    },
+                )
                 send_transactional_email_task.delay("welcome", user_email=user_email)
             send_transactional_email_task.delay("subscription_upgrade", user_email=user_email, plan_name="pro")
             logger.info(f"✅ Razorpay subscription verified & activated: {user_email}")

@@ -70,10 +70,12 @@ const LOGOS: { name: string; svg: React.ReactNode }[] = [
   },
 ];
 
-export function LogoMarquee() {
-  // Double the list for seamless looping
-  const logos = [...LOGOS, ...LOGOS];
+// M-4: Doubled array pre-computed at module level — was spread inside component body on every render.
+const LOGOS_DOUBLED = [...LOGOS, ...LOGOS];
 
+// M-4: React.memo prevents re-renders when parent state changes.
+// LogoMarquee has no props and renders static content — it should only mount once.
+export const LogoMarquee = React.memo(function LogoMarquee() {
   return (
     <section className="w-full py-16 overflow-hidden bg-[#f5f3ef]">
       {/* Label */}
@@ -93,7 +95,7 @@ export function LogoMarquee() {
 
         {/* Track */}
         <div className="wispr-marquee-track">
-          {logos.map((logo, i) => (
+          {LOGOS_DOUBLED.map((logo, i) => (
             <div
               key={`${logo.name}-${i}`}
               className="flex items-center gap-2.5 shrink-0 select-none"
@@ -116,4 +118,4 @@ export function LogoMarquee() {
       </div>
     </section>
   );
-}
+});

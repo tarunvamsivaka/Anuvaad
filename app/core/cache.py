@@ -3,55 +3,56 @@ import json
 import hashlib
 import time
 import collections
-import threading
 from app.core.config import logger
 
 class LRUCache:
+    """In-memory LRU cache for development fallback.
+    No threading.Lock needed — asyncio is single-threaded cooperative;
+    there is no true concurrency within a single coroutine chain.
+    """
+
     def __init__(self, max_size: int = None):
         self.cache = collections.OrderedDict()
         self.max_size = max_size if max_size is not None else int(os.getenv("CACHE_LRU_MAX_SIZE", "100"))
         self.hits = 0
         self.misses = 0
-        self.lock = threading.Lock()
 
     def get(self, key: str):
-        with self.lock:
-            if key in self.cache:
-                val, expires_at = self.cache[key]
-                if expires_at is not None and time.time() > expires_at:
-                    del self.cache[key]
-                    self.misses += 1
-                    return None
-                self.cache.move_to_end(key)
-                self.hits += 1
-                return val
-            self.misses += 1
-            return None
+        if key in self.cache:
+            val, expires_at = self.cache[key]
+            # Use time.monotonic() — faster, immune to system clock adjustments
+            if expires_at is not None and time.monotonic() > expires_at:
+                del self.cache[key]
+                self.misses += 1
+                return None
+            self.cache.move_to_end(key)
+            self.hits += 1
+            return val
+        self.misses += 1
+        return None
 
     def set(self, key: str, value: any, ttl: int = None):
-        with self.lock:
-            expires_at = time.time() + ttl if ttl is not None else None
-            self.cache[key] = (value, expires_at)
+        expires_at = time.monotonic() + ttl if ttl is not None else None
+        if key in self.cache:
             self.cache.move_to_end(key)
-            if len(self.cache) > self.max_size:
-                self.cache.popitem(last=False)
+        self.cache[key] = (value, expires_at)
+        if len(self.cache) > self.max_size:
+            self.cache.popitem(last=False)
 
     def stats(self):
-        with self.lock:
-            total = self.hits + self.misses
-            hit_rate = (self.hits / total) if total > 0 else 0.0
-            return {
-                "size": len(self.cache),
-                "max_size": self.max_size,
-                "hit_rate": hit_rate,
-                "hits": self.hits,
-                "misses": self.misses,
-            }
+        total = self.hits + self.misses
+        hit_rate = (self.hits / total) if total > 0 else 0.0
+        return {
+            "size": len(self.cache),
+            "max_size": self.max_size,
+            "hit_rate": hit_rate,
+            "hits": self.hits,
+            "misses": self.misses,
+        }
 
     def delete(self, key: str):
-        with self.lock:
-            if key in self.cache:
-                del self.cache[key]
+        if key in self.cache:
+            del self.cache[key]
 
 
 class RedisCache:
@@ -136,30 +137,42 @@ class RedisCache:
                 logger.error(f"Redis delete error: {e}")
         self.fallback.delete(key)
 
-    async def delete_prefix(self, prefix: str):
+    async def delete_prefix(self, prefix: str) -> None:
+        """Delete all keys with the given prefix using SCAN (non-blocking, O(1) per iteration).
+        Replaces the previous O(N) blocking KEYS command.
+        """
         if self.client:
             try:
-                keys = await self.client.keys(prefix + "*")
-                if keys:
-                    await self.client.delete(*keys)
+                cursor = 0
+                while True:
+                    cursor, keys = await self.client.scan(cursor, match=f"{prefix}*", count=100)
+                    if keys:
+                        await self.client.delete(*keys)
+                    if cursor == 0:
+                        break
             except Exception as e:
-                logger.error(f"Redis delete_prefix error: {e}")
-        with self.fallback.lock:
-            to_del = [k for k in self.fallback.cache.keys() if k.startswith(prefix)]
-            for k in to_del:
-                del self.fallback.cache[k]
+                logger.error(f"Redis delete_prefix SCAN error: {e}")
+        # Always clean the in-memory fallback too
+        to_del = [k for k in list(self.fallback.cache.keys()) if k.startswith(prefix)]
+        for k in to_del:
+            del self.fallback.cache[k]
 
     async def incr_rate_limit(self, key: str, window: int) -> int:
+        """Atomically increment a rate-limit counter and set TTL via pipeline.
+        Uses Redis pipeline so INCR and EXPIRE are sent in one round-trip.
+        On Redis error, always falls through to the in-memory fallback (never returns None).
+        """
         if self.client:
             try:
-                count = await self.client.incr(key)
-                if count == 1:
-                    await self.client.expire(key, window)
-                return count
+                pipe = self.client.pipeline()
+                pipe.incr(key)
+                pipe.expire(key, window)
+                results = await pipe.execute()
+                return int(results[0])
             except Exception as e:
                 logger.error(f"Redis incr error: {e}")
-
-        # In-memory fallback (dev only)
+        # IMPORTANT: always return in-memory fallback — never None.
+        # Returning None would cause TypeError in rate_limit_middleware (count > limit).
         val = self.fallback.get(key) or 0
         val += 1
         self.fallback.set(key, val, window)

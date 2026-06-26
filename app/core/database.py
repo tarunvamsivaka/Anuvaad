@@ -19,8 +19,9 @@ TABLE_MODEL_MAP = {
     "user_translation_stats": UserTranslationStats
 }
 
-supabase_request_override = None
-supabase_request_list_override = None
+# Arch#2.5: Test-injection override globals removed.
+# Tests should use unittest.mock.patch or pytest monkeypatch on supabase_request/supabase_request_list.
+# Previously: supabase_request_override = None / supabase_request_list_override = None
 
 def get_model_column(model, column_name):
     try:
@@ -58,6 +59,10 @@ def apply_filters(query, model, filters):
             query = query.where(col >= val)
         elif op == "lte":
             query = query.where(col <= val)
+        elif op == "gt":
+            query = query.where(col > val)
+        elif op == "lt":
+            query = query.where(col < val)
         elif op == "is":
             if val.lower() == "null":
                 query = query.where(col.is_(None))
@@ -66,13 +71,6 @@ def apply_filters(query, model, filters):
     return query
 
 async def supabase_request(method: str, path: str, data: dict = None) -> dict | None:
-    if supabase_request_override is not None:
-        import inspect
-        res = supabase_request_override(method, path, data)
-        if inspect.isawaitable(res):
-            return await res
-        return res
-
     method = method.upper()
     parts = path.split("?", 1)
     table_name = parts[0]
@@ -147,13 +145,6 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
             return None
 
 async def supabase_request_list(path: str) -> list:
-    if supabase_request_list_override is not None:
-        import inspect
-        res = supabase_request_list_override(path)
-        if inspect.isawaitable(res):
-            return await res
-        return res
-
     parts = path.split("?", 1)
     table_name = parts[0]
     query_str = parts[1] if len(parts) > 1 else ""
@@ -191,6 +182,15 @@ async def supabase_request_list(path: str) -> list:
             logger.error(f"SQLAlchemy list request error for {path}: {e}")
             return []
 
+# H-6: Cache column set at module level — schema never changes at runtime.
+# First call reflects the mapper once; subsequent calls return the cached set O(1).
+_history_columns_cache: set[str] | None = None
+
 async def get_history_columns() -> set[str]:
-    # Returns the set of columns in the TranslationHistory SQLAlchemy model
-    return {c.key for c in class_mapper(TranslationHistory).columns}
+    """Return the column names of the TranslationHistory table.
+    H-6: Cached at module level after the first call to avoid repeated ORM reflection.
+    """
+    global _history_columns_cache
+    if _history_columns_cache is None:
+        _history_columns_cache = {c.key for c in class_mapper(TranslationHistory).columns}
+    return _history_columns_cache

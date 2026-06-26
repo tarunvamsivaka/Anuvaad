@@ -102,16 +102,29 @@ def process_billing_webhook_task(event_id: str, payload: dict):
                     f"user_subscriptions?user_email=eq.{user_email}&select=user_email",
                 )
                 is_new = not existing
-                await supabase_request(
-                    "POST",
-                    "user_subscriptions",
-                    {
-                        "user_email": user_email,
-                        "razorpay_subscription_id": subscription_id,
-                        "is_pro": True,
-                        "onboarded": False,
-                    },
-                )
+                # BUG#2b FIX: Upsert — PATCH if row exists, POST if new.
+                # Always POSTing fails silently on UNIQUE constraint.
+                if existing:
+                    await supabase_request(
+                        "PATCH",
+                        f"user_subscriptions?user_email=eq.{user_email}",
+                        {
+                            "razorpay_subscription_id": subscription_id,
+                            "is_pro": True,
+                            "onboarded": False,
+                        },
+                    )
+                else:
+                    await supabase_request(
+                        "POST",
+                        "user_subscriptions",
+                        {
+                            "user_email": user_email,
+                            "razorpay_subscription_id": subscription_id,
+                            "is_pro": True,
+                            "onboarded": False,
+                        },
+                    )
                 if is_new:
                     email_service.send_welcome(user_email)
                 email_service.send_subscription_upgrade(user_email, "Pro")
@@ -183,94 +196,52 @@ def prune_translation_history_task(user_email: str):
 
 
 @celery_app.task(name="tasks.process_large_file")
-def process_large_file_task(file_content: str, user_email: str):
-    """Process large file translation in background."""
+def process_large_file_task(file_content: str, user_email: str, language: str = "auto"):
+    """Process large file translation in background.
+    BUG#4 FIX: Replaced broken import of non-existent route_and_translate
+    with correct stream_code_to_english.
+    """
     logger.info(f"Celery: Processing large file for {user_email}")
     async def _process():
-        from app.services.ai import route_and_translate
+        from app.models.schemas import CodePayload
+        from app.services.ai import stream_code_to_english
+        payload = CodePayload(raw_code=file_content, language=language)
         try:
-            result = await route_and_translate(
-                prompt=file_content,
-                model_name="deepseek-chat",
-                mode="code-to-english",
-                source_language="auto",
-                target_language="english",
-                custom_instructions="This is a large file background translation task.",
-                user_email=user_email
-            )
-            logger.info(f"Successfully processed large file for {user_email}. Translated {len(str(result))} characters.")
-            # In a real app, send an email or WebSocket notification here with the result ID.
+            async for _ in stream_code_to_english(
+                payload=payload,
+                email=user_email,
+                is_pro=True,  # Large file processing is a Pro feature
+                use_r1=False,
+                tier="pro",
+                deduct_credit_flag=False,
+            ):
+                pass  # Result is saved via save_translation_history_task inside the generator
+            logger.info(f"Celery: Large file processed successfully for {user_email}")
         except Exception as e:
-            logger.error(f"Failed to process large file for {user_email}: {e}")
+            logger.error(f"Celery: Failed to process large file for {user_email}: {e}")
 
     run_async(_process())
 
 @celery_app.task(name="tasks.process_github_repo")
 def process_github_repo_task(repo_name: str, installation_id: str):
-    """Background pipeline for Supabase pgvector repo embeddings using HuggingFace API"""
-    logger.info(f"Celery: Processing GitHub repo {repo_name} for installation {installation_id}")
-
-    # Use the free HuggingFace Inference API instead of a heavy local model
-    HF_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
-    HF_API_KEY = os.environ.get("HUGGINGFACE_API_KEY")
-
-    def chunk_text(text: str, chunk_size: int = 500) -> list[str]:
-        return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
-
-    # 1. Fetch repo file contents using GitHub API
-    mock_files = [
-        {"path": "README.md", "content": "# Anuvaad\n\nAI translation platform."},
-        {"path": "main.py", "content": "from fastapi import FastAPI\n\napp = FastAPI()\n"},
-    ]
-
-    # 2 & 3. Chunk files and generate embeddings synchronously
-    chunks_data = []
+    """Background pipeline for GitHub repo embeddings.
     
-    # Simple synchronous HTTP client for the Celery worker
-    import httpx
-    
-    with httpx.Client() as client:
-        headers = {}
-        if HF_API_KEY:
-            headers["Authorization"] = f"Bearer {HF_API_KEY}"
-            
-        for file in mock_files:
-            for idx, chunk in enumerate(chunk_text(file["content"])):
-                # 3. Generate 384-dim embeddings via Free API
-                try:
-                    response = client.post(HF_API_URL, headers=headers, json={"inputs": chunk})
-                    response.raise_for_status()
-                    embedding = response.json()
-                    
-                    if not isinstance(embedding, list) or len(embedding) == 0:
-                        logger.warning(f"Unexpected HF API response for chunk {idx}")
-                        continue
-                        
-                except Exception as e:
-                    logger.error(f"Failed to generate embedding for {file['path']} chunk {idx}: {e}")
-                    # If API fails or is rate-limited, fallback to a zero-vector for demonstration
-                    # In production, we would retry or fail the task
-                    embedding = [0.0] * 384
-                    
-                chunks_data.append({
-                    "repository_name": repo_name,
-                    "file_path": file["path"],
-                    "chunk_index": idx,
-                    "content": chunk,
-                    "embedding": embedding,
-                })
-
-    # 4. Insert into Supabase pgvector (I/O-bound — handled in async context)
-    async def _save_to_db():
-        from app.models.db_models import RepoEmbedding
-        from app.core.database_session import AsyncSessionLocal
-
-        records = [RepoEmbedding(**d) for d in chunks_data]
-        async with AsyncSessionLocal() as session:
-            session.add_all(records)
-            await session.commit()
-
-        logger.info(f"Successfully saved {len(records)} embeddings for {repo_name}")
-
-    run_async(_save_to_db())
+    Arch#2.7: This task previously used hardcoded mock data, silently doing nothing useful.
+    Real GitHub API integration is required before this can be production-ready.
+    Marked as not-implemented until GitHub API credentials and integration are added.
+    """
+    logger.warning(
+        f"Celery: process_github_repo_task called for {repo_name} (installation: {installation_id}) "
+        f"but real GitHub API integration is not yet implemented. Task will not process."
+    )
+    # TODO: Implement real GitHub API integration:
+    # 1. Use GitHub App installation token to fetch repo file tree
+    # 2. Fetch file contents for code files
+    # 3. Chunk files and generate embeddings via HuggingFace or similar
+    # 4. Insert into Supabase pgvector
+    # See: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app
+    raise NotImplementedError(
+        "process_github_repo_task requires real GitHub API integration. "
+        "Set GITHUB_APP_PRIVATE_KEY and implement file fetching before enabling."
+    )
 

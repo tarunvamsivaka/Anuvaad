@@ -19,7 +19,7 @@ async def function_code_to_code(
         payload.raw_code, mode="code-to-code", email=email
     )
 
-    is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.raw_code)
     )
 
@@ -28,7 +28,7 @@ async def function_code_to_code(
 
     return StreamingResponse(
         stream_code_to_code(
-            payload, email, is_pro, use_r1, tier, deduct_credit_flag
+            payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown
         ),
         media_type="text/event-stream",
     )

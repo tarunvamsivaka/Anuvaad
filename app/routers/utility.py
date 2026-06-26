@@ -14,6 +14,7 @@ from app.core.config import (
     METRICS_PASSWORD,
     FREE_TIER_DAILY_LIMIT,
     IS_PRODUCTION,
+    GIST_MAX_SIZE,
     logger,
     metrics,
     get_http_client,
@@ -22,10 +23,10 @@ from app.core.cache import cache
 from app.core.auth import get_user_email, get_user_pro_status
 from app.core.quota import get_today_usage_count
 
-router = APIRouter(prefix="/api", tags=["utility"])
+router = APIRouter(prefix="", tags=["utility"])
 
 # ── GITHUB GIST IMPORT ──
-GIST_MAX_SIZE = 50 * 1024  # 50 KB
+# GIST_MAX_SIZE imported from app.core.config (merged duplicate — was 50*1024 here and in config.py)
 GIST_URL_PATTERN = re.compile(r"^https://gist\.github\.com/([^/]+)/([a-zA-Z0-9]+)/?$")
 GITHUB_RAW_PATTERN = re.compile(r"^https://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)/(.+)$")
 GITHUB_BLOB_PATTERN = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$")

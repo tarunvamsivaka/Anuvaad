@@ -1,5 +1,7 @@
 import re
+import unicodedata
 from fastapi import HTTPException
+from app.core.config import EXTENSION_TO_LANGUAGE, ALLOWED_EXTENSIONS, FREE_MAX_FILE_SIZE, PRO_MAX_FILE_SIZE
 from app.core.config import logger
 
 def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
@@ -21,11 +23,14 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
     raw_code = UNICODE_CONTROL.sub("", raw_code)
 
     # Standard prompt injection patterns in single-line comments
-    pattern_line = r"(?i)(//|#)[^\n]*?(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions)[^\n]*"
+    # BUG#9 FIX: Added \b word boundaries and optional whitespace to prevent false positives.
+    # e.g. "ignored_count", "disregarded", variable names containing injection keywords.
+    pattern_line = r"(?i)(//|#)[^\n]*?\b(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions)\b[^\n]*"
     raw_code = re.sub(pattern_line, replacer, raw_code)
 
     # Prompt injection inside block comments / docstrings
-    pattern_block = r"(?is)(/\*|<!--|\'\'\'|\"\"\").*?(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions).*?(?:\*/|-->|\'\'\'|\"\"\")"
+    # BUG#9 FIX: Made delimiters more precise to avoid matching across unrelated constructs.
+    pattern_block = r"(?is)(/\*|<!--|\'\'\'|\"\"\").*?\b(ignore previous|system prompt|you are now|act as|jailbreak|\bdan\b|disregard instructions)\b.*?(?:\*/|-->|\'\'\'|\"\"\")"
     raw_code = re.sub(pattern_block, replacer, raw_code)
 
     return raw_code
@@ -60,17 +65,5 @@ def validate_code_input(raw_code: str):
             )
 
 
-ALLOWED_EXTENSIONS = {".py", ".js", ".ts", ".java", ".cpp", ".rs", ".go", ".c", ".cs"}
-EXTENSION_TO_LANGUAGE = {
-    ".py": "python",
-    ".js": "javascript",
-    ".ts": "typescript",
-    ".java": "java",
-    ".cpp": "cpp",
-    ".rs": "rust",
-    ".go": "go",
-    ".c": "c",
-    ".cs": "csharp",
-}
-FREE_MAX_FILE_SIZE = 50 * 1024
-PRO_MAX_FILE_SIZE = 200 * 1024
+# EXTENSION_TO_LANGUAGE, ALLOWED_EXTENSIONS, FREE_MAX_FILE_SIZE, PRO_MAX_FILE_SIZE
+# are imported from app.core.config (Arch#2.9: single definition).

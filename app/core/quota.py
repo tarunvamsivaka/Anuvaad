@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from datetime import datetime, timezone
@@ -5,6 +6,7 @@ from fastapi import Request, HTTPException
 from app.core.config import (
     SUPABASE_URL,
     SUPABASE_SERVICE_KEY,
+    ADMIN_EMAILS,
     logger,
     get_http_client,
 )
@@ -13,10 +15,9 @@ from app.core.cache import cache
 from app.core.auth import get_user_pro_status
 from app.services.email import email_service
 
-# Override hooks for unit testing (replaces sys.modules.get("main") hack)
-save_translation_background_override = None
-get_today_usage_count_override = None
-get_user_limits_and_cooldown_override = None
+# ── History pruning limits (Arch#2.8: unified constants, no more conflicting values) ──
+HISTORY_LIMIT_PRO = int(os.getenv("HISTORY_LIMIT_PRO", "1000"))
+HISTORY_LIMIT_FREE = int(os.getenv("HISTORY_LIMIT_FREE", "100"))
 
 
 async def save_translation_background(
@@ -32,15 +33,6 @@ async def save_translation_background(
     repository_name: str | None = None,
     file_path: str | None = None,
 ):
-    if save_translation_background_override is not None:
-        import inspect
-        res = save_translation_background_override(
-            user_email, mode, source_language, target_language, input_text, blocks, model_used, workspace_id, session_id, repository_name, file_path
-        )
-        if inspect.isawaitable(res):
-            return await res
-        return res
-
     if not user_email:
         return
     try:
@@ -76,10 +68,10 @@ async def save_translation_background(
 
         # ── Storage Allocation & Pruning ──
         is_pro = await get_user_pro_status(user_email)
-        limit = 1000 if is_pro else 100
+        # Arch#2.8: Use unified constants (was hardcoded 1000/100 here AND 50 in prune_translation_history_task)
+        limit = HISTORY_LIMIT_PRO if is_pro else HISTORY_LIMIT_FREE
 
-        # Fetch current count of history records: in tests, fetch all to respect mock history. In production, use REST count.
-        # BACK-01: Use TESTING env var instead of sys.modules inspection (cleaner DI pattern)
+        # Fetch current count of history records
         is_testing = os.getenv("TESTING", "false").lower() == "true"
 
         current_count = 0
@@ -115,14 +107,12 @@ async def save_translation_background(
 
         pruned_count = 0
 
-        # Use module-level SUPABASE config
         from app.core import config
         url_config = config.SUPABASE_URL
         key_config = config.SUPABASE_SERVICE_KEY
 
         if current_count >= limit:
             pruned_count = (current_count + 1) - limit
-            # Only fetch required pruned IDs rather than all records
             if is_testing:
                 to_delete_ids = [
                     row["id"]
@@ -159,16 +149,15 @@ async def save_translation_background(
                         )
                 except Exception as prune_err:
                     logger.warning(f"Prune delete failed: {prune_err}")
-        # Dynamically query allowed database columns to prevent PGRST204 column mismatches
+
+        # H-6: get_history_columns() is now cached at module level in database.py
         from app.core.database import get_history_columns
         allowed_cols = await get_history_columns()
 
-        # Build insert payload containing blocks only if the column exists in the schema
         insert_data = {**data}
         if "blocks" in allowed_cols:
             insert_data["blocks"] = blocks
 
-        # Filter to strictly present database columns
         filtered_payload = {k: v for k, v in insert_data.items() if k in allowed_cols}
         await supabase_request("POST", "translation_history", filtered_payload)
 
@@ -190,22 +179,50 @@ async def save_translation_background(
 
 
 async def get_today_usage_count(email: str) -> int:
-    """Count how many translations a user has made today (UTC)."""
-    if get_today_usage_count_override is not None:
-        import inspect
-        res = get_today_usage_count_override(email)
-        if inspect.isawaitable(res):
-            return await res
-        return res
+    """Count how many translations a user has made today (UTC).
+    H-2: Uses Prefer: count=exact HEAD-style request instead of fetching all rows.
+    Results are cached for 60 seconds to reduce DB load.
+    """
+    if not email:
+        return 0
 
-    # Resolve SUPABASE config dynamically
+    # Check cache first
+    usage_cache_key = f"today_usage:{email}"
+    cached = await cache.get(usage_cache_key)
+    if cached is not None:
+        return int(cached)
+
     from app.core import config
     url = config.SUPABASE_URL
     key = config.SUPABASE_SERVICE_KEY
 
-    if not email or not url or not key:
+    if not url or not key:
         return 0
+
     today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+
+    try:
+        http_client = await get_http_client()
+        resp = await http_client.get(
+            f"{url}/rest/v1/translation_history?user_email=eq.{email}&created_at=gte.{today_start}&select=id",
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Prefer": "count=exact",
+                "Range-Unit": "items",
+                "Range": "0-0",
+            },
+        )
+        if resp.status_code in (200, 206):
+            content_range = resp.headers.get("Content-Range", "")
+            if "/" in content_range:
+                count = int(content_range.split("/")[1])
+                await cache.put(usage_cache_key, count, ttl=60)
+                return count
+    except Exception as e:
+        logger.warning(f"Usage count REST query failed, falling back to ORM: {e}")
+
+    # Fallback: count via ORM (slower but always works)
     path = f"translation_history?user_email=eq.{email}&created_at=gte.{today_start}&select=id"
     rows = await supabase_request_list(path)
     return len(rows)
@@ -224,31 +241,57 @@ async def get_user_credits(email: str) -> int:
 
 
 async def deduct_credit(email: str) -> bool:
-    """Deduct one translation credit from a user. Returns True if successful."""
-    if not email:
+    """Atomically deduct one translation credit from a user.
+
+    BUG#1+#5 FIX: Replaced the old two-step read-then-write (TOCTOU race) with
+    a single atomic SQL UPDATE that uses a WHERE credits > 0 guard.
+
+    Uses SQLAlchemy column arithmetic so it emits:
+        UPDATE user_subscriptions
+        SET credits = credits - 1
+        WHERE user_email = :email AND credits > 0
+    Returns False (no credit deducted) if no rows were matched.
+    """
+    from app.core.database import AsyncSessionLocal
+    from app.core.database import TABLE_MODEL_MAP
+    from sqlalchemy import update
+
+    model = TABLE_MODEL_MAP.get("user_subscriptions")
+    if not model:
+        logger.error("deduct_credit: user_subscriptions model not found")
         return False
-    sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{email}&select=credits"
-    )
-    if not sub or not isinstance(sub, dict):
+
+    credits_col = getattr(model, "credits", None)
+    email_col = getattr(model, "user_email", None)
+    if credits_col is None or email_col is None:
+        logger.error("deduct_credit: credits or user_email column not found on model")
         return False
-    current = sub.get("credits") or 0
-    if current <= 0:
-        return False
-    result = await supabase_request(
-        "PATCH",
-        f"user_subscriptions?user_email=eq.{email}&credits=eq.{current}",
-        {"credits": current - 1},
-    )
-    return result is not None
+
+    async with AsyncSessionLocal() as session:
+        try:
+            stmt = (
+                update(model)
+                .where(email_col == email)
+                .where(credits_col > 0)
+                .values(credits=credits_col - 1)
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            # rowcount > 0 means the WHERE matched (credits were > 0 and decremented)
+            return (result.rowcount or 0) > 0
+        except Exception as e:
+            logger.error(f"deduct_credit failed for {email}: {e}")
+            await session.rollback()
+            return False
+
 
 
 async def get_lifetime_translations(email: str) -> int:
     """Fetch the lifetime translation count for the user from Supabase."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return 0
-    cache_key = f"lifetime_translations:{email}"
-    cached = await cache.get(cache_key)
+    ck = f"lifetime_translations:{email}"
+    cached = await cache.get(ck)
     if cached is not None:
         return int(cached)
 
@@ -267,7 +310,7 @@ async def get_lifetime_translations(email: str) -> int:
             content_range = resp.headers.get("Content-Range", "")
             if "/" in content_range:
                 count = int(content_range.split("/")[1])
-                await cache.put(cache_key, count, ttl=60)  # cache for 1 minute
+                await cache.put(ck, count, ttl=60)
                 return count
     except Exception as e:
         logger.warning(f"Lifetime count query failed: {e}")
@@ -325,20 +368,13 @@ async def get_active_protection_mode() -> str:
 async def get_user_limits_and_cooldown(
     email: str, is_pro: bool
 ) -> tuple[int, int, int]:
-    """Returns (daily_limit, char_limit, cooldown_seconds) based on category and mode."""
-    if get_user_limits_and_cooldown_override is not None:
-        import inspect
-        res = get_user_limits_and_cooldown_override(email, is_pro)
-        if inspect.isawaitable(res):
-            return await res
-        return res
-
+    """Returns (daily_limit, char_limit, cooldown_seconds) based on category and mode.
+    H-7/Arch#3: Uses ADMIN_EMAILS frozenset from config (parsed once at startup).
+    """
     mode = await get_active_protection_mode()
 
-    admin_emails = [
-        e.strip().lower() for e in os.getenv("ADMIN_USERS", "").split(",") if e.strip()
-    ]
-    if email.lower() in admin_emails:
+    # Use pre-parsed frozenset from config (O(1) lookup, no per-call env parsing)
+    if email.lower() in ADMIN_EMAILS:
         return (999999, 999999, 0)
 
     if is_pro:
@@ -359,16 +395,16 @@ async def get_user_limits_and_cooldown(
     cooldown = int(os.getenv("LIMIT_FREE_COOLDOWN", "5"))
 
     if mode == "CAUTION":
-        daily_limit = max(1, int(daily_limit * 0.8))  # 20% reduction
+        daily_limit = max(1, int(daily_limit * 0.8))
         char_limit = max(100, int(char_limit * 0.8))
         cooldown = 10
     elif mode == "RESTRICTED":
-        daily_limit = max(1, int(daily_limit * 0.5))  # 50% reduction
+        daily_limit = max(1, int(daily_limit * 0.5))
         char_limit = max(100, int(char_limit * 0.5))
         cooldown = 20
     elif mode == "EMERGENCY":
-        daily_limit = max(1, int(daily_limit * 0.2))  # 80% reduction
-        char_limit = min(300, max(100, int(char_limit * 0.2)))  # only small requests
+        daily_limit = max(1, int(daily_limit * 0.2))
+        char_limit = min(300, max(100, int(char_limit * 0.2)))
         cooldown = 30
 
     return daily_limit, char_limit, cooldown
@@ -376,9 +412,15 @@ async def get_user_limits_and_cooldown(
 
 async def enforce_quotas_and_protection(
     request: Request, email: str | None, char_count: int
-) -> tuple[bool, int, bool]:
+) -> tuple[bool, int, bool, int]:
     """
     Enforces the sequential quota and protection checks.
+
+    H-1: Parallelizes independent DB calls with asyncio.gather.
+    M-7/Arch#4.3: Now returns cooldown as 4th element so callers
+    don't need to re-fetch it in record_successful_completion.
+
+    Returns: (is_pro, daily_limit, deduct_credit_flag, cooldown)
     """
     if char_count > 50000:
         raise HTTPException(
@@ -392,11 +434,41 @@ async def enforce_quotas_and_protection(
             detail="Authentication required. Anonymous users cannot access AI translation tools.",
         )
 
-    is_pro = await get_user_pro_status(email)
-
-    daily_limit, char_limit, cooldown = await get_user_limits_and_cooldown(
-        email, is_pro
+    # H-1: Run pro status check and protection mode in parallel (both are independent)
+    is_pro, mode = await asyncio.gather(
+        get_user_pro_status(email),
+        get_active_protection_mode(),
     )
+
+    # Compute limits from (is_pro, mode) without another DB/cache call
+    if email.lower() in ADMIN_EMAILS:
+        daily_limit, char_limit, cooldown = 999999, 999999, 0
+    elif is_pro:
+        daily_limit = int(os.getenv("LIMIT_PRO_DAILY", "999999"))
+        char_limit = int(os.getenv("LIMIT_PRO_CHARS", "50000"))
+        cooldown = 0
+        if mode == "RESTRICTED":
+            char_limit = min(char_limit, 25000)
+            cooldown = 2
+        elif mode == "EMERGENCY":
+            char_limit = min(char_limit, 10000)
+            cooldown = 5
+    else:
+        daily_limit = int(os.getenv("LIMIT_FREE_DAILY", "10"))
+        char_limit = int(os.getenv("LIMIT_FREE_CHARS", "10000"))
+        cooldown = int(os.getenv("LIMIT_FREE_COOLDOWN", "5"))
+        if mode == "CAUTION":
+            daily_limit = max(1, int(daily_limit * 0.8))
+            char_limit = max(100, int(char_limit * 0.8))
+            cooldown = 10
+        elif mode == "RESTRICTED":
+            daily_limit = max(1, int(daily_limit * 0.5))
+            char_limit = max(100, int(char_limit * 0.5))
+            cooldown = 20
+        elif mode == "EMERGENCY":
+            daily_limit = max(1, int(daily_limit * 0.2))
+            char_limit = min(300, max(100, int(char_limit * 0.2)))
+            cooldown = 30
 
     if char_count > char_limit:
         raise HTTPException(
@@ -425,7 +497,8 @@ async def enforce_quotas_and_protection(
                     detail=f"Daily translation limit reached ({daily_limit} translations/day). Upgrade to Pro for unlimited access.",
                 )
 
-    return is_pro, daily_limit, deduct_credit_flag
+    # Return cooldown as 4th element to avoid double-call in record_successful_completion
+    return is_pro, daily_limit, deduct_credit_flag, cooldown
 
 
 async def check_free_tier_limit(
@@ -435,8 +508,13 @@ async def check_free_tier_limit(
 
 
 async def record_successful_completion(
-    email: str, is_pro: bool, deduct_credit_flag: bool
+    email: str, is_pro: bool, deduct_credit_flag: bool, cooldown: int = 0
 ):
+    """Record a successful translation completion.
+
+    M-7/Arch#4.3: Accepts cooldown as parameter (passed from enforce_quotas_and_protection)
+    instead of calling get_user_limits_and_cooldown again (eliminated one redundant DB call).
+    """
     if not email:
         return
 
@@ -445,7 +523,6 @@ async def record_successful_completion(
     if deduct_credit_flag:
         await deduct_credit(email)
 
-    _, _, cooldown = await get_user_limits_and_cooldown(email, is_pro)
     if cooldown > 0:
         cooldown_key = f"cooldown:{email}"
         await cache.put(cooldown_key, True, ttl=cooldown)

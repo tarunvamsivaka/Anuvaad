@@ -1,17 +1,18 @@
 import os
+import asyncio
 import secrets
 import hashlib
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
-from app.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, logger, metrics, get_http_client
+from app.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, ADMIN_EMAILS, logger, metrics, get_http_client
 from app.core.cache import cache
 from app.core.auth import get_user_email
 from app.core.database import supabase_request, supabase_request_list
 from app.core.quota import get_active_protection_mode
-from app.models.schemas import ApiKeyCreate
+from app.models.schemas import ApiKeyCreate, SharePayload
 
-router = APIRouter(prefix="/api", tags=["history"])
+router = APIRouter(prefix="", tags=["history"])
 
 @router.get("/history")
 async def get_translation_history(
@@ -90,7 +91,7 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
             logger.warning(f"Count query failed: {e}")
         return 0
 
-    total, week, today = await asyncio_gather_wrapper(
+    total, week, today = await asyncio.gather(
         count_rows("select=id"),
         count_rows(f"created_at=gte.{week_start}&select=id"),
         count_rows(f"created_at=gte.{today_start}&select=id"),
@@ -100,10 +101,6 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
     await cache.put(cache_key, res, ttl=300)
     return res
 
-
-async def asyncio_gather_wrapper(*aws):
-    import asyncio
-    return await asyncio.gather(*aws)
 
 
 @router.delete("/history/{item_id}")
@@ -267,9 +264,7 @@ async def delete_account(authorization: str = Header(None)):
 @router.get("/admin/dashboard-stats")
 async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
     """Admin dashboard stats, whitelisted via ADMIN_USERS env var."""
-    admin_emails = [
-        e.strip().lower() for e in os.getenv("ADMIN_USERS", "").split(",") if e.strip()
-    ]
+    admin_emails = ADMIN_EMAILS  # H-7: pre-parsed frozenset from config
     if not email or email.lower() not in admin_emails:
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required.")
 
@@ -336,10 +331,6 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
     }
 
 
-from pydantic import BaseModel  # noqa: E402
-class SharePayload(BaseModel):
-    is_public: bool
-
 
 @router.patch("/history/{item_id}/share")
 async def share_history_item(
@@ -370,13 +361,19 @@ async def share_history_item(
 
 @router.get("/share/{item_id}")
 async def get_shared_item(item_id: str):
-    """Retrieve a public shared translation history item."""
+    """Retrieve a public shared translation history item.
+    
+    BUG#7 FIX: Check is_public BEFORE returning any data. Previously the item
+    was fully returned then checked, leaking private data on 403 responses.
+    Only whitelisted fields are returned to prevent accidental schema exposure.
+    """
     item = await supabase_request(
         "GET", f"translation_history?id=eq.{item_id}"
     )
     if not item or not isinstance(item, dict):
         raise HTTPException(status_code=404, detail="Shared snippet not found")
 
+    # BUG#7: Check visibility BEFORE touching any item data
     if not item.get("is_public"):
         raise HTTPException(status_code=403, detail="This snippet is private")
 
@@ -390,6 +387,7 @@ async def get_shared_item(item_id: str):
             }
         ]
 
+    # Only return safe, non-sensitive fields (never user_email, workspace_id, etc.)
     return {
         "id": item.get("id"),
         "mode": item.get("mode"),

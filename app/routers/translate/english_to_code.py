@@ -28,7 +28,7 @@ async def function_generate_from_english(
         payload.prompt, mode="generate-from-english", email=email
     )
 
-    is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.prompt)
     )
 
@@ -44,7 +44,7 @@ async def function_generate_from_english(
     if cached:
         await metrics.record_cache_hit()
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="English → Code",
@@ -78,7 +78,7 @@ async def function_generate_from_english(
         await cache.put(key, result, 86400 * 7)
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="English → Code",
@@ -105,7 +105,7 @@ async def function_generate_from_english(
         )
         if stale_result:
             if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag)
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
                 save_translation_history_task.delay(
                     user_email=email,
                     mode="English → Code",
@@ -142,7 +142,7 @@ async def function_update_to_code(
         payload.full_context = sanitise_input(
             payload.full_context, mode="english-to-code/context", email=email
         )
-    is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.modified_english)
     )
     user_prompt = f"You are an expert programmer. The user is modifying a specific part of their code based on an English instruction. Here is the full context of the code: {payload.full_context}. The user wants to change the block identified as {payload.block_id} to do the following: '{payload.modified_english}'. Generate ONLY the new raw programming syntax required to fulfill this specific instruction. Do not include markdown formatting, backticks, or explanations. Return strictly the raw code."
@@ -155,7 +155,7 @@ async def function_update_to_code(
             response_format="text",
         )
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
         return {
             "status": "success",
             "updated_code": response_text.strip(),
@@ -183,7 +183,7 @@ async def function_sync_english_to_code(
         )
 
     char_count = sum(len(b.code_snippet) for b in payload.blocks)
-    is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, char_count
     )
 
@@ -225,7 +225,7 @@ async def function_sync_english_to_code(
         )
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="Two-Way Sync",

@@ -45,8 +45,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Anuvaad API", lifespan=lifespan)
 
 # ── CORS CONFIGURATION ──
-_allowed_origins = [FRONTEND_URL]
-for origin in [
+# Additional custom origins can be added via CORS_ORIGINS env var (comma-separated)
+_extra_origins = [
+    o.strip().rstrip("/")
+    for o in os.getenv("CORS_ORIGINS", "").split(",")
+    if o.strip()
+]
+_allowed_origins = list({
+    FRONTEND_URL,
     "https://getanuvaad.vercel.app",
     "http://localhost:3000",
     "http://localhost:3001",
@@ -55,11 +61,11 @@ for origin in [
     "http://127.0.0.1:3002",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-]:
-    clean_origin = origin.rstrip("/")
-    if clean_origin not in _allowed_origins:
-        _allowed_origins.append(clean_origin)
+    *_extra_origins,
+})
 
+# C-2: Pre-compute as frozenset for O(1) CSRF lookups in the middleware
+_allowed_origins_set: frozenset[str] = frozenset(_allowed_origins)
 
 app.add_middleware(
     CORSMiddleware,
@@ -98,30 +104,18 @@ async def security_headers_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def csrf_origin_middleware(request: Request, call_next):
-    # ARCH-01: Use module-level constants directly (no sys.modules DI)
-    is_prod = IS_PRODUCTION
-    frontend_url = FRONTEND_URL
-
-    if is_prod and request.method in ("POST", "PATCH", "DELETE"):
+    # C-2: Use pre-computed frozenset for O(1) origin lookup instead of building list per request
+    if IS_PRODUCTION and request.method in ("POST", "PATCH", "DELETE"):
         if not request.url.path.startswith("/api/webhook/"):
             origin = request.headers.get("Origin")
             referer = request.headers.get("Referer")
 
             authorized = False
-            allowed_list = list(_allowed_origins)
-            clean_furl = frontend_url.rstrip("/")
-            if clean_furl not in allowed_list:
-                allowed_list.append(clean_furl)
-
             if origin:
-                clean_origin = origin.rstrip("/")
-                if clean_origin in allowed_list:
+                if origin.rstrip("/") in _allowed_origins_set:
                     authorized = True
             elif referer:
-                for allowed in allowed_list:
-                    if referer.startswith(allowed):
-                        authorized = True
-                        break
+                authorized = any(referer.startswith(o) for o in _allowed_origins_set)
 
             if not authorized:
                 return JSONResponse(
@@ -241,12 +235,12 @@ app.include_router(utility_router,    prefix="/api/v1")
 app.include_router(demo_router,       prefix="/api/v1")
 
 # Legacy aliases — emit Deprecation header so clients can migrate
-app.include_router(translate_router)
-app.include_router(history_router)
-app.include_router(workspace_router)
-app.include_router(billing_router)
-app.include_router(utility_router)
-app.include_router(demo_router)
+app.include_router(translate_router,  prefix="/api")
+app.include_router(history_router,    prefix="/api")
+app.include_router(workspace_router,  prefix="/api")
+app.include_router(billing_router,    prefix="/api")
+app.include_router(utility_router,    prefix="/api")
+app.include_router(demo_router,       prefix="/api")
 
 
 @app.middleware("http")

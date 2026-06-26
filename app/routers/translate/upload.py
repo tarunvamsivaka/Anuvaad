@@ -59,7 +59,7 @@ async def upload_file_translate(
     if not raw_code.strip():
         raise HTTPException(status_code=422, detail="File is empty.")
 
-    is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(raw_code)
     )
 
@@ -86,7 +86,7 @@ async def upload_file_translate(
     if cached:
         await metrics.record_cache_hit()
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode=f"File Upload ({mode})",
@@ -128,7 +128,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         await cache.put(key, result, 86400 * 7)
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode=f"File Upload ({mode})",
@@ -151,7 +151,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         )
         if stale_result:
             if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag)
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
                 save_translation_history_task.delay(
                     user_email=email,
                     mode=f"File Upload ({mode})",

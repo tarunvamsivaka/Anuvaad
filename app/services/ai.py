@@ -184,16 +184,19 @@ def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> li
 async def find_stale_translation(
     email: str | None, input_text: str, language: str, endpoint: str, mode: str
 ) -> list | None:
-    """Attempts to retrieve a stale translation from cache or Supabase DB history if LLM providers are down."""
+    """Attempts to retrieve a stale translation from cache or DB if LLM providers are down.
+    Arch#4.6: All 4 cache keys are checked in parallel via asyncio.gather instead of
+    4 sequential Redis round-trips (saves ~3× round-trip latency on cache miss).
+    """
     models_to_try = [
         "deepseek-reasoner",
         "standard",
         "llama-3.3-70b-versatile",
         "deepseek-chat",
     ]
-    for m in models_to_try:
-        key = cache_key(input_text, language, endpoint, m)
-        cached = await cache.get(key)
+    keys = [cache_key(input_text, language, endpoint, m) for m in models_to_try]
+    results = await asyncio.gather(*[cache.get(k) for k in keys])
+    for m, cached in zip(models_to_try, results):
         if cached:
             logger.info(f"Stale recovery: found cached translation for model {m}")
             return cached
@@ -242,14 +245,28 @@ async def get_completion(
             "model": "deepseek-r1-distill-llama-70b",
             "name": "Groq DeepSeek R1",
         }
+        # BUG#6 FIX: Real fallback diversity. Previously fallback = primary (same model, same quota).
+        # During Groq R1 outages, users would wait 2× timeout for the same failure.
+        # Now falls back to the standard Llama model which is on a separate rate-limit bucket.
+        fallback = {
+            "client": groq_client,
+            "model": "llama-3.3-70b-versatile",
+            "name": "Groq Llama 3.3 (fallback)",
+        }
     else:
         primary = {
             "client": groq_client,
             "model": "llama-3.3-70b-versatile",
             "name": "Groq Llama 3.3",
         }
-    
-    fallback = primary  # No secondary provider needed since Groq handles both
+        # BUG#6 FIX: Use smaller model with its own rate-limit pool as real fallback.
+        # llama3-8b-8192 has a separate token bucket on Groq, so it works even when
+        # the 70B model is rate-limited or temporarily unavailable.
+        fallback = {
+            "client": groq_client,
+            "model": "llama3-8b-8192",
+            "name": "Groq Llama3 8B (fallback)",
+        }
 
     messages = [
         {"role": "system", "content": system_instruction},
@@ -316,6 +333,7 @@ async def stream_code_to_english(
     use_r1: bool,
     tier: str,
     deduct_credit_flag: bool = False,
+    cooldown: int = 0,
 ):
     # Intelligent LLM Routing (Groq Only)
     model_name = "deepseek-r1" if use_r1 else "standard"
@@ -332,7 +350,7 @@ async def stream_code_to_english(
         yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="Code → English",
@@ -385,7 +403,7 @@ async def stream_code_to_english(
         yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': model})}\n\n"
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="Code → English",
@@ -412,6 +430,7 @@ async def stream_code_to_code(
     use_r1: bool,
     tier: str,
     deduct_credit_flag: bool = False,
+    cooldown: int = 0,
 ):
     # Intelligent LLM Routing (Groq Only)
     model_name = "deepseek-r1" if use_r1 else "standard"
@@ -433,7 +452,7 @@ async def stream_code_to_code(
         yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="Code → Code",
@@ -489,7 +508,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': model})}\n\n"
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="Code → Code",

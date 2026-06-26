@@ -4,7 +4,7 @@ class CodePayload(BaseModel):
     raw_code: str = Field(..., min_length=1, max_length=50000)
     language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
-    access_token: str | None = None
+    # access_token removed — auth is via Authorization header (BACK-06)
     session_id: str | None = None
     repository_name: str | None = None
     file_path: str | None = None
@@ -27,7 +27,7 @@ class GeneratePayload(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=5000)
     language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
-    access_token: str | None = None
+    # access_token removed — auth is via Authorization header (BACK-06)
     session_id: str | None = None
     repository_name: str | None = None
     file_path: str | None = None
@@ -45,7 +45,7 @@ class CodeToCodePayload(BaseModel):
     source_language: str = Field(..., min_length=1, max_length=30)
     target_language: str = Field(..., min_length=1, max_length=30)
     workspace_id: str | None = None
-    access_token: str | None = None
+    # access_token removed — auth is via Authorization header (BACK-06)
     session_id: str | None = None
     repository_name: str | None = None
     file_path: str | None = None
@@ -96,8 +96,9 @@ class CheckoutPayload(BaseModel):
 
 
 class SubscriptionCheckPayload(BaseModel):
-    """GET endpoints only — no access_token needed (uses Authorization header)."""
-    pass  # Placeholder retained for schema compatibility
+    """No fields — subscription checks use GET with Authorization header only.
+    Retained as an empty schema for any clients that POST a body.
+    """
 
 
 class WorkspaceCreate(BaseModel):
@@ -142,3 +143,6 @@ class VerifyPaymentPayload(BaseModel):
     payment_type: str = Field(..., pattern="^(subscription|credits)$")
 
 
+class SharePayload(BaseModel):
+    """Payload for toggling public/private sharing of a translation history item."""
+    is_public: bool

@@ -1,3 +1,4 @@
+import os
 import logging
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
@@ -24,10 +25,13 @@ elif _DB_URL.startswith("sqlite"):
 
 # pool_size / max_overflow are asyncpg-specific — SQLite uses StaticPool and
 # does not accept those kwargs (raises an ArgumentError at startup).
+# M-6: All pool parameters are now env-var configurable for production tuning.
 _engine_kwargs: dict = {"echo": False, "pool_pre_ping": True}
 if not _is_sqlite:
-    _engine_kwargs["pool_size"] = 20
-    _engine_kwargs["max_overflow"] = 10
+    _engine_kwargs["pool_size"]    = int(os.getenv("DB_POOL_SIZE",      "20"))
+    _engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW",   "10"))
+    _engine_kwargs["pool_timeout"] = float(os.getenv("DB_POOL_TIMEOUT", "30"))
+    _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE",   "1800"))
 
 engine = create_async_engine(_DB_URL, **_engine_kwargs)
 

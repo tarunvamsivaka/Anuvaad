@@ -29,7 +29,7 @@ async def function_translate_to_english_stream(
         payload.raw_code, mode="code-to-english", email=email
     )
 
-    is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.raw_code)
     )
 
@@ -38,7 +38,7 @@ async def function_translate_to_english_stream(
 
     return StreamingResponse(
         stream_code_to_english(
-            payload, email, is_pro, use_r1, tier, deduct_credit_flag
+            payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown
         ),
         media_type="text/event-stream",
     )
@@ -55,7 +55,7 @@ async def function_translate_to_english(
         payload.raw_code, mode="code-to-english/sync", email=email
     )
 
-    is_pro, daily_limit, deduct_credit_flag = await enforce_quotas_and_protection(
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.raw_code)
     )
 
@@ -69,7 +69,7 @@ async def function_translate_to_english(
     if cached:
         await metrics.record_cache_hit()
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="Code → English",
@@ -103,7 +103,7 @@ async def function_translate_to_english(
         await cache.put(key, result, 86400 * 7)
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag)
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
             save_translation_history_task.delay(
                 user_email=email,
                 mode="Code → English",
@@ -130,7 +130,7 @@ async def function_translate_to_english(
         )
         if stale_result:
             if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag)
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
                 save_translation_history_task.delay(
                     user_email=email,
                     mode="Code → English",

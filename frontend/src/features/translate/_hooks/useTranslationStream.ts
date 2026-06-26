@@ -4,6 +4,17 @@ import { mutate } from "swr";
 import { track } from "@/lib/analytics";
 import { TranslationBlock } from "../_types";
 
+// M-3: Cache the canvas-confetti dynamic import at module level.
+// Previously imported inside handleTranslate on every success call,
+// paying dynamic module resolution overhead each time.
+let _confettiPromise: Promise<typeof import("canvas-confetti")> | null = null;
+function getConfetti() {
+  if (!_confettiPromise) {
+    _confettiPromise = import("canvas-confetti");
+  }
+  return _confettiPromise;
+}
+
 interface UseTranslationStreamProps {
   mode: string;
   sourceLanguage: string;
@@ -218,15 +229,20 @@ export function useTranslationStream({
           from_cache: false,
         });
 
-        // Trigger mutation to update stats, history, and credits counts in other tabs/views
+        // M-2: Debounce the three SWR revalidations into one batch after 500ms.
+        // Gives the backend time to persist history before refetching, and
+        // prevents three separate network calls / render cycles firing at once.
         const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         if (session?.access_token) {
-          mutate([`${API_BASE}/api/stats`, session.access_token]);
-          mutate([`${API_BASE}/api/history?limit=5`, session.access_token]);
-          mutate([`${API_BASE}/api/check-credits`, session.access_token]);
+          setTimeout(() => {
+            mutate([`${API_BASE}/api/stats`, session.access_token]);
+            mutate([`${API_BASE}/api/history?limit=5`, session.access_token]);
+            mutate([`${API_BASE}/api/check-credits`, session.access_token]);
+          }, 500);
         }
 
-        import("canvas-confetti").then((module) => {
+        // M-3: Use cached confetti promise (module-level singleton, not re-imported per call)
+        getConfetti().then((module) => {
           module.default({
             particleCount: 100,
             spread: 70,
