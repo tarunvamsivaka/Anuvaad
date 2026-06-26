@@ -251,10 +251,11 @@ Anuvaad/
 │   ├── src/lib/            # Auth context, Supabase client, analytics
 │   ├── src/context/        # Workspace context provider
 │   └── e2e/                # Playwright end-to-end tests
-├── main.py                 # FastAPI backend (2100+ lines)
+├── app/                    # FastAPI routers and core logic
+│   └── routers/            # API domain endpoints
+├── main.py                 # FastAPI application entry point
 ├── tests/                  # Pytest test suite
-├── js/                     # Legacy vanilla JS modules
-├── supabase_migration*.sql # Database migration files (v1–v5)
+├── migrations/             # Database migrations
 ├── .github/workflows/      # CI pipeline (test, lint, build, e2e, docker)
 ├── Dockerfile              # Multi-stage production build
 ├── docker-compose.yml      # Full stack orchestration (4 services)
