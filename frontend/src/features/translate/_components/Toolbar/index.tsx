@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { modes } from "../../_constants/modes";
 import { SearchableLanguageSelect } from "./SearchableLanguageSelect";
+import { RepositorySelector } from "./RepositorySelector";
 
 interface ToolbarProps {
   mode: string;
@@ -10,6 +11,10 @@ interface ToolbarProps {
   setSourceLanguage: (lang: string) => void;
   targetLanguage: string;
   setTargetLanguage: (lang: string) => void;
+  repositoryName: string;
+  setRepositoryName: (name: string) => void;
+  filePath: string;
+  setFilePath: (path: string) => void;
 }
 
 export function Toolbar({
@@ -19,6 +24,10 @@ export function Toolbar({
   setSourceLanguage,
   targetLanguage,
   setTargetLanguage,
+  repositoryName,
+  setRepositoryName,
+  filePath,
+  setFilePath,
 }: ToolbarProps) {
   return (
     <div className="shrink-0 z-10 relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-slate-200/50 dark:border-white/5 bg-white/60 dark:bg-surface-charcoal/60 backdrop-blur-md">
@@ -60,6 +69,13 @@ export function Toolbar({
             onChange={setTargetLanguage}
           />
         )}
+        <div className="h-6 w-px bg-slate-200/50 dark:bg-white/10 hidden sm:block mx-1"></div>
+        <RepositorySelector
+          repositoryName={repositoryName}
+          setRepositoryName={setRepositoryName}
+          filePath={filePath}
+          setFilePath={setFilePath}
+        />
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import json
 from fastapi import APIRouter, Request, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from app.core.config import logger, metrics
+from app.core.rate_limit import rate_limiter
 from app.core.cache import cache, cache_key
 from app.core.auth import get_user_email
 from app.core.quota import enforce_quotas_and_protection, record_successful_completion
@@ -128,7 +130,11 @@ async def function_generate_from_english(
         )
 
 
-@router.post("/english-to-code")
+@router.post(
+    "/english-to-code",
+    response_class=StreamingResponse,
+    dependencies=[Depends(rate_limiter(10, 60))]
+)
 async def function_update_to_code(
     request: Request,
     payload: EnglishUpdatePayload,

@@ -10,7 +10,8 @@
     "analyze": "cross-env ANALYZE=true next build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -57,7 +58,7 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.184.1",
     "@vitejs/plugin-react": "^6.0.2",
-    "eslint": "^9",
+    "eslint": "^10.5.0",
     "eslint-config-next": "16.2.4",
     "jsdom": "^29.1.1",
     "tailwindcss": "^4",

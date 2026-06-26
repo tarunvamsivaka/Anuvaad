@@ -192,6 +192,10 @@ export function TranslateFeature() {
           setSourceLanguage={setSourceLanguage}
           targetLanguage={targetLanguage}
           setTargetLanguage={setTargetLanguage}
+          repositoryName={repositoryName}
+          setRepositoryName={setRepositoryName}
+          filePath={filePath}
+          setFilePath={setFilePath}
         />
       }
       inputPanel={

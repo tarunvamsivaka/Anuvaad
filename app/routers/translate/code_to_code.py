@@ -2,13 +2,18 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import StreamingResponse
 from app.core.auth import get_user_email
 from app.core.quota import enforce_quotas_and_protection
+from app.core.rate_limit import rate_limiter
 from app.models.schemas import CodeToCodePayload
 from app.services.ai import stream_code_to_code
 from .dependencies import sanitise_input, validate_code_input
 
 router = APIRouter()
 
-@router.post("/code-to-code")
+@router.post(
+    "/code-to-code",
+    response_class=StreamingResponse,
+    dependencies=[Depends(rate_limiter(10, 60))]
+)
 async def function_code_to_code(
     request: Request,
     payload: CodeToCodePayload,

@@ -195,6 +195,8 @@ See [`.env.example`](.env.example) for all variables with inline documentation.
 | `SUPABASE_URL` | ✅ | Supabase project URL |
 | `SUPABASE_ANON_KEY` | ✅ | Supabase public anon key (JWT verification) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Supabase service role key (server-side DB writes) |
+| `GITHUB_CLIENT_ID` | ✅ (for GitHub Integration) | GitHub OAuth App Client ID |
+| `GITHUB_CLIENT_SECRET` | ✅ (for GitHub Integration) | GitHub OAuth App Client Secret |
 | `RAZORPAY_KEY_ID` | For billing | Razorpay API key ID |
 | `RAZORPAY_KEY_SECRET` | For billing | Razorpay API key secret |
 | `RAZORPAY_PRO_PLAN_ID` | For billing | Razorpay plan ID for Pro |

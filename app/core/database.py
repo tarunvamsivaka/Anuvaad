@@ -4,7 +4,7 @@ from sqlalchemy.orm import class_mapper
 from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import (
-    User, UserSubscription, Workspace, WorkspaceMember, ApiKey, TranslationHistory, UserTranslationStats
+    User, UserSubscription, Workspace, WorkspaceMember, ApiKey, TranslationHistory, UserTranslationStats, UserGithubToken
 )
 
 TABLE_MODEL_MAP = {
@@ -14,7 +14,8 @@ TABLE_MODEL_MAP = {
     "workspace_members": WorkspaceMember,
     "api_keys": ApiKey,
     "translation_history": TranslationHistory,
-    "user_translation_stats": UserTranslationStats
+    "user_translation_stats": UserTranslationStats,
+    "user_github_tokens": UserGithubToken
 }
 
 # Arch#2.5: Test-injection override globals removed.

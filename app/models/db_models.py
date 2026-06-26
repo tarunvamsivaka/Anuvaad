@@ -11,6 +11,12 @@ class User(Base):
     email = Column(Text, unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+class UserGithubToken(Base):
+    __tablename__ = "user_github_tokens"
+    user_email = Column(Text, primary_key=True)
+    access_token = Column(Text, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
