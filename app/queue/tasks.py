@@ -228,7 +228,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
     Arch#2.7: Implemented real GitHub API integration.
     """
     logger.info(f"Celery: process_github_repo_task called for {repo_name}")
-    
+
     async def _process():
         from app.core.database_session import AsyncSessionLocal
         from app.services.github import fetch_repository_files
@@ -240,7 +240,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
         if not files:
             logger.warning(f"No files found or fetched for {repo_name}")
             return
-            
+
         logger.info(f"Chunking {len(files)} files for {repo_name}")
         chunks_data = []
         for file in files:
@@ -251,19 +251,19 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
                     "chunk_index": i,
                     "content": chunk,
                 })
-        
+
         if not chunks_data:
             logger.warning(f"No chunks generated for {repo_name}")
             return
-            
+
         logger.info(f"Generated {len(chunks_data)} chunks. Generating embeddings...")
-        
+
         # We should chunk the embeddings request in case there are thousands of chunks
         BATCH_SIZE = 100
         for i in range(0, len(chunks_data), BATCH_SIZE):
             batch = chunks_data[i:i+BATCH_SIZE]
             texts = [c["content"] for c in batch]
-            
+
             try:
                 embeddings = await generate_embeddings_hf(texts)
                 for j, emb in enumerate(embeddings):
@@ -272,7 +272,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
                     elif j < len(batch):
                          # Fallback if the embedding is somehow malformed
                          batch[j]["embedding"] = [0.0] * 384
-                        
+
                 # Insert into DB
                 async with AsyncSessionLocal() as session:
                     await insert_repo_embeddings(session, repo_name, batch)

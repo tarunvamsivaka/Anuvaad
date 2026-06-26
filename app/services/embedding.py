@@ -14,23 +14,23 @@ async def generate_embeddings_hf(texts: List[str]) -> List[List[float]]:
     """
     if not texts:
         return []
-        
+
     hf_token = os.environ.get("HF_TOKEN")
     if not hf_token:
         logger.warning("HF_TOKEN not found, attempting to use unauthenticated HF inference API (may be heavily rate-limited).")
-    
+
     headers = {"Authorization": f"Bearer {hf_token}"} if hf_token else {}
-    
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                HF_API_URL, 
-                headers=headers, 
+                HF_API_URL,
+                headers=headers,
                 json={"inputs": texts, "options": {"wait_for_model": True}},
                 timeout=30.0
             )
             response.raise_for_status()
-            
+
             result = response.json()
             if isinstance(result, list):
                 if len(result) > 0 and isinstance(result[0], float):
@@ -48,7 +48,7 @@ def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> List[st
     """
     if not text:
         return []
-    
+
     chunks = []
     start = 0
     while start < len(text):

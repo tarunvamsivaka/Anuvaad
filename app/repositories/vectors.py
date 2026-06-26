@@ -21,7 +21,7 @@ async def insert_repo_embeddings(
     """
     if not chunks:
         return 0
-        
+
     try:
         # In a massive production system, we'd use `bulk_insert_mappings`.
         # For simplicity and given typical repo sizes, adding objects works fine.
@@ -36,7 +36,7 @@ async def insert_repo_embeddings(
             )
             for chunk in chunks
         ]
-        
+
         db.add_all(records)
         await db.commit()
         logger.info(f"Successfully inserted {len(records)} embeddings for {repository_name}")

@@ -6,7 +6,7 @@ from typing import List, Dict
 logger = structlog.get_logger(__name__)
 
 SUPPORTED_EXTENSIONS = {
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".md", ".txt", ".json", ".yml", ".yaml", 
+    ".py", ".ts", ".tsx", ".js", ".jsx", ".md", ".txt", ".json", ".yml", ".yaml",
     ".html", ".css", ".go", ".rs", ".c", ".cpp", ".h", ".hpp", ".java", ".rb", ".php"
 }
 
@@ -25,7 +25,7 @@ def fetch_repository_files(repo_name: str) -> List[Dict[str, str]]:
     """
     g = get_github_client()
     repo = g.get_repo(repo_name)
-    
+
     files = []
     logger.info(f"Fetching repository tree for {repo_name}")
     try:
@@ -33,7 +33,7 @@ def fetch_repository_files(repo_name: str) -> List[Dict[str, str]]:
     except Exception as e:
         logger.error(f"Failed to fetch tree for {repo_name}: {e}")
         return []
-    
+
     for element in tree:
         if element.type == "blob":
             _, ext = os.path.splitext(element.path)
@@ -50,13 +50,13 @@ def fetch_repository_files(repo_name: str) -> List[Dict[str, str]]:
                         content = blob.content
                     else:
                         continue
-                    
+
                     files.append({
                         "path": element.path,
                         "content": content
                     })
                 except Exception as e:
                     logger.debug(f"Failed to fetch/decode file: {element.path}", error=str(e))
-                    
+
     logger.info(f"Successfully fetched {len(files)} files from {repo_name}")
     return files
