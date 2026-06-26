@@ -7,7 +7,7 @@ import { TranslationBlock } from "../_types";
 // M-3: Cache the canvas-confetti dynamic import at module level.
 // Previously imported inside handleTranslate on every success call,
 // paying dynamic module resolution overhead each time.
-let _confettiPromise: Promise<typeof import("canvas-confetti")> | null = null;
+let _confettiPromise: Promise<any> | null = null;
 function getConfetti() {
   if (!_confettiPromise) {
     _confettiPromise = import("canvas-confetti");

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from sqlalchemy import select, delete
 from app.core.database_session import AsyncSessionLocal
-from app.models.db_models import Workspace, WorkspaceMember
+from app.models.db_models import Workspace
 from app.core.config import logger
 
 

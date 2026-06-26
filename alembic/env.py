@@ -14,15 +14,15 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-import os
-import sys
-from dotenv import load_dotenv
+import os  # noqa: E402
+import sys  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
 sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
 load_dotenv()
 
-from app.models.db_models import Base
-from app.core.config import DATABASE_URL
+from app.models.db_models import Base  # noqa: E402
+from app.core.config import DATABASE_URL  # noqa: E402
 
 target_metadata = Base.metadata
 

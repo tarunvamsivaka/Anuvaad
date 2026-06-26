@@ -100,8 +100,12 @@ def test_lru_cache_eviction():
 @pytest.mark.asyncio
 async def test_supabase_request_fallback(monkeypatch):
     import app.core.database as db_module
-    monkeypatch.setattr(db_module, "supabase_request_override", None)
-    with patch("app.core.config.SUPABASE_URL", None):
+    from unittest.mock import patch
+    import importlib
+    
+    importlib.reload(db_module)
+    
+    with patch("app.core.database.AsyncSessionLocal", side_effect=Exception("DB Error")):
         result = await db_module.supabase_request("test_table", "select", {"id": "1"})
         assert result is None
 

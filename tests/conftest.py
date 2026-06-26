@@ -526,9 +526,9 @@ def mock_supabase_and_quota(monkeypatch):
     m6 = AsyncMock(return_value={})
     m7 = AsyncMock(return_value=[])
 
-    monkeypatch.setattr(quota_module, "get_today_usage_count_override", m1)
-    monkeypatch.setattr(db_module, "supabase_request_override", m6)
-    monkeypatch.setattr(db_module, "supabase_request_list_override", m7)
+    monkeypatch.setattr(quota_module, "get_today_usage_count", m1)
+    monkeypatch.setattr(db_module, "supabase_request", m6)
+    monkeypatch.setattr(db_module, "supabase_request_list", m7)
 
     with patch("app.core.quota.get_user_credits", m2), \
          patch("app.core.quota.deduct_credit", m3):

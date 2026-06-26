@@ -186,10 +186,10 @@ class TestAdvancedSecurity:
 
         # Enable production mode and configure FRONTEND_URL for the duration of the test
         original_production = app_main_module.IS_PRODUCTION
-        original_frontend_url = app_main_module.FRONTEND_URL
+        original_allowed = app_main_module._allowed_origins_set
 
         app_main_module.IS_PRODUCTION = True
-        app_main_module.FRONTEND_URL = "https://anuvaad.dev"
+        app_main_module._allowed_origins_set = frozenset(["https://anuvaad.dev", "https://razorpay.com"])
 
         try:
             # 1. Missing Origin/Referer -> Rejected 403
@@ -216,7 +216,7 @@ class TestAdvancedSecurity:
             )
             assert res2.status_code == 403
 
-            # 3. Matching Origin -> Allowed past CSRF check (e.g. proceeds to Auth verification / returns 200 or moves past)
+            # 3. Matching Origin -> Allowed past CSRF check
             res3 = client.post(
                 "/api/code-to-code",
                 json={
@@ -226,7 +226,7 @@ class TestAdvancedSecurity:
                 },
                 headers={"Origin": "https://anuvaad.dev"},
             )
-            # Since anonymous requests are allowed under daily limit, it should return 200 OK!
+            # Since the client fixture mocks auth, it should return 200 OK!
             assert res3.status_code == 200
 
             # 4. Matching Referer -> Allowed past CSRF check
@@ -241,7 +241,7 @@ class TestAdvancedSecurity:
             )
             assert res4.status_code == 200
 
-            # 5. Webhooks are explicitly excluded from CSRF Origin check (allowed past CSRF check)
+            # 5. Webhooks are explicitly excluded from CSRF Origin check
             res5 = client.post(
                 "/api/webhook/razorpay",
                 json={},
@@ -251,4 +251,4 @@ class TestAdvancedSecurity:
             assert res5.status_code == 200
         finally:
             app_main_module.IS_PRODUCTION = original_production
-            app_main_module.FRONTEND_URL = original_frontend_url
+            app_main_module._allowed_origins_set = original_allowed

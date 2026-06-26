@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Boolean, Integer, BigInteger, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Boolean, Integer, BigInteger, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from pgvector.sqlalchemy import Vector
 from app.core.database_session import Base

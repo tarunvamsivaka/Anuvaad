@@ -1,7 +1,5 @@
 import re
-import unicodedata
 from fastapi import HTTPException
-from app.core.config import EXTENSION_TO_LANGUAGE, ALLOWED_EXTENSIONS, FREE_MAX_FILE_SIZE, PRO_MAX_FILE_SIZE
 from app.core.config import logger
 
 def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:

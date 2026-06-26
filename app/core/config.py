@@ -1,8 +1,6 @@
 import asyncio
 import weakref
 import os
-import sys
-import time
 import logging
 import httpx
 from contextlib import asynccontextmanager
@@ -171,4 +169,4 @@ async def lifespan(app: FastAPI):
 
 # Arch#2.4: MetricsCollector extracted to app/core/metrics.py (breaks config->cache circular import).
 # Re-exported here for backward-compat — all existing `from app.core.config import metrics` still work.
-from app.core.metrics import MetricsCollector, metrics  # noqa: F401
+from app.core.metrics import MetricsCollector, metrics  # noqa: F401, E402

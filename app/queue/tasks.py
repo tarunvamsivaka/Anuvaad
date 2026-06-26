@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 from app.queue.celery_config import celery_app
 from app.core.quota import save_translation_background
 from app.services.email import email_service

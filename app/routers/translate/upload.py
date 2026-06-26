@@ -1,7 +1,14 @@
 import os
 import json
 from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, Form
-from app.core.config import logger, metrics
+from app.core.config import (
+    logger,
+    metrics,
+    ALLOWED_EXTENSIONS,
+    EXTENSION_TO_LANGUAGE,
+    FREE_MAX_FILE_SIZE,
+    PRO_MAX_FILE_SIZE,
+)
 from app.core.cache import cache, cache_key
 from app.core.auth import get_user_email, get_user_pro_status, is_token_pro
 from app.core.quota import enforce_quotas_and_protection, record_successful_completion
@@ -15,10 +22,6 @@ from app.services.ai import (
 from .dependencies import (
     sanitise_input,
     validate_code_input,
-    ALLOWED_EXTENSIONS,
-    EXTENSION_TO_LANGUAGE,
-    FREE_MAX_FILE_SIZE,
-    PRO_MAX_FILE_SIZE,
 )
 
 router = APIRouter()

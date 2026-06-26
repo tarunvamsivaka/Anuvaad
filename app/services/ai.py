@@ -2,7 +2,7 @@ import os
 import json
 import asyncio
 from openai import AsyncOpenAI
-from fastapi import HTTPException, BackgroundTasks
+from fastapi import HTTPException
 from app.core.config import (
     LLM_TIMEOUT,
     logger,
@@ -10,7 +10,7 @@ from app.core.config import (
 )
 from app.core.cache import cache, cache_key
 from app.core.database import supabase_request_list
-from app.core.quota import record_successful_completion, save_translation_background
+from app.core.quota import record_successful_completion
 from app.queue.tasks import save_translation_history_task
 from app.models.schemas import CodePayload, CodeToCodePayload
 

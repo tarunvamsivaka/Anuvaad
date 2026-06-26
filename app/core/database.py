@@ -1,8 +1,6 @@
 import re
-import json
 from sqlalchemy import select, insert, update, delete, asc, desc
 from sqlalchemy.orm import class_mapper
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import (
