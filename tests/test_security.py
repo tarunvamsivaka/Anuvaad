@@ -183,7 +183,6 @@ class TestAdvancedSecurity:
         valid Origin/Referer matching FRONTEND_URL should be rejected with 403.
         """
         import app.api.middleware.csrf as csrf_module
-        import app.core.config as config_module
 
         # After the clean architecture refactor, IS_PRODUCTION lives in core/config
         # and _allowed_origins_set lives in api/middleware/csrf.

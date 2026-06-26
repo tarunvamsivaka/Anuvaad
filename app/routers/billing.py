@@ -16,8 +16,7 @@ from fastapi.responses import JSONResponse
 from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
 from app.core.auth import get_user_email
 from app.core.cache import cache
-from app.core.database import supabase_request
-from app.queue.tasks import send_transactional_email_task, process_billing_webhook_task
+from app.queue.tasks import process_billing_webhook_task
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
 from app.domain.billing.service import BillingService
 from app.repositories import subscription as subscription_repo
