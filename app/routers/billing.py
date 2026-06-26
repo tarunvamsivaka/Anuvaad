@@ -1,18 +1,26 @@
+"""
+app/routers/billing.py — HTTP adapter for billing operations.
+
+This router is intentionally thin: it handles authentication, validates inputs,
+delegates all business logic to BillingService, and maps results to HTTP responses.
+
+Business logic (signature verification, DB writes, email dispatch) lives in:
+  app/domain/billing/service.py
+"""
 import os
 import json
 import razorpay
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import JSONResponse
-from app.core.config import (
-    RAZORPAY_KEY_ID,
-    RAZORPAY_KEY_SECRET,
-    logger,
-)
+
+from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
+from app.core.auth import get_user_email
+from app.core.cache import cache
 from app.core.database import supabase_request
 from app.queue.tasks import send_transactional_email_task, process_billing_webhook_task
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
-from app.core.auth import get_user_email
-from app.core.cache import cache
+from app.domain.billing.service import BillingService
+from app.repositories import subscription as subscription_repo
 
 router = APIRouter(prefix="", tags=["billing"])
 
@@ -26,6 +34,17 @@ else:
     razorpay_client = None
     logger.info("Razorpay not configured (Pro tier disabled) in billing router")
 
+#: Shared service instance — created once at module load
+_billing_service: BillingService | None = (
+    BillingService(razorpay_client) if razorpay_client else None
+)
+
+
+def _get_service() -> BillingService:
+    if _billing_service is None:
+        raise HTTPException(status_code=503, detail="Payment service not configured.")
+    return _billing_service
+
 
 def enforce_billing_enabled():
     if os.getenv("ENABLE_BILLING", "false").lower() != "true":
@@ -35,39 +54,32 @@ def enforce_billing_enabled():
         )
 
 
+# ── Checkout ──
+
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     payload: CheckoutPayload,
     user_email: str | None = Depends(get_user_email),
 ):
     """Create a Razorpay subscription checkout.
-    Returns subscription_id + key_id for the frontend Razorpay popup.
-    BACK-06: Auth via Authorization header (Depends), not request body access_token."""
+    BACK-06: Auth via Authorization header (Depends), not request body access_token.
+    """
     enforce_billing_enabled()
     if not razorpay_client:
-        raise HTTPException(
-            status_code=503,
-            detail="Payment service not configured. Please contact support.",
-        )
+        raise HTTPException(status_code=503, detail="Payment service not configured.")
     if not user_email:
-        raise HTTPException(
-            status_code=401, detail="Authentication required. Please sign in."
-        )
+        raise HTTPException(status_code=401, detail="Authentication required.")
     if user_email.lower() != payload.user_email.lower():
-        raise HTTPException(
-            status_code=403,
-            detail="Email mismatch: token does not belong to this user.",
-        )
+        raise HTTPException(status_code=403, detail="Email mismatch: token does not belong to this user.")
+
     try:
-        subscription = razorpay_client.subscription.create(
-            {
-                "plan_id": RAZORPAY_PRO_PLAN_ID,
-                "total_count": 12,
-                "quantity": 1,
-                "customer_notify": 1,
-                "notes": {"user_email": user_email},
-            }
-        )
+        subscription = razorpay_client.subscription.create({
+            "plan_id": RAZORPAY_PRO_PLAN_ID,
+            "total_count": 12,
+            "quantity": 1,
+            "customer_notify": 1,
+            "notes": {"user_email": user_email},
+        })
         return {
             "subscription_id": subscription["id"],
             "key_id": RAZORPAY_KEY_ID,
@@ -76,27 +88,22 @@ async def create_checkout_session(
         }
     except Exception as e:
         logger.error(f"Razorpay subscription creation error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Payment session creation failed. Please try again later.",
-        )
+        raise HTTPException(status_code=500, detail="Payment session creation failed.")
 
 
 @router.post("/create-portal-session")
 async def create_portal_session(
     user_email: str | None = Depends(get_user_email),
 ):
-    """Return the user's active Razorpay subscription details for self-service management.
-    BACK-06: Auth via Authorization header only."""
+    """Return the user's active Razorpay subscription details for self-service management."""
     enforce_billing_enabled()
     if not user_email:
         raise HTTPException(status_code=401, detail="Authentication required")
-    sub = await supabase_request(
-        "GET",
-        f"user_subscriptions?user_email=eq.{user_email}&select=razorpay_subscription_id,is_pro",
-    )
-    if not sub or not isinstance(sub, dict) or not sub.get("is_pro"):
+
+    sub = await subscription_repo.get_subscription(user_email)
+    if not sub or not sub.get("is_pro"):
         raise HTTPException(status_code=404, detail="No active Pro subscription found.")
+
     return {
         "subscription_id": sub.get("razorpay_subscription_id", ""),
         "plan": "pro",
@@ -109,21 +116,19 @@ async def create_portal_session(
 async def create_credit_checkout(
     user_email: str | None = Depends(get_user_email),
 ):
-    """Create a Razorpay one-time order for buying 100 translation credits (₹100).
-    BACK-06: Auth via Authorization header only."""
+    """Create a Razorpay one-time order for buying 100 translation credits (₹100)."""
     enforce_billing_enabled()
     if not razorpay_client:
         raise HTTPException(status_code=503, detail="Payment service not configured.")
     if not user_email:
         raise HTTPException(status_code=401, detail="Authentication required")
+
     try:
-        order = razorpay_client.order.create(
-            {
-                "amount": 10000,
-                "currency": "INR",
-                "notes": {"type": "credits", "amount": 100, "user_email": user_email},
-            }
-        )
+        order = razorpay_client.order.create({
+            "amount": 10000,
+            "currency": "INR",
+            "notes": {"type": "credits", "amount": 100, "user_email": user_email},
+        })
         return {
             "order_id": order["id"],
             "amount": order["amount"],
@@ -137,24 +142,7 @@ async def create_credit_checkout(
         raise HTTPException(status_code=500, detail="Could not create checkout session")
 
 
-
-@router.get("/check-credits")
-async def get_check_credits(
-    email: str | None = Depends(get_user_email)
-):
-    """GET version of check-credits — uses Authorization header only.
-    Replaces the POST version for proper SWR client caching.
-    """
-    if not email:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{email}&select=credits"
-    )
-    if sub and isinstance(sub, dict):
-        return {"credits": sub.get("credits") or 0}
-    return {"credits": 0}
-
+# ── Payment Verification ──
 
 @router.post("/verify-payment")
 async def verify_payment(
@@ -162,116 +150,80 @@ async def verify_payment(
     user_email: str | None = Depends(get_user_email),
 ):
     """Verify Razorpay HMAC signature then activate Pro or top up credits.
-    BACK-06: Auth via Authorization header only."""
+    Delegates all business logic to BillingService.
+    """
     enforce_billing_enabled()
-    if not razorpay_client:
-        raise HTTPException(status_code=503, detail="Payment service not configured.")
     if not user_email:
         raise HTTPException(status_code=401, detail="Authentication required")
+
+    service = _get_service()
     try:
         if payload.payment_type == "subscription":
-            razorpay_client.utility.verify_subscription_payment_signature(
-                {
-                    "razorpay_payment_id": payload.razorpay_payment_id,
-                    "razorpay_subscription_id": payload.razorpay_subscription_id,
-                    "razorpay_signature": payload.razorpay_signature,
-                }
+            result = await service.verify_subscription_payment(
+                user_email=user_email,
+                razorpay_payment_id=payload.razorpay_payment_id,
+                razorpay_subscription_id=payload.razorpay_subscription_id or "",
+                razorpay_signature=payload.razorpay_signature,
             )
-            existing = await supabase_request(
-                "GET",
-                f"user_subscriptions?user_email=eq.{user_email}&select=user_email",
-            )
-            # BUG#2 FIX: Always upsert — never blindly INSERT.
-            # A user may already have a row (e.g., purchased credits first).
-            # Inserting again fails silently on the UNIQUE constraint and
-            # leaves them permanently stuck on the free tier despite paying.
-            if existing:
-                await supabase_request(
-                    "PATCH",
-                    f"user_subscriptions?user_email=eq.{user_email}",
-                    {
-                        "razorpay_subscription_id": payload.razorpay_subscription_id,
-                        "is_pro": True,
-                        "onboarded": False,
-                    },
-                )
-            else:
-                await supabase_request(
-                    "POST",
-                    "user_subscriptions",
-                    {
-                        "user_email": user_email,
-                        "razorpay_subscription_id": payload.razorpay_subscription_id,
-                        "is_pro": True,
-                        "onboarded": False,
-                    },
-                )
-                send_transactional_email_task.delay("welcome", user_email=user_email)
-            send_transactional_email_task.delay("subscription_upgrade", user_email=user_email, plan_name="pro")
-            logger.info(f"✅ Razorpay subscription verified & activated: {user_email}")
-            # FRONT-08: Immediately bust Pro status cache so user sees upgrade instantly
-            cache_key = f"user_pro_status:{user_email}"
-            await cache.delete(cache_key)
-            return {"status": "success", "plan": "pro"}
+            return {"status": "success", "plan": result.plan}
         else:  # credits
-            razorpay_client.utility.verify_payment_signature(
-                {
-                    "razorpay_order_id": payload.razorpay_order_id,
-                    "razorpay_payment_id": payload.razorpay_payment_id,
-                    "razorpay_signature": payload.razorpay_signature,
-                }
+            result = await service.verify_credit_payment(
+                user_email=user_email,
+                razorpay_order_id=payload.razorpay_order_id or "",
+                razorpay_payment_id=payload.razorpay_payment_id,
+                razorpay_signature=payload.razorpay_signature,
             )
-            amount = 100
-            sub = await supabase_request(
-                "GET", f"user_subscriptions?user_email=eq.{user_email}&select=credits"
-            )
-            if not sub:
-                await supabase_request(
-                    "POST",
-                    "user_subscriptions",
-                    {
-                        "user_email": user_email,
-                        "credits": amount,
-                        "is_pro": False,
-                        "onboarded": False,
-                    },
-                )
-            else:
-                current = sub.get("credits") or 0 if isinstance(sub, dict) else 0
-                await supabase_request(
-                    "PATCH",
-                    f"user_subscriptions?user_email=eq.{user_email}",
-                    {"credits": current + amount},
-                )
-            logger.info(f"💰 Credits verified & added: {user_email} (+{amount})")
-            return {"status": "success", "credits_added": amount}
-    except Exception as e:
-        logger.error(f"Payment verification failed: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail="Payment verification failed. Please contact support.",
-        )
+            return {"status": "success", "credits_added": result.credits_added}
 
+    except (ValueError, RuntimeError) as e:
+        logger.error(f"Payment verification failed for {user_email}: {e}")
+        raise HTTPException(status_code=400, detail="Payment verification failed. Please contact support.")
+    except Exception as e:
+        logger.error(f"Unexpected billing error for {user_email}: {e}")
+        raise HTTPException(status_code=400, detail="Payment verification failed. Please contact support.")
+
+
+# ── Subscription Status & Credits ──
+
+@router.get("/subscription-status")
+async def get_subscription_status(
+    email: str | None = Depends(get_user_email),
+):
+    """Return the user's current subscription plan.
+    GET endpoint for SWR caching (P4: replaces the old POST version).
+    """
+    if not email:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    sub = await subscription_repo.get_subscription(email)
+    is_pro = bool(sub and sub.get("is_pro"))
+    return {"plan": "pro" if is_pro else "free", "status": "active", "isPro": is_pro}
+
+
+@router.get("/check-credits")
+async def get_check_credits(
+    email: str | None = Depends(get_user_email),
+):
+    """Return the user's current translation credit balance."""
+    if not email:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    credits = await subscription_repo.get_credits(email)
+    return {"credits": credits}
+
+
+# ── Webhook ──
 
 @router.post("/webhook/razorpay")
 async def razorpay_webhook(request: Request):
-    """Handle Razorpay webhook events and update user_subscriptions in Supabase."""
-    webhook_secret = RAZORPAY_WEBHOOK_SECRET
+    """Handle Razorpay webhook events — validates signature, dispatches to Celery."""
+    if not RAZORPAY_WEBHOOK_SECRET:
+        logger.error("RAZORPAY_WEBHOOK_SECRET is not set — rejecting webhook request.")
+        return JSONResponse(status_code=503, content={"error": "Webhook endpoint not configured"})
 
-    if not webhook_secret:
-        logger.error(
-            "RAZORPAY_WEBHOOK_SECRET is not set — rejecting webhook request."
-        )
-        return JSONResponse(
-            status_code=503, content={"error": "Webhook endpoint not configured"}
-        )
-
-    # Guard: razorpay_client may be None when credentials are not configured
     if not razorpay_client:
         logger.error("Razorpay client not configured — rejecting webhook request.")
-        return JSONResponse(
-            status_code=503, content={"error": "Razorpay not configured"}
-        )
+        return JSONResponse(status_code=503, content={"error": "Razorpay not configured"})
 
     body = await request.body()
     signature = request.headers.get("x-razorpay-signature", "")
@@ -284,10 +236,9 @@ async def razorpay_webhook(request: Request):
         if existing:
             logger.info(f"Razorpay webhook: duplicate event {event_id} — skipping")
             return {"status": "duplicate", "message": "Event already processed"}
-        # Mark this event as seen for 24 hours
         await cache.put(idempotency_key, "1", ttl=86400)
 
-    # BACK-09: Verify signature BEFORE json.loads to prevent information leakage
+    # BACK-09: Verify signature BEFORE json.loads to prevent info leakage
     try:
         razorpay_client.utility.verify_webhook_signature(
             body.decode(), signature, RAZORPAY_WEBHOOK_SECRET
@@ -301,31 +252,5 @@ async def razorpay_webhook(request: Request):
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
-    # Send the raw event payload to Celery for background processing
     process_billing_webhook_task.delay(event_id=event_id, payload=event)
-
     return {"received": True}
-
-
-@router.get("/subscription-status")
-async def get_subscription_status(
-    email: str | None = Depends(get_user_email),
-):
-    """GET version of subscription-status — uses Authorization header only.
-    P4: Replaces the POST version so SWR can cache it like a normal GET resource.
-    """
-    if not email:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{email}&select=is_pro"
-    )
-
-    if sub and isinstance(sub, dict):
-        is_pro = bool(sub.get("is_pro", False))
-        plan = "pro" if is_pro else "free"
-    else:
-        plan = "free"
-        is_pro = False
-
-    return {"plan": plan, "status": "active", "isPro": is_pro}

@@ -387,14 +387,15 @@ class TestBackendCleanup:
         """SEC-08: Verify 127.0.0.1 bypass is guarded by IS_PRODUCTION check in source."""
         import os
 
-        # Read the actual app/main.py from the filesystem (not the pytest bootstrap stub)
+        # SEC-08: The 127.0.0.1 bypass was extracted from app/main.py into
+        # app/api/middleware/rate_limit.py during the clean architecture refactor.
+        # We now check the canonical location.
         app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        main_py_path = os.path.join(app_root, "app", "main.py")
-        with open(main_py_path, "r", encoding="utf-8") as f:
+        rate_limit_path = os.path.join(app_root, "app", "api", "middleware", "rate_limit.py")
+        with open(rate_limit_path, "r", encoding="utf-8") as f:
             source = f.read()
 
-        # The new pattern must include the IS_PRODUCTION guard
+        # The bypass guard must exist in the rate-limit middleware
         assert '127.0.0.1" and not IS_PRODUCTION' in source, (
             "SEC-08 regression: 127.0.0.1 rate limit bypass must be guarded by `and not IS_PRODUCTION`."
         )
-

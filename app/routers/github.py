@@ -49,7 +49,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     """Listens for GitHub App installation events."""
     payload = await request.json()
     event = request.headers.get("X-GitHub-Event")
-    
+
     if event == "installation" and payload.get("action") == "created":
         installation_id = payload.get("installation", {}).get("id")
         repos = payload.get("repositories", [])
@@ -57,5 +57,5 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             repo_name = repo.get("full_name")
             # Dispatch background job to clone repo and generate embeddings
             process_github_repo_task.delay(repo_name, installation_id)
-            
+
     return {"status": "ok"}

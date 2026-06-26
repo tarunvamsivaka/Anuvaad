@@ -75,7 +75,7 @@ def process_billing_webhook_task(event_id: str, payload: dict):
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import PaymentTransaction
         from sqlalchemy.exc import IntegrityError
-        
+
         async with AsyncSessionLocal() as session:
             try:
                 txn = PaymentTransaction(event_id=event_id, payload=payload)
@@ -178,19 +178,19 @@ def prune_translation_history_task(user_email: str):
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import TranslationHistory
         from sqlalchemy import select, desc, delete
-        
+
         async with AsyncSessionLocal() as session:
             stmt = select(TranslationHistory.id).where(TranslationHistory.user_email == user_email).order_by(desc(TranslationHistory.created_at))
             result = await session.execute(stmt)
             ids = [row[0] for row in result.all()]
-            
+
             if len(ids) > 50:
                 ids_to_delete = ids[50:]
                 delete_stmt = delete(TranslationHistory).where(TranslationHistory.id.in_(ids_to_delete))
                 await session.execute(delete_stmt)
                 await session.commit()
                 logger.info(f"Pruned {len(ids_to_delete)} old translation history items for {user_email}")
-            
+
     run_async(_process())
 
 

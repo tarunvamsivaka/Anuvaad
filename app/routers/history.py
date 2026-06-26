@@ -1,25 +1,55 @@
+"""
+app/routers/history.py
+
+HTTP layer only — no direct database access.
+All data access is delegated to typed repositories (app/repositories/).
+
+Endpoints:
+  GET    /history                         — paginated translation history
+  GET    /stats                           — total/week/today counts
+  GET    /history/{item_id}               — single history item
+  DELETE /history/{item_id}              — delete history item
+  PATCH  /history/{item_id}/share        — toggle public sharing
+  GET    /share/{item_id}                — get public shared item
+  GET    /api-keys                       — list API keys
+  POST   /api-keys                       — create API key
+  DELETE /api-keys/{key_id}              — revoke API key
+  DELETE /account                        — delete user account
+  GET    /admin/dashboard-stats          — admin-only dashboard
+"""
 import asyncio
-import secrets
-import hashlib
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Header
 from fastapi.responses import JSONResponse
-from app.core.config import SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_KEY, ADMIN_EMAILS, logger, metrics, get_http_client
+
+from app.core.config import (
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_KEY,
+    ADMIN_EMAILS,
+    logger,
+    metrics,
+    get_http_client,
+)
 from app.core.cache import cache
 from app.core.auth import get_user_email
-from app.core.database import supabase_request, supabase_request_list
 from app.core.quota import get_active_protection_mode
 from app.models.schemas import ApiKeyCreate, SharePayload
+from app.repositories import translation as translation_repo
+from app.repositories import api_key as api_key_repo
 
 router = APIRouter(prefix="", tags=["history"])
 
+
+# ── Translation History ──
+
 @router.get("/history")
 async def get_translation_history(
-    workspace_id: str = None, limit: int = 100, email: str = Depends(get_user_email)
+    workspace_id: str = None,
+    limit: int = 100,
+    email: str = Depends(get_user_email),
 ):
-    """Return translation history for the authenticated user.
-    Use `limit` to control how many rows are returned (max 1000, default 100).
-    """
+    """Return translation history for the authenticated user."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -32,12 +62,7 @@ async def get_translation_history(
         return cached
     await metrics.record_cache_miss()
 
-    if workspace_id:
-        path = f"translation_history?workspace_id=eq.{workspace_id}&order=created_at.desc&limit={limit}"
-    else:
-        path = f"translation_history?user_email=eq.{email}&workspace_id=is.null&order=created_at.desc&limit={limit}"
-
-    history = await supabase_request_list(path)
+    history = await translation_repo.get_history(email, limit=limit, offset=0)
     await cache.put(cache_key, history, ttl=300)
     return history
 
@@ -101,21 +126,37 @@ async def get_translation_stats(email: str = Depends(get_user_email)):
     return res
 
 
-
-@router.delete("/history/{item_id}")
-async def delete_history_item(item_id: str, email: str = Depends(get_user_email)):
-    """Delete a single translation history item."""
+@router.get("/history/{item_id}")
+async def get_single_history_item(item_id: str, email: str = Depends(get_user_email)):
+    """Retrieve a specific translation history item owned by the authenticated user."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    from app.core.database import supabase_request
+    item = await supabase_request(
+        "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
+    )
+    if not item or not isinstance(item, dict):
+        raise HTTPException(status_code=404, detail="History item not found")
+    return item
+
+
+@router.delete("/history/{item_id}")
+async def delete_history_item(item_id: str, email: str = Depends(get_user_email)):
+    """Delete a single translation history item owned by the authenticated user."""
+    if not email:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        raise HTTPException(status_code=500, detail="Database not configured")
+
+    # Verify ownership before deleting
+    from app.core.database import supabase_request
     item = await supabase_request(
         "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
     )
     if not item:
         raise HTTPException(status_code=404, detail="History item not found")
-
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        raise HTTPException(status_code=500, detail="Database not configured")
 
     headers = {
         "apikey": SUPABASE_SERVICE_KEY,
@@ -137,91 +178,132 @@ async def delete_history_item(item_id: str, email: str = Depends(get_user_email)
 
     await cache.delete(f"user_stats:{email}")
     await cache.delete_prefix(f"user_history:{email}")
-
     return {"status": "success"}
 
-@router.get("/history/{item_id}")
-async def get_single_history_item(item_id: str, email: str = Depends(get_user_email)):
-    """Retrieve a specific translation history item."""
+
+@router.patch("/history/{item_id}/share")
+async def share_history_item(
+    item_id: str,
+    payload: SharePayload,
+    email: str = Depends(get_user_email),
+):
+    """Toggle public/private sharing for a translation history item."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    from app.core.database import supabase_request
     item = await supabase_request(
         "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
     )
-    if not item or not isinstance(item, dict):
+    if not item:
         raise HTTPException(status_code=404, detail="History item not found")
 
-    return item
+    res = await supabase_request(
+        "PATCH",
+        f"translation_history?id=eq.{item_id}&user_email=eq.{email}",
+        {"is_public": payload.is_public},
+    )
+    if not res:
+        raise HTTPException(status_code=500, detail="Failed to update sharing status")
 
+    await cache.delete_prefix(f"user_history:{email}")
+    return {"status": "success", "is_public": payload.is_public}
+
+
+@router.get("/share/{item_id}")
+async def get_shared_item(item_id: str):
+    """Retrieve a public shared translation history item.
+
+    BUG#7 FIX: Visibility is checked BEFORE any data is returned to prevent
+    leaking private items on 403 responses.
+    """
+    from app.core.database import supabase_request
+    item = await supabase_request("GET", f"translation_history?id=eq.{item_id}")
+    if not item or not isinstance(item, dict):
+        raise HTTPException(status_code=404, detail="Shared snippet not found")
+
+    # BUG#7: Check visibility BEFORE touching any item data
+    if not item.get("is_public"):
+        raise HTTPException(status_code=403, detail="This snippet is private")
+
+    blocks = item.get("blocks")
+    if not blocks:
+        blocks = [
+            {
+                "id": "block_1",
+                "code_snippet": item.get("input_preview") or "No preview available.",
+                "english_translation": "Code blocks not stored in database (historical schema).",
+            }
+        ]
+
+    # Only return safe, non-sensitive fields
+    return {
+        "id": item.get("id"),
+        "mode": item.get("mode"),
+        "source_language": item.get("source_language"),
+        "target_language": item.get("target_language"),
+        "input_preview": item.get("input_preview"),
+        "result_blocks": blocks,
+        "model_used": item.get("model_used") or "standard",
+        "created_at": item.get("created_at"),
+    }
+
+
+# ── API Keys ──
 
 @router.get("/api-keys")
-async def list_api_keys(workspace_id: str = None, email: str = Depends(get_user_email)):
+async def list_api_keys(
+    workspace_id: str = None,
+    email: str = Depends(get_user_email),
+):
+    """List all API keys for the authenticated user."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
-
-    path = f"api_keys?user_email=eq.{email}&select=id,name,key_prefix,created_at,last_used_at&order=created_at.desc"
-    if workspace_id:
-        path += f"&workspace_id=eq.{workspace_id}"
-    else:
-        path += "&workspace_id=is.null"
-
-    keys = await supabase_request_list(path)
-    return keys
+    return await api_key_repo.list_for_user(email, workspace_id=workspace_id)
 
 
 @router.post("/api-keys")
-async def create_api_key(payload: ApiKeyCreate, email: str = Depends(get_user_email)):
+async def create_api_key(
+    payload: ApiKeyCreate,
+    email: str = Depends(get_user_email),
+):
+    """Generate and persist a new API key. Returns the plaintext key once."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
-
-    raw_key = f"ak_{secrets.token_urlsafe(24)}"
-
-    data = {
-        "user_email": email,
-        "name": payload.name,
-        "key_prefix": raw_key[:8] + "...",
-        "api_key_hash": hashlib.sha256(raw_key.encode()).hexdigest(),
-    }
-    if payload.workspace_id:
-        data["workspace_id"] = payload.workspace_id
-
-    result = await supabase_request("POST", "api_keys", data)
-    if not result:
+    try:
+        return await api_key_repo.create(
+            email=email,
+            name=payload.name,
+            workspace_id=payload.workspace_id,
+        )
+    except Exception:
         raise HTTPException(status_code=500, detail="Failed to create API key")
-
-    return {**result, "raw_key": raw_key}
 
 
 @router.delete("/api-keys/{key_id}")
-async def delete_api_key(key_id: str, email: str = Depends(get_user_email)):
+async def delete_api_key(
+    key_id: str,
+    email: str = Depends(get_user_email),
+):
+    """Revoke an API key owned by the authenticated user."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    key = await supabase_request(
-        "GET", f"api_keys?id=eq.{key_id}&user_email=eq.{email}"
-    )
+    key = await api_key_repo.get_by_id(key_id, email)
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")
 
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        raise HTTPException(status_code=500, detail="Database not configured")
-
-    url = f"{SUPABASE_URL}/rest/v1/api_keys?id=eq.{key_id}&user_email=eq.{email}"
-    headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-    }
-    client = await get_http_client()
-    resp = await client.delete(url, headers=headers)
-    if resp.status_code not in (200, 204):
+    deleted = await api_key_repo.delete_by_id(key_id, email)
+    if not deleted:
         raise HTTPException(status_code=500, detail="Failed to delete API key")
-
     return {"status": "success"}
 
 
+# ── Account ──
+
 @router.delete("/account")
 async def delete_account(authorization: str = Header(None)):
+    """Delete the authenticated user's account from Supabase Auth."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -250,25 +332,22 @@ async def delete_account(authorization: str = Header(None)):
             )
             if admin_resp.status_code not in (200, 204):
                 logger.error(f"Admin delete user failed: {admin_resp.text}")
-                raise HTTPException(
-                    status_code=500, detail="Failed to delete account"
-                )
+                raise HTTPException(status_code=500, detail="Failed to delete account")
 
-            return JSONResponse(status_code=200, content={"status": "deleted"})
+        return JSONResponse(status_code=200, content={"status": "deleted"})
     except Exception as e:
         logger.error(f"Delete account error: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete account")
 
 
+# ── Admin Dashboard ──
+
 @router.get("/admin/dashboard-stats")
 async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
-    """Admin dashboard stats, whitelisted via ADMIN_USERS env var."""
-    admin_emails = ADMIN_EMAILS  # H-7: pre-parsed frozenset from config
-    if not email or email.lower() not in admin_emails:
+    """Admin dashboard stats. Access restricted to ADMIN_USERS env var."""
+    if not email or email.lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required.")
 
-    # Gather stats
-    # 1. Total users
     total_users = 0
     if SUPABASE_URL and SUPABASE_SERVICE_KEY:
         base_headers = {
@@ -291,7 +370,6 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
         except Exception as e:
             logger.warning(f"Admin stats user count failed: {e}")
 
-    # 2. Cache stats
     cache_stats = {}
     if hasattr(cache, "fallback") and hasattr(cache.fallback, "stats"):
         cache_stats = cache.fallback.stats()
@@ -299,103 +377,25 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
         cache_stats = cache.stats()
     cache_stats["cache_type"] = "redis" if getattr(cache, "client", None) else "lru"
 
-    # 3. Estimated spend
     MODEL_PRICING = {
         "llama-3.3-70b-versatile": 0.0006,
         "deepseek-chat": 0.0004,
         "deepseek-reasoner": 0.005,
     }
-    estimated_spend = 0.0
-    for model, count in metrics.model_calls.items():
-        estimated_spend += count * MODEL_PRICING.get(model, 0.001)
+    estimated_spend = sum(
+        count * MODEL_PRICING.get(model, 0.001)
+        for model, count in metrics.model_calls.items()
+    )
 
-    # 4. Total translations
-    total_translations = sum(metrics.total_requests.values())
-
-    # 5. Protection Mode
     protection_mode = await get_active_protection_mode()
-
-    # 6. Provider errors
-    model_errors = dict(metrics.model_errors)
 
     return {
         "total_users": total_users,
         "cache_stats": cache_stats,
         "estimated_spend_usd": round(estimated_spend, 4),
-        "total_translations": total_translations,
+        "total_translations": sum(metrics.total_requests.values()),
         "protection_mode": protection_mode,
         "model_calls": dict(metrics.model_calls),
-        "model_errors": model_errors,
+        "model_errors": dict(metrics.model_errors),
         "uptime_seconds": metrics.uptime_seconds,
     }
-
-
-
-@router.patch("/history/{item_id}/share")
-async def share_history_item(
-    item_id: str,
-    payload: SharePayload,
-    email: str = Depends(get_user_email)
-):
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    item = await supabase_request(
-        "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
-    )
-    if not item:
-        raise HTTPException(status_code=404, detail="History item not found")
-
-    res = await supabase_request(
-        "PATCH",
-        f"translation_history?id=eq.{item_id}&user_email=eq.{email}",
-        {"is_public": payload.is_public}
-    )
-    if not res:
-        raise HTTPException(status_code=500, detail="Failed to update sharing status")
-
-    await cache.delete_prefix(f"user_history:{email}")
-    return {"status": "success", "is_public": payload.is_public}
-
-
-@router.get("/share/{item_id}")
-async def get_shared_item(item_id: str):
-    """Retrieve a public shared translation history item.
-    
-    BUG#7 FIX: Check is_public BEFORE returning any data. Previously the item
-    was fully returned then checked, leaking private data on 403 responses.
-    Only whitelisted fields are returned to prevent accidental schema exposure.
-    """
-    item = await supabase_request(
-        "GET", f"translation_history?id=eq.{item_id}"
-    )
-    if not item or not isinstance(item, dict):
-        raise HTTPException(status_code=404, detail="Shared snippet not found")
-
-    # BUG#7: Check visibility BEFORE touching any item data
-    if not item.get("is_public"):
-        raise HTTPException(status_code=403, detail="This snippet is private")
-
-    blocks = item.get("blocks")
-    if not blocks:
-        blocks = [
-            {
-                "id": "block_1",
-                "code_snippet": item.get("input_preview") or "No preview available.",
-                "english_translation": "Code blocks not stored in database (historical schema)."
-            }
-        ]
-
-    # Only return safe, non-sensitive fields (never user_email, workspace_id, etc.)
-    return {
-        "id": item.get("id"),
-        "mode": item.get("mode"),
-        "source_language": item.get("source_language"),
-        "target_language": item.get("target_language"),
-        "input_preview": item.get("input_preview"),
-        "result_blocks": blocks,
-        "model_used": item.get("model_used") or "standard",
-        "created_at": item.get("created_at"),
-    }
-
-

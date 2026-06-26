@@ -182,14 +182,17 @@ class TestAdvancedSecurity:
         In production mode, mutating requests (POST/PATCH/DELETE) without
         valid Origin/Referer matching FRONTEND_URL should be rejected with 403.
         """
-        import app.main as app_main_module
+        import app.api.middleware.csrf as csrf_module
+        import app.core.config as config_module
 
-        # Enable production mode and configure FRONTEND_URL for the duration of the test
-        original_production = app_main_module.IS_PRODUCTION
-        original_allowed = app_main_module._allowed_origins_set
+        # After the clean architecture refactor, IS_PRODUCTION lives in core/config
+        # and _allowed_origins_set lives in api/middleware/csrf.
+        # app.main re-exports both for backward compat, but tests must patch the source.
+        original_production = csrf_module.IS_PRODUCTION
+        original_allowed = csrf_module._allowed_origins_set
 
-        app_main_module.IS_PRODUCTION = True
-        app_main_module._allowed_origins_set = frozenset(["https://anuvaad.dev", "https://razorpay.com"])
+        csrf_module.IS_PRODUCTION = True
+        csrf_module._allowed_origins_set = frozenset(["https://anuvaad.dev", "https://razorpay.com"])
 
         try:
             # 1. Missing Origin/Referer -> Rejected 403
@@ -250,5 +253,5 @@ class TestAdvancedSecurity:
             # Since the webhook signature is successfully verified by our mock utility, it returns 200 OK
             assert res5.status_code == 200
         finally:
-            app_main_module.IS_PRODUCTION = original_production
-            app_main_module._allowed_origins_set = original_allowed
+            csrf_module.IS_PRODUCTION = original_production
+            csrf_module._allowed_origins_set = original_allowed

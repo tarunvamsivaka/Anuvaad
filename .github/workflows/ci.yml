@@ -64,7 +64,7 @@ jobs:
         run: pip install ruff
 
       - name: Lint Python
-        run: ruff check main.py tests/
+        run: ruff check main.py app/ tests/ --select E,F,W --ignore E501,F401
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

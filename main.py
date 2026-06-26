@@ -2,7 +2,8 @@
 # Exposes FastAPI app and internal modules to the pytest suite and ASGI server.
 
 import os
-from app.main import app, RATE_LIMIT_IP_MAX  # noqa: F401
+from app.main import app  # noqa: F401
+from app.api.middleware.rate_limit import RATE_LIMIT_IP_MAX  # noqa: F401
 from app.core.config import _is_production, SENTRY_DSN, SUPABASE_URL, SUPABASE_SERVICE_KEY, FRONTEND_URL  # noqa: F401
 from app.routers.billing import razorpay_client  # noqa: F401
 from app.core.cache import cache, LRUCache, cache_key  # noqa: F401

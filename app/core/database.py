@@ -31,12 +31,12 @@ def apply_filters(query, model, filters):
     for f in filters:
         if not f or f.startswith("select=") or f.startswith("order=") or f.startswith("limit="):
             continue
-        
+
         f_parts = f.split("=", 1)
         if len(f_parts) < 2:
             continue
         field, op_val = f_parts[0], f_parts[1]
-        
+
         col = get_model_column(model, field)
         if col is None:
             continue
@@ -86,7 +86,7 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
             if method == "GET":
                 stmt = select(model)
                 stmt = apply_filters(stmt, model, filters)
-                
+
                 order_match = re.search(r"order=([^&]+)", query_str)
                 if order_match:
                     order_val = order_match.group(1)
@@ -136,7 +136,7 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
                 if row:
                     return {c.key: getattr(row, c.key) for c in class_mapper(row.__class__).columns}
                 return {}
-            
+
         except Exception as e:
             logger.error(f"SQLAlchemy request error for {method} {path}: {e}")
             await session.rollback()
@@ -175,7 +175,7 @@ async def supabase_request_list(path: str) -> list:
             result = await session.execute(stmt)
             rows = result.scalars().all()
             return [{c.key: getattr(row, c.key) for c in class_mapper(row.__class__).columns} for row in rows]
-            
+
         except Exception as e:
             logger.error(f"SQLAlchemy list request error for {path}: {e}")
             return []

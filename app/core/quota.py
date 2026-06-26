@@ -14,6 +14,7 @@ from app.core.database import supabase_request, supabase_request_list
 from app.core.cache import cache
 from app.core.auth import get_user_pro_status
 from app.services.email import email_service
+from app.domain.quota.policy import compute_quota_policy
 
 # ── History pruning limits (Arch#2.8: unified constants, no more conflicting values) ──
 HISTORY_LIMIT_PRO = int(os.getenv("HISTORY_LIMIT_PRO", "1000"))
@@ -368,46 +369,15 @@ async def get_active_protection_mode() -> str:
 async def get_user_limits_and_cooldown(
     email: str, is_pro: bool
 ) -> tuple[int, int, int]:
-    """Returns (daily_limit, char_limit, cooldown_seconds) based on category and mode.
-    H-7/Arch#3: Uses ADMIN_EMAILS frozenset from config (parsed once at startup).
+    """Returns (daily_limit, char_limit, cooldown_seconds) based on tier and protection mode.
+
+    Delegates the pure limit calculation to domain/quota/policy.py (QuotaPolicy),
+    which is the single source of truth.  No logic duplication.
     """
     mode = await get_active_protection_mode()
-
-    # Use pre-parsed frozenset from config (O(1) lookup, no per-call env parsing)
-    if email.lower() in ADMIN_EMAILS:
-        return (999999, 999999, 0)
-
-    if is_pro:
-        daily_limit = int(os.getenv("LIMIT_PRO_DAILY", "999999"))
-        char_limit = int(os.getenv("LIMIT_PRO_CHARS", "50000"))
-        cooldown = 0
-
-        if mode == "RESTRICTED":
-            char_limit = min(char_limit, 25000)
-            cooldown = 2
-        elif mode == "EMERGENCY":
-            char_limit = min(char_limit, 10000)
-            cooldown = 5
-        return daily_limit, char_limit, cooldown
-
-    daily_limit = int(os.getenv("LIMIT_FREE_DAILY", "10"))
-    char_limit = int(os.getenv("LIMIT_FREE_CHARS", "10000"))
-    cooldown = int(os.getenv("LIMIT_FREE_COOLDOWN", "5"))
-
-    if mode == "CAUTION":
-        daily_limit = max(1, int(daily_limit * 0.8))
-        char_limit = max(100, int(char_limit * 0.8))
-        cooldown = 10
-    elif mode == "RESTRICTED":
-        daily_limit = max(1, int(daily_limit * 0.5))
-        char_limit = max(100, int(char_limit * 0.5))
-        cooldown = 20
-    elif mode == "EMERGENCY":
-        daily_limit = max(1, int(daily_limit * 0.2))
-        char_limit = min(300, max(100, int(char_limit * 0.2)))
-        cooldown = 30
-
-    return daily_limit, char_limit, cooldown
+    is_admin = email.lower() in ADMIN_EMAILS
+    policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, mode=mode)
+    return policy.daily_limit, policy.char_limit, policy.cooldown
 
 
 async def enforce_quotas_and_protection(
@@ -417,8 +387,8 @@ async def enforce_quotas_and_protection(
     Enforces the sequential quota and protection checks.
 
     H-1: Parallelizes independent DB calls with asyncio.gather.
-    M-7/Arch#4.3: Now returns cooldown as 4th element so callers
-    don't need to re-fetch it in record_successful_completion.
+    M-7/Arch#4.3: Returns cooldown as 4th element so callers don't re-fetch.
+    Delegates limit computation to QuotaPolicy (single source of truth).
 
     Returns: (is_pro, daily_limit, deduct_credit_flag, cooldown)
     """
@@ -434,41 +404,16 @@ async def enforce_quotas_and_protection(
             detail="Authentication required. Anonymous users cannot access AI translation tools.",
         )
 
-    # H-1: Run pro status check and protection mode in parallel (both are independent)
+    # H-1: Parallel I/O — pro status check and protection mode are independent
     is_pro, mode = await asyncio.gather(
         get_user_pro_status(email),
         get_active_protection_mode(),
     )
 
-    # Compute limits from (is_pro, mode) without another DB/cache call
-    if email.lower() in ADMIN_EMAILS:
-        daily_limit, char_limit, cooldown = 999999, 999999, 0
-    elif is_pro:
-        daily_limit = int(os.getenv("LIMIT_PRO_DAILY", "999999"))
-        char_limit = int(os.getenv("LIMIT_PRO_CHARS", "50000"))
-        cooldown = 0
-        if mode == "RESTRICTED":
-            char_limit = min(char_limit, 25000)
-            cooldown = 2
-        elif mode == "EMERGENCY":
-            char_limit = min(char_limit, 10000)
-            cooldown = 5
-    else:
-        daily_limit = int(os.getenv("LIMIT_FREE_DAILY", "10"))
-        char_limit = int(os.getenv("LIMIT_FREE_CHARS", "10000"))
-        cooldown = int(os.getenv("LIMIT_FREE_COOLDOWN", "5"))
-        if mode == "CAUTION":
-            daily_limit = max(1, int(daily_limit * 0.8))
-            char_limit = max(100, int(char_limit * 0.8))
-            cooldown = 10
-        elif mode == "RESTRICTED":
-            daily_limit = max(1, int(daily_limit * 0.5))
-            char_limit = max(100, int(char_limit * 0.5))
-            cooldown = 20
-        elif mode == "EMERGENCY":
-            daily_limit = max(1, int(daily_limit * 0.2))
-            char_limit = min(300, max(100, int(char_limit * 0.2)))
-            cooldown = 30
+    # Delegate pure limit computation to the domain policy object
+    is_admin = email.lower() in ADMIN_EMAILS
+    policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, mode=mode)
+    daily_limit, char_limit, cooldown = policy.daily_limit, policy.char_limit, policy.cooldown
 
     if char_count > char_limit:
         raise HTTPException(
@@ -486,7 +431,7 @@ async def enforce_quotas_and_protection(
             )
 
     deduct_credit_flag = False
-    if not is_pro:
+    if not is_pro and not is_admin:
         today_usage = await get_today_usage_count(email)
         if today_usage >= daily_limit:
             deduct_credit_flag = True
@@ -497,7 +442,6 @@ async def enforce_quotas_and_protection(
                     detail=f"Daily translation limit reached ({daily_limit} translations/day). Upgrade to Pro for unlimited access.",
                 )
 
-    # Return cooldown as 4th element to avoid double-call in record_successful_completion
     return is_pro, daily_limit, deduct_credit_flag, cooldown
 
 

@@ -338,7 +338,7 @@ async def stream_code_to_english(
     # Intelligent LLM Routing (Groq Only)
     model_name = "deepseek-r1" if use_r1 else "standard"
     model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-        
+
     key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
 
     # Check Cache
@@ -435,7 +435,7 @@ async def stream_code_to_code(
     # Intelligent LLM Routing (Groq Only)
     model_name = "deepseek-r1" if use_r1 else "standard"
     model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-        
+
     key = cache_key(
         payload.raw_code,
         f"{payload.source_language}->{payload.target_language}",

@@ -1,4 +1,4 @@
-﻿"""
+"""
 app/repositories/subscription.py
 
 Typed repository for user_subscriptions table.
@@ -106,3 +106,43 @@ async def is_pro(email: str) -> bool:
     """Return True if the user has an active Pro subscription."""
     sub = await get_subscription(email)
     return bool(sub and sub.get("is_pro"))
+
+
+async def get_pro_status(email: str) -> bool:
+    """Alias for is_pro() — preferred name for explicit call-sites."""
+    return await is_pro(email)
+
+
+async def add_credits(email: str, amount: int) -> bool:
+    """Atomically add *amount* credits to the user's subscription.
+
+    Upserts the row if it doesn't exist (prevents UNIQUE constraint errors).
+    Returns True on success.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(
+                select(UserSubscription).where(UserSubscription.user_email == email)
+            )
+            existing = result.scalars().first()
+            if existing:
+                stmt = (
+                    update(UserSubscription)
+                    .where(UserSubscription.user_email == email)
+                    .values(credits=UserSubscription.credits + amount)
+                )
+                await session.execute(stmt)
+            else:
+                session.add(UserSubscription(
+                    user_email=email,
+                    credits=amount,
+                    is_pro=False,
+                    onboarded=False,
+                ))
+            await session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"subscription.add_credits({email}, {amount}): {e}")
+            await session.rollback()
+            return False
+
