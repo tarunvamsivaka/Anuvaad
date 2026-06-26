@@ -132,7 +132,6 @@ async def function_generate_from_english(
 
 @router.post(
     "/english-to-code",
-    response_class=StreamingResponse,
     dependencies=[Depends(rate_limiter(10, 60))]
 )
 async def function_update_to_code(
