@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Github, FileCode, Check, Loader2 } from "lucide-react";
+import { GitBranch, FileCode, Check, Loader2 } from "lucide-react";
 import useSWR from "swr";
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
@@ -65,15 +65,21 @@ export function RepositorySelector({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 shrink-0 border-slate-200/50 dark:border-white/5 bg-white/60 dark:bg-surface-charcoal/60 backdrop-blur-md">
-          <Github className="h-4 w-4" />
-          {repositoryName ? (
-            <span className="max-w-[120px] truncate">{repositoryName}</span>
-          ) : (
-            <span>Repo Context</span>
-          )}
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 shrink-0 border-slate-200/50 shadow-xs h-8 text-slate-600 bg-white"
+          />
+        }
+      >
+        <GitBranch className="h-4 w-4" />
+        {repositoryName ? (
+          <span className="font-medium text-slate-700">{repositoryName}</span>
+        ) : (
+          <span className="text-slate-500 font-normal">Connect GitHub</span>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-80 p-4" align="end">
         <div className="space-y-4">
@@ -92,7 +98,7 @@ export function RepositorySelector({
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">Connect your GitHub account to select from your repositories automatically.</p>
               <Button onClick={handleConnect} className="w-full" size="sm">
-                <Github className="mr-2 h-4 w-4" /> Connect GitHub
+                <GitBranch className="mr-2 h-4 w-4" /> Connect GitHub
               </Button>
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
