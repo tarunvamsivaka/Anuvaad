@@ -22,7 +22,7 @@ async def get_history(email: str, workspace_id: str | None = None, limit: int = 
                 query = query.where(TranslationHistory.workspace_id == workspace_id)
             else:
                 query = query.where(TranslationHistory.user_email == email).where(TranslationHistory.workspace_id.is_(None))
-                
+
             result = await session.execute(
                 query.order_by(TranslationHistory.created_at.desc())
                 .limit(limit)
@@ -46,10 +46,10 @@ async def get_count_since(email: str, workspace_id: str | None = None, since: da
                 query = query.where(TranslationHistory.workspace_id == workspace_id)
             else:
                 query = query.where(TranslationHistory.user_email == email).where(TranslationHistory.workspace_id.is_(None))
-                
+
             if since:
                 query = query.where(TranslationHistory.created_at >= since)
-                
+
             result = await session.execute(query)
             return result.scalar() or 0
         except Exception as e:

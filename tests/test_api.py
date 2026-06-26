@@ -291,9 +291,9 @@ class TestImportGist:
         mock_contents_response.json.return_value = [
             {"name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py", "path": "main.py"}
         ]
-    
+
         mock_get.side_effect = [mock_contents_response]
-    
+
         res = client.get("/api/import-gist?url=https://github.com/owner/repo")
         assert res.status_code == 200
         data = res.json()
@@ -311,14 +311,14 @@ class TestImportGist:
         mock_contents_response.json.return_value = {
             "name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py"
         }
-    
+
         mock_download_response = MagicMock()
         mock_download_response.status_code = 200
         mock_download_response.text = "print('hello from specific file')"
-    
+
         # Side effect for the two get calls
         mock_get.side_effect = [mock_contents_response, mock_download_response]
-    
+
         res = client.get("/api/import-gist?url=https://github.com/owner/repo&file_path=main.py")
         assert res.status_code == 200
         data = res.json()

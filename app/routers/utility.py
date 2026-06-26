@@ -309,7 +309,7 @@ async def import_gist(url: str, file_path: str | None = None):
     if repo_match:
         owner = repo_match.group(1)
         repo = repo_match.group(2)
-        
+
         # GitHub API does not accept the .git extension in the repo path
         if repo.endswith(".git"):
             repo = repo[:-4]
@@ -350,7 +350,7 @@ async def import_gist(url: str, file_path: str | None = None):
             )
 
         contents = resp.json()
-        
+
         # If fetching a specific file, it returns a dict instead of a list
         if isinstance(contents, dict) and contents.get("type") == "file":
             download_url = contents.get("download_url")
@@ -382,10 +382,10 @@ async def import_gist(url: str, file_path: str | None = None):
 
         # It's a directory, return list of files/folders
         files_list = [
-            {"name": item.get("name"), "path": item.get("path"), "type": item.get("type")} 
+            {"name": item.get("name"), "path": item.get("path"), "type": item.get("type")}
             for item in contents
         ]
-        
+
         return {
             "type": "directory",
             "username": owner,

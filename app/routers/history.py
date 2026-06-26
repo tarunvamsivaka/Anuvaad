@@ -63,11 +63,11 @@ async def get_translation_history(
     await metrics.record_cache_miss()
 
     history = await translation_repo.get_history(email, workspace_id=workspace_id, limit=limit, offset=0)
-    
+
     # Safely encode UUIDs and datetimes for JSON caching
     from fastapi.encoders import jsonable_encoder
     await cache.put(cache_key, jsonable_encoder(history), ttl=300)
-    
+
     return history
 
 
