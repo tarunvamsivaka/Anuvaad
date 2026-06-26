@@ -14,7 +14,7 @@ const WAVE_HEIGHTS = [16, 28, 42, 56, 68, 56, 44, 32, 20, 32, 48, 64, 52, 36, 24
 // The circular arc text (mimics WisprFlow's rotating ring text)
 const ARC_TEXT = "Understand Any Codebase · Read Legacy Code · Translate Instantly · ";
 
-export function Scene01_RepositoryDiscovery({ id, active }: SceneProps) {
+export function Scene01_RepositoryDiscovery({ id }: SceneProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const { getContext } = useGsapContext(containerRef);
 

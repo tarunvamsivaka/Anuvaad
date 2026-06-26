@@ -14,20 +14,6 @@ const getFetcher = async ([url, token]: [string, string]) => {
   return res.json();
 };
 
-const postFetcher = async ([url, token]: [string, string]) => {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({}),
-  });
-  if (!res.ok) {
-    throw new Error('Failed to fetch POST resource');
-  }
-  return res.json();
-};
 
 export interface TranslationHistoryItem {
   id: string;

@@ -40,6 +40,7 @@ export function Scene04_Understanding({ id, active, progress }: SceneProps) {
       });
     });
     return () => { isMounted = false; ctx?.revert(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getContext, words.length]);
 
   React.useEffect(() => { tlRef.current?.progress(progress); }, [progress]);

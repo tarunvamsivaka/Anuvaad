@@ -55,6 +55,7 @@ export function Scene03_Recognition({ id, active, progress }: SceneProps) {
       });
     });
     return () => { isMounted = false; ctx?.revert(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getContext]);
 
   React.useEffect(() => { tlRef.current?.progress(progress); }, [progress]);

@@ -7,7 +7,7 @@ import { Check, ArrowRight } from "lucide-react";
 import { useGsapContext, isMotionSafe } from "@/lib/motion";
 import gsap from "gsap";
 
-export function Scene09_FinalCTA({ id, active, progress }: SceneProps) {
+export function Scene09_FinalCTA({ id, progress }: SceneProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const tlRef = React.useRef<gsap.core.Timeline | null>(null);
   const { getContext } = useGsapContext(containerRef);
@@ -72,6 +72,7 @@ export function Scene09_FinalCTA({ id, active, progress }: SceneProps) {
       isMounted = false;
       ctx?.revert();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getContext]);
 
   React.useEffect(() => {

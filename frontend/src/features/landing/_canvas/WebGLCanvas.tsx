@@ -55,9 +55,10 @@ export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
     }
 
     if (!containerRef.current) return;
+    const container = containerRef.current;
     const canvas = document.createElement("canvas");
     canvas.className = "block h-full w-full";
-    containerRef.current.appendChild(canvas);
+    container.appendChild(canvas);
 
     const { particleCount, dpr } = getQualityTier();
     const width = window.innerWidth;
@@ -153,8 +154,8 @@ export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
         managerRef.current = null;
       }
 
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
+      if (container) {
+        container.innerHTML = "";
       }
     };
   }, [webglSupported, motionSafe]);

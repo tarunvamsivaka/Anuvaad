@@ -14,13 +14,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ── Minimal fetch mock helpers ────────────────────────────────────────────────
 
-function mockFetchOnce(body: unknown, status = 200) {
-  return vi.fn().mockResolvedValueOnce({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-  } as Response);
-}
+
 
 // ── useTranslationStats data transform ────────────────────────────────────────
 

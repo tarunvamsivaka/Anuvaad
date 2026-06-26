@@ -34,6 +34,7 @@ export function Scene05_RepositoryIntelligence({ id, active, progress }: ScenePr
       });
     });
     return () => { isMounted = false; ctx?.revert(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getContext]);
 
   React.useEffect(() => { tlRef.current?.progress(progress); }, [progress]);
