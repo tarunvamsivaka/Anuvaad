@@ -5,6 +5,10 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "next-themes";
 import useSWR from "swr";
 import { useWorkspace } from "@/context/WorkspaceContext";
+// FIX-21 (P2-08): Typed session — eliminates (session as any) casts
+import { asAnuvaadSession } from "@/lib/supabase-types";
+// FIX-22 (P2-10): Stable module-level fetcher — prevents per-render refetches
+import { authFetcher } from "@/lib/swr-fetcher";
 
 // Components
 import { TranslateShell } from "./_components/TranslateShell";
@@ -37,7 +41,8 @@ const MONACO_OPTIONS: Record<string, unknown> = {
 };
 
 export function TranslateFeature() {
-  const { session } = useAuth();
+  const { session: rawSession } = useAuth();
+  const session = asAnuvaadSession(rawSession); // FIX-21: typed cast
   const { activeWorkspace } = useWorkspace();
   const { theme, systemTheme } = useTheme();
   const isDark = theme === "dark" || (theme === "system" && systemTheme === "dark");
@@ -57,13 +62,16 @@ export function TranslateFeature() {
   const [sessionId, setSessionId] = useState("");
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  const { data: creditsData, isLoading: creditsLoading } = useSWR(
-    (session as any)?.access_token ? [`${API_BASE}/api/check-credits`, (session as any).access_token] : null,
-    ([url, token]: [string, string]) => fetch(url, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json())
-  );
+  // FIX-22 (P2-10): authFetcher is defined at module level in swr-fetcher.ts
+  //   → SWR key is a stable [url, token] tuple; fetcher reference never changes.
+  const { data: creditsData } = useSWR(
+    session?.access_token ? [`${API_BASE}/api/check-credits`, session.access_token] : null,
+    authFetcher,
+  ) as { data: { credits?: number; tier?: string } | undefined; isLoading: boolean };
 
-  const credits = creditsData?.credits ?? (session as any)?.user?.credits;
-  const isPro = creditsData?.tier === "pro" || (session as any)?.user?.tier === "pro";
+  // FIX-21: session is now AnuvaadSession | null — no more (session as any)
+  const credits = creditsData?.credits ?? session?.user?.user_metadata?.credits;
+  const isPro = creditsData?.tier === "pro" || session?.user?.user_metadata?.is_pro === true;
 
   // M-1: monacoOptions is now the module-level MONACO_OPTIONS constant (no per-render allocation)
 

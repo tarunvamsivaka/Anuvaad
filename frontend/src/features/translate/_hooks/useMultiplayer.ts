@@ -1,42 +1,24 @@
-import { useEffect, useState } from 'react';
-import * as Y from 'yjs';
-import { WebsocketProvider } from 'y-websocket';
+/**
+ * useMultiplayer.ts
+ *
+ * FIX-17 (P1-09): Multiplayer collaboration is a planned feature — not yet
+ * implemented on the backend. The previous version imported yjs and y-websocket
+ * (2 large packages, ~350kB) that were never consumed by any component.
+ *
+ * This stub preserves the public API so the feature can be re-enabled later
+ * by restoring the real implementation when:
+ *   1. A production-ready Yjs WebSocket server is deployed.
+ *   2. NEXT_PUBLIC_YJS_WEBSOCKET_URL is configured.
+ *   3. yjs and y-websocket are added back to package.json.
+ *
+ * Until then, this hook is a no-op that always returns `status: 'disconnected'`.
+ */
 
-export function useMultiplayer(docId: string) {
-  const [doc, setDoc] = useState<Y.Doc | null>(null);
-  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
-  const [awareness, setAwareness] = useState<any>(null);
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
-
-  useEffect(() => {
-    if (!docId) return;
-
-    // Create a new Yjs document
-    const ydoc = new Y.Doc();
-    setDoc(ydoc);
-
-    // Connect to the WebSocket provider
-    // In production, this would point to our backend websocket server or edge worker
-    const wsProvider = new WebsocketProvider(
-      process.env.NEXT_PUBLIC_YJS_WEBSOCKET_URL || 'wss://demos.yjs.dev', // Fallback for prototype
-      `anuvaad-workspace-${docId}`,
-      ydoc
-    );
-
-    setProvider(wsProvider);
-    setAwareness(wsProvider.awareness);
-
-    wsProvider.on('status', (event: { status: 'connecting' | 'connected' | 'disconnected' }) => {
-      setStatus(event.status);
-    });
-
-    // Cleanup
-    return () => {
-      wsProvider.disconnect();
-      wsProvider.destroy();
-      ydoc.destroy();
-    };
-  }, [docId]);
-
-  return { doc, provider, awareness, status };
+export function useMultiplayer(_docId: string) {
+  return {
+    doc: null,
+    provider: null,
+    awareness: null,
+    status: 'disconnected' as const,
+  };
 }

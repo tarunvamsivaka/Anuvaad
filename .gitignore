@@ -8,6 +8,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.ruff_cache/
 
 # IDEs
 .vscode/
@@ -38,10 +39,12 @@ task-*.md
 .DS_Store
 Thumbs.db
 scratch/
+test.db
 
-# Large generated documents
+# Large generated documents (auto-built, not for source control)
 all_source_code.md
 combined_markdown_files.md
+ENGINEERING_AUDIT_REPORT.md
 
 # Logs and test artifacts
 failed_e2e_log.txt
@@ -52,3 +55,7 @@ playwright-report.zip
 # Playwright dynamic state
 frontend/playwright/.auth/
 frontend/playwright/*.png
+
+# VS Code extension build output
+vscode-extension/out/
+vscode-extension/*.vsix

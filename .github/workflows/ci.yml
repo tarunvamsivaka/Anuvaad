@@ -46,8 +46,8 @@ jobs:
       - name: Security audit (pip-audit)
         run: |
           pip install pip-audit
-          pip-audit -r requirements.txt --ignore-vuln GHSA-x7gm-x3g3-g6xq || true
-        # || true: non-blocking; alerts are informational until we triage
+          pip-audit -r requirements.txt --ignore-vuln GHSA-x7gm-x3g3-g6xq --progress-spinner off
+        # Note: Added targeted ignores for known issues.
 
   lint:
     runs-on: ubuntu-latest
@@ -109,8 +109,7 @@ jobs:
 
       - name: Security audit (npm audit)
         run: npm audit --audit-level=high
-        continue-on-error: true
-        # continue-on-error: non-blocking for now; review audit output in PRs
+        # Note: Add exclusions via overrides in package.json if needed
 
       - name: Lint frontend
         run: npm run lint

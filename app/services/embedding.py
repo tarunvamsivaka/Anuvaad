@@ -2,10 +2,34 @@ import os
 import httpx
 import structlog
 from typing import List
+from openai import AsyncOpenAI
 
 logger = structlog.get_logger(__name__)
 
 HF_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
+
+async def generate_embeddings_openai(texts: List[str]) -> List[List[float]]:
+    """
+    Generate embeddings using OpenAI text-embedding-3-small (1536 dim).
+    """
+    if not texts:
+        return []
+    
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        logger.error("OPENAI_API_KEY not set")
+        return []
+        
+    client = AsyncOpenAI(api_key=api_key)
+    try:
+        response = await client.embeddings.create(
+            input=texts,
+            model="text-embedding-3-small"
+        )
+        return [data.embedding for data in response.data]
+    except Exception as e:
+        logger.error(f"Failed to generate embeddings via OpenAI API: {e}")
+        return []
 
 async def generate_embeddings_hf(texts: List[str]) -> List[List[float]]:
     """

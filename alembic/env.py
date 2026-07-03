@@ -26,11 +26,29 @@ from app.core.config import DATABASE_URL  # noqa: E402
 
 target_metadata = Base.metadata
 
-if DATABASE_URL:
-    sync_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
-    # ConfigParser uses % for interpolation, so we must escape any % characters (like in url-encoded passwords)
-    escaped_url = sync_url.replace("%", "%%")
-    config.set_main_option("sqlalchemy.url", escaped_url)
+
+def get_url() -> str:
+    """FIX-02 (P0-02): Derive a sync SQLAlchemy URL from DATABASE_URL.
+
+    Raises RuntimeError clearly when DATABASE_URL is not set so Alembic fails
+    fast with a useful message instead of silently targeting SQLite.
+    """
+    url = DATABASE_URL
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL environment variable is not set. "
+            "Alembic cannot run migrations without a target database. "
+            "Set it to your PostgreSQL connection string and retry.\n"
+            "Example: DATABASE_URL=postgresql://user:pass@host:5432/dbname alembic upgrade head"
+        )
+    # asyncpg driver is not supported in Alembic's synchronous engine — use psycopg2 dialect
+    url = url.replace("postgresql+asyncpg://", "postgresql://")
+    url = url.replace("postgres://", "postgresql://", 1)
+    # Escape % for ConfigParser interpolation (e.g. URL-encoded passwords)
+    return url.replace("%", "%%")
+
+
+config.set_main_option("sqlalchemy.url", get_url())
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

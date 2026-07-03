@@ -29,8 +29,10 @@ from app.routers.history import router as history_router
 from app.routers.workspace import router as workspace_router
 from app.routers.billing import router as billing_router
 from app.routers.github import router as github_router
+from app.routers.repo_search import router as repo_search_router
 from app.routers.utility import router as utility_router
 from app.routers.demo import router as demo_router
+from app.routers.onboarding import router as onboarding_router  # FIX-35 (P3-08)
 from app.core.config import lifespan as _base_lifespan
 
 
@@ -85,14 +87,17 @@ async def global_exception_handler(request: Request, exc: Exception):
 # ── Routers — versioned (/api/v1/) + legacy aliases (/api/) ──
 # API-01: All new clients should use /api/v1/.
 # Legacy /api/ routes are kept for backward compatibility during migration.
+# Sunset date: 2027-01-01
 
-app.include_router(translate_router,  prefix="/api/v1")
-app.include_router(history_router,    prefix="/api/v1")
-app.include_router(workspace_router,  prefix="/api/v1")
-app.include_router(billing_router,    prefix="/api/v1")
-app.include_router(github_router,     prefix="/api/v1")
-app.include_router(utility_router,    prefix="/api/v1")
-app.include_router(demo_router,       prefix="/api/v1")
+app.include_router(translate_router,    prefix="/api/v1")
+app.include_router(history_router,      prefix="/api/v1")
+app.include_router(workspace_router,    prefix="/api/v1")
+app.include_router(billing_router,      prefix="/api/v1")
+app.include_router(github_router,       prefix="/api/v1")
+app.include_router(repo_search_router,  prefix="/api/v1")
+app.include_router(utility_router,      prefix="/api/v1")
+app.include_router(demo_router,         prefix="/api/v1")
+app.include_router(onboarding_router,   prefix="/api/v1")  # FIX-35 (P3-08)
 
 # Legacy aliases — api_deprecation_middleware emits Deprecation header
 app.include_router(translate_router,  prefix="/api")

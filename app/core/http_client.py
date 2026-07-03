@@ -52,6 +52,11 @@ async def get_http_client() -> httpx.AsyncClient:
 
     Thread-safe: uses per-loop asyncio.Lock to prevent duplicate initialization.
     Falls back to a global singleton when called outside an event loop context.
+
+    FIX-25 (P1-10 / A10): follow_redirects=False prevents SSRF attacks where
+    an attacker supplies a URL that redirects to an internal service. httpx
+    follows redirects by default — we disable it globally so callers must
+    explicitly opt-in with follow_redirects=True when redirects are required.
     """
     global _fallback_client
     try:
@@ -61,6 +66,7 @@ async def get_http_client() -> httpx.AsyncClient:
                 _client_instances[loop] = httpx.AsyncClient(
                     limits=_CLIENT_LIMITS,
                     timeout=_CLIENT_TIMEOUT,
+                    follow_redirects=False,  # FIX-25: SSRF protection
                 )
             return _client_instances[loop]
     except RuntimeError:
@@ -69,6 +75,7 @@ async def get_http_client() -> httpx.AsyncClient:
                 _fallback_client = httpx.AsyncClient(
                     limits=_CLIENT_LIMITS,
                     timeout=_CLIENT_TIMEOUT,
+                    follow_redirects=False,  # FIX-25: SSRF protection
                 )
             return _fallback_client
 

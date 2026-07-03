@@ -20,7 +20,14 @@ def run_async(coro):
     finally:
         loop.close()
 
-@celery_app.task(name="tasks.save_translation_history")
+@celery_app.task(
+    name="tasks.save_translation_history",
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=30,
+    retry_backoff=True,
+    retry_jitter=True,
+)
 def save_translation_history_task(
     user_email,
     mode,
@@ -51,7 +58,14 @@ def save_translation_history_task(
     ))
 
 
-@celery_app.task(name="tasks.send_transactional_email")
+@celery_app.task(
+    name="tasks.send_transactional_email",
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_jitter=True,
+)
 def send_transactional_email_task(email_type: str, user_email: str, **kwargs):
     """Offloads sending transactional emails to Celery."""
     logger.info(f"Celery: Sending {email_type} email to {user_email}")
@@ -63,7 +77,15 @@ def send_transactional_email_task(email_type: str, user_email: str, **kwargs):
         email_service.send_subscription_upgrade(user_email, kwargs.get("plan_name", "Pro"))
 
 
-@celery_app.task(name="tasks.process_billing_webhook")
+@celery_app.task(
+    name="tasks.process_billing_webhook",
+    autoretry_for=(Exception,),
+    max_retries=5,
+    default_retry_delay=30,
+    retry_backoff=True,
+    retry_backoff_max=300,
+    retry_jitter=True,
+)
 def process_billing_webhook_task(event_id: str, payload: dict):
     """
     Offload subscription updates to Celery.
@@ -170,7 +192,12 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     run_async(_process())
 
 
-@celery_app.task(name="tasks.prune_translation_history")
+@celery_app.task(
+    name="tasks.prune_translation_history",
+    autoretry_for=(Exception,),
+    max_retries=2,
+    default_retry_delay=120,
+)
 def prune_translation_history_task(user_email: str):
     """Prune old translation history items for a user."""
     logger.info(f"Celery: Pruning translation history for {user_email}")
@@ -194,13 +221,32 @@ def prune_translation_history_task(user_email: str):
     run_async(_process())
 
 
-@celery_app.task(name="tasks.process_large_file")
-def process_large_file_task(file_content: str, user_email: str, language: str = "auto"):
+@celery_app.task(
+    name="tasks.process_large_file",
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_backoff_max=600,
+    retry_jitter=True,
+)
+def process_large_file_task(
+    file_content: str,
+    user_email: str,
+    language: str = "auto",
+    is_pro: bool = False,  # FIX-05 (P0-06): Must be passed by caller; never hardcoded.
+    tier: str = "free",
+):
     """Process large file translation in background.
-    BUG#4 FIX: Replaced broken import of non-existent route_and_translate
-    with correct stream_code_to_english.
+
+    FIX-05 (P0-06): is_pro is now a task parameter, passed from the enqueuing
+    route handler based on the user's ACTUAL subscription status retrieved from
+    the DB/cache.  The old hardcoded `is_pro=True` gave every user Pro-tier
+    model access for large files — a fraud vector.
+
+    FIX-10 (P1-08): Added autoretry with exponential backoff.
     """
-    logger.info(f"Celery: Processing large file for {user_email}")
+    logger.info(f"Celery: Processing large file for {user_email} (is_pro={is_pro})")
     async def _process():
         from app.models.schemas import CodePayload
         from app.services.ai import stream_code_to_english
@@ -209,17 +255,19 @@ def process_large_file_task(file_content: str, user_email: str, language: str = 
             async for _ in stream_code_to_english(
                 payload=payload,
                 email=user_email,
-                is_pro=True,  # Large file processing is a Pro feature
+                is_pro=is_pro,   # use caller-supplied value, NOT hardcoded True
                 use_r1=False,
-                tier="pro",
+                tier=tier,
                 deduct_credit_flag=False,
             ):
                 pass  # Result is saved via save_translation_history_task inside the generator
             logger.info(f"Celery: Large file processed successfully for {user_email}")
         except Exception as e:
             logger.error(f"Celery: Failed to process large file for {user_email}: {e}")
+            raise  # re-raise so autoretry_for can catch it
 
     run_async(_process())
+
 
 @celery_app.task(name="tasks.process_github_repo")
 def process_github_repo_task(repo_name: str, installation_id: str = None):
@@ -230,9 +278,10 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
     logger.info(f"Celery: process_github_repo_task called for {repo_name}")
 
     async def _process():
+        import os
         from app.core.database_session import AsyncSessionLocal
         from app.services.github import fetch_repository_files
-        from app.services.embedding import generate_embeddings_hf, chunk_text
+        from app.services.embedding import generate_embeddings_hf, generate_embeddings_openai, chunk_text
         from app.repositories.vectors import insert_repo_embeddings
 
         # 1. Fetch files from GitHub
@@ -258,6 +307,10 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
 
         logger.info(f"Generated {len(chunks_data)} chunks. Generating embeddings...")
 
+        openai_key = os.environ.get("OPENAI_API_KEY")
+        provider = "openai" if openai_key else "hf"
+        embedding_dim = 1536 if openai_key else 384
+
         # We should chunk the embeddings request in case there are thousands of chunks
         BATCH_SIZE = 100
         for i in range(0, len(chunks_data), BATCH_SIZE):
@@ -265,13 +318,19 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
             texts = [c["content"] for c in batch]
 
             try:
-                embeddings = await generate_embeddings_hf(texts)
+                if provider == "openai":
+                    embeddings = await generate_embeddings_openai(texts)
+                else:
+                    embeddings = await generate_embeddings_hf(texts)
+                    
                 for j, emb in enumerate(embeddings):
                     if j < len(batch) and isinstance(emb, list):
                         batch[j]["embedding"] = emb
+                        batch[j]["provider"] = provider
                     elif j < len(batch):
                          # Fallback if the embedding is somehow malformed
-                         batch[j]["embedding"] = [0.0] * 384
+                         batch[j]["embedding"] = [0.0] * embedding_dim
+                         batch[j]["provider"] = provider
 
                 # Insert into DB
                 async with AsyncSessionLocal() as session:
@@ -281,3 +340,96 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
 
     run_async(_process())
 
+
+# ── FIX-11 (P1-04): Celery Beat scheduled tasks ──────────────────────────────
+
+@celery_app.task(name="reset_daily_stats")
+def reset_daily_stats():
+    """Reset today_count for ALL users at midnight UTC.
+
+    Scheduled by Celery Beat via celery_config.py beat_schedule.
+    """
+    logger.info("Celery Beat: Resetting daily translation stats for all users")
+
+    async def _reset():
+        from app.core.database_session import AsyncSessionLocal
+        from app.models.db_models import UserTranslationStats
+        from sqlalchemy import update as sa_update
+
+        async with AsyncSessionLocal() as session:
+            await session.execute(
+                sa_update(UserTranslationStats).values(today_count=0)
+            )
+            await session.commit()
+        logger.info("Celery Beat: Daily stats reset complete")
+
+    run_async(_reset())
+
+
+@celery_app.task(name="reset_weekly_stats")
+def reset_weekly_stats():
+    """Reset this_week_count for ALL users every Monday at midnight UTC."""
+    logger.info("Celery Beat: Resetting weekly translation stats for all users")
+
+    async def _reset():
+        from app.core.database_session import AsyncSessionLocal
+        from app.models.db_models import UserTranslationStats
+        from sqlalchemy import update as sa_update
+
+        async with AsyncSessionLocal() as session:
+            await session.execute(
+                sa_update(UserTranslationStats).values(this_week_count=0)
+            )
+            await session.commit()
+        logger.info("Celery Beat: Weekly stats reset complete")
+
+    run_async(_reset())
+
+
+@celery_app.task(name="prune_old_translation_history")
+def prune_old_translation_history_scheduled():
+    """Prune old history entries for ALL users that exceed their tier limits.
+
+    Runs daily at 2am UTC. Free: keep 100. Pro: keep 1000.
+    """
+    logger.info("Celery Beat: Running daily history pruning for all users")
+
+    async def _prune():
+        from app.core.database_session import AsyncSessionLocal
+        from app.models.db_models import TranslationHistory, UserSubscription
+        from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO
+        from sqlalchemy import select, desc, delete as sa_delete
+
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(TranslationHistory.user_email).distinct()
+            )
+            emails = [row[0] for row in result.all()]
+
+            for email in emails:
+                sub_result = await session.execute(
+                    select(UserSubscription.is_pro).where(
+                        UserSubscription.user_email == email
+                    )
+                )
+                sub_row = sub_result.scalars().first()
+                limit = HISTORY_LIMIT_PRO if sub_row else HISTORY_LIMIT_FREE
+
+                ids_result = await session.execute(
+                    select(TranslationHistory.id)
+                    .where(TranslationHistory.user_email == email)
+                    .order_by(desc(TranslationHistory.created_at))
+                )
+                ids = [row[0] for row in ids_result.all()]
+
+                if len(ids) > limit:
+                    ids_to_delete = ids[limit:]
+                    await session.execute(
+                        sa_delete(TranslationHistory).where(
+                            TranslationHistory.id.in_(ids_to_delete)
+                        )
+                    )
+            await session.commit()
+        logger.info("Celery Beat: Daily history pruning complete")
+
+    run_async(_prune())

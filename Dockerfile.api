@@ -1,0 +1,48 @@
+# ── Dockerfile.api — FastAPI + Gunicorn production image ──
+# FIX-06 (P0-03): Separated from the monolithic Dockerfile. This container
+# runs ONLY the Python API (and is also used for the Celery worker and beat
+# services). The frontend has its own Dockerfile.frontend.
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies (curl for health check, libpq for psycopg2)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libpq5 \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies (including gunicorn for multi-worker production)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
+
+# Copy backend source
+COPY main.py .
+COPY app/ ./app
+
+# Copy static files served by FastAPI
+COPY robots.txt .
+COPY privacy.html .
+COPY terms.html .
+
+# Add non-root user
+RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
+
+EXPOSE 8000
+
+# Health check — fails fast if the API pod is unresponsive
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD curl -f http://localhost:8000/api/health || exit 1
+
+# INFRA-04: Gunicorn multi-worker ASGI production server.
+# WEB_CONCURRENCY controls worker count (default: 4 workers).
+CMD ["sh", "-c", \
+     "gunicorn main:app \
+       --workers ${WEB_CONCURRENCY:-4} \
+       --worker-class uvicorn.workers.UvicornWorker \
+       --bind 0.0.0.0:8000 \
+       --timeout 120 \
+       --keep-alive 5 \
+       --access-logfile - \
+       --error-logfile -"]

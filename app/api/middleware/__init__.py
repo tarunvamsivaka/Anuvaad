@@ -25,12 +25,13 @@ def register_all(app: FastAPI) -> None:
     All middleware is extracted here — app/main.py stays a thin entry-point.
     """
     # CORS must be registered via add_middleware (FastAPI handles it specially)
+    # FIX-09 (P2-13): Restricted to explicit methods/headers — no more wildcard.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-CSRF-Token"],
     )
 
     # Function-based middleware (registered in reverse-call order)

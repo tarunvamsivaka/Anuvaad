@@ -15,6 +15,7 @@ async def api_deprecation_middleware(request: Request, call_next):
     # Mark as deprecated only if NOT a versioned route
     if path.startswith("/api/") and not path.startswith("/api/v"):
         response.headers["Deprecation"] = "true"
+        response.headers["Sunset"] = "Fri, 01 Jan 2027 00:00:00 GMT"
         response.headers["Link"] = (
             f'<{str(request.url).replace("/api/", "/api/v1/", 1)}>; rel="successor-version"'
         )

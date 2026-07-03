@@ -20,17 +20,26 @@ _extra_origins: list[str] = [
 ]
 
 #: Exposed so app/main.py can also pass it to CORSMiddleware
+# FIX-09 (P3-05): Localhost origins are only included in non-production environments.
+# In production (IS_PRODUCTION=True), only the verified frontend URL is allowed.
 allowed_origins: list[str] = list({
     FRONTEND_URL,
     "https://getanuvaad.vercel.app",
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3001",
-    "http://localhost:3002",
-    "http://127.0.0.1:3002",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    *_extra_origins,
+    *(_extra_origins),
+    # Development / staging origins — excluded in production
+    *(
+        {
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3001",
+            "http://localhost:3002",
+            "http://127.0.0.1:3002",
+            "http://localhost:5500",
+            "http://127.0.0.1:5500",
+        }
+        if not IS_PRODUCTION
+        else set()
+    ),
 })
 
 # C-2: O(1) lookup frozenset (used inside the middleware below)

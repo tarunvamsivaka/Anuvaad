@@ -5,6 +5,7 @@ from openai import AsyncOpenAI
 from fastapi import HTTPException
 from app.core.config import (
     LLM_TIMEOUT,
+    OPENROUTER_API_KEY,
     logger,
     metrics,
 )
@@ -18,23 +19,41 @@ from app.models.schemas import CodePayload, CodeToCodePayload
 # Created once at startup in lifespan, reused for all requests.
 # Eliminates per-request DNS + TLS handshake overhead.
 _groq_client: AsyncOpenAI | None = None
+# FIX-24 (P1-03): OpenRouter as second provider for automatic fallback.
+_openrouter_client: AsyncOpenAI | None = None
+
 
 def init_clients(groq_key: str) -> None:
     """Initialize module-level LLM client singletons. Call from app lifespan."""
-    global _groq_client
+    global _groq_client, _openrouter_client
     _groq_client = AsyncOpenAI(
         api_key=groq_key,
         base_url="https://api.groq.com/openai/v1",
     )
-    logger.info("LLM client singleton initialized (Groq)")
+    # FIX-24: Initialize OpenRouter client if the key is configured.
+    if OPENROUTER_API_KEY:
+        _openrouter_client = AsyncOpenAI(
+            api_key=OPENROUTER_API_KEY,
+            base_url="https://openrouter.ai/api/v1",
+            default_headers={
+                "HTTP-Referer": "https://getanuvaad.vercel.app",
+                "X-Title": "Anuvaad",
+            },
+        )
+        logger.info("LLM client singletons initialized (Groq + OpenRouter fallback)")
+    else:
+        logger.info("LLM client singleton initialized (Groq only — OPENROUTER_API_KEY not set)")
 
 
 async def close_clients() -> None:
     """Gracefully close all LLM clients. Call from app lifespan shutdown."""
-    global _groq_client
+    global _groq_client, _openrouter_client
     if _groq_client:
         await _groq_client.close()
         _groq_client = None
+    if _openrouter_client:
+        await _openrouter_client.close()
+        _openrouter_client = None
     logger.info("LLM client singletons closed")
 
 
@@ -45,6 +64,23 @@ def _get_groq_client() -> AsyncOpenAI:
     # Fallback: create on-the-fly (development mode or if lifespan wasn't used)
     key = os.getenv("GROQ_API_KEY", "")
     return AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
+
+
+def _get_openrouter_client() -> AsyncOpenAI | None:
+    """Return the shared OpenRouter fallback client, or None if not configured."""
+    if _openrouter_client is not None:
+        return _openrouter_client
+    key = OPENROUTER_API_KEY or os.getenv("OPENROUTER_API_KEY", "")
+    if not key:
+        return None
+    return AsyncOpenAI(
+        api_key=key,
+        base_url="https://openrouter.ai/api/v1",
+        default_headers={
+            "HTTP-Referer": "https://getanuvaad.vercel.app",
+            "X-Title": "Anuvaad",
+        },
+    )
 
 
 def get_async_openai_class():
@@ -313,17 +349,36 @@ async def get_completion(
             logger.error(
                 f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}"
             )
-            raise HTTPException(
-                status_code=504,
-                detail=f"Translation timed out after {LLM_TIMEOUT}s. Please try again.",
-            )
         except Exception as fallback_e:
             await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
-            raise HTTPException(
-                status_code=500,
-                detail="Translation failed on both models. Please try again.",
-            )
+
+        # FIX-24 (P1-03): Third-level fallback — OpenRouter (external, different infra).
+        # Only attempted when BOTH Groq models fail to avoid paying for unnecessary calls.
+        openrouter_client = _get_openrouter_client()
+        if openrouter_client:
+            or_model = "meta-llama/llama-3.3-70b-instruct"  # Best Groq-equivalent on OpenRouter
+            or_kwargs = {}
+            if response_format == "json_object":
+                or_kwargs["response_format"] = {"type": "json_object"}
+            try:
+                response = await asyncio.wait_for(
+                    openrouter_client.chat.completions.create(
+                        model=or_model, messages=messages, **or_kwargs
+                    ),
+                    timeout=LLM_TIMEOUT,
+                )
+                await metrics.record_model_call("openrouter-llama")
+                logger.warning("OpenRouter third-level fallback succeeded")
+                return _clean_json_response(response.choices[0].message.content), "OpenRouter Llama 3.3"
+            except Exception as or_e:
+                await metrics.record_model_call("openrouter-llama", is_error=True)
+                logger.error(f"OpenRouter fallback Error: {str(or_e)}")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Translation failed on all providers. Please try again.",
+        )
 
 
 async def stream_code_to_english(

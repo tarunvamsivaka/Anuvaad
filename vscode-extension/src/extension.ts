@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
-import fetch from 'node-fetch';
 
 export function activate(context: vscode.ExtensionContext) {
-  let disposable = vscode.commands.registerCommand('anuvaad.translateInline', async () => {
+  // 1. Translate Inline Command
+  let translateDisposable = vscode.commands.registerCommand('anuvaad.translateInline', async () => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       vscode.window.showInformationMessage('No active editor found');
@@ -34,18 +34,15 @@ export function activate(context: vscode.ExtensionContext) {
       cancellable: false
     }, async (progress) => {
       try {
-        const response = await fetch(`${apiUrl}/api/translate`, {
+        const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`
           },
           body: JSON.stringify({
-            prompt: text,
-            model_name: "default",
-            mode: "code-to-english",
-            source_language: "auto",
-            target_language: "english"
+            code: text,
+            source_language: editor.document.languageId
           })
         });
 
@@ -54,7 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         const data: any = await response.json();
-        const translation = data.translation;
+        const translation = data.english_translation;
 
         // Insert the translation above the selection as a comment
         editor.edit(editBuilder => {
@@ -82,7 +79,55 @@ export function activate(context: vscode.ExtensionContext) {
     });
   });
 
-  context.subscriptions.push(disposable);
+  // 2. Explain Hover Provider
+  let hoverProvider = vscode.languages.registerHoverProvider('*', {
+    async provideHover(document, position, token) {
+      const config = vscode.workspace.getConfiguration('anuvaad');
+      if (!config.get<boolean>('enableHover', false)) {
+        return null;
+      }
+      
+      const apiKey = config.get<string>('apiKey', '');
+      if (!apiKey) return null;
+      
+      const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
+
+      // Get current line or block
+      const range = document.getWordRangeAtPosition(position);
+      if (!range) return null;
+      
+      // We'll translate the whole line for better context instead of just a word
+      const lineText = document.lineAt(position.line).text.trim();
+      if (!lineText || lineText.length < 5) return null;
+      
+      try {
+        const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            code: lineText,
+            source_language: document.languageId
+          })
+        });
+
+        if (!response.ok) return null;
+
+        const data: any = await response.json();
+        
+        const markdown = new vscode.MarkdownString();
+        markdown.appendMarkdown(`**Anuvaad Explanation**\n\n${data.english_translation}`);
+        
+        return new vscode.Hover(markdown);
+      } catch (e) {
+        return null;
+      }
+    }
+  });
+
+  context.subscriptions.push(translateDisposable, hoverProvider);
 }
 
 export function deactivate() {}

@@ -2,14 +2,21 @@
   "name": "anuvaad-vscode",
   "displayName": "Anuvaad",
   "description": "AI Code Translator & Explainer inline in your IDE",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "publisher": "anuvaad",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:go",
+    "onLanguage:rust"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -25,7 +32,27 @@
         "mac": "cmd+shift+a",
         "when": "editorTextFocus"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Anuvaad",
+      "properties": {
+        "anuvaad.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your Anuvaad API Key"
+        },
+        "anuvaad.apiUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Anuvaad API Base URL"
+        },
+        "anuvaad.enableHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable inline explanation on hover"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -41,8 +68,5 @@
     "@typescript-eslint/eslint-plugin": "^6.4.1",
     "@typescript-eslint/parser": "^6.4.1",
     "eslint": "^8.47.0"
-  },
-  "dependencies": {
-    "node-fetch": "^2.6.12"
   }
 }

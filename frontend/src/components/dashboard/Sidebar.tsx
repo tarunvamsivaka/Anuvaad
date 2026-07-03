@@ -54,8 +54,8 @@ function SidebarContent({
         <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-text-muted">Navigation</span>
       </div>
 
-      {/* Nav links */}
-      <nav className="flex-1 space-y-1 px-3 overflow-y-auto overflow-x-hidden">
+      {/* Nav links — FIX-29 (P3-03): role=navigation + aria-label for screen readers */}
+      <nav role="navigation" aria-label="Dashboard navigation" className="flex-1 space-y-1 px-3 overflow-y-auto overflow-x-hidden">
         {sidebarLinks.map((link) => {
           const isActive = link.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(link.href);
           const Icon = link.icon;
@@ -66,6 +66,7 @@ function SidebarContent({
               href={link.href}
               onClick={onNavigate}
               title={link.label}
+              aria-label={link.label}
               className={cn(
                 "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200",
                 isActive
@@ -77,7 +78,7 @@ function SidebarContent({
               <Icon className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 isActive ? "text-amber-400" : "text-text-muted group-hover:text-text-primary"
-              )} />
+              )} aria-hidden="true" />
               <span className="sidebar-text truncate whitespace-nowrap opacity-0 transition-opacity duration-200">{link.label}</span>
             </Link>
           );

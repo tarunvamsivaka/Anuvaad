@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Features
+- **Repository Semantic Search (Phase 4):** Completed backend integration for GitHub repository indexing and vector search using OpenAI embeddings and pgvector.
+- **Language Support:** Added detection for Assembly, Verilog, Terraform, Julia, Nim, Zig, Groovy, Fortran, OCaml, and Erlang.
+
+### API
+- Added `Sunset: Fri, 01 Jan 2027 00:00:00 GMT` header to all legacy `/api/*` routes to formalized the deprecation timeline.
+
 ## [1.4.0] - 2026-06-12
 
 ### Landing Page (Phase 5)

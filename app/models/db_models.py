@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, Boolean, Integer, BigInteger, DateTime, Text
+from sqlalchemy import Column, Boolean, Integer, BigInteger, DateTime, Text, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from pgvector.sqlalchemy import Vector
 from app.core.database_session import Base
@@ -14,6 +14,8 @@ class User(Base):
 class UserGithubToken(Base):
     __tablename__ = "user_github_tokens"
     user_email = Column(Text, primary_key=True)
+    # FIX-01 (P0-01): access_token is stored Fernet-encrypted (never plaintext).
+    # Encrypt/decrypt via app.core.token_encryption.{encrypt_token, decrypt_token}.
     access_token = Column(Text, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -51,6 +53,9 @@ class ApiKey(Base):
     name = Column(Text, nullable=False)
     api_key_hash = Column(Text, nullable=False)
     key_prefix = Column(Text, nullable=False)
+    # FIX-27 (P2-06): Track hash algorithm for rolling upgrade from sha256 → argon2id.
+    # New keys use argon2id; existing sha256 keys are upgraded on first use.
+    key_hash_algo = Column(Text, nullable=False, default="sha256", server_default="sha256")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
@@ -74,6 +79,12 @@ class TranslationHistory(Base):
     repository_name = Column(Text, nullable=True)
     input_preview = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    # FIX-03 (P0-05): Composite index for the primary history listing query.
+    __table_args__ = (
+        Index("ix_translation_history_user_created", "user_email", "created_at"),
+        Index("ix_translation_history_workspace", "workspace_id"),
+    )
 
 class UserTranslationStats(Base):
     __tablename__ = "user_translation_stats"
@@ -108,5 +119,6 @@ class RepoEmbedding(Base):
     file_path = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(384)) # 384 dim for sentence-transformers all-MiniLM-L6-v2
+    embedding = Column(Vector(1536)) # 1536 dim for openai text-embedding-3-small (was 384)
+    provider = Column(Text, default="hf", nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

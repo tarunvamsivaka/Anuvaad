@@ -18,22 +18,22 @@ Endpoints:
   GET    /admin/dashboard-stats          — admin-only dashboard
 """
 import asyncio
+import base64
+import json
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from fastapi.responses import JSONResponse
 
 from app.core.config import (
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY,
-    SUPABASE_SERVICE_KEY,
     ADMIN_EMAILS,
     logger,
     metrics,
-    get_http_client,
 )
 from app.core.cache import cache
 from app.core.auth import get_user_email
 from app.core.quota import get_active_protection_mode
+# FIX-31 (P3-01): Use named constants instead of inline magic numbers
+from app.core.constants import DEFAULT_HISTORY_PAGE_SIZE, MAX_HISTORY_PAGE_SIZE
 from app.models.schemas import ApiKeyCreate, SharePayload
 from app.repositories import translation as translation_repo
 from app.repositories import api_key as api_key_repo
@@ -41,45 +41,78 @@ from app.repositories import api_key as api_key_repo
 router = APIRouter(prefix="", tags=["history"])
 
 
+# ── Cursor helpers (FIX-13 / P1-07) ──────────────────────────────────────────
+
+def _encode_cursor(item: dict) -> str:
+    """Encode the last item's (id, created_at) into an opaque base64 cursor."""
+    payload = {
+        "id": str(item.get("id", "")),
+        "created_at": (
+            item["created_at"].isoformat()
+            if isinstance(item.get("created_at"), datetime)
+            else str(item.get("created_at", ""))
+        ),
+    }
+    return base64.urlsafe_b64encode(json.dumps(payload).encode()).decode()
+
+
+def _decode_cursor(cursor: str) -> tuple[str | None, str | None]:
+    """Decode a cursor string back into (id, created_at_iso)."""
+    try:
+        payload = json.loads(base64.urlsafe_b64decode(cursor.encode()))
+        return payload.get("id"), payload.get("created_at")
+    except Exception:
+        return None, None
+
+
 # ── Translation History ──
 
 @router.get("/history")
 async def get_translation_history(
-    workspace_id: str = None,
-    limit: int = 100,
+    workspace_id: str | None = None,
+    # FIX-31 (P3-01): Use named constants instead of magic numbers
+    limit: int = Query(default=DEFAULT_HISTORY_PAGE_SIZE, ge=1, le=MAX_HISTORY_PAGE_SIZE),
+    cursor: str | None = Query(default=None),        # FIX-13: opaque keyset cursor
     email: str = Depends(get_user_email),
 ):
-    """Return translation history for the authenticated user."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Return paginated translation history for the authenticated user.
 
-    limit = max(1, min(limit, 1000))
+    FIX-13 (P1-07): Replaced limit/offset with keyset (cursor) pagination.
+    This is O(1) at any page depth vs. O(N) for OFFSET.
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
+    after_id, after_created_at = _decode_cursor(cursor) if cursor else (None, None)
 
-    cache_key = f"user_history:{email}:{workspace_id}:{limit}"
-    cached = await cache.get(cache_key)
-    if cached is not None:
-        await metrics.record_cache_hit()
-        return cached
-    await metrics.record_cache_miss()
+    # Fetch one extra to detect whether there is a next page
+    rows = await translation_repo.get_history(
+        email,
+        workspace_id=workspace_id,
+        limit=limit + 1,
+        offset=0,
+        after_id=after_id,
+        after_created_at=after_created_at,
+    )
 
-    history = await translation_repo.get_history(email, workspace_id=workspace_id, limit=limit, offset=0)
+    has_more = len(rows) > limit
+    items = rows[:limit]
+    next_cursor = _encode_cursor(items[-1]) if has_more and items else None
 
-    # Safely encode UUIDs and datetimes for JSON caching
-    from fastapi.encoders import jsonable_encoder
-    await cache.put(cache_key, jsonable_encoder(history), ttl=300)
-
-    return history
+    return {
+        "items": items,
+        "next_cursor": next_cursor,
+        "has_more": has_more,
+    }
 
 
 @router.get("/stats")
 async def get_translation_stats(
-    workspace_id: str = None,
+    workspace_id: str | None = None,
     email: str = Depends(get_user_email),
 ):
-    """Return accurate translation counts (total, this week, today) for the dashboard."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Return accurate translation counts (total, this week, today) for the dashboard.
 
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
     cache_key = f"user_stats:{email}:{workspace_id}"
     cached = await cache.get(cache_key)
     if cached is not None:
@@ -106,53 +139,27 @@ async def get_translation_stats(
 
 @router.get("/history/{item_id}")
 async def get_single_history_item(item_id: str, email: str = Depends(get_user_email)):
-    """Retrieve a specific translation history item owned by the authenticated user."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Retrieve a specific translation history item owned by the authenticated user.
 
-    from app.core.database import supabase_request
-    item = await supabase_request(
-        "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
-    )
-    if not item or not isinstance(item, dict):
+    FIX-26 (P2-01): Migrated from supabase_request() to ORM translation_repo.
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
+    item = await translation_repo.get_by_id(item_id, email=email)
+    if not item:
         raise HTTPException(status_code=404, detail="History item not found")
     return item
 
 
 @router.delete("/history/{item_id}")
 async def delete_history_item(item_id: str, email: str = Depends(get_user_email)):
-    """Delete a single translation history item owned by the authenticated user."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Delete a single translation history item owned by the authenticated user.
 
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        raise HTTPException(status_code=500, detail="Database not configured")
-
-    # Verify ownership before deleting
-    from app.core.database import supabase_request
-    item = await supabase_request(
-        "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
-    )
-    if not item:
-        raise HTTPException(status_code=404, detail="History item not found")
-
-    headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-    }
-    try:
-        client = await get_http_client()
-        resp = await client.delete(
-            f"{SUPABASE_URL}/rest/v1/translation_history?id=eq.{item_id}&user_email=eq.{email}",
-            headers=headers,
-        )
-        if resp.status_code not in (200, 204):
-            raise HTTPException(status_code=500, detail="Failed to delete history item")
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        logger.error(f"Failed to delete history item from DB: {e}")
-        raise HTTPException(status_code=500, detail="Database error during deletion")
+    FIX-26 (P2-01): Migrated from supabase_request()/httpx to ORM translation_repo.
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
+    deleted = await translation_repo.delete_by_id(item_id, email)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="History item not found or not owned")
 
     await cache.delete(f"user_stats:{email}")
     await cache.delete_prefix(f"user_history:{email}")
@@ -165,24 +172,14 @@ async def share_history_item(
     payload: SharePayload,
     email: str = Depends(get_user_email),
 ):
-    """Toggle public/private sharing for a translation history item."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Toggle public/private sharing for a translation history item.
 
-    from app.core.database import supabase_request
-    item = await supabase_request(
-        "GET", f"translation_history?id=eq.{item_id}&user_email=eq.{email}"
-    )
-    if not item:
-        raise HTTPException(status_code=404, detail="History item not found")
-
-    res = await supabase_request(
-        "PATCH",
-        f"translation_history?id=eq.{item_id}&user_email=eq.{email}",
-        {"is_public": payload.is_public},
-    )
-    if not res:
-        raise HTTPException(status_code=500, detail="Failed to update sharing status")
+    FIX-26 (P2-01): Migrated from supabase_request() to ORM translation_repo.
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
+    updated = await translation_repo.update_share_status(item_id, email, payload.is_public)
+    if not updated:
+        raise HTTPException(status_code=404, detail="History item not found or not owned")
 
     await cache.delete_prefix(f"user_history:{email}")
     return {"status": "success", "is_public": payload.is_public}
@@ -192,12 +189,12 @@ async def share_history_item(
 async def get_shared_item(item_id: str):
     """Retrieve a public shared translation history item.
 
+    FIX-26 (P2-01): Migrated from supabase_request() to ORM translation_repo.get_by_id().
     BUG#7 FIX: Visibility is checked BEFORE any data is returned to prevent
     leaking private items on 403 responses.
     """
-    from app.core.database import supabase_request
-    item = await supabase_request("GET", f"translation_history?id=eq.{item_id}")
-    if not item or not isinstance(item, dict):
+    item = await translation_repo.get_by_id(item_id, email=None)  # no auth — public endpoint
+    if not item:
         raise HTTPException(status_code=404, detail="Shared snippet not found")
 
     # BUG#7: Check visibility BEFORE touching any item data
@@ -231,12 +228,13 @@ async def get_shared_item(item_id: str):
 
 @router.get("/api-keys")
 async def list_api_keys(
-    workspace_id: str = None,
+    workspace_id: str | None = None,
     email: str = Depends(get_user_email),
 ):
-    """List all API keys for the authenticated user."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """List all API keys for the authenticated user.
+
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
     return await api_key_repo.list_for_user(email, workspace_id=workspace_id)
 
 
@@ -245,9 +243,10 @@ async def create_api_key(
     payload: ApiKeyCreate,
     email: str = Depends(get_user_email),
 ):
-    """Generate and persist a new API key. Returns the plaintext key once."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Generate and persist a new API key. Returns the plaintext key once.
+
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
     try:
         return await api_key_repo.create(
             email=email,
@@ -263,10 +262,10 @@ async def delete_api_key(
     key_id: str,
     email: str = Depends(get_user_email),
 ):
-    """Revoke an API key owned by the authenticated user."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Revoke an API key owned by the authenticated user.
 
+    FIX-30 (P3-04): Removed redundant `if not email` guard.
+    """
     key = await api_key_repo.get_by_id(key_id, email)
     if not key:
         raise HTTPException(status_code=404, detail="API key not found")

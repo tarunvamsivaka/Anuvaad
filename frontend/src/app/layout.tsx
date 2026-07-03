@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Playfair_Display, Outfit, EB_Garamond } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -7,7 +7,9 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-
+// FIX-19 (P2-03): Reduced from 5 fonts to 2. Playfair, Outfit, and Garamond
+// loaded ~120kB extra on each page view. Inter covers all UI text; JetBrains
+// covers code blocks in the Monaco editor.
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
@@ -19,27 +21,6 @@ const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",  // Prevent FOIT
   preload: true,    // Critical path — Monaco editor uses this font
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  style: ["italic", "normal"],
-  display: "swap",
-});
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const garamond = EB_Garamond({
-  variable: "--font-garamond",
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -123,16 +104,14 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrains.variable} ${playfair.variable} ${outfit.variable} ${garamond.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrains.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
-        {/* DNS prefetch for critical API domains */}
+        {/* FIX-19: Only preconnect to Google Fonts (fonts.gstatic.com). */}
+        {/* FIX-20: Removed LLM API preconnects — these leak server-side     */}
+        {/*         infrastructure to browsers and add unnecessary latency.   */}
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://api.groq.com" />
-        <link rel="dns-prefetch" href="https://api.groq.com" />
-        <link rel="preconnect" href="https://api.deepseek.com" />
-        <link rel="dns-prefetch" href="https://api.deepseek.com" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <ThemeProvider>

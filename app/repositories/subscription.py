@@ -146,3 +146,36 @@ async def add_credits(email: str, amount: int) -> bool:
             await session.rollback()
             return False
 
+
+async def mark_onboarded(email: str) -> bool:
+    """FIX-35 (P3-08): Mark the user's onboarding as complete.
+
+    Sets onboarded=True on the user_subscriptions row. If no row exists,
+    creates a minimal one so the flag is always persisted.
+    Returns True on success.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(
+                select(UserSubscription).where(UserSubscription.user_email == email)
+            )
+            existing = result.scalars().first()
+            if existing:
+                await session.execute(
+                    update(UserSubscription)
+                    .where(UserSubscription.user_email == email)
+                    .values(onboarded=True)
+                )
+            else:
+                session.add(UserSubscription(
+                    user_email=email,
+                    is_pro=False,
+                    credits=0,
+                    onboarded=True,
+                ))
+            await session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"subscription.mark_onboarded({email}): {e}")
+            await session.rollback()
+            return False

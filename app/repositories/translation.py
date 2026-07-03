@@ -13,20 +13,58 @@ from app.models.db_models import TranslationHistory
 from app.core.config import logger, HISTORY_LIMIT_PRO, HISTORY_LIMIT_FREE
 
 
-async def get_history(email: str, workspace_id: str | None = None, limit: int = 20, offset: int = 0) -> list[dict]:
-    """Return paginated translation history for *email*, newest first."""
+async def get_history(
+    email: str,
+    workspace_id: str | None = None,
+    limit: int = 20,
+    offset: int = 0,
+    after_id: str | None = None,
+    after_created_at: str | None = None,
+) -> list[dict]:
+    """Return paginated translation history for *email*, newest first.
+
+    FIX-13 (P1-07): Supports keyset (cursor) pagination via after_id/after_created_at.
+    When after_id and after_created_at are provided, the query uses a keyset
+    condition to skip rows before the cursor — O(1) at any page depth.
+    Falls back to offset pagination when no cursor is provided.
+    """
     async with AsyncSessionLocal() as session:
         try:
             query = select(TranslationHistory)
             if workspace_id:
                 query = query.where(TranslationHistory.workspace_id == workspace_id)
             else:
-                query = query.where(TranslationHistory.user_email == email).where(TranslationHistory.workspace_id.is_(None))
+                query = query.where(TranslationHistory.user_email == email).where(
+                    TranslationHistory.workspace_id.is_(None)
+                )
+
+            # Keyset condition: (created_at, id) < (cursor_created_at, cursor_id)
+            if after_id and after_created_at:
+                try:
+                    from datetime import datetime
+                    cursor_dt = datetime.fromisoformat(after_created_at)
+                    from sqlalchemy import or_, and_
+                    from sqlalchemy import cast
+                    import uuid as uuid_mod
+                    query = query.where(
+                        or_(
+                            TranslationHistory.created_at < cursor_dt,
+                            and_(
+                                TranslationHistory.created_at == cursor_dt,
+                                TranslationHistory.id < cast(after_id, TranslationHistory.id.type),
+                            ),
+                        )
+                    )
+                except (ValueError, Exception):
+                    pass  # Ignore malformed cursor, fall back to no-cursor query
 
             result = await session.execute(
-                query.order_by(TranslationHistory.created_at.desc())
+                query.order_by(
+                    TranslationHistory.created_at.desc(),
+                    TranslationHistory.id.desc(),
+                )
                 .limit(limit)
-                .offset(offset)
+                .offset(offset if not after_id else 0)
             )
             rows = result.scalars().all()
             return [{c.key: getattr(r, c.key) for c in r.__mapper__.columns} for r in rows]
@@ -128,3 +166,87 @@ async def prune_oldest(email: str, is_pro: bool) -> None:
         except Exception as e:
             logger.error(f"translation.prune_oldest({email}): {e}")
             await session.rollback()
+
+
+# ── FIX-26 (P2-01): ORM replacements for remaining supabase_request() calls ──
+
+async def get_by_id(item_id: str, email: str | None = None) -> dict | None:
+    """Return a single translation_history row by id.
+
+    If *email* is provided the query also checks ownership (prevents IDOR).
+    Returns None if not found or not owned by *email*.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            import uuid as uuid_mod
+            try:
+                item_uuid = uuid_mod.UUID(item_id)
+            except ValueError:
+                return None
+            query = select(TranslationHistory).where(TranslationHistory.id == item_uuid)
+            if email:
+                query = query.where(TranslationHistory.user_email == email)
+            result = await session.execute(query)
+            row = result.scalars().first()
+            if row is None:
+                return None
+            return {c.key: getattr(row, c.key) for c in row.__mapper__.columns}
+        except Exception as e:
+            logger.error(f"translation.get_by_id({item_id}): {e}")
+            return None
+
+
+async def delete_by_id(item_id: str, email: str) -> bool:
+    """Delete a translation_history row by id, verifying ownership by *email*.
+
+    Returns True if a row was deleted, False if not found or not owned.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            import uuid as uuid_mod
+            try:
+                item_uuid = uuid_mod.UUID(item_id)
+            except ValueError:
+                return False
+            result = await session.execute(
+                delete(TranslationHistory)
+                .where(TranslationHistory.id == item_uuid)
+                .where(TranslationHistory.user_email == email)
+                .returning(TranslationHistory.id)
+            )
+            deleted = result.fetchone()
+            await session.commit()
+            return deleted is not None
+        except Exception as e:
+            logger.error(f"translation.delete_by_id({item_id}, {email}): {e}")
+            await session.rollback()
+            return False
+
+
+async def update_share_status(item_id: str, email: str, is_public: bool) -> bool:
+    """Toggle the is_public flag on a translation_history row.
+
+    Verifies ownership before updating. Returns True on success.
+    """
+    from sqlalchemy import update as sa_update
+    async with AsyncSessionLocal() as session:
+        try:
+            import uuid as uuid_mod
+            try:
+                item_uuid = uuid_mod.UUID(item_id)
+            except ValueError:
+                return False
+            result = await session.execute(
+                sa_update(TranslationHistory)
+                .where(TranslationHistory.id == item_uuid)
+                .where(TranslationHistory.user_email == email)
+                .values(is_public=is_public)
+                .returning(TranslationHistory.id)
+            )
+            updated = result.fetchone()
+            await session.commit()
+            return updated is not None
+        except Exception as e:
+            logger.error(f"translation.update_share_status({item_id}): {e}")
+            await session.rollback()
+            return False

@@ -445,6 +445,47 @@ async def enforce_quotas_and_protection(
     return is_pro, daily_limit, deduct_credit_flag, cooldown
 
 
+async def enforce_workspace_quota(
+    workspace_id: str,
+    owner_email: str,
+    is_pro: bool,
+) -> None:
+    """FIX-21 (P2-02): Enforce workspace-level daily translation quota.
+
+    Workspace requests share the owner's daily quota bucket. A free-tier owner
+    cannot bypass their daily limit by routing through a workspace.
+
+    If the owner is Pro (unlimited), this check is skipped.
+    """
+    if is_pro:
+        return  # Pro workspaces have no daily limit
+
+    # Reuse user quota limits for workspace owner
+    mode = await get_active_protection_mode()
+    is_admin = owner_email.lower() in ADMIN_EMAILS
+    policy = compute_quota_policy(is_pro=False, is_admin=is_admin, mode=mode)
+    daily_limit = policy.daily_limit
+
+    # Count workspace-scoped translations today
+    from app.repositories import translation as translation_repo
+    from datetime import timedelta
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    workspace_today = await translation_repo.get_count_since(
+        owner_email,
+        workspace_id=workspace_id,
+        since=today_start,
+    )
+    if workspace_today >= daily_limit:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"Workspace daily limit reached ({daily_limit} translations/day). "
+                "Upgrade the workspace owner to Pro for unlimited access."
+            ),
+        )
+
+
 async def check_free_tier_limit(
     email: str | None, is_pro: bool, request: Request
 ) -> None:

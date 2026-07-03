@@ -67,6 +67,16 @@ GIST_LANGUAGE_MAP = {
     "markdown": "markdown",
     "objective-c": "objective-c",
     "graphql": "graphql",
+    "assembly": "assembly",
+    "verilog": "verilog",
+    "terraform": "terraform",
+    "julia": "julia",
+    "nim": "nim",
+    "zig": "zig",
+    "groovy": "groovy",
+    "fortran": "fortran",
+    "ocaml": "ocaml",
+    "erlang": "erlang",
 }
 
 
@@ -116,6 +126,22 @@ def get_language_from_filename(filename: str) -> str:
         ".json": "json",
         ".xml": "xml",
         ".md": "markdown",
+        ".asm": "assembly",
+        ".s": "assembly",
+        ".v": "verilog",
+        ".sv": "verilog",
+        ".tf": "terraform",
+        ".jl": "julia",
+        ".nim": "nim",
+        ".zig": "zig",
+        ".groovy": "groovy",
+        ".f": "fortran",
+        ".f90": "fortran",
+        ".f95": "fortran",
+        ".ml": "ocaml",
+        ".mli": "ocaml",
+        ".erl": "erlang",
+        ".hrl": "erlang",
     }
     return ext_map.get(ext, "python")
 
@@ -400,9 +426,17 @@ async def import_gist(url: str, file_path: str | None = None):
 
 
 def _check_metrics_auth(request: Request) -> bool:
-    """Validate HTTP Basic Auth for the metrics endpoints."""
+    """Validate HTTP Basic Auth for the metrics endpoints.
+
+    FIX-08 (P1-11): Changed from fail-OPEN to fail-CLOSED.
+    When METRICS_USERNAME/PASSWORD are not configured, this now DENIES all
+    access rather than granting it — preventing accidental world-readable
+    metrics endpoints in production.
+    """
     if not METRICS_USERNAME or not METRICS_PASSWORD:
-        return True
+        # FIX-08: Fail-closed — deny all access when credentials not configured.
+        # Previously this returned True (world-readable when unconfigured).
+        return False
     auth_header = request.headers.get("Authorization", "")
     if not auth_header.startswith("Basic "):
         return False
@@ -481,8 +515,19 @@ async def get_metrics_prometheus(request: Request):
 
 
 @router.get("/cache-stats")
-async def get_cache_stats():
-    """Return stats for the cache."""
+async def get_cache_stats(request: Request):
+    """Return stats for the cache.
+
+    FIX-07 (P1-05): Now protected by the same HTTP Basic Auth as /metrics.
+    Previously this endpoint was unauthenticated and exposed internal cache
+    information to any caller.
+    """
+    if not _check_metrics_auth(request):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized"},
+            headers={"WWW-Authenticate": 'Basic realm="metrics"'},
+        )
     stats = cache.fallback.stats()
     stats["cache_type"] = "redis" if cache.client else "lru"
     stats["redis_connected"] = bool(cache.client)

@@ -133,15 +133,14 @@ Open [http://localhost:3000](http://localhost:3000) — the frontend proxies API
 
 ### 3. Apply Database Migrations
 
-Run the Supabase migration files in order against your project:
+Run Alembic to apply all database migrations to your local Supabase PostgreSQL instance:
 
+```bash
+# Run migrations using Alembic
+alembic upgrade head
 ```
-supabase_migration.sql      → Core tables (users, subscriptions, history)
-supabase_migration_v2.sql   → Workspaces & team members
-supabase_migration_v3.sql   → RLS policies & security definer helpers
-supabase_migration_v4.sql   → API keys & enhanced RLS
-supabase_migration_v5.sql   → Schema refinements
-```
+
+*Note: The `migrations/` folder contains raw SQL for reference and older setups, but Alembic is the active migration manager.*
 
 ### 4. Run Tests
 
@@ -261,6 +260,12 @@ Anuvaad/
 ├── docker-compose.yml      # Full stack orchestration (4 services)
 └── nginx.conf              # Reverse proxy config
 ```
+
+## Observability
+
+Anuvaad uses PostHog for product analytics and telemetry. We track key funnels, drop-off points, and feature usage.
+- See the [Product Analytics Dashboards](https://app.posthog.com) to view the "Signup to Translation" funnel and "Pro Upgrade" conversions.
+- Drop-offs during the OAuth flow are currently being monitored for optimization.
 
 ## License
 

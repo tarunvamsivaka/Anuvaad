@@ -215,7 +215,13 @@ async def get_check_credits(
 
 @router.post("/webhook/razorpay")
 async def razorpay_webhook(request: Request):
-    """Handle Razorpay webhook events — validates signature, dispatches to Celery."""
+    """Handle Razorpay webhook events — validates signature, dispatches to Celery.
+
+    FIX-22 (P2-05): Dual-layer idempotency:
+      1. Cache layer (fast, 24h TTL) — handles high-frequency duplicate deliveries.
+      2. DB layer (PaymentTransaction table) — survives cache restarts/flushes.
+    This ensures we never double-activate a subscription even after a Redis restart.
+    """
     if not RAZORPAY_WEBHOOK_SECRET:
         logger.error("RAZORPAY_WEBHOOK_SECRET is not set — rejecting webhook request.")
         return JSONResponse(status_code=503, content={"error": "Webhook endpoint not configured"})
@@ -228,14 +234,13 @@ async def razorpay_webhook(request: Request):
     signature = request.headers.get("x-razorpay-signature", "")
     event_id = request.headers.get("x-razorpay-event-id", "")
 
-    # BACK-03: Idempotency guard — reject duplicate webhook deliveries
+    # Layer 1: Cache-based idempotency (fast, O(1))
     if event_id:
         idempotency_key = f"webhook:idempotency:{event_id}"
         existing = await cache.get(idempotency_key)
         if existing:
-            logger.info(f"Razorpay webhook: duplicate event {event_id} — skipping")
+            logger.info(f"Razorpay webhook: duplicate event {event_id} (cache hit) — skipping")
             return {"status": "duplicate", "message": "Event already processed"}
-        await cache.put(idempotency_key, "1", ttl=86400)
 
     # BACK-09: Verify signature BEFORE json.loads to prevent info leakage
     try:
@@ -250,6 +255,41 @@ async def razorpay_webhook(request: Request):
         event = json.loads(body)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    # Layer 2: DB-backed idempotency (survives cache restart)
+    if event_id:
+        try:
+            from app.core.database_session import AsyncSessionLocal
+            from app.models.db_models import PaymentTransaction
+            from sqlalchemy import select
+
+            async with AsyncSessionLocal() as session:
+                existing_tx = await session.execute(
+                    select(PaymentTransaction).where(PaymentTransaction.event_id == event_id)
+                )
+                if existing_tx.scalars().first() is not None:
+                    logger.info(f"Razorpay webhook: duplicate event {event_id} (DB hit) — skipping")
+                    return {"status": "duplicate", "message": "Event already processed"}
+
+                # Insert the record immediately to lock the event_id (unique constraint)
+                session.add(PaymentTransaction(
+                    event_id=event_id,
+                    payload=event,
+                    status="queued",
+                ))
+                try:
+                    await session.commit()
+                except Exception:
+                    # Unique constraint violation — another process already claimed this event_id
+                    logger.info(f"Razorpay webhook: concurrent duplicate for {event_id} — skipping")
+                    return {"status": "duplicate", "message": "Event already processed"}
+
+            # Now mark in cache so the fast path catches future duplicates
+            idempotency_key = f"webhook:idempotency:{event_id}"
+            await cache.put(idempotency_key, "1", ttl=86400)
+
+        except Exception as db_err:
+            logger.warning(f"DB idempotency check failed, falling back to cache-only: {db_err}")
 
     process_billing_webhook_task.delay(event_id=event_id, payload=event)
     return {"received": True}

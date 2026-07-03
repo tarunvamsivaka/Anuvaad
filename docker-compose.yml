@@ -1,3 +1,10 @@
+# docker-compose.yml — Development / staging compose configuration
+# FIX-06 (P0-03): Split monolithic container into separate api, frontend, worker, beat services.
+# FIX-11 (P1-04): Added `beat` service for Celery periodic tasks.
+# FIX-12 (P2-12): Added nginx health check.
+#
+# For production, use docker-compose.prod.yml which overrides image tags and resource limits.
+
 services:
   redis:
     image: redis:7-alpine
@@ -17,7 +24,6 @@ services:
       "
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-    # INFRA-03: Health check uses password when set
     healthcheck:
       test: |
         sh -c "
@@ -31,8 +37,10 @@ services:
       timeout: 5s
       retries: 3
 
-  backend:
-    build: .
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     ports:
       - "8000:8000"
     env_file:
@@ -45,16 +53,28 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    # INFRA-03: Backend health check
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '2'
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
-      start_period: 20s
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=anuvaad-api"
 
   worker:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile.api
     command: celery -A app.queue.celery_config.celery_app worker --loglevel=info
     env_file:
       - .env
@@ -65,33 +85,72 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      backend:
+      api:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '1'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=anuvaad-worker"
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    command: celery -A app.queue.celery_config.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379
+      - ENV=production
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.5'
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+        labels: "service=anuvaad-beat"
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.frontend
     ports:
       - "3000:3000"
     environment:
-      # INFRA-04: NEXT_PUBLIC_API_URL must be the PUBLIC URL clients use from their browsers.
-      # Set to your domain in production (e.g., https://api.anuvaad.dev).
-      # http://backend:8000 is an internal Docker URL — it works for SSR but NOT for
-      # browser-side fetch calls. Override via .env or CI/CD environment.
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     depends_on:
-      backend:
+      api:
         condition: service_healthy
     restart: unless-stopped
-    # INFRA-03: Frontend health check
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/", "||", "exit", "1"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=anuvaad-frontend"
 
   nginx:
     image: nginx:alpine
@@ -101,8 +160,19 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - frontend
-      - backend
+      - api
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+        labels: "service=anuvaad-nginx"
 
 volumes:
   redis_data:

@@ -88,37 +88,56 @@ export default function HistoryPage() {
   const [activeMode, setActiveMode] = useState("All");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // FIX-28 (P3-01): Cursor-based pagination state
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(timer);
   }, [search]);
 
+  // FIX-28: Centralised fetch helper that handles initial load and "load more"
+  const fetchHistory = async (cursor: string | null, append: boolean, signal: AbortSignal) => {
+    if (!session?.access_token) return;
+
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    let url = activeWorkspace
+      ? `${API}/api/history?workspace_id=${activeWorkspace.id}&limit=20`
+      : `${API}/api/history?limit=20`;
+    if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+
+    const res = await fetch(url, {
+      signal,
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (res.status === 401 || res.status === 403) return;
+    if (!res.ok) throw new Error("Failed to fetch history");
+
+    // API returns { items, next_cursor, has_more }
+    const data = await res.json();
+    const items: HistoryItem[] = Array.isArray(data) ? data : (data.items ?? []);
+    const newCursor: string | null = data.next_cursor ?? null;
+    const more: boolean = data.has_more ?? false;
+
+    setHistory(prev => append ? [...prev, ...items] : items);
+    setNextCursor(newCursor);
+    setHasMore(more);
+  };
+
   useEffect(() => {
     let active = true;
     const controller = new AbortController();
 
-    async function fetchHistory() {
+    async function load() {
       if (!session?.access_token) {
         if (active) setLoading(false);
         return;
       }
       setLoading(true);
       try {
-        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const url = activeWorkspace 
-          ? `${API}/api/history?workspace_id=${activeWorkspace.id}`
-          : `${API}/api/history`;
-        const res = await fetch(url, {
-          signal: controller.signal,
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-        if (res.status === 401 || res.status === 403) {
-          return;
-        }
-        if (!res.ok) throw new Error("Failed to fetch history");
-        const data: HistoryItem[] = await res.json();
-        if (active) setHistory(data.slice(0, 50));
+        await fetchHistory(null, false, controller.signal);
       } catch (err) {
         if (!active) return;
         if (err instanceof Error && err.name === "AbortError") return;
@@ -128,9 +147,22 @@ export default function HistoryPage() {
       }
     }
 
-    fetchHistory();
+    load();
     return () => { active = false; controller.abort(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token, activeWorkspace]);
+
+  const handleLoadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      await fetchHistory(nextCursor, true, new AbortController().signal);
+    } catch {
+      toast.error("Failed to load more history.");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const filteredHistory = useMemo(() => {
     let items = history;
@@ -400,6 +432,21 @@ export default function HistoryPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* FIX-28 (P3-01): Load More button — shown only when there are more pages */}
+        {hasMore && !loading && (
+          <div className="flex justify-center py-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="min-w-[140px]"
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </Button>
           </div>
         )}
       </div>

@@ -55,12 +55,16 @@ export function useTranslationStream({
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const streamBufferRef = useRef("");
   const rafIdRef = useRef<number | null>(null);
+  // FIX-18 (P1-10): AbortController to cancel the in-flight fetch when streaming stops.
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleTranslate = useCallback(async () => {
     if (!input.trim()) return;
 
     if (isStreaming && readerRef.current) {
+      // FIX-18: Cancel both the reader AND the underlying fetch via AbortController.
       readerRef.current.cancel();
+      abortControllerRef.current?.abort();
       setIsStreaming(false);
       return;
     }
@@ -115,11 +119,15 @@ export function useTranslationStream({
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
-      
+
+      // FIX-18 (P1-10): Create a fresh AbortController for each streaming request.
+      abortControllerRef.current = new AbortController();
+
       const res = await fetch(`${API}${endpoint}`, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
+        signal: abortControllerRef.current.signal,
       });
       
       if (!res.ok) {

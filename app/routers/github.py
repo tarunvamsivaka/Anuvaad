@@ -1,111 +1,195 @@
+"""
+app/routers/github.py
+
+GitHub OAuth integration — connect user account, list repos, trigger processing.
+
+FIX-01 (P0-01): GitHub OAuth tokens are now Fernet-encrypted before storage.
+    - encrypt_token() is called when saving the token.
+    - decrypt_token() is called when reading the token back.
+FIX-26 (P2-01): Token storage/retrieval now goes through the SQLAlchemy ORM
+    (app/repositories/github_token.py) instead of ad-hoc supabase_request() calls.
+FIX-30 (P3-04): Removed redundant `if not user_email` guards.
+FIX-25 (P1-10/A10): httpx client used with follow_redirects=False.
+"""
 from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Depends
 import os
 import httpx
-from app.queue.tasks import process_github_repo_task
-from app.core.auth import get_user_email
-from app.core.database import supabase_request
-import logging
 from datetime import datetime, timezone
 
+from app.queue.tasks import process_github_repo_task
+from app.core.auth import get_user_email
+from app.core.logging import logger
+from app.core.token_encryption import encrypt_token, decrypt_token, is_encrypted
+
 router = APIRouter()
-logger = logging.getLogger("anuvaad")
 
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
+
 @router.get("/oauth/github/login")
 async def github_login(request: Request):
     """Initiates GitHub OAuth flow."""
     redirect_uri = f"{FRONTEND_URL}/api/auth/github/callback"
-    auth_url = f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={redirect_uri}&scope=repo"
+    auth_url = (
+        f"https://github.com/login/oauth/authorize"
+        f"?client_id={GITHUB_CLIENT_ID}"
+        f"&redirect_uri={redirect_uri}"
+        f"&scope=repo"
+    )
     return {"auth_url": auth_url}
+
 
 @router.post("/oauth/github/callback")
 async def github_callback(code: str, user_email: str = Depends(get_user_email)):
-    """Handles GitHub OAuth callback to exchange code for token."""
+    """Handle GitHub OAuth callback — exchange code for token.
+
+    FIX-01: Token is Fernet-encrypted before DB storage.
+    FIX-26: Uses ORM repository instead of supabase_request().
+    """
     try:
-        async with httpx.AsyncClient() as client:
+        # FIX-25: follow_redirects=False prevents SSRF via redirect chains
+        async with httpx.AsyncClient(follow_redirects=False) as client:
             resp = await client.post(
                 "https://github.com/login/oauth/access_token",
                 data={
                     "client_id": GITHUB_CLIENT_ID,
                     "client_secret": GITHUB_CLIENT_SECRET,
-                    "code": code
+                    "code": code,
                 },
-                headers={"Accept": "application/json"}
+                headers={"Accept": "application/json"},
             )
             data = resp.json()
-            if "access_token" in data:
-                # Save the token to user profile or session
-                token = data["access_token"]
+            if "access_token" not in data:
+                raise HTTPException(status_code=400, detail="Failed to get access token from GitHub")
 
-                # Check if exists
-                existing = await supabase_request("GET", f"user_github_tokens?user_email=eq.{user_email}")
-                if existing and isinstance(existing, list) and len(existing) > 0:
-                    await supabase_request("PATCH", f"user_github_tokens?user_email=eq.{user_email}", {
-                        "access_token": token,
-                        "updated_at": datetime.now(timezone.utc).isoformat()
-                    })
+            plaintext_token = data["access_token"]
+
+            # FIX-01 (P0-01): Encrypt the token before storing it
+            encrypted = encrypt_token(plaintext_token)
+
+            # FIX-26 (P2-01): ORM-based upsert
+            from app.core.database_session import AsyncSessionLocal
+            from app.models.db_models import UserGithubToken
+            from sqlalchemy import select
+
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(
+                    select(UserGithubToken).where(UserGithubToken.user_email == user_email)
+                )
+                existing = result.scalars().first()
+                if existing:
+                    existing.access_token = encrypted
+                    existing.updated_at = datetime.now(timezone.utc)
                 else:
-                    await supabase_request("POST", "user_github_tokens", {
-                        "user_email": user_email,
-                        "access_token": token,
-                        "updated_at": datetime.now(timezone.utc).isoformat()
-                    })
+                    session.add(UserGithubToken(
+                        user_email=user_email,
+                        access_token=encrypted,
+                        updated_at=datetime.now(timezone.utc),
+                    ))
+                await session.commit()
 
-                return {"message": "GitHub connected successfully", "access_token": token}
-            else:
-                raise HTTPException(status_code=400, detail="Failed to get access token")
+            # Return the plaintext token to the client (one-time only).
+            # The frontend stores it in session/memory — never on disk.
+            return {"message": "GitHub connected successfully", "access_token": plaintext_token}
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"GitHub OAuth Error: {e}")
+        logger.error("GitHub OAuth error", error=str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+async def _get_github_token(user_email: str) -> str:
+    """Retrieve and decrypt the stored GitHub OAuth token for a user.
+
+    FIX-01: Transparently decrypts Fernet-encrypted tokens.
+    FIX-26: ORM-based lookup.
+    """
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import UserGithubToken
+    from sqlalchemy import select
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(UserGithubToken).where(UserGithubToken.user_email == user_email)
+        )
+        row = result.scalars().first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="GitHub account not connected")
+
+    token = row.access_token
+    # Transparently handle tokens that were stored before the encryption migration
+    if is_encrypted(token):
+        try:
+            token = decrypt_token(token)
+        except Exception:
+            raise HTTPException(status_code=500, detail="Failed to decrypt GitHub token")
+    return token
+
 
 @router.get("/github/repos")
 async def get_github_repos(user_email: str = Depends(get_user_email)):
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    """Return the GitHub repositories for the authenticated user.
 
-    tokens = await supabase_request("GET", f"user_github_tokens?user_email=eq.{user_email}")
-    if not tokens or not isinstance(tokens, list) or len(tokens) == 0:
-        raise HTTPException(status_code=404, detail="GitHub account not connected")
-
-    access_token = tokens[0].get("access_token")
+    FIX-26: ORM-based token retrieval. FIX-30: Removed redundant auth guard.
+    """
+    access_token = await _get_github_token(user_email)
 
     try:
-        async with httpx.AsyncClient() as client:
+        # FIX-25: No redirects to prevent SSRF
+        async with httpx.AsyncClient(follow_redirects=False) as client:
             resp = await client.get(
                 "https://api.github.com/user/repos",
                 headers={
                     "Authorization": f"Bearer {access_token}",
-                    "Accept": "application/vnd.github.v3+json"
+                    "Accept": "application/vnd.github.v3+json",
                 },
-                params={"sort": "updated", "per_page": 100}
+                params={"per_page": 100, "sort": "updated"},
             )
             if resp.status_code == 401:
-                # Token might be revoked
-                raise HTTPException(status_code=401, detail="GitHub token expired or revoked")
+                raise HTTPException(status_code=401, detail="GitHub token expired. Please reconnect.")
             resp.raise_for_status()
-
-            # Filter and map response
-            repos = resp.json()
-            return [{"full_name": repo["full_name"], "private": repo["private"], "updated_at": repo["updated_at"]} for repo in repos]
+            return resp.json()
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Failed to fetch GitHub repos: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch repositories")
+        logger.error("GitHub repos fetch error", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch GitHub repositories")
 
-@router.post("/github/webhook")
-async def github_webhook(request: Request, background_tasks: BackgroundTasks):
-    """Listens for GitHub App installation events."""
-    payload = await request.json()
-    event = request.headers.get("X-GitHub-Event")
 
-    if event == "installation" and payload.get("action") == "created":
-        installation_id = payload.get("installation", {}).get("id")
-        repos = payload.get("repositories", [])
-        for repo in repos:
-            repo_name = repo.get("full_name")
-            # Dispatch background job to clone repo and generate embeddings
-            process_github_repo_task.delay(repo_name, installation_id)
+@router.post("/github/process-repo")
+async def process_github_repo(
+    repo_name: str,
+    background_tasks: BackgroundTasks,
+    user_email: str = Depends(get_user_email),
+):
+    """Enqueue a background task to process a GitHub repository.
 
-    return {"status": "ok"}
+    FIX-30: Removed redundant auth guard.
+    """
+    if not repo_name:
+        raise HTTPException(status_code=400, detail="repo_name is required")
+
+    # Verify the user has a connected GitHub token before enqueuing
+    await _get_github_token(user_email)
+
+    process_github_repo_task.delay(repo_name)
+    return {"message": f"Repository processing started for {repo_name}"}
+
+
+@router.delete("/github/disconnect")
+async def disconnect_github(user_email: str = Depends(get_user_email)):
+    """Remove the stored GitHub OAuth token for the authenticated user."""
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import UserGithubToken
+    from sqlalchemy import delete
+
+    async with AsyncSessionLocal() as session:
+        await session.execute(
+            delete(UserGithubToken).where(UserGithubToken.user_email == user_email)
+        )
+        await session.commit()
+    return {"message": "GitHub account disconnected"}

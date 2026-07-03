@@ -23,5 +23,24 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     worker_prefetch_multiplier=1,
-    task_acks_late=True
+    task_acks_late=True,
 )
+
+# FIX-11 (P1-04): Celery Beat schedule for periodic/stats-reset tasks.
+# Run: celery -A app.queue.celery_config beat --loglevel=info
+from celery.schedules import crontab  # noqa: E402
+
+celery_app.conf.beat_schedule = {
+    "reset-daily-translation-stats": {
+        "task": "reset_daily_stats",
+        "schedule": crontab(hour=0, minute=0),  # midnight UTC daily
+    },
+    "reset-weekly-translation-stats": {
+        "task": "reset_weekly_stats",
+        "schedule": crontab(hour=0, minute=0, day_of_week="monday"),  # Monday midnight UTC
+    },
+    "prune-translation-history": {
+        "task": "prune_old_translation_history",
+        "schedule": crontab(hour=2, minute=0),  # 2am UTC daily
+    },
+}
