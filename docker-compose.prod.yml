@@ -85,11 +85,44 @@ services:
       pgbouncer:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.queue.celery_config.celery_app inspect ping -d celery@$$HOSTNAME"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
           cpus: '1.0'
           memory: 1G
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: anuvaad-beat-prod
+    command: celery -A app.queue.celery_config.celery_app beat --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:5432/postgres
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      pgbouncer:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
 
   frontend:
     build:

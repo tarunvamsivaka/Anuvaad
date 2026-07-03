@@ -64,7 +64,7 @@ export function TranslateFeature() {
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   // FIX-22 (P2-10): authFetcher is defined at module level in swr-fetcher.ts
   //   → SWR key is a stable [url, token] tuple; fetcher reference never changes.
-  const { data: creditsData } = useSWR(
+  const { data: creditsData, isLoading: creditsLoading } = useSWR(
     session?.access_token ? [`${API_BASE}/api/check-credits`, session.access_token] : null,
     authFetcher,
   ) as { data: { credits?: number; tier?: string } | undefined; isLoading: boolean };

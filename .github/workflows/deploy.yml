@@ -63,8 +63,8 @@ jobs:
           file: Dockerfile.api
           push: true
           tags: |
-            ${{ vars.DOCKER_REGISTRY }}/${{ github.repository }}-api:${{ steps.meta.outputs.sha_tag }}
-            ${{ vars.DOCKER_REGISTRY }}/${{ github.repository }}-api:latest
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-api:${{ steps.meta.outputs.sha_tag }}
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -75,8 +75,8 @@ jobs:
           file: Dockerfile.frontend
           push: true
           tags: |
-            ${{ vars.DOCKER_REGISTRY }}/${{ github.repository }}-frontend:${{ steps.meta.outputs.sha_tag }}
-            ${{ vars.DOCKER_REGISTRY }}/${{ github.repository }}-frontend:latest
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-frontend:${{ steps.meta.outputs.sha_tag }}
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -104,7 +104,7 @@ jobs:
           script: |
             set -euo pipefail
             export IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
-            export DOCKER_REGISTRY="${{ vars.DOCKER_REGISTRY }}"
+            export DOCKER_REGISTRY="${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}"
             export REPO="${{ github.repository }}"
 
             echo "==> Pulling new images (tag: ${IMAGE_TAG})"
@@ -115,7 +115,7 @@ jobs:
             cd ~/anuvaad
             cat > docker-compose.override.yml <<EOF
             services:
-              api:
+              backend:
                 image: ${DOCKER_REGISTRY}/${REPO}-api:${IMAGE_TAG}
               worker:
                 image: ${DOCKER_REGISTRY}/${REPO}-api:${IMAGE_TAG}
@@ -127,14 +127,14 @@ jobs:
 
             echo "==> Rolling update (zero-downtime)"
             docker compose -f docker-compose.prod.yml -f docker-compose.override.yml \
-              up -d --no-deps --wait api worker beat frontend
+              up -d --no-deps --wait backend worker beat frontend
 
             echo "==> Waiting for health checks (30s)"
             sleep 30
 
             echo "==> Health check"
             docker compose -f docker-compose.prod.yml ps
-            curl -sf http://localhost:8000/api/health | python3 -m json.tool
+            curl -sf http://localhost/api/health | python3 -m json.tool
 
             echo "==> Deployment complete: ${IMAGE_TAG}"
 
@@ -150,5 +150,5 @@ jobs:
             cd ~/anuvaad
             # Remove override so compose falls back to docker-compose.prod.yml defaults
             rm -f docker-compose.override.yml
-            docker compose -f docker-compose.prod.yml up -d --no-deps api worker beat frontend
+            docker compose -f docker-compose.prod.yml up -d --no-deps backend worker beat frontend
             echo "==> Rollback complete"

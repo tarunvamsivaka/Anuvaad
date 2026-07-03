@@ -19,7 +19,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { Code2, Zap, Github, History, CheckCircle2, ChevronRight, ChevronLeft } from "lucide-react";
+import { Code2, Zap, GitBranch, History, CheckCircle2, ChevronRight, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -111,7 +111,7 @@ const STEPS = [
   },
   {
     id: "github",
-    icon: <Github className="h-10 w-10 text-amber-400" />,
+    icon: <GitBranch className="h-10 w-10 text-amber-400" />,
     title: "GitHub Integration",
     subtitle: "Import from any public repository",
     content: (
