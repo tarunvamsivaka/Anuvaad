@@ -39,6 +39,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set lowercase repository name
+        run: echo "REPO_LC=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Determine image tag
         id: meta
         run: |
@@ -63,8 +66,8 @@ jobs:
           file: Dockerfile.api
           push: true
           tags: |
-            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-api:${{ steps.meta.outputs.sha_tag }}
-            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-api:latest
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ env.REPO_LC }}-api:${{ steps.meta.outputs.sha_tag }}
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ env.REPO_LC }}-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -75,8 +78,8 @@ jobs:
           file: Dockerfile.frontend
           push: true
           tags: |
-            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-frontend:${{ steps.meta.outputs.sha_tag }}
-            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ github.repository }}-frontend:latest
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ env.REPO_LC }}-frontend:${{ steps.meta.outputs.sha_tag }}
+            ${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}/${{ env.REPO_LC }}-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -105,7 +108,7 @@ jobs:
             set -euo pipefail
             export IMAGE_TAG="${{ needs.build.outputs.image_tag }}"
             export DOCKER_REGISTRY="${{ vars.DOCKER_REGISTRY || 'ghcr.io' }}"
-            export REPO="${{ github.repository }}"
+            export REPO="$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')"
 
             echo "==> Pulling new images (tag: ${IMAGE_TAG})"
             docker pull "${DOCKER_REGISTRY}/${REPO}-api:${IMAGE_TAG}"
