@@ -1,0 +1,21 @@
+# CODEOWNERS
+# Automatically request review from the owner on all PRs.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+*                           @tarunvamsivaka
+
+# Backend — Python / FastAPI
+app/                        @tarunvamsivaka
+main.py                     @tarunvamsivaka
+requirements.txt            @tarunvamsivaka
+alembic/                    @tarunvamsivaka
+
+# Frontend — Next.js / TypeScript
+frontend/                   @tarunvamsivaka
+
+# Infrastructure
+Dockerfile*                 @tarunvamsivaka
+docker-compose*.yml         @tarunvamsivaka
+nginx.conf                  @tarunvamsivaka
+.github/                    @tarunvamsivaka

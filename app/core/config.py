@@ -71,16 +71,36 @@ ALLOWED_EXTENSIONS: frozenset[str] = frozenset(EXTENSION_TO_LANGUAGE.keys())
 # ── API KEYS & SERVICE CREDENTIALS ──
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
+OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
 RAZORPAY_KEY_ID: str = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "")
 SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
 SUPABASE_SERVICE_KEY: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 SUPABASE_ANON_KEY: str = os.getenv("SUPABASE_ANON_KEY", "")
 DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+
+# PERF-01: Supabase PgBouncer connection pooler URL (port 6543 vs 5432).
+# Use this URL for SQLAlchemy in production to cap connections across all Gunicorn workers.
+# Get from: Supabase Dashboard → Project Settings → Database → Connection Pooling → URI
+# Format: postgresql://postgres.[project-ref]:[password]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+#
+# If not set, falls back to DATABASE_URL (direct connection — fine for dev/single-worker).
+DATABASE_POOL_URL: str = os.getenv("DATABASE_POOL_URL", "") or DATABASE_URL
+
 RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")
 SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
 METRICS_USERNAME: str = os.getenv("METRICS_USERNAME", "")
 METRICS_PASSWORD: str = os.getenv("METRICS_PASSWORD", "")
+
+# ── SECURITY — ENCRYPTION & JWT ──
+# FIX-01 (P0-01): Fernet key used to encrypt GitHub OAuth tokens at rest.
+# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
+
+# FIX-04 (P0-04): Supabase JWT secret for local JWT verification (zero HTTP round-trips).
+# Found in: Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
+SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
+
 
 # ── PRE-PARSED EMAIL SETS (H-7: parsed once at startup, O(1) lookups) ──
 ADMIN_EMAILS: frozenset[str] = frozenset(

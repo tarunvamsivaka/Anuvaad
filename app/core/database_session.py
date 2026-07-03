@@ -3,11 +3,15 @@ import logging
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import declarative_base
 from typing import AsyncGenerator
-from app.core.config import DATABASE_URL
+from app.core.config import DATABASE_URL, DATABASE_POOL_URL, IS_PRODUCTION
 
 logger = logging.getLogger("anuvaad")
 
-_DB_URL = DATABASE_URL
+# PERF-01: In production use the PgBouncer pooler URL (port 6543).
+# In dev use the direct URL (port 5432) with SQLAlchemy's own pool.
+_raw_url = DATABASE_POOL_URL if IS_PRODUCTION and DATABASE_POOL_URL else DATABASE_URL
+
+_DB_URL = _raw_url
 if _DB_URL and _DB_URL.startswith("postgresql://"):
     _DB_URL = _DB_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
@@ -23,15 +27,25 @@ if not _DB_URL:
 elif _DB_URL.startswith("sqlite"):
     _is_sqlite = True
 
-# pool_size / max_overflow are asyncpg-specific — SQLite uses StaticPool and
-# does not accept those kwargs (raises an ArgumentError at startup).
-# M-6: All pool parameters are now env-var configurable for production tuning.
+# PERF-01: When using PgBouncer (transaction-mode pooler) the driver must NOT
+# maintain its own pool — PgBouncer is the pool.  Set pool_size=1, max_overflow=0
+# so asyncpg opens exactly one connection per worker (PgBouncer multiplexes them).
+# In development the full configurable pool is used.
 _engine_kwargs: dict = {"echo": False, "pool_pre_ping": True}
 if not _is_sqlite:
-    _engine_kwargs["pool_size"]    = int(os.getenv("DB_POOL_SIZE",      "20"))
-    _engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW",   "10"))
-    _engine_kwargs["pool_timeout"] = float(os.getenv("DB_POOL_TIMEOUT", "30"))
-    _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE",   "1800"))
+    _use_pgbouncer = IS_PRODUCTION and DATABASE_POOL_URL and DATABASE_POOL_URL != DATABASE_URL
+    if _use_pgbouncer:
+        # PgBouncer transaction-mode: one connection per Gunicorn worker
+        _engine_kwargs["pool_size"]    = 1
+        _engine_kwargs["max_overflow"] = 0
+        _engine_kwargs["pool_timeout"] = 30.0
+        _engine_kwargs["pool_recycle"] = 1800
+    else:
+        # Direct connection: let SQLAlchemy manage the pool
+        _engine_kwargs["pool_size"]    = int(os.getenv("DB_POOL_SIZE",      "20"))
+        _engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW",   "10"))
+        _engine_kwargs["pool_timeout"] = float(os.getenv("DB_POOL_TIMEOUT", "30"))
+        _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE",   "1800"))
 
 engine = create_async_engine(_DB_URL, **_engine_kwargs)
 
