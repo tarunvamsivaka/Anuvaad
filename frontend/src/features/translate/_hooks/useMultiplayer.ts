@@ -14,7 +14,7 @@
  * Until then, this hook is a no-op that always returns `status: 'disconnected'`.
  */
 
-export function useMultiplayer(_docId: string) {
+export function useMultiplayer() {
   return {
     doc: null,
     provider: null,

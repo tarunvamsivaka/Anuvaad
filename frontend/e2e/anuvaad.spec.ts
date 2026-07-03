@@ -97,7 +97,7 @@ async function mockHistoryAPI(page: import('@playwright/test').Page) {
       model_used: 'groq/llama3',
     },
   ];
-  await page.route('**/api/history', async route => {
+  await page.route('**/api/history*', async route => {
     const request = route.request();
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
@@ -510,7 +510,7 @@ test.describe('Translation History', () => {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
-    await page.route('**/api/history', async route => {
+    await page.route('**/api/history*', async route => {
       const request = route.request();
       if (request.method() === 'OPTIONS') {
         await route.fulfill({ status: 200, headers: corsHeaders });
@@ -529,7 +529,7 @@ test.describe('Translation History', () => {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     };
-    await page.route('**/api/history', async route => {
+    await page.route('**/api/history*', async route => {
       const request = route.request();
       if (request.method() === 'OPTIONS') {
         await route.fulfill({ status: 200, headers: corsHeaders });

@@ -102,7 +102,7 @@ export const LogoMarquee = React.memo(function LogoMarquee() {
             >
               <div
                 className="text-neutral-400 flex items-center"
-                aria-label={logo.name}
+                aria-hidden="true"
               >
                 {logo.svg}
               </div>
