@@ -322,7 +322,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
                     embeddings = await generate_embeddings_openai(texts)
                 else:
                     embeddings = await generate_embeddings_hf(texts)
-                    
+
                 for j, emb in enumerate(embeddings):
                     if j < len(batch) and isinstance(emb, list):
                         batch[j]["embedding"] = emb

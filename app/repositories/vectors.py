@@ -58,12 +58,12 @@ async def search_repo_embeddings(
     Search for similar code chunks using cosine distance.
     """
     from sqlalchemy import select
-    
+
     try:
         # Get the dimension of the query to ensure we only compare with same-dim embeddings
         # Assuming provider determines dimension. If query_embedding length is 1536, only match provider='openai'
         provider = "openai" if len(query_embedding) > 1000 else "hf"
-        
+
         # Use cosine distance operator '<=>' for pgvector
         stmt = (
             select(
@@ -76,7 +76,7 @@ async def search_repo_embeddings(
             .order_by("similarity")
             .limit(top_k)
         )
-        
+
         result = await db.execute(stmt)
         return result.all()
     except Exception as e:

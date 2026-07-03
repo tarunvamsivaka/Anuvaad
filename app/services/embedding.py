@@ -14,12 +14,12 @@ async def generate_embeddings_openai(texts: List[str]) -> List[List[float]]:
     """
     if not texts:
         return []
-    
+
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
         logger.error("OPENAI_API_KEY not set")
         return []
-        
+
     client = AsyncOpenAI(api_key=api_key)
     try:
         response = await client.embeddings.create(
