@@ -28,6 +28,10 @@ from app.core.config import (
     ADMIN_EMAILS,
     logger,
     metrics,
+    SUPABASE_URL,
+    SUPABASE_SERVICE_KEY,
+    SUPABASE_ANON_KEY,
+    get_http_client,
 )
 from app.core.cache import cache
 from app.core.auth import get_user_email

@@ -8,7 +8,7 @@ Generate the key once with:
     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 Then set TOKEN_ENCRYPTION_KEY in your environment / secrets manager.
 """
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet
 from app.core.config import TOKEN_ENCRYPTION_KEY
 
 

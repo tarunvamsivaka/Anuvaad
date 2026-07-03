@@ -12,7 +12,6 @@ FIX-12 (P1-06): API key auth (X-API-Key header) is also handled here.
 FIX-30 (P3-04): get_user_email() now raises HTTP 401 instead of returning
 None, so callers no longer need `if not email: raise HTTPException(...)` guards.
 """
-import hashlib
 import os
 from datetime import datetime, timezone
 

@@ -108,7 +108,7 @@ class EmailService:
     def send_welcome(user_email: str, display_name: str = ""):
         name = display_name or user_email.split("@")[0]
         # FIX-32: Uses shared _email_body() instead of duplicating 60 lines of HTML.
-        header = f"""<h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">Welcome to Anuvaad</h1>
+        header = """<h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">Welcome to Anuvaad</h1>
         <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Your AI-powered code translation workspace</p>"""
         body = f"""<p style="margin:0 0 16px;font-size:16px;color:#18181b;">Hi {name},</p>
         <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">Thanks for joining Anuvaad! Here's what you can do:</p>

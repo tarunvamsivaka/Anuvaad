@@ -45,7 +45,6 @@ async def get_history(
                     cursor_dt = datetime.fromisoformat(after_created_at)
                     from sqlalchemy import or_, and_
                     from sqlalchemy import cast
-                    import uuid as uuid_mod
                     query = query.where(
                         or_(
                             TranslationHistory.created_at < cursor_dt,

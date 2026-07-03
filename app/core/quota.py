@@ -468,7 +468,6 @@ async def enforce_workspace_quota(
 
     # Count workspace-scoped translations today
     from app.repositories import translation as translation_repo
-    from datetime import timedelta
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
     workspace_today = await translation_repo.get_count_since(
