@@ -91,6 +91,8 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.PROD_HOST }}
     concurrency:
       group: production-deploy
       cancel-in-progress: false  # Never cancel an in-flight deploy
@@ -99,7 +101,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Deploy via SSH
-        if: ${{ secrets.PROD_HOST != '' }}
+        if: env.DEPLOY_HOST != ''
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_HOST }}
@@ -143,7 +145,7 @@ jobs:
             echo "==> Deployment complete: ${IMAGE_TAG}"
 
       - name: Rollback on failure
-        if: failure() && secrets.PROD_HOST != ''
+        if: failure() && env.DEPLOY_HOST != ''
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_HOST }}
