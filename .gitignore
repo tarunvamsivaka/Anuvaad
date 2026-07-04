@@ -45,6 +45,7 @@ test.db
 all_source_code.md
 combined_markdown_files.md
 ENGINEERING_AUDIT_REPORT.md
+audit_findings.md
 
 # Logs and test artifacts
 failed_e2e_log.txt
