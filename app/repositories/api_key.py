@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 from sqlalchemy import delete, select, update
 

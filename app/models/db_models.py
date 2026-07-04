@@ -1,5 +1,7 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, Text

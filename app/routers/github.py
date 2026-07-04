@@ -12,7 +12,9 @@ FIX-30 (P3-04): Removed redundant `if not user_email` guards.
 FIX-25 (P1-10/A10): httpx client used with follow_redirects=False.
 """
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request

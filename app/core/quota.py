@@ -3,6 +3,8 @@ import os
 import uuid
 from datetime import datetime, timezone
 
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
+
 from fastapi import HTTPException, Request
 
 from app.core.auth import get_user_pro_status

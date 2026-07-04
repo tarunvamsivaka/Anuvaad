@@ -13,7 +13,9 @@ FIX-30 (P3-04): get_user_email() now raises HTTP 401 instead of returning
 None, so callers no longer need `if not email: raise HTTPException(...)` guards.
 """
 import os
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status

@@ -6,7 +6,9 @@ Phase 5 (Arch#2.1): Typed SQLAlchemy queries replacing supabase_request() string
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 from sqlalchemy import delete, func, select
 
