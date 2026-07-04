@@ -113,38 +113,35 @@ async def test_supabase_request_fallback(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_save_translation_background_pruning():
+    """H-01: Pruning now uses translation_repo.prune_oldest() + translation_repo.save().
+
+    When a free user has >= HISTORY_LIMIT_FREE (100) items, prune_oldest() should
+    be called, and save() should always be called to store the new record.
+    """
     import main as app_module
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import AsyncMock, patch
 
     user_email = "free_user@example.com"
-    mock_history = [
-        {"id": f"id_{i}", "created_at": "2026-06-01T12:00:00Z"} for i in range(100)
-    ]
+    HISTORY_LIMIT_FREE = 100  # Must match quota.py constant
 
     async def mock_get_user_pro_status(email):
-        return False
+        return False  # Free user
 
-    async def mock_supabase_request_list(path):
-        return mock_history
-
-    mock_supabase_request = AsyncMock(return_value={"status": "success"})
-    mock_delete = AsyncMock(return_value=MagicMock(status_code=204, text="No Content"))
-
-    # Mock the HTTP client returned by get_http_client() so .delete() is tracked
-    mock_http_client = MagicMock()
-    mock_http_client.delete = mock_delete
-
-    async def mock_get_http_client():
-        return mock_http_client
+    # Simulate being at-limit: count == HISTORY_LIMIT_FREE → pruning triggers
+    mock_get_count = AsyncMock(return_value=HISTORY_LIMIT_FREE)
+    mock_prune_oldest = AsyncMock(return_value=None)
+    mock_save = AsyncMock(return_value=None)
+    mock_get_credits = AsyncMock(return_value=0)
+    mock_cache_delete = AsyncMock()
+    mock_cache_delete_prefix = AsyncMock()
 
     with (
         patch("app.core.quota.get_user_pro_status", mock_get_user_pro_status),
-        patch("app.core.quota.supabase_request_list", mock_supabase_request_list),
-        patch("app.core.quota.supabase_request", mock_supabase_request),
-        patch("app.core.database.get_history_columns", new=AsyncMock(return_value={"id", "user_email", "mode", "source_language", "target_language", "input_preview", "char_count", "block_count", "model_used", "title", "character_count"})),
-        patch("app.core.quota.get_http_client", mock_get_http_client),
-        patch("app.core.config.SUPABASE_URL", "https://mock.supabase.co"),
-        patch("app.core.config.SUPABASE_SERVICE_KEY", "mock_key"),
+        patch("app.repositories.translation.get_count_since", mock_get_count),
+        patch("app.repositories.translation.prune_oldest", mock_prune_oldest),
+        patch("app.repositories.translation.save", mock_save),
+        patch("app.core.cache.cache.delete", mock_cache_delete),
+        patch("app.core.cache.cache.delete_prefix", mock_cache_delete_prefix),
     ):
         await app_module.save_translation_background(
             user_email=user_email,
@@ -156,44 +153,42 @@ async def test_save_translation_background_pruning():
             model_used="standard",
         )
 
-        assert mock_delete.called
-        assert mock_supabase_request.called
+        # Pruning should have fired (count >= limit)
+        mock_prune_oldest.assert_called_once_with(user_email, False)
+        # New record should always be saved
+        mock_save.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_save_translation_background_pruning_pro():
+    """H-01: Pro users have a higher limit (1000). At 100 items, no pruning occurs.
+
+    prune_oldest() should NOT be called when count < HISTORY_LIMIT_PRO.
+    save() should still be called to store the new record.
+    """
     import main as app_module
-    from unittest.mock import AsyncMock, MagicMock, patch
+    from unittest.mock import AsyncMock, patch
 
     user_email = "pro_user@example.com"
-    # Pro limit is 1000, so 100 items should NOT trigger pruning
-    mock_history = [
-        {"id": f"id_{i}", "created_at": "2026-06-01T12:00:00Z"} for i in range(100)
-    ]
+    HISTORY_LIMIT_PRO = 1000  # Must match quota.py constant
 
     async def mock_get_user_pro_status(email):
-        return True
+        return True  # Pro user
 
-    async def mock_supabase_request_list(path):
-        return mock_history
-
-    mock_supabase_request = AsyncMock(return_value={"status": "success"})
-    mock_delete = AsyncMock()
-
-    mock_http_client = MagicMock()
-    mock_http_client.delete = mock_delete
-
-    async def mock_get_http_client():
-        return mock_http_client
+    # Pro user with only 100 items — well below the 1000 limit
+    mock_get_count = AsyncMock(return_value=100)
+    mock_prune_oldest = AsyncMock(return_value=None)
+    mock_save = AsyncMock(return_value=None)
+    mock_cache_delete = AsyncMock()
+    mock_cache_delete_prefix = AsyncMock()
 
     with (
         patch("app.core.quota.get_user_pro_status", mock_get_user_pro_status),
-        patch("app.core.quota.supabase_request_list", mock_supabase_request_list),
-        patch("app.core.quota.supabase_request", mock_supabase_request),
-        patch("app.core.database.get_history_columns", new=AsyncMock(return_value={"id", "user_email", "mode", "source_language", "target_language", "input_preview", "char_count", "block_count", "model_used", "title", "character_count"})),
-        patch("app.core.quota.get_http_client", mock_get_http_client),
-        patch("app.core.config.SUPABASE_URL", "https://mock.supabase.co"),
-        patch("app.core.config.SUPABASE_SERVICE_KEY", "mock_key"),
+        patch("app.repositories.translation.get_count_since", mock_get_count),
+        patch("app.repositories.translation.prune_oldest", mock_prune_oldest),
+        patch("app.repositories.translation.save", mock_save),
+        patch("app.core.cache.cache.delete", mock_cache_delete),
+        patch("app.core.cache.cache.delete_prefix", mock_cache_delete_prefix),
     ):
         await app_module.save_translation_background(
             user_email=user_email,
@@ -205,6 +200,8 @@ async def test_save_translation_background_pruning_pro():
             model_used="standard",
         )
 
-        assert not mock_delete.called
-        assert mock_supabase_request.called
+        # Pro user at 100 items — should NOT trigger pruning
+        mock_prune_oldest.assert_not_called()
+        # New record should still be saved
+        mock_save.assert_called_once()
 

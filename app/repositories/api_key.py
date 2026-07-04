@@ -229,3 +229,26 @@ async def delete_by_id(key_id: str, email: str) -> bool:
             logger.error(f"api_key.delete_by_id({key_id}): {e}")
             await session.rollback()
             return False
+
+
+async def delete_all_for_user(email: str) -> int:
+    """M-01: Hard-delete all API keys for a user (used during account deletion).
+
+    Removes all api_keys rows for the user so no orphaned tokens remain
+    after the Supabase Auth account is deleted.
+    Returns the number of rows deleted.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(
+                delete(ApiKey)
+                .where(ApiKey.user_email == email)
+                .returning(ApiKey.id)
+            )
+            deleted_rows = result.fetchall()
+            await session.commit()
+            return len(deleted_rows)
+        except Exception as e:
+            logger.error(f"api_key.delete_all_for_user({email}): {e}")
+            await session.rollback()
+            return 0

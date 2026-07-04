@@ -11,6 +11,8 @@ from app.core.config import (
     get_http_client,
 )
 from app.core.database import supabase_request, supabase_request_list
+from app.repositories import translation as translation_repo
+from app.repositories import subscription as subscription_repo
 from app.core.cache import cache
 from app.core.auth import get_user_pro_status
 from app.services.email import email_service
@@ -67,100 +69,35 @@ async def save_translation_background(
         if file_path:
             data["file_path"] = file_path
 
-        # ── Storage Allocation & Pruning ──
+        # ── Storage Allocation & Pruning (H-01: ORM replaces O(N) REST scans) ──
         is_pro = await get_user_pro_status(user_email)
         # Arch#2.8: Use unified constants (was hardcoded 1000/100 here AND 50 in prune_translation_history_task)
         limit = HISTORY_LIMIT_PRO if is_pro else HISTORY_LIMIT_FREE
 
-        # Fetch current count of history records
-        is_testing = os.getenv("TESTING", "false").lower() == "true"
-
-        current_count = 0
-        if is_testing:
-            all_rows = await supabase_request_list(
-                f"translation_history?user_email=eq.{user_email}&select=id,created_at&order=created_at.asc"
-            )
-            current_count = len(all_rows)
-        else:
-            url = f"{SUPABASE_URL}/rest/v1/translation_history?user_email=eq.{user_email}"
-            headers = {
-                "apikey": SUPABASE_SERVICE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                "Prefer": "count=exact",
-                "Range-Unit": "items",
-                "Range": "0-0",
-            }
-            try:
-                http_client = await get_http_client()
-                resp = await http_client.get(url, headers=headers)
-                if resp.status_code in (200, 206):
-                    content_range = resp.headers.get("Content-Range", "")
-                    if "/" in content_range:
-                        current_count = int(content_range.split("/")[1])
-                else:
-                    logger.warning(f"Failed to get history count via REST ({resp.status_code}): {resp.text}")
-                    all_rows = await supabase_request_list(f"translation_history?user_email=eq.{user_email}&select=id")
-                    current_count = len(all_rows)
-            except Exception as count_err:
-                logger.warning(f"Failed to get history count via REST: {count_err}")
-                all_rows = await supabase_request_list(f"translation_history?user_email=eq.{user_email}&select=id")
-                current_count = len(all_rows)
+        # COUNT(*) via ORM — single DB query, no REST, works in test env
+        current_count = await translation_repo.get_count_since(user_email)
 
         pruned_count = 0
-
-        from app.core import config
-        url_config = config.SUPABASE_URL
-        key_config = config.SUPABASE_SERVICE_KEY
-
         if current_count >= limit:
+            # prune_oldest() uses 2 SQL statements (SELECT cutoff + DELETE); no O(N) REST loop
+            await translation_repo.prune_oldest(user_email, is_pro)
             pruned_count = (current_count + 1) - limit
-            if is_testing:
-                to_delete_ids = [
-                    row["id"]
-                    for row in all_rows[:pruned_count]
-                    if isinstance(row, dict) and "id" in row
-                ]
-            else:
-                oldest_rows = await supabase_request_list(
-                    f"translation_history?user_email=eq.{user_email}&select=id&order=created_at.asc&limit={pruned_count}"
-                )
-                to_delete_ids = [
-                    row["id"]
-                    for row in oldest_rows
-                    if isinstance(row, dict) and "id" in row
-                ]
+            logger.info(
+                f"Pruned {pruned_count} oldest translation history rows for {user_email} (limit={limit})."
+            )
 
-            if to_delete_ids and url_config and key_config:
-                headers = {
-                    "apikey": key_config,
-                    "Authorization": f"Bearer {key_config}",
-                }
-                ids_param = ",".join(to_delete_ids)
-                url = f"{url_config}/rest/v1/translation_history?id=in.({ids_param})"
-                try:
-                    http_client = await get_http_client()
-                    resp = await http_client.delete(url, headers=headers)
-                    if resp.status_code not in (200, 204):
-                        logger.warning(
-                            f"Failed to prune old translation history items: {resp.status_code} {resp.text}"
-                        )
-                    else:
-                        logger.info(
-                            f"Pruned {len(to_delete_ids)} oldest translation history rows for {user_email} to enforce limit of {limit}."
-                        )
-                except Exception as prune_err:
-                    logger.warning(f"Prune delete failed: {prune_err}")
-
-        # H-6: get_history_columns() is now cached at module level in database.py
-        from app.core.database import get_history_columns
-        allowed_cols = await get_history_columns()
-
-        insert_data = {**data}
-        if "blocks" in allowed_cols:
-            insert_data["blocks"] = blocks
-
-        filtered_payload = {k: v for k, v in insert_data.items() if k in allowed_cols}
-        await supabase_request("POST", "translation_history", filtered_payload)
+        # Save new record via ORM (replaces supabase_request POST + get_history_columns guard)
+        await translation_repo.save(
+            email=user_email,
+            mode=mode,
+            source_language=source_language,
+            target_language=target_language,
+            input_preview=input_text[:80],
+            blocks=blocks,
+            model_used=model_used,
+            workspace_id=workspace_id,
+            session_id=session_id,
+        )
 
         # Invalidate stats and history caches
         await cache.delete(f"user_stats:{user_email}")
@@ -223,22 +160,21 @@ async def get_today_usage_count(email: str) -> int:
     except Exception as e:
         logger.warning(f"Usage count REST query failed, falling back to ORM: {e}")
 
-    # Fallback: count via ORM (slower but always works)
-    path = f"translation_history?user_email=eq.{email}&created_at=gte.{today_start}&select=id"
-    rows = await supabase_request_list(path)
-    return len(rows)
+    # H-02: Fallback uses ORM COUNT(*) — correct and no REST dependency
+    since = datetime.fromisoformat(today_start.replace("Z", "+00:00"))
+    count = await translation_repo.get_count_since(email, since=since)
+    await cache.put(usage_cache_key, count, ttl=60)
+    return count
 
 
 async def get_user_credits(email: str) -> int:
-    """Get the number of translation credits for a user."""
+    """Get the number of translation credits for a user.
+
+    C-03: Uses ORM repository instead of raw supabase_request() REST call.
+    """
     if not email:
         return 0
-    sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{email}&select=credits"
-    )
-    if sub and isinstance(sub, dict):
-        return sub.get("credits") or 0
-    return 0
+    return await subscription_repo.get_credits(email)
 
 
 async def deduct_credit(email: str) -> bool:
@@ -253,7 +189,7 @@ async def deduct_credit(email: str) -> bool:
         WHERE user_email = :email AND credits > 0
     Returns False (no credit deducted) if no rows were matched.
     """
-    from app.core.database import AsyncSessionLocal
+    from app.core.database_session import AsyncSessionLocal  # M-05: direct import, no re-export chain
     from app.core.database import TABLE_MODEL_MAP
     from sqlalchemy import update
 

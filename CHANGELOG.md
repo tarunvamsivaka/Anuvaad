@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security & Architecture Audit Remediation (2026-07-04)
+
+#### Critical Fixes
+- **C-01/C-02:** Confirmed missing imports (`SUPABASE_ANON_KEY`, `get_http_client`) in `history.py` are present; unblocked failing test `test_stats_accessible_to_whitelisted_admin`
+- **C-03:** `get_user_credits()` in `quota.py` migrated from raw `supabase_request()` to `subscription_repo.get_credits()` (ORM)
+- **C-04:** `get_user_pro_status()` in `auth.py` migrated from raw `supabase_request()` to `subscription_repo.get_subscription()` (ORM) — eliminates one raw HTTP call per authenticated request
+
+#### High Priority Fixes
+- **H-01:** History pruning in `save_translation_background()` replaced O(N) REST scan loop with `translation_repo.prune_oldest()` — 2 SQL statements instead of N HTTP calls
+- **H-02:** `get_today_usage_count()` fallback replaced `supabase_request_list()` (fetches all IDs) with `translation_repo.get_count_since()` (single `COUNT(*)`)
+- **H-03:** Admin dashboard `model_calls` now read via `metrics.snapshot()` (Redis-aggregated) instead of in-memory singleton — fixes multi-worker Gunicorn undercounting
+- **H-04:** Billing webhook task (`process_billing_webhook_task`) fully migrated from `supabase_request()` to `subscription_repo` ORM; added `update_by_razorpay_id()` repo method
+
+#### Medium Priority Fixes
+- **M-01:** `DELETE /account` now hard-deletes all user data (translations, API keys, subscription) via ORM repos before calling Supabase Auth admin delete — prevents orphaned data
+- **M-02:** LLM stale-recovery cache in `ai.py` replaced `supabase_request_list()` with `translation_repo.get_history()` ORM call
+- **M-03/M-04:** Auto-fixed 13× W293 trailing whitespace + 1× F541 spurious f-string via `ruff --fix`
+- **M-05:** Fixed `AsyncSessionLocal` import in `quota.py` to go directly to `database_session` (avoids re-export chain circular import risk)
+
+#### Repository Additions
+- `subscription_repo.update_by_razorpay_id()` — ORM update by Razorpay subscription ID
+- `subscription_repo.delete_by_email()` — ORM hard-delete for account deletion
+- `translation_repo.delete_all_for_user()` — ORM hard-delete all translations for a user
+- `api_key_repo.delete_all_for_user()` — ORM hard-delete all API keys for a user
+
+#### Infrastructure & CI
+- **L-01:** Added Python 3.13 to CI test matrix (matches local dev environment)
+- **L-02:** Added Redis service to CI test job so Redis-backed features are tested, not just gracefully skipped
+- **L-03:** Added `vscode-extension` CI job (TypeScript typecheck + lint)
+- **L-04:** Added `healthcheck` to `worker` and `beat` Docker Compose services — dead workers are now detected and restarted automatically
+
 ### Features
 - **Repository Semantic Search (Phase 4):** Completed backend integration for GitHub repository indexing and vector search using OpenAI embeddings and pgvector.
 - **Language Support:** Added detection for Assembly, Verilog, Terraform, Julia, Nim, Zig, Groovy, Fortran, OCaml, and Erlang.

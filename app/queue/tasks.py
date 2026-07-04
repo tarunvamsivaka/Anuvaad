@@ -3,7 +3,6 @@ import logging
 from app.queue.celery_config import celery_app
 from app.core.quota import save_translation_background
 from app.services.email import email_service
-from app.core.database import supabase_request
 
 logger = logging.getLogger("anuvaad")
 
@@ -96,6 +95,7 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     async def _process():
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import PaymentTransaction
+        from app.repositories import subscription as subscription_repo  # H-04
         from sqlalchemy.exc import IntegrityError
 
         async with AsyncSessionLocal() as session:
@@ -117,35 +117,16 @@ def process_billing_webhook_task(event_id: str, payload: dict):
             user_email = notes.get("user_email", "")
             subscription_id = subscription.get("id", "")
             if user_email:
-                logger.info(f"✅ Razorpay subscription activated: {user_email} (sub: {subscription_id})")
-                existing = await supabase_request(
-                    "GET",
-                    f"user_subscriptions?user_email=eq.{user_email}&select=user_email",
-                )
+                logger.info(f"Razorpay subscription activated: {user_email} (sub: {subscription_id})")
+                # H-04: ORM upsert replaces supabase_request GET + conditional PATCH/POST
+                existing = await subscription_repo.get_subscription(user_email)
                 is_new = not existing
-                # BUG#2b FIX: Upsert — PATCH if row exists, POST if new.
-                # Always POSTing fails silently on UNIQUE constraint.
-                if existing:
-                    await supabase_request(
-                        "PATCH",
-                        f"user_subscriptions?user_email=eq.{user_email}",
-                        {
-                            "razorpay_subscription_id": subscription_id,
-                            "is_pro": True,
-                            "onboarded": False,
-                        },
-                    )
-                else:
-                    await supabase_request(
-                        "POST",
-                        "user_subscriptions",
-                        {
-                            "user_email": user_email,
-                            "razorpay_subscription_id": subscription_id,
-                            "is_pro": True,
-                            "onboarded": False,
-                        },
-                    )
+                # H-04: single upsert_subscription() replaces the GET + conditional PATCH/POST
+                await subscription_repo.upsert_subscription(user_email, {
+                    "razorpay_subscription_id": subscription_id,
+                    "is_pro": True,
+                    "onboarded": False,
+                })
                 if is_new:
                     email_service.send_welcome(user_email)
                 email_service.send_subscription_upgrade(user_email, "Pro")
@@ -155,36 +136,25 @@ def process_billing_webhook_task(event_id: str, payload: dict):
             subscription_id = subscription.get("id", "")
             notes = subscription.get("notes", {})
             user_email = notes.get("user_email", "")
-            logger.info(f"🔄 Razorpay subscription charged: {user_email} (sub: {subscription_id})")
+            logger.info(f"Razorpay subscription charged: {user_email} (sub: {subscription_id})")
             if subscription_id:
-                await supabase_request(
-                    "PATCH",
-                    f"user_subscriptions?razorpay_subscription_id=eq.{subscription_id}",
-                    {"is_pro": True},
-                )
+                # H-04: update_by_razorpay_id() replaces raw PATCH by razorpay_subscription_id
+                await subscription_repo.update_by_razorpay_id(subscription_id, {"is_pro": True})
 
         elif event_type in ("subscription.cancelled", "subscription.completed"):
             subscription = payload_data.get("subscription", {}).get("entity", {})
             subscription_id = subscription.get("id", "")
             notes = subscription.get("notes", {})
             user_email = notes.get("user_email", "")
-            logger.info(f"❌ Razorpay subscription ended: {user_email} (sub: {subscription_id})")
-            await supabase_request(
-                "PATCH",
-                f"user_subscriptions?razorpay_subscription_id=eq.{subscription_id}",
-                {"is_pro": False},
-            )
+            logger.info(f"Razorpay subscription ended: {user_email} (sub: {subscription_id})")
+            await subscription_repo.update_by_razorpay_id(subscription_id, {"is_pro": False})
 
         elif event_type == "payment.failed":
             payment = payload_data.get("payment", {}).get("entity", {})
             customer_email = payment.get("email", "unknown")
-            logger.warning(f"⚠ Razorpay payment failed: {customer_email}")
+            logger.warning(f"Razorpay payment failed: {customer_email}")
             if customer_email and customer_email != "unknown":
-                await supabase_request(
-                    "PATCH",
-                    f"user_subscriptions?user_email=eq.{customer_email}",
-                    {"is_pro": False},
-                )
+                await subscription_repo.upsert_subscription(customer_email, {"is_pro": False})
 
         else:
             logger.info(f"Razorpay webhook received: {event_type} (unhandled)")

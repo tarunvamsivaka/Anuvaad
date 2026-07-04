@@ -93,6 +93,13 @@ services:
         limits:
           memory: 512m
           cpus: '1'
+    # L-04: Healthcheck so dead workers are detected and restarted
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.queue.celery_config.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 2>&1 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
     logging:
       driver: "json-file"
       options:
@@ -120,6 +127,13 @@ services:
         limits:
           memory: 256m
           cpus: '0.5'
+    # L-04: Healthcheck so a stalled beat scheduler is detected
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.queue.celery_config.celery_app inspect ping --timeout 5 2>&1 | grep -q pong"]
+      interval: 60s
+      timeout: 15s
+      retries: 2
+      start_period: 15s
     logging:
       driver: "json-file"
       options:

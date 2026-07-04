@@ -239,8 +239,10 @@ async def find_stale_translation(
 
     if email:
         input_preview = input_text[:80]
-        path = f"translation_history?user_email=eq.{email}&input_preview=eq.{input_preview}&mode=eq.{mode}&select=*"
-        rows = await supabase_request_list(path)
+        # M-02: Use ORM repository instead of raw supabase_request_list()
+        from app.repositories import translation as translation_repo
+        rows = await translation_repo.get_history(email, limit=10)
+        rows = [r for r in rows if r.get("input_preview") == input_preview and r.get("mode") == mode]
         if rows:
             for row in rows:
                 if isinstance(row, dict) and "blocks" in row and row["blocks"]:

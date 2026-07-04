@@ -284,7 +284,13 @@ async def delete_api_key(
 
 @router.delete("/account")
 async def delete_account(authorization: str = Header(None)):
-    """Delete the authenticated user's account from Supabase Auth."""
+    """Delete the authenticated user's account from Supabase Auth.
+
+    M-01: Data cleanup order:
+      1. Verify token and resolve user_id + email from Supabase Auth
+      2. Hard-delete all user data (translations, API keys, subscription) via ORM
+      3. Delete the Supabase Auth user via Admin API
+    """
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -301,7 +307,21 @@ async def delete_account(authorization: str = Header(None)):
         if resp.status_code != 200:
             raise HTTPException(status_code=401, detail="Invalid token")
 
-        user_id = resp.json().get("id")
+        user_data = resp.json()
+        user_id = user_data.get("id")
+        user_email = user_data.get("email", "")
+
+        # M-01: Clean up all user data before deleting auth account
+        if user_email:
+            deleted_translations = await translation_repo.delete_all_for_user(user_email)
+            deleted_keys = await api_key_repo.delete_all_for_user(user_email)
+            from app.repositories import subscription as subscription_repo
+            deleted_sub = await subscription_repo.delete_by_email(user_email)
+            logger.info(
+                f"Account deletion data cleanup for {user_email}: "
+                f"{deleted_translations} translations, {deleted_keys} API keys, "
+                f"subscription={deleted_sub}"
+            )
 
         if SUPABASE_SERVICE_KEY:
             admin_resp = await client.delete(
@@ -363,9 +383,14 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
         "deepseek-chat": 0.0004,
         "deepseek-reasoner": 0.005,
     }
+    # H-03: Read from Redis via snapshot() so all workers' counts are aggregated
+    metrics_snapshot = await metrics.snapshot()
+    model_calls_agg = metrics_snapshot.get("model_calls", {})
+    model_errors_agg = metrics_snapshot.get("model_errors", {})
+    total_requests_agg = metrics_snapshot.get("total_requests", {})
     estimated_spend = sum(
         count * MODEL_PRICING.get(model, 0.001)
-        for model, count in metrics.model_calls.items()
+        for model, count in model_calls_agg.items()
     )
 
     protection_mode = await get_active_protection_mode()
@@ -374,9 +399,9 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
         "total_users": total_users,
         "cache_stats": cache_stats,
         "estimated_spend_usd": round(estimated_spend, 4),
-        "total_translations": sum(metrics.total_requests.values()),
+        "total_translations": sum(total_requests_agg.values()),
         "protection_mode": protection_mode,
-        "model_calls": dict(metrics.model_calls),
-        "model_errors": dict(metrics.model_errors),
+        "model_calls": model_calls_agg,
+        "model_errors": model_errors_agg,
         "uptime_seconds": metrics.uptime_seconds,
     }

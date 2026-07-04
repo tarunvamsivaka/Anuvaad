@@ -4,10 +4,6 @@ app/repositories/subscription.py
 Typed repository for user_subscriptions table.
 Phase 5 (Arch#2.1): Replaces string-based supabase_request() calls for
 subscription data with proper SQLAlchemy queries.
-
-Key function:
-  atomic_deduct_credit(email) — single atomic UPDATE ... WHERE credits > 0
-  This is the production-grade fix for BUG#1+#5 (TOCTOU race condition).
 """
 from __future__ import annotations
 
@@ -44,17 +40,7 @@ async def get_credits(email: str) -> int:
 async def atomic_deduct_credit(email: str) -> bool:
     """Atomically decrement credits by 1, only if credits > 0.
 
-    BUG#1+#5 definitive fix (Phase 5):
-    Emits a single SQL statement:
-        UPDATE user_subscriptions
-        SET credits = credits - 1
-        WHERE user_email = :email AND credits > 0
-
-    Returns True if a row was updated (credit was available and deducted).
-    Returns False if credits were already 0 or the user has no subscription.
-
-    This is safe under full concurrent load — no TOCTOU window exists because
-    the read and write happen in one atomic statement with a WHERE guard.
+    BUG#1+#5 definitive fix (Phase 5): single atomic SQL UPDATE with WHERE guard.
     """
     async with AsyncSessionLocal() as session:
         try:
@@ -117,7 +103,6 @@ async def add_credits(email: str, amount: int) -> bool:
     """Atomically add *amount* credits to the user's subscription.
 
     Upserts the row if it doesn't exist (prevents UNIQUE constraint errors).
-    Returns True on success.
     """
     async with AsyncSessionLocal() as session:
         try:
@@ -148,12 +133,7 @@ async def add_credits(email: str, amount: int) -> bool:
 
 
 async def mark_onboarded(email: str) -> bool:
-    """FIX-35 (P3-08): Mark the user's onboarding as complete.
-
-    Sets onboarded=True on the user_subscriptions row. If no row exists,
-    creates a minimal one so the flag is always persisted.
-    Returns True on success.
-    """
+    """FIX-35 (P3-08): Mark the user's onboarding as complete."""
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(
@@ -177,5 +157,51 @@ async def mark_onboarded(email: str) -> bool:
             return True
         except Exception as e:
             logger.error(f"subscription.mark_onboarded({email}): {e}")
+            await session.rollback()
+            return False
+
+
+async def update_by_razorpay_id(razorpay_subscription_id: str, data: dict) -> bool:
+    """H-04: Update a subscription row identified by Razorpay subscription ID.
+
+    Used by billing webhook tasks (subscription.charged / subscription.cancelled)
+    which identify the subscription by Razorpay ID rather than email.
+    Returns True if a row was matched and updated.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            stmt = (
+                update(UserSubscription)
+                .where(UserSubscription.razorpay_subscription_id == razorpay_subscription_id)
+                .values(**data)
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            return (result.rowcount or 0) > 0
+        except Exception as e:
+            logger.error(f"subscription.update_by_razorpay_id({razorpay_subscription_id}): {e}")
+            await session.rollback()
+            return False
+
+
+async def delete_by_email(email: str) -> bool:
+    """M-01: Hard-delete subscription row (used during account deletion).
+
+    Call after all other user data has been removed.
+    Returns True if a row existed and was deleted.
+    """
+    from sqlalchemy import delete as sa_delete
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(
+                sa_delete(UserSubscription)
+                .where(UserSubscription.user_email == email)
+                .returning(UserSubscription.user_email)
+            )
+            deleted = result.fetchone()
+            await session.commit()
+            return deleted is not None
+        except Exception as e:
+            logger.error(f"subscription.delete_by_email({email}): {e}")
             await session.rollback()
             return False

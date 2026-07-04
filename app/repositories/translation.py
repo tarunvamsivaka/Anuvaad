@@ -249,3 +249,25 @@ async def update_share_status(item_id: str, email: str, is_public: bool) -> bool
             logger.error(f"translation.update_share_status({item_id}): {e}")
             await session.rollback()
             return False
+
+
+async def delete_all_for_user(email: str) -> int:
+    """M-01: Hard-delete all translation_history rows for a user.
+
+    Used during account deletion to prevent data leakage after the user's
+    Supabase Auth account is removed. Returns the number of rows deleted.
+    """
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(
+                delete(TranslationHistory)
+                .where(TranslationHistory.user_email == email)
+                .returning(TranslationHistory.id)
+            )
+            deleted_rows = result.fetchall()
+            await session.commit()
+            return len(deleted_rows)
+        except Exception as e:
+            logger.error(f"translation.delete_all_for_user({email}): {e}")
+            await session.rollback()
+            return 0

@@ -26,8 +26,8 @@ from app.core.config import (
     TRUSTED_EMAILS,
     logger,
 )
-from app.core.database import supabase_request
 from app.core.cache import cache
+from app.repositories import subscription as subscription_repo
 
 security = HTTPBearer(auto_error=False)
 
@@ -177,12 +177,9 @@ async def get_user_pro_status(email: str) -> bool:
     if cached is not None:
         return bool(cached)
 
-    sub = await supabase_request(
-        "GET", f"user_subscriptions?user_email=eq.{email}&select=is_pro"
-    )
-    is_pro = False
-    if sub and isinstance(sub, dict):
-        is_pro = bool(sub.get("is_pro", False))
+    # C-04: Use ORM repository instead of raw supabase_request() REST call
+    sub = await subscription_repo.get_subscription(email)
+    is_pro = bool(sub.get("is_pro", False)) if sub else False
 
     await cache.put(cache_key, is_pro, ttl=30)  # 30s TTL — fast post-payment visibility
     return is_pro
