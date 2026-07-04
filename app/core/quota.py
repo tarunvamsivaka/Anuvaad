@@ -3,8 +3,6 @@ import os
 import uuid
 from datetime import datetime, timezone
 
-UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
-
 from fastapi import HTTPException, Request
 
 from app.core.auth import get_user_pro_status
@@ -20,6 +18,8 @@ from app.domain.quota.policy import compute_quota_policy
 from app.repositories import subscription as subscription_repo
 from app.repositories import translation as translation_repo
 from app.services.email import email_service
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 # ── History pruning limits (Arch#2.8: unified constants, no more conflicting values) ──
 HISTORY_LIMIT_PRO = int(os.getenv("HISTORY_LIMIT_PRO", "1000"))

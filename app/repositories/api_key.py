@@ -14,14 +14,13 @@ import hashlib
 import secrets
 from datetime import datetime, timezone
 
-UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
-
 from sqlalchemy import delete, select, update
 
 from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import ApiKey
 
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 def _sha256_hash(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode()).hexdigest()

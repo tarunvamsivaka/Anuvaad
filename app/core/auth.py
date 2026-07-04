@@ -15,8 +15,6 @@ None, so callers no longer need `if not email: raise HTTPException(...)` guards.
 import os
 from datetime import datetime, timezone
 
-UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
-
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -30,6 +28,8 @@ from app.core.config import (
     logger,
 )
 from app.repositories import subscription as subscription_repo
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 security = HTTPBearer(auto_error=False)
 

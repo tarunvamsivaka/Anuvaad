@@ -22,8 +22,6 @@ import base64
 import json
 from datetime import datetime, timedelta, timezone
 
-UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
-
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 
@@ -45,6 +43,8 @@ from app.core.quota import get_active_protection_mode
 from app.models.schemas import ApiKeyCreate, SharePayload
 from app.repositories import api_key as api_key_repo
 from app.repositories import translation as translation_repo
+
+UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 router = APIRouter(prefix="", tags=["history"])
 
