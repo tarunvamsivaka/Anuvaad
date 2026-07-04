@@ -52,24 +52,32 @@ async def search_repo_embeddings(
     db: AsyncSession,
     repository_name: str,
     query_embedding: List[float],
-    top_k: int = 5
+    top_k: int = 5,
+    provider: str = "hf",
 ) -> List[Any]:
-    """
-    Search for similar code chunks using cosine distance.
+    """Search for similar code chunks using cosine distance.
+
+    FIX-audit-7: `provider` is now an explicit parameter instead of being
+    inferred from the embedding dimension (`len > 1000`). The caller must pass
+    the same provider string that was used during indexing so the WHERE filter
+    matches the correct embedding rows.
+
+    Args:
+        db: Async SQLAlchemy session.
+        repository_name: "owner/repo" identifier.
+        query_embedding: Vector to search against.
+        top_k: Maximum number of results to return.
+        provider: "openai" | "hf" — must match what was used at index time.
     """
     from sqlalchemy import select
 
     try:
-        # Get the dimension of the query to ensure we only compare with same-dim embeddings
-        # Assuming provider determines dimension. If query_embedding length is 1536, only match provider='openai'
-        provider = "openai" if len(query_embedding) > 1000 else "hf"
-
-        # Use cosine distance operator '<=>' for pgvector
+        # Use cosine distance operator '<=>' (pgvector)
         stmt = (
             select(
                 RepoEmbedding.file_path,
                 RepoEmbedding.content,
-                RepoEmbedding.embedding.cosine_distance(query_embedding).label("similarity")
+                RepoEmbedding.embedding.cosine_distance(query_embedding).label("similarity"),
             )
             .where(RepoEmbedding.repository_name == repository_name)
             .where(RepoEmbedding.provider == provider)

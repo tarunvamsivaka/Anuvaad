@@ -1,3 +1,4 @@
+import base64
 import os
 import structlog
 from github import Github, Auth
@@ -44,7 +45,6 @@ def fetch_repository_files(repo_name: str) -> List[Dict[str, str]]:
                 try:
                     blob = repo.get_git_blob(element.sha)
                     if blob.encoding == "base64":
-                        import base64
                         content = base64.b64decode(blob.content).decode("utf-8", errors="ignore")
                     elif blob.encoding == "utf-8":
                         content = blob.content
