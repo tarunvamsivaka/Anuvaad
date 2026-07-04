@@ -5,6 +5,7 @@ services:
     volumes:
       - redis_data_prod:/data
     restart: unless-stopped
+    # Redis password via REDIS_PASSWORD env var (set in server .env)
     command: >
       sh -c "
         if [ -n \"$$REDIS_PASSWORD\" ]; then
@@ -33,62 +34,62 @@ services:
           cpus: '0.5'
           memory: 512M
 
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  # FIX-deploy-1: Use Dockerfile.api (was incorrectly set to monolithic Dockerfile)
   backend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/placeholder-overridden-by-deploy-script:latest
     container_name: anuvaad-backend-prod
     env_file:
       - .env
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ENV=production
       - WEB_CONCURRENCY=${WEB_CONCURRENCY:-4}
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:5432/postgres
+      # FIX-deploy-4: Do NOT hardcode DATABASE_URL here — let .env supply the real password
     depends_on:
       redis:
         condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 20s
+      start_period: 30s
     deploy:
       resources:
         limits:
           cpus: '1.5'
           memory: 1.5G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "service=anuvaad-backend"
 
+  # ── Celery Worker ────────────────────────────────────────────────────────────
+  # FIX-deploy-1: Use Dockerfile.api
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/placeholder-overridden-by-deploy-script:latest
     container_name: anuvaad-worker-prod
-    command: celery -A app.queue.celery_config.celery_app worker --loglevel=info
+    command: celery -A app.queue.celery_config.celery_app worker --loglevel=info --concurrency=2
     env_file:
       - .env
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:5432/postgres
+      # FIX-deploy-4: No hardcoded DATABASE_URL — .env supplies the real value
     depends_on:
       redis:
         condition: service_healthy
       backend:
         condition: service_healthy
-      pgbouncer:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "celery -A app.queue.celery_config.celery_app inspect ping -d celery@$$HOSTNAME"]
+      test: ["CMD-SHELL", "celery -A app.queue.celery_config.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 2>&1 | grep -q pong"]
       interval: 30s
-      timeout: 10s
+      timeout: 15s
       retries: 3
       start_period: 30s
     deploy:
@@ -96,26 +97,29 @@ services:
         limits:
           cpus: '1.0'
           memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=anuvaad-worker"
 
+  # ── Celery Beat Scheduler ────────────────────────────────────────────────────
+  # FIX-deploy-1: Use Dockerfile.api
   beat:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/placeholder-overridden-by-deploy-script:latest
     container_name: anuvaad-beat-prod
     command: celery -A app.queue.celery_config.celery_app beat --loglevel=info
     env_file:
       - .env
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ENV=production
-      - DATABASE_URL=postgresql://postgres:postgres@pgbouncer:5432/postgres
+      # FIX-deploy-4: No hardcoded DATABASE_URL — .env supplies the real value
     depends_on:
       redis:
         condition: service_healthy
       backend:
-        condition: service_healthy
-      pgbouncer:
         condition: service_healthy
     restart: unless-stopped
     deploy:
@@ -123,24 +127,27 @@ services:
         limits:
           cpus: '0.5'
           memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+        labels: "service=anuvaad-beat"
 
+  # ── Next.js Frontend ─────────────────────────────────────────────────────────
+  # FIX-deploy-2: context=. + dockerfile=Dockerfile.frontend (was context=./frontend + wrong Dockerfile)
+  # FIX-deploy-3: Added NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY build-args
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    image: ghcr.io/placeholder-overridden-by-deploy-script-frontend:latest
     container_name: anuvaad-frontend-prod
     environment:
-      - NEXT_PUBLIC_API_URL=http://backend:8000
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.getanuvaad.com}
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/", "||", "exit", "1"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -150,7 +157,14 @@ services:
         limits:
           cpus: '1.0'
           memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=anuvaad-frontend"
 
+  # ── Nginx Reverse Proxy (TLS termination + static asset caching) ─────────────
   nginx:
     image: nginx:alpine
     container_name: anuvaad-nginx-prod
@@ -174,7 +188,14 @@ services:
         limits:
           cpus: '0.5'
           memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+        labels: "service=anuvaad-nginx"
 
+  # ── PgBouncer Connection Pooler ──────────────────────────────────────────────
   pgbouncer:
     image: edoburu/pgbouncer:1.22.1
     container_name: anuvaad-pgbouncer-prod

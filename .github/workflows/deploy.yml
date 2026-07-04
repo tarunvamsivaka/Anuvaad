@@ -3,16 +3,20 @@ name: Deploy to Production
 # FIX-15 (P2-07): CD pipeline — deploys to production on every push to master
 # after CI passes. Uses Docker image tagging by Git SHA for reproducible rollbacks.
 #
-# Required GitHub Secrets:
+# Required GitHub Secrets (Settings → Secrets and variables → Actions → Environment: production):
 #   PROD_HOST        — production server hostname/IP
 #   PROD_SSH_KEY     — private SSH key for the deployment user
-#   DOCKER_USERNAME  — container registry username (or github.actor for GHCR)
-#   DOCKER_PASSWORD  — container registry password / GitHub PAT (packages:write)
+#   DOCKER_USERNAME  — registry username (defaults to github.actor for GHCR)
+#   DOCKER_PASSWORD  — GitHub PAT with packages:write scope (for GHCR)
+#                      Create at: github.com/settings/tokens → Generate new token
+#                      Scopes: read:packages, write:packages, delete:packages
 #
-# Required GitHub Variables (non-secret):
-#   DOCKER_REGISTRY  — e.g., ghcr.io  (default: ghcr.io)
-#   PROD_USER        — SSH user on production server (default: deploy)
-#   NEXT_PUBLIC_API_URL — e.g., https://api.getanuvaad.com
+# Required GitHub Variables (non-secret, Settings → Variables → Actions):
+#   DOCKER_REGISTRY       — e.g., ghcr.io  (default: ghcr.io — free for public repos)
+#   PROD_USER             — SSH user on production server (default: deploy)
+#   NEXT_PUBLIC_API_URL   — e.g., https://api.getanuvaad.com
+#   NEXT_PUBLIC_SUPABASE_URL    — e.g., https://xxx.supabase.co
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY — Supabase public anon key (safe to bake into build)
 
 on:
   push:
@@ -84,6 +88,8 @@ jobs:
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL || 'https://api.getanuvaad.com' }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
   # ── Deploy ───────────────────────────────────────────────────────────────────
   deploy:

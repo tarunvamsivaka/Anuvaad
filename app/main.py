@@ -18,7 +18,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.config import ENV, SENTRY_DSN, GROQ_API_KEY, logger
+from app.core.config import (
+    ENV, SENTRY_DSN, GROQ_API_KEY, logger,
+    DATABASE_URL, SUPABASE_URL, SUPABASE_JWT_SECRET,
+    TOKEN_ENCRYPTION_KEY, FRONTEND_URL,
+)
 from app.core.auth import get_user_email
 from app.api.middleware import register_all
 from app.services import ai as ai_service
@@ -36,11 +40,56 @@ from app.routers.onboarding import router as onboarding_router  # FIX-35 (P3-08)
 from app.core.config import lifespan as _base_lifespan
 
 
+# ── Startup Environment Validation ──
+
+# Critical vars that MUST be set in production.
+# App will refuse to start if any of these are missing when ENV=production.
+_CRITICAL_VARS: list[tuple[str, str]] = [
+    ("GROQ_API_KEY",         GROQ_API_KEY),
+    ("DATABASE_URL",         DATABASE_URL),
+    ("SUPABASE_URL",         SUPABASE_URL),
+    ("SUPABASE_JWT_SECRET",  SUPABASE_JWT_SECRET),
+    ("TOKEN_ENCRYPTION_KEY", TOKEN_ENCRYPTION_KEY),
+    ("FRONTEND_URL",         FRONTEND_URL),
+]
+
+
+def validate_production_env() -> None:
+    """Validate that all critical environment variables are present.
+
+    In production (ENV=production): raises RuntimeError and aborts startup
+    if any critical var is missing or empty — prevents serving traffic with
+    a misconfigured instance.
+
+    In development / test: logs a WARNING per missing var (no hard stop).
+    """
+    missing = [name for name, value in _CRITICAL_VARS if not value]
+    if not missing:
+        logger.info("Environment validation passed — all critical vars are set")
+        return
+
+    msg = f"Missing critical environment variables: {', '.join(missing)}"
+    if ENV == "production":
+        raise RuntimeError(
+            f"{msg}. "
+            "Set these in your server .env file before starting the application. "
+            "See .env.example for documentation."
+        )
+    else:
+        for name in missing:
+            logger.warning(
+                f"[dev] Environment variable '{name}' is not set. "
+                "This will cause a hard failure in production."
+            )
+
+
 # ── Lifespan ──
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize singletons on startup; clean up gracefully on shutdown."""
+    # Validate env vars before accepting any traffic
+    validate_production_env()
     # BACK-02: Initialize LLM client singletons once (avoids per-request DNS + TLS)
     ai_service.init_clients(GROQ_API_KEY)
     async with _base_lifespan(app):
