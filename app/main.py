@@ -76,6 +76,14 @@ def validate_production_env() -> None:
 
     msg = f"Missing critical environment variables: {', '.join(missing)}"
     if ENV == "production":
+        import sys
+        logger.critical(
+            f"CRITICAL STARTUP FAILURE: {msg}. "
+            "Please configure these environment variables in your Render Dashboard settings."
+        )
+        # Force flushing of stdout/stderr so buffered logs are immediately visible in Render
+        sys.stdout.flush()
+        sys.stderr.flush()
         raise RuntimeError(
             f"{msg}. "
             "Set these in your server .env file before starting the application. "
