@@ -1,24 +1,27 @@
-import os
 import json
-from fastapi import APIRouter, Request, Depends, HTTPException, UploadFile, File, Form
+import os
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+
+from app.core.auth import get_user_email, get_user_pro_status, is_token_pro
+from app.core.cache import cache, cache_key
 from app.core.config import (
-    logger,
-    metrics,
     ALLOWED_EXTENSIONS,
     EXTENSION_TO_LANGUAGE,
     FREE_MAX_FILE_SIZE,
     PRO_MAX_FILE_SIZE,
+    logger,
+    metrics,
 )
-from app.core.cache import cache, cache_key
-from app.core.auth import get_user_email, get_user_pro_status, is_token_pro
 from app.core.quota import enforce_quotas_and_protection, record_successful_completion
 from app.queue.tasks import save_translation_history_task
 from app.services.ai import (
+    SYSTEM_INSTRUCTION,
+    find_stale_translation,
     get_completion,
     normalize_blocks,
-    find_stale_translation,
-    SYSTEM_INSTRUCTION,
 )
+
 from .dependencies import (
     sanitise_input,
     validate_code_input,

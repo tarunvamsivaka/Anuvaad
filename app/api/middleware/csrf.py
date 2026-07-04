@@ -8,9 +8,11 @@ C-2: Pre-computes the allowed origins as a frozenset for O(1) lookups.
 The frozenset is built once at import time and shared across all requests.
 """
 import os
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from app.core.config import IS_PRODUCTION, FRONTEND_URL
+
+from app.core.config import FRONTEND_URL, IS_PRODUCTION
 
 # Build the full set of allowed origins once at import time
 _extra_origins: list[str] = [

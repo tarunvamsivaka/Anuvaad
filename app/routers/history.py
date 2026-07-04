@@ -20,27 +20,29 @@ Endpoints:
 import asyncio
 import base64
 import json
-from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from datetime import UTC, datetime, timedelta
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
 
+from app.core.auth import get_user_email
+from app.core.cache import cache
 from app.core.config import (
     ADMIN_EMAILS,
+    SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_KEY,
+    SUPABASE_URL,
+    get_http_client,
     logger,
     metrics,
-    SUPABASE_URL,
-    SUPABASE_SERVICE_KEY,
-    SUPABASE_ANON_KEY,
-    get_http_client,
 )
-from app.core.cache import cache
-from app.core.auth import get_user_email
-from app.core.quota import get_active_protection_mode
+
 # FIX-31 (P3-01): Use named constants instead of inline magic numbers
 from app.core.constants import DEFAULT_HISTORY_PAGE_SIZE, MAX_HISTORY_PAGE_SIZE
+from app.core.quota import get_active_protection_mode
 from app.models.schemas import ApiKeyCreate, SharePayload
-from app.repositories import translation as translation_repo
 from app.repositories import api_key as api_key_repo
+from app.repositories import translation as translation_repo
 
 router = APIRouter(prefix="", tags=["history"])
 
@@ -124,7 +126,7 @@ async def get_translation_stats(
         return cached
     await metrics.record_cache_miss()
 
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
     week_start_dt = (now_utc - timedelta(days=now_utc.weekday())).replace(
         hour=0, minute=0, second=0, microsecond=0

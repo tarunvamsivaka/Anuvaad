@@ -1,15 +1,17 @@
+import uuid
+from typing import Any
+
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict, Any
+
 from app.models.db_models import RepoEmbedding
-import uuid
 
 logger = structlog.get_logger(__name__)
 
 async def insert_repo_embeddings(
     db: AsyncSession,
     repository_name: str,
-    chunks: List[Dict[str, Any]]
+    chunks: list[dict[str, Any]]
 ) -> int:
     """
     Inserts a list of repository chunks with their embeddings into the database.
@@ -51,10 +53,10 @@ async def insert_repo_embeddings(
 async def search_repo_embeddings(
     db: AsyncSession,
     repository_name: str,
-    query_embedding: List[float],
+    query_embedding: list[float],
     top_k: int = 5,
     provider: str = "hf",
-) -> List[Any]:
+) -> list[Any]:
     """Search for similar code chunks using cosine distance.
 
     FIX-audit-7: `provider` is now an explicit parameter instead of being

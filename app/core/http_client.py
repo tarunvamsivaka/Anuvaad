@@ -17,6 +17,7 @@ Lifecycle:
 """
 import asyncio
 import weakref
+
 import httpx
 
 from app.core.logging import logger

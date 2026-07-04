@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 
+
 class CodePayload(BaseModel):
     raw_code: str = Field(..., min_length=1, max_length=50000)
     language: str = Field(..., min_length=1, max_length=30)

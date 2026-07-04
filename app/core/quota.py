@@ -1,22 +1,23 @@
 import asyncio
 import os
 import uuid
-from datetime import datetime, timezone
-from fastapi import Request, HTTPException
-from app.core.config import (
-    SUPABASE_URL,
-    SUPABASE_SERVICE_KEY,
-    ADMIN_EMAILS,
-    logger,
-    get_http_client,
-)
-from app.core.database import supabase_request, supabase_request_list
-from app.repositories import translation as translation_repo
-from app.repositories import subscription as subscription_repo
-from app.core.cache import cache
+from datetime import UTC, datetime
+
+from fastapi import HTTPException, Request
+
 from app.core.auth import get_user_pro_status
-from app.services.email import email_service
+from app.core.cache import cache
+from app.core.config import (
+    ADMIN_EMAILS,
+    SUPABASE_SERVICE_KEY,
+    SUPABASE_URL,
+    get_http_client,
+    logger,
+)
 from app.domain.quota.policy import compute_quota_policy
+from app.repositories import subscription as subscription_repo
+from app.repositories import translation as translation_repo
+from app.services.email import email_service
 
 # ── History pruning limits (Arch#2.8: unified constants, no more conflicting values) ──
 HISTORY_LIMIT_PRO = int(os.getenv("HISTORY_LIMIT_PRO", "1000"))
@@ -137,7 +138,7 @@ async def get_today_usage_count(email: str) -> int:
     if not url or not key:
         return 0
 
-    today_start = datetime.now(timezone.utc).strftime("%Y-%m-%dT00:00:00Z")
+    today_start = datetime.now(UTC).strftime("%Y-%m-%dT00:00:00Z")
 
     try:
         http_client = await get_http_client()
@@ -189,9 +190,12 @@ async def deduct_credit(email: str) -> bool:
         WHERE user_email = :email AND credits > 0
     Returns False (no credit deducted) if no rows were matched.
     """
-    from app.core.database_session import AsyncSessionLocal  # M-05: direct import, no re-export chain
-    from app.core.database import TABLE_MODEL_MAP
     from sqlalchemy import update
+
+    from app.core.database import TABLE_MODEL_MAP
+    from app.core.database_session import (
+        AsyncSessionLocal,  # M-05: direct import, no re-export chain
+    )
 
     model = TABLE_MODEL_MAP.get("user_subscriptions")
     if not model:
@@ -255,14 +259,14 @@ async def get_lifetime_translations(email: str) -> int:
 
 
 async def increment_platform_daily_usage() -> int:
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
     key = f"platform_daily_usage:{today_str}"
     count = await cache.incr_rate_limit(key, 86400)
     return count
 
 
 async def get_platform_daily_usage() -> int:
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
     key = f"platform_daily_usage:{today_str}"
     val = await cache.get(key)
     return int(val) if val is not None else 0
@@ -404,7 +408,7 @@ async def enforce_workspace_quota(
 
     # Count workspace-scoped translations today
     from app.repositories import translation as translation_repo
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
     workspace_today = await translation_repo.get_count_since(
         owner_email,

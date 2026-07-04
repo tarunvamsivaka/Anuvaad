@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from .upload import router as upload_router
+
+from .code_to_code import router as code_to_code_router
 from .code_to_english import router as code_to_english_router
 from .english_to_code import router as english_to_code_router
-from .code_to_code import router as code_to_code_router
+from .upload import router as upload_router
 
 router = APIRouter(prefix="", tags=["translate"])
 

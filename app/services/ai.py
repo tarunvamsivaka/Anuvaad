@@ -1,19 +1,20 @@
-import os
-import json
 import asyncio
-from openai import AsyncOpenAI
+import json
+import os
+
 from fastapi import HTTPException
+from openai import AsyncOpenAI
+
+from app.core.cache import cache, cache_key
 from app.core.config import (
     LLM_TIMEOUT,
     OPENROUTER_API_KEY,
     logger,
     metrics,
 )
-from app.core.cache import cache, cache_key
-from app.core.database import supabase_request_list
 from app.core.quota import record_successful_completion
-from app.queue.tasks import save_translation_history_task
 from app.models.schemas import CodePayload, CodeToCodePayload
+from app.queue.tasks import save_translation_history_task
 
 # ── LLM CLIENT SINGLETONS (BACK-02) ──
 # Created once at startup in lifespan, reused for all requests.
@@ -232,7 +233,7 @@ async def find_stale_translation(
     ]
     keys = [cache_key(input_text, language, endpoint, m) for m in models_to_try]
     results = await asyncio.gather(*[cache.get(k) for k in keys])
-    for m, cached in zip(models_to_try, results):
+    for m, cached in zip(models_to_try, results, strict=False):
         if cached:
             logger.info(f"Stale recovery: found cached translation for model {m}")
             return cached
@@ -346,7 +347,7 @@ async def get_completion(
             return _clean_json_response(response.choices[0].message.content), fallback[
                 "name"
             ]
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(
                 f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}"

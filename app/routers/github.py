@@ -11,15 +11,16 @@ FIX-26 (P2-01): Token storage/retrieval now goes through the SQLAlchemy ORM
 FIX-30 (P3-04): Removed redundant `if not user_email` guards.
 FIX-25 (P1-10/A10): httpx client used with follow_redirects=False.
 """
-from fastapi import APIRouter, Request, HTTPException, BackgroundTasks, Depends
 import os
-import httpx
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from app.queue.tasks import process_github_repo_task
+import httpx
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+
 from app.core.auth import get_user_email
 from app.core.logging import logger
-from app.core.token_encryption import encrypt_token, decrypt_token, is_encrypted
+from app.core.token_encryption import decrypt_token, encrypt_token, is_encrypted
+from app.queue.tasks import process_github_repo_task
 
 router = APIRouter()
 
@@ -70,9 +71,10 @@ async def github_callback(code: str, user_email: str = Depends(get_user_email)):
             encrypted = encrypt_token(plaintext_token)
 
             # FIX-26 (P2-01): ORM-based upsert
+            from sqlalchemy import select
+
             from app.core.database_session import AsyncSessionLocal
             from app.models.db_models import UserGithubToken
-            from sqlalchemy import select
 
             async with AsyncSessionLocal() as session:
                 result = await session.execute(
@@ -81,12 +83,12 @@ async def github_callback(code: str, user_email: str = Depends(get_user_email)):
                 existing = result.scalars().first()
                 if existing:
                     existing.access_token = encrypted
-                    existing.updated_at = datetime.now(timezone.utc)
+                    existing.updated_at = datetime.now(UTC)
                 else:
                     session.add(UserGithubToken(
                         user_email=user_email,
                         access_token=encrypted,
-                        updated_at=datetime.now(timezone.utc),
+                        updated_at=datetime.now(UTC),
                     ))
                 await session.commit()
 
@@ -107,9 +109,10 @@ async def _get_github_token(user_email: str) -> str:
     FIX-01: Transparently decrypts Fernet-encrypted tokens.
     FIX-26: ORM-based lookup.
     """
+    from sqlalchemy import select
+
     from app.core.database_session import AsyncSessionLocal
     from app.models.db_models import UserGithubToken
-    from sqlalchemy import select
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(
@@ -183,9 +186,10 @@ async def process_github_repo(
 @router.delete("/github/disconnect")
 async def disconnect_github(user_email: str = Depends(get_user_email)):
     """Remove the stored GitHub OAuth token for the authenticated user."""
+    from sqlalchemy import delete
+
     from app.core.database_session import AsyncSessionLocal
     from app.models.db_models import UserGithubToken
-    from sqlalchemy import delete
 
     async with AsyncSessionLocal() as session:
         await session.execute(

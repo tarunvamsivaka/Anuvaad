@@ -7,18 +7,19 @@ delegates all business logic to BillingService, and maps results to HTTP respons
 Business logic (signature verification, DB writes, email dispatch) lives in:
   app/domain/billing/service.py
 """
-import os
 import json
+import os
+
 import razorpay
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
 from app.core.auth import get_user_email
 from app.core.cache import cache
-from app.queue.tasks import process_billing_webhook_task
-from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
+from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
 from app.domain.billing.service import BillingService
+from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
+from app.queue.tasks import process_billing_webhook_task
 from app.repositories import subscription as subscription_repo
 
 router = APIRouter(prefix="", tags=["billing"])
@@ -259,9 +260,10 @@ async def razorpay_webhook(request: Request):
     # Layer 2: DB-backed idempotency (survives cache restart)
     if event_id:
         try:
+            from sqlalchemy import select
+
             from app.core.database_session import AsyncSessionLocal
             from app.models.db_models import PaymentTransaction
-            from sqlalchemy import select
 
             async with AsyncSessionLocal() as session:
                 existing_tx = await session.execute(

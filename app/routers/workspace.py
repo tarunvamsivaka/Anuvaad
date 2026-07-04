@@ -12,9 +12,10 @@ Endpoints:
   POST   /workspaces/{workspace_id}/invite           — invite member (owner/admin)
 """
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.config import metrics
-from app.core.cache import cache
+
 from app.core.auth import get_user_email
+from app.core.cache import cache
+from app.core.config import metrics
 from app.models.schemas import WorkspaceCreate, WorkspaceInvite
 from app.repositories import workspace as workspace_repo
 

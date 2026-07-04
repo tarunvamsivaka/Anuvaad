@@ -9,6 +9,7 @@ Generate the key once with:
 Then set TOKEN_ENCRYPTION_KEY in your environment / secrets manager.
 """
 from cryptography.fernet import Fernet
+
 from app.core.config import TOKEN_ENCRYPTION_KEY
 
 

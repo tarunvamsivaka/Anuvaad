@@ -8,19 +8,19 @@ FIX-audit-4: OPENAI_API_KEY is resolved once at module load (not per request)
 FIX-audit-7: Embedding provider is passed explicitly to search_repo_embeddings()
               instead of relying on a dimension-length heuristic.
 """
-import os
 import logging
+import os
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from app.core.auth import get_user_email
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import RepoEmbedding
 from app.queue.tasks import process_github_repo_task
 from app.repositories.vectors import search_repo_embeddings
-from app.services.embedding import generate_embeddings_openai, generate_embeddings_hf
+from app.services.embedding import generate_embeddings_hf, generate_embeddings_openai
 
 logger = logging.getLogger("anuvaad")
 

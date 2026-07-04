@@ -9,9 +9,9 @@ H-5: Redis metric writes are fire-and-forget via asyncio.ensure_future so
 they never block the request path. In-memory counters are still updated
 synchronously so snapshot() always has fresh local data.
 """
+import asyncio
 import sys
 import time
-import asyncio
 from collections import deque
 
 

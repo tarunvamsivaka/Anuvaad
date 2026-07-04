@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import List, Dict, Any
+from typing import Any
+
 from app.services.ai import get_completion
 
 logger = logging.getLogger("anuvaad.modernization")
@@ -15,7 +16,7 @@ class LegacyModernizationOrchestrator:
         self.target_stack = target_stack
         self.use_r1 = use_r1
 
-    async def analyze_dependencies(self, files: List[Dict[str, str]]) -> Dict[str, Any]:
+    async def analyze_dependencies(self, files: list[dict[str, str]]) -> dict[str, Any]:
         """Step 1: Analyze inter-file dependencies and build an AST graph representation."""
         logger.info(f"Analyzing {len(files)} files for dependency graph.")
 
@@ -34,7 +35,7 @@ class LegacyModernizationOrchestrator:
         )
         return {"graph": result, "model_used": model}
 
-    async def generate_microservice_scaffold(self, architecture_graph: Dict[str, Any]) -> Dict[str, str]:
+    async def generate_microservice_scaffold(self, architecture_graph: dict[str, Any]) -> dict[str, str]:
         """Step 2: Generate modern folder structure and boilerplate based on AST graph."""
         logger.info("Generating microservice scaffolding...")
 
@@ -82,7 +83,7 @@ class LegacyModernizationOrchestrator:
         )
         return result
 
-    async def run_pipeline(self, legacy_files: List[Dict[str, str]]):
+    async def run_pipeline(self, legacy_files: list[dict[str, str]]):
         """Executes the complete modernization pipeline."""
         logger.info("Starting legacy modernization pipeline...")
 

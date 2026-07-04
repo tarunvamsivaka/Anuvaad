@@ -1,7 +1,8 @@
 import asyncio
 import logging
-from app.queue.celery_config import celery_app
+
 from app.core.quota import save_translation_background
+from app.queue.celery_config import celery_app
 from app.services.email import email_service
 
 logger = logging.getLogger("anuvaad")
@@ -93,10 +94,11 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     logger.info(f"Celery: Processing billing webhook {event_id}")
 
     async def _process():
+        from sqlalchemy.exc import IntegrityError
+
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import PaymentTransaction
         from app.repositories import subscription as subscription_repo  # H-04
-        from sqlalchemy.exc import IntegrityError
 
         async with AsyncSessionLocal() as session:
             try:
@@ -172,9 +174,10 @@ def prune_translation_history_task(user_email: str):
     """Prune old translation history items for a user."""
     logger.info(f"Celery: Pruning translation history for {user_email}")
     async def _process():
+        from sqlalchemy import delete, desc, select
+
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import TranslationHistory
-        from sqlalchemy import select, desc, delete
 
         async with AsyncSessionLocal() as session:
             stmt = select(TranslationHistory.id).where(TranslationHistory.user_email == user_email).order_by(desc(TranslationHistory.created_at))
@@ -249,10 +252,15 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
 
     async def _process():
         import os
+
         from app.core.database_session import AsyncSessionLocal
-        from app.services.github import fetch_repository_files
-        from app.services.embedding import generate_embeddings_hf, generate_embeddings_openai, chunk_text
         from app.repositories.vectors import insert_repo_embeddings
+        from app.services.embedding import (
+            chunk_text,
+            generate_embeddings_hf,
+            generate_embeddings_openai,
+        )
+        from app.services.github import fetch_repository_files
 
         # 1. Fetch files from GitHub
         files = fetch_repository_files(repo_name)
@@ -322,9 +330,10 @@ def reset_daily_stats():
     logger.info("Celery Beat: Resetting daily translation stats for all users")
 
     async def _reset():
+        from sqlalchemy import update as sa_update
+
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import UserTranslationStats
-        from sqlalchemy import update as sa_update
 
         async with AsyncSessionLocal() as session:
             await session.execute(
@@ -342,9 +351,10 @@ def reset_weekly_stats():
     logger.info("Celery Beat: Resetting weekly translation stats for all users")
 
     async def _reset():
+        from sqlalchemy import update as sa_update
+
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import UserTranslationStats
-        from sqlalchemy import update as sa_update
 
         async with AsyncSessionLocal() as session:
             await session.execute(
@@ -365,10 +375,12 @@ def prune_old_translation_history_scheduled():
     logger.info("Celery Beat: Running daily history pruning for all users")
 
     async def _prune():
+        from sqlalchemy import delete as sa_delete
+        from sqlalchemy import desc, select
+
+        from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO
         from app.core.database_session import AsyncSessionLocal
         from app.models.db_models import TranslationHistory, UserSubscription
-        from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO
-        from sqlalchemy import select, desc, delete as sa_delete
 
         async with AsyncSessionLocal() as session:
             result = await session.execute(

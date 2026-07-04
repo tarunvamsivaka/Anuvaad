@@ -1,6 +1,7 @@
 import os
-from celery import Celery
 import ssl
+
+from celery import Celery
 
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 REDIS_URL = os.getenv("REDIS_URL", f"redis://:{REDIS_PASSWORD}@localhost:6379" if REDIS_PASSWORD else "redis://localhost:6379")

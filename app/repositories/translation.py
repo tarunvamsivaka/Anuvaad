@@ -6,11 +6,13 @@ Phase 5 (Arch#2.1): Typed SQLAlchemy queries replacing supabase_request() string
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from sqlalchemy import select, delete, func
+from datetime import UTC, datetime
+
+from sqlalchemy import delete, func, select
+
+from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO, logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import TranslationHistory
-from app.core.config import logger, HISTORY_LIMIT_PRO, HISTORY_LIMIT_FREE
 
 
 async def get_history(
@@ -43,8 +45,7 @@ async def get_history(
                 try:
                     from datetime import datetime
                     cursor_dt = datetime.fromisoformat(after_created_at)
-                    from sqlalchemy import or_, and_
-                    from sqlalchemy import cast
+                    from sqlalchemy import and_, cast, or_
                     query = query.where(
                         or_(
                             TranslationHistory.created_at < cursor_dt,
@@ -120,7 +121,7 @@ async def save(
                 workspace_id=workspace_id,
                 session_id=session_id,
                 is_public=is_public,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             session.add(row)
             await session.commit()

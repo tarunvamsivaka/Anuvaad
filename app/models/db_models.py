@@ -1,15 +1,18 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import Column, Boolean, Integer, BigInteger, DateTime, Text, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from datetime import UTC, datetime
+
 from pgvector.sqlalchemy import Vector
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+
 from app.core.database_session import Base
+
 
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(Text, unique=True, nullable=False, index=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 class UserGithubToken(Base):
     __tablename__ = "user_github_tokens"
@@ -17,7 +20,7 @@ class UserGithubToken(Base):
     # FIX-01 (P0-01): access_token is stored Fernet-encrypted (never plaintext).
     # Encrypt/decrypt via app.core.token_encryption.{encrypt_token, decrypt_token}.
     access_token = Column(Text, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
@@ -29,21 +32,21 @@ class UserSubscription(Base):
     onboarded = Column(Boolean, default=False)
     stripe_customer_id = Column(Text, nullable=True)
     razorpay_subscription_id = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 class Workspace(Base):
     __tablename__ = "workspaces"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(Text, nullable=False)
     owner_email = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     workspace_id = Column(UUID(as_uuid=True), primary_key=True)
     user_email = Column(Text, primary_key=True)
     role = Column(Text, default="member")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 class ApiKey(Base):
     __tablename__ = "api_keys"
@@ -56,7 +59,7 @@ class ApiKey(Base):
     # FIX-27 (P2-06): Track hash algorithm for rolling upgrade from sha256 → argon2id.
     # New keys use argon2id; existing sha256 keys are upgraded on first use.
     key_hash_algo = Column(Text, nullable=False, default="sha256", server_default="sha256")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
 class TranslationHistory(Base):
@@ -78,7 +81,7 @@ class TranslationHistory(Base):
     session_id = Column(Text, nullable=True)
     repository_name = Column(Text, nullable=True)
     input_preview = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     # FIX-03 (P0-05): Composite index for the primary history listing query.
     __table_args__ = (
@@ -100,7 +103,7 @@ class PaymentTransaction(Base):
     event_id = Column(Text, unique=True, nullable=False, index=True)
     payload = Column(JSONB, nullable=False)
     status = Column(Text, default="pending")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 # New table for vector DB cache
 class LLMSemanticCache(Base):
@@ -109,7 +112,7 @@ class LLMSemanticCache(Base):
     prompt_hash = Column(Text, unique=True, nullable=False, index=True)
     embedding = Column(Vector(1536)) # Assuming 1536 dim embeddings (e.g. text-embedding-3-small)
     response = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 # New table for GitHub repo vector embeddings (Phase 4)
 class RepoEmbedding(Base):
@@ -121,4 +124,4 @@ class RepoEmbedding(Base):
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536)) # 1536 dim for openai text-embedding-3-small (was 384)
     provider = Column(Text, default="hf", nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

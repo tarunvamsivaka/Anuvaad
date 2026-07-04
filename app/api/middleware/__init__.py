@@ -11,11 +11,11 @@ is identical.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.middleware.security_headers import security_headers_middleware
-from app.api.middleware.csrf import csrf_origin_middleware, allowed_origins
+from app.api.middleware.csrf import allowed_origins, csrf_origin_middleware
+from app.api.middleware.deprecation import api_deprecation_middleware
 from app.api.middleware.metrics_mw import metrics_middleware
 from app.api.middleware.rate_limit import rate_limit_middleware
-from app.api.middleware.deprecation import api_deprecation_middleware
+from app.api.middleware.security_headers import security_headers_middleware
 
 
 def register_all(app: FastAPI) -> None:

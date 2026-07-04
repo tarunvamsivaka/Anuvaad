@@ -5,7 +5,9 @@ Records per-endpoint latency and error-rate metrics for every /api/ request.
 Extracted from app/main.py.
 """
 import time
+
 from fastapi import Request
+
 from app.core.config import metrics
 
 

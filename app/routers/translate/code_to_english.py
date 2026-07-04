@@ -1,20 +1,23 @@
 import json
-from fastapi import APIRouter, Request, Depends, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from app.core.config import logger, metrics
-from app.core.rate_limit import rate_limiter
-from app.core.cache import cache, cache_key
+
 from app.core.auth import get_user_email
+from app.core.cache import cache, cache_key
+from app.core.config import logger, metrics
 from app.core.quota import enforce_quotas_and_protection, record_successful_completion
-from app.queue.tasks import save_translation_history_task
+from app.core.rate_limit import rate_limiter
 from app.models.schemas import CodePayload
+from app.queue.tasks import save_translation_history_task
 from app.services.ai import (
-    get_completion,
-    stream_code_to_english,
-    normalize_blocks,
-    find_stale_translation,
     SYSTEM_INSTRUCTION,
+    find_stale_translation,
+    get_completion,
+    normalize_blocks,
+    stream_code_to_english,
 )
+
 from .dependencies import sanitise_input, validate_code_input
 
 router = APIRouter()

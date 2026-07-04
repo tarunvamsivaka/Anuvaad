@@ -12,33 +12,39 @@ Responsibilities (and ONLY these):
 All middleware logic lives in app/api/middleware/.
 All configuration lives in app/core/config.py.
 """
-import sentry_sdk
 from contextlib import asynccontextmanager
+
+import sentry_sdk
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.config import (
-    ENV, SENTRY_DSN, GROQ_API_KEY, logger,
-    DATABASE_URL, SUPABASE_URL, SUPABASE_JWT_SECRET,
-    TOKEN_ENCRYPTION_KEY, FRONTEND_URL,
-)
-from app.core.auth import get_user_email
 from app.api.middleware import register_all
-from app.services import ai as ai_service
+from app.core.auth import get_user_email
+from app.core.config import (
+    DATABASE_URL,
+    ENV,
+    FRONTEND_URL,
+    GROQ_API_KEY,
+    SENTRY_DSN,
+    SUPABASE_JWT_SECRET,
+    SUPABASE_URL,
+    TOKEN_ENCRYPTION_KEY,
+    logger,
+)
+from app.core.config import lifespan as _base_lifespan
+from app.routers.billing import router as billing_router
+from app.routers.demo import router as demo_router
+from app.routers.github import router as github_router
+from app.routers.history import router as history_router
+from app.routers.onboarding import router as onboarding_router  # FIX-35 (P3-08)
+from app.routers.repo_search import router as repo_search_router
 
 # ── Routers ──
 from app.routers.translate import router as translate_router
-from app.routers.history import router as history_router
-from app.routers.workspace import router as workspace_router
-from app.routers.billing import router as billing_router
-from app.routers.github import router as github_router
-from app.routers.repo_search import router as repo_search_router
 from app.routers.utility import router as utility_router
-from app.routers.demo import router as demo_router
-from app.routers.onboarding import router as onboarding_router  # FIX-35 (P3-08)
-from app.core.config import lifespan as _base_lifespan
-
+from app.routers.workspace import router as workspace_router
+from app.services import ai as ai_service
 
 # ── Startup Environment Validation ──
 
@@ -162,6 +168,6 @@ logger.info("Anuvaad API Initialized")
 # Some tests import from app.main directly (e.g. `app_main_module.IS_PRODUCTION`).
 # These re-exports keep those tests working after the refactor moved these symbols
 # to their canonical homes.
-from app.core.config import IS_PRODUCTION  # noqa: F401, E402
 from app.api.middleware.csrf import _allowed_origins_set  # noqa: F401, E402
+from app.core.config import IS_PRODUCTION  # noqa: F401, E402
 

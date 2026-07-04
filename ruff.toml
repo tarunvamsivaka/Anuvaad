@@ -1,0 +1,33 @@
+# ruff.toml — Ruff linter + formatter configuration for Anuvaad backend
+# https://docs.astral.sh/ruff/configuration/
+
+# ── Top-level settings ───────────────────────────────────────────────────────
+line-length = 120
+target-version = "py311"
+
+# ── Linter ──────────────────────────────────────────────────────────────────
+[lint]
+# Rules enabled:
+#   E   — pycodestyle errors
+#   F   — pyflakes (unused imports, undefined names, etc.)
+#   W   — pycodestyle warnings
+#   I   — isort (import ordering)
+#   UP  — pyupgrade (modern Python idioms)
+#   B   — bugbear (common bugs and design issues)
+select = ["E", "F", "W", "I", "UP", "B"]
+
+# Ignored rules:
+#   E501  — line too long (many long lines are in string literals, SQL,
+#            docstrings, and log messages where wrapping hurts readability)
+#   B008  — function calls in default argument values (FastAPI Depends() pattern)
+#   B904  — raise-without-from-inside-except: intentional in FastAPI routers
+#            where HTTPException replaces the caught exception by design
+#   B905  — zip-without-explicit-strict: low-risk in utility/service code
+#   UP007 — use X | Y instead of Optional[X] (requires Python 3.10+ only)
+ignore = ["E501", "B008", "B904", "B905", "UP007"]
+
+# Allow unused imports in re-export modules (intentional public API surface)
+[lint.per-file-ignores]
+"app/core/config.py"  = ["F401"]   # backward-compat re-exports (logger, metrics, etc.)
+"app/main.py"         = ["F401"]   # IS_PRODUCTION, _allowed_origins_set re-exports
+"app/**/__init__.py"  = ["F401"]   # package re-exports

@@ -6,7 +6,8 @@ Provides clean, injectable dependencies for routers — replacing any remaining
 module-level state access with proper FastAPI Depends() patterns.
 """
 
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
+
 from app.core.cache import CacheProxy
 
 
@@ -45,8 +46,9 @@ async def get_current_user_email(request: Request) -> str | None:
                 raise HTTPException(status_code=401, detail="Authentication required")
             ...
     """
-    from app.core.auth import get_user_email
     from fastapi.security import HTTPAuthorizationCredentials
+
+    from app.core.auth import get_user_email
 
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):

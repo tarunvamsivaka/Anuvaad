@@ -8,11 +8,13 @@ SEC-08: Localhost bypass is only active outside production.
 """
 import hashlib
 import os
+
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from app.core.config import IS_PRODUCTION
-from app.core.cache import cache
+
 from app.core.auth import get_client_ip
+from app.core.cache import cache
+from app.core.config import IS_PRODUCTION
 
 RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_IP_MAX: int = int(os.getenv("RATE_LIMIT_IP_MAX", "50"))

@@ -1,9 +1,11 @@
-import os
 import logging
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+import os
+from collections.abc import AsyncGenerator
+
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
-from typing import AsyncGenerator
-from app.core.config import DATABASE_URL, DATABASE_POOL_URL, IS_PRODUCTION
+
+from app.core.config import DATABASE_POOL_URL, DATABASE_URL, IS_PRODUCTION
 
 logger = logging.getLogger("anuvaad")
 

@@ -6,10 +6,11 @@ Phase 5 (Arch#2.1).
 """
 from __future__ import annotations
 
-from sqlalchemy import select, delete
+from sqlalchemy import delete, select
+
+from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import Workspace, WorkspaceMember
-from app.core.config import logger
 
 
 async def get_workspaces(email: str) -> list[dict]:

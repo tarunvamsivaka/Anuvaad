@@ -11,6 +11,7 @@ Backward-compatible re-exports are kept at the bottom so that any existing
 """
 import os
 from contextlib import asynccontextmanager
+
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
@@ -124,6 +125,6 @@ async def lifespan(app: FastAPI):
 # ── BACKWARD-COMPATIBLE RE-EXPORTS ──
 # All existing `from app.core.config import logger / get_http_client / metrics` still work.
 
-from app.core.logging import logger, get_logger  # noqa: F401, E402
 from app.core.http_client import get_http_client  # noqa: F401, E402
+from app.core.logging import get_logger, logger  # noqa: F401, E402
 from app.core.metrics import MetricsCollector, metrics  # noqa: F401, E402

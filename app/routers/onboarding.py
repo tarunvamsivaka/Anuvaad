@@ -9,6 +9,7 @@ the frontend POSTs here to mark their account as onboarded. This sets
 can skip the redirect.
 """
 from fastapi import APIRouter, Depends, HTTPException
+
 from app.core.auth import get_user_email
 from app.repositories import subscription as subscription_repo
 

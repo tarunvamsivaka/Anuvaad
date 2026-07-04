@@ -1,6 +1,9 @@
-from fastapi import Request, HTTPException
-from app.core.cache import cache
 import hashlib
+
+from fastapi import HTTPException, Request
+
+from app.core.cache import cache
+
 
 def rate_limiter(calls: int, window: int):
     async def _rate_limit_dependency(request: Request):

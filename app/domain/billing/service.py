@@ -15,6 +15,7 @@ calls this service and maps results to HTTP responses.
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 from app.core.config import logger
 from app.repositories import subscription as subscription_repo
 

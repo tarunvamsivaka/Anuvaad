@@ -1,10 +1,19 @@
 import re
-from sqlalchemy import select, insert, update, delete, asc, desc
+
+from sqlalchemy import asc, delete, desc, insert, select, update
 from sqlalchemy.orm import class_mapper
+
 from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import (
-    User, UserSubscription, Workspace, WorkspaceMember, ApiKey, TranslationHistory, UserTranslationStats, UserGithubToken
+    ApiKey,
+    TranslationHistory,
+    User,
+    UserGithubToken,
+    UserSubscription,
+    UserTranslationStats,
+    Workspace,
+    WorkspaceMember,
 )
 
 TABLE_MODEL_MAP = {

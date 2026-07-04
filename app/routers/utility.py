@@ -1,26 +1,28 @@
+import base64
 import os
 import re
-import base64
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
+
+from app.core.auth import get_user_email, get_user_pro_status
+from app.core.cache import cache
 from app.core.config import (
-    GROQ_API_KEY,
     DEEPSEEK_API_KEY,
-    RAZORPAY_KEY_ID,
-    SUPABASE_URL,
-    SUPABASE_SERVICE_KEY,
-    METRICS_USERNAME,
-    METRICS_PASSWORD,
     FREE_TIER_DAILY_LIMIT,
-    IS_PRODUCTION,
     GIST_MAX_SIZE,
+    GROQ_API_KEY,
+    IS_PRODUCTION,
+    METRICS_PASSWORD,
+    METRICS_USERNAME,
+    RAZORPAY_KEY_ID,
+    SUPABASE_SERVICE_KEY,
+    SUPABASE_URL,
+    get_http_client,
     logger,
     metrics,
-    get_http_client,
 )
-from app.core.cache import cache
-from app.core.auth import get_user_email, get_user_pro_status
 from app.core.quota import get_today_usage_count
 
 router = APIRouter(prefix="", tags=["utility"])

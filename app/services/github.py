@@ -1,8 +1,8 @@
 import base64
 import os
+
 import structlog
-from github import Github, Auth
-from typing import List, Dict
+from github import Auth, Github
 
 logger = structlog.get_logger(__name__)
 
@@ -19,7 +19,7 @@ def get_github_client() -> Github:
     auth = Auth.Token(token)
     return Github(auth=auth)
 
-def fetch_repository_files(repo_name: str) -> List[Dict[str, str]]:
+def fetch_repository_files(repo_name: str) -> list[dict[str, str]]:
     """
     Fetches text files from a repository.
     repo_name should be formatted as 'owner/repo'

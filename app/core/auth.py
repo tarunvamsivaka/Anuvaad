@@ -13,20 +13,20 @@ FIX-30 (P3-04): get_user_email() now raises HTTP 401 instead of returning
 None, so callers no longer need `if not email: raise HTTPException(...)` guards.
 """
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
-from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
+from app.core.cache import cache
 from app.core.config import (
-    SUPABASE_JWT_SECRET,
     ADMIN_EMAILS,
+    SUPABASE_JWT_SECRET,
     TRUSTED_EMAILS,
     logger,
 )
-from app.core.cache import cache
 from app.repositories import subscription as subscription_repo
 
 security = HTTPBearer(auto_error=False)
@@ -96,7 +96,7 @@ async def _authenticate_api_key(raw_key: str) -> str:
         )
     # Check expiry if the column is present
     expires_at = row.get("expires_at")
-    if expires_at and expires_at < datetime.now(timezone.utc):
+    if expires_at and expires_at < datetime.now(UTC):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API key has expired",

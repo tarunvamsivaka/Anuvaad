@@ -1,14 +1,14 @@
 import os
+
 import httpx
 import structlog
-from typing import List
 from openai import AsyncOpenAI
 
 logger = structlog.get_logger(__name__)
 
 HF_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
 
-async def generate_embeddings_openai(texts: List[str]) -> List[List[float]]:
+async def generate_embeddings_openai(texts: list[str]) -> list[list[float]]:
     """
     Generate embeddings using OpenAI text-embedding-3-small (1536 dim).
     """
@@ -31,7 +31,7 @@ async def generate_embeddings_openai(texts: List[str]) -> List[List[float]]:
         logger.error(f"Failed to generate embeddings via OpenAI API: {e}")
         return []
 
-async def generate_embeddings_hf(texts: List[str]) -> List[List[float]]:
+async def generate_embeddings_hf(texts: list[str]) -> list[list[float]]:
     """
     Generate embeddings using Hugging Face inference API.
     Returns a list of vectors of dimension 384.
@@ -66,7 +66,7 @@ async def generate_embeddings_hf(texts: List[str]) -> List[List[float]]:
         # Return dummy embeddings so the pipeline doesn't completely crash for free users
         return [[0.0] * 384 for _ in texts]
 
-def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> List[str]:
+def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> list[str]:
     """
     Simple sliding window character-based chunking.
     """

@@ -7,10 +7,11 @@ subscription data with proper SQLAlchemy queries.
 """
 from __future__ import annotations
 
-from sqlalchemy import update, select
+from sqlalchemy import select, update
+
+from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import UserSubscription
-from app.core.config import logger
 
 
 async def get_subscription(email: str) -> dict | None:

@@ -1,6 +1,8 @@
 import os
+
 import httpx
 import resend
+
 from app.core.config import RESEND_API_KEY, logger
 
 if RESEND_API_KEY:

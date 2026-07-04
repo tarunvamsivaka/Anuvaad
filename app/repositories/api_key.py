@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select, update
+
+from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import ApiKey
-from app.core.config import logger
 
 
 def _sha256_hash(raw_key: str) -> str:
@@ -40,7 +41,7 @@ def _argon2_hash(raw_key: str) -> str:
 def _argon2_verify(raw_key: str, stored_hash: str) -> bool:
     """Verify a raw key against an Argon2id hash."""
     from argon2 import PasswordHasher
-    from argon2.exceptions import VerifyMismatchError, InvalidHashError
+    from argon2.exceptions import InvalidHashError, VerifyMismatchError
     ph = PasswordHasher()
     try:
         return ph.verify(stored_hash, raw_key)
@@ -124,7 +125,7 @@ async def update_last_used(key_hash: str) -> None:
             await session.execute(
                 update(ApiKey)
                 .where(ApiKey.api_key_hash == key_hash)
-                .values(last_used_at=datetime.now(timezone.utc))
+                .values(last_used_at=datetime.now(UTC))
             )
             await session.commit()
         except Exception as e:
@@ -183,7 +184,7 @@ async def create(
                 api_key_hash=key_hash,
                 key_hash_algo="argon2id",  # FIX-27
                 workspace_id=workspace_id,
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             )
             session.add(row)
             await session.commit()
