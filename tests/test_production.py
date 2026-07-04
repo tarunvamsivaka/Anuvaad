@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 
 # Define tests for production behavior
@@ -99,9 +100,10 @@ def test_lru_cache_eviction():
 
 @pytest.mark.asyncio
 async def test_supabase_request_fallback(monkeypatch):
-    import app.core.database as db_module
-    from unittest.mock import patch
     import importlib
+    from unittest.mock import patch
+
+    import app.core.database as db_module
 
     importlib.reload(db_module)
 
@@ -118,8 +120,9 @@ async def test_save_translation_background_pruning():
     When a free user has >= HISTORY_LIMIT_FREE (100) items, prune_oldest() should
     be called, and save() should always be called to store the new record.
     """
-    import main as app_module
     from unittest.mock import AsyncMock, patch
+
+    import main as app_module
 
     user_email = "free_user@example.com"
     HISTORY_LIMIT_FREE = 100  # Must match quota.py constant
@@ -131,17 +134,12 @@ async def test_save_translation_background_pruning():
     mock_get_count = AsyncMock(return_value=HISTORY_LIMIT_FREE)
     mock_prune_oldest = AsyncMock(return_value=None)
     mock_save = AsyncMock(return_value=None)
-    mock_get_credits = AsyncMock(return_value=0)
-    mock_cache_delete = AsyncMock()
-    mock_cache_delete_prefix = AsyncMock()
 
     with (
         patch("app.core.quota.get_user_pro_status", mock_get_user_pro_status),
         patch("app.repositories.translation.get_count_since", mock_get_count),
         patch("app.repositories.translation.prune_oldest", mock_prune_oldest),
         patch("app.repositories.translation.save", mock_save),
-        patch("app.core.cache.cache.delete", mock_cache_delete),
-        patch("app.core.cache.cache.delete_prefix", mock_cache_delete_prefix),
     ):
         await app_module.save_translation_background(
             user_email=user_email,
@@ -166,11 +164,11 @@ async def test_save_translation_background_pruning_pro():
     prune_oldest() should NOT be called when count < HISTORY_LIMIT_PRO.
     save() should still be called to store the new record.
     """
-    import main as app_module
     from unittest.mock import AsyncMock, patch
 
+    import main as app_module
+
     user_email = "pro_user@example.com"
-    HISTORY_LIMIT_PRO = 1000  # Must match quota.py constant
 
     async def mock_get_user_pro_status(email):
         return True  # Pro user

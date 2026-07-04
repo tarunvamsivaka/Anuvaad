@@ -5,12 +5,11 @@ Pydantic models, normalization edge cases, caching, rate limiting,
 CORS, Razorpay webhooks, and checkout validation.
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
-
 
 # ═══════════════════════════════════════════════════════════════
 # 1. MULTI-BLOCK TRANSLATION RESPONSES
@@ -285,7 +284,7 @@ class TestPydanticModels:
     def test_checkout_payload_email_too_short(self):
         from main import CheckoutPayload
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             CheckoutPayload(user_email="a@b")
 
     def test_checkout_payload_valid(self):

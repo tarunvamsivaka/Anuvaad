@@ -5,7 +5,7 @@ Uses the monkey-patched LLM client from conftest.py
 so no real API calls are made.
 """
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 
 class TestHealthEndpoint:

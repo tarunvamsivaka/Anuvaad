@@ -10,10 +10,11 @@ Provides:
 
 import json
 import os
-import razorpay
-from unittest.mock import patch, MagicMock
-import pytest
+from unittest.mock import MagicMock, patch
+
 import httpx
+import pytest
+import razorpay
 
 _original_json = httpx.Response.json
 
@@ -122,9 +123,8 @@ class MockCompletions:
             is_json = True
 
         if self.mock_client.error_mode == "timeout":
-            import asyncio
 
-            raise asyncio.TimeoutError()
+            raise TimeoutError()
         elif self.mock_client.error_mode:
             content = "this is not valid json {{{"
         elif self.mock_client.empty_mode:
@@ -254,8 +254,8 @@ def client():
     Yield a TestClient whose LLM clients are monkey-patched via the
     ai module singleton accessors so tests run offline and instantly.
     """
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
@@ -286,8 +286,8 @@ def client():
 
 @pytest.fixture()
 def client_rate_limited():
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis_async = MockRedisCache(
         {"rate_limit:testclient": app_module.RATE_LIMIT_MAX}
@@ -319,8 +319,8 @@ def client_rate_limited():
 
 @pytest.fixture()
 def client_multi_block():
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIMulti()
@@ -350,8 +350,8 @@ def client_multi_block():
 
 @pytest.fixture()
 def client_ai_error():
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIError()
@@ -381,8 +381,8 @@ def client_ai_error():
 
 @pytest.fixture()
 def client_empty_blocks():
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIEmpty()
@@ -412,8 +412,8 @@ def client_empty_blocks():
 
 @pytest.fixture()
 def client_no_redis():
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis = MockRedisCache()
     fake_redis.client = None
@@ -444,8 +444,8 @@ def client_no_redis():
 
 @pytest.fixture()
 def client_with_auth():
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
@@ -475,8 +475,8 @@ def client_with_auth():
 
 @pytest.fixture()
 def client_no_auth():
-    import main as app_module
     import app.services.ai as ai_module
+    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
@@ -517,6 +517,7 @@ def mock_openai_clients(monkeypatch):
 @pytest.fixture(autouse=True)
 def mock_supabase_and_quota(monkeypatch):
     from unittest.mock import AsyncMock
+
     import app.core.database as db_module
     import app.core.quota as quota_module
 

@@ -5,6 +5,7 @@ Covers auth gating, tier quotas, cooldowns, billing flag, protection modes, and 
 
 import os
 from unittest.mock import patch
+
 import main as app_module
 
 

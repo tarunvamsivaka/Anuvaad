@@ -66,8 +66,9 @@ class TestSanitisation:
 
     def test_binary_input_is_rejected_with_422(self):
         """Input composed primarily of non-printable bytes should be rejected."""
-        from main import validate_code_input
         from fastapi import HTTPException
+
+        from main import validate_code_input
 
         # 800 non-printable bytes, virtually zero printable
         binary_data = "".join(chr(i) for i in range(1, 8)) * 120
@@ -85,9 +86,10 @@ class TestRazorpayWebhookSecurity:
         When RAZORPAY_WEBHOOK_SECRET is empty, the endpoint should refuse
         to process with 503 (service unavailable).
         """
-        import main as app_module
-        import app.routers.billing as billing_module
         from fastapi.testclient import TestClient
+
+        import app.routers.billing as billing_module
+        import main as app_module
 
         original_secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
         os.environ["RAZORPAY_WEBHOOK_SECRET"] = ""
@@ -126,8 +128,9 @@ class TestRazorpayWebhookSecurity:
         """
         When RAZORPAY_WEBHOOK_SECRET is set but signature verification fails, return 400.
         """
-        import main as app_module
         from fastapi.testclient import TestClient
+
+        import main as app_module
 
         original_secret = app_module.RAZORPAY_WEBHOOK_SECRET
         app_module.RAZORPAY_WEBHOOK_SECRET = "whsec_test_real"

@@ -4,8 +4,8 @@ Input validation and edge-case tests for Anuvaad backend.
 Tests payload limits, boundary conditions, and response normalization.
 """
 
-import sys
 import os
+import sys
 
 # Add parent directory to path so we can import main
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -117,8 +117,9 @@ class TestResponseNormalization:
         assert result[0]["id"] == "b2"
 
     def test_normalize_raises_on_no_usable_blocks(self):
-        from main import normalize_blocks
         import pytest
+
+        from main import normalize_blocks
 
         with pytest.raises(ValueError, match="no usable"):
             normalize_blocks(
@@ -126,8 +127,9 @@ class TestResponseNormalization:
             )
 
     def test_normalize_raises_on_non_list(self):
-        from main import normalize_blocks
         import pytest
+
+        from main import normalize_blocks
 
         with pytest.raises(ValueError, match="Expected list"):
             normalize_blocks("not a list")
@@ -216,9 +218,10 @@ class TestSecurityValidation:
         assert sanitise_input(valid_code, "test") == valid_code
 
     def test_binary_input_rejected(self):
-        from main import validate_code_input
-        from fastapi import HTTPException
         import pytest
+        from fastapi import HTTPException
+
+        from main import validate_code_input
 
         # Create mostly non-printable string
         binary_data = "".join(chr(i) for i in range(8)) * 100
@@ -228,9 +231,10 @@ class TestSecurityValidation:
         assert "too many non-printable characters" in exc.value.detail.lower()
 
     def test_spam_ignore_lines_rejected(self):
-        from main import validate_code_input
-        from fastapi import HTTPException
         import pytest
+        from fastapi import HTTPException
+
+        from main import validate_code_input
 
         # Create string where >50% of lines start with // ignore
         spam_data = "// ignore\n" * 10 + "print('hello')"
@@ -367,6 +371,7 @@ class TestBackendCleanup:
         The correct pattern is os.getenv('TESTING', 'false') == 'true'.
         """
         import inspect
+
         import app.core.quota as quota_module
 
         source = inspect.getsource(quota_module)
@@ -392,7 +397,7 @@ class TestBackendCleanup:
         # We now check the canonical location.
         app_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         rate_limit_path = os.path.join(app_root, "app", "api", "middleware", "rate_limit.py")
-        with open(rate_limit_path, "r", encoding="utf-8") as f:
+        with open(rate_limit_path, encoding="utf-8") as f:
             source = f.read()
 
         # The bypass guard must exist in the rate-limit middleware

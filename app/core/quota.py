@@ -1,7 +1,7 @@
 import asyncio
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, Request
 
