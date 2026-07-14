@@ -17,6 +17,7 @@ from app.core.config import (
     METRICS_PASSWORD,
     METRICS_USERNAME,
     RAZORPAY_KEY_ID,
+    SUPABASE_JWT_SECRET,
     SUPABASE_SERVICE_KEY,
     SUPABASE_URL,
     get_http_client,
@@ -198,6 +199,10 @@ async def health_check():
         ),
         "redis_connected": redis_ok,
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
+        # JWT secret required for ALL authenticated API calls. If False,
+        # every translation/history/workspace request will fail with 401.
+        # Fix: set SUPABASE_JWT_SECRET in Render Dashboard → Environment.
+        "jwt_configured": bool(SUPABASE_JWT_SECRET),
     }
 
 
