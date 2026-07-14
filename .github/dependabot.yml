@@ -40,6 +40,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
+      # ESLint 10 breaks eslint-plugin-react:
+      # "contextOrFilename.getFilename is not a function"
+      # The plugin requires manual ESLint 10 compatibility review first.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
