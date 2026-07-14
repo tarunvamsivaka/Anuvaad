@@ -288,9 +288,10 @@ def client():
 def client_rate_limited():
     import app.services.ai as ai_module
     import main as app_module
+    from app.api.middleware.rate_limit import RATE_LIMIT_IP_MAX
 
     fake_redis_async = MockRedisCache(
-        {"rate_limit:testclient": app_module.RATE_LIMIT_MAX}
+        {"rate_limit:testclient": RATE_LIMIT_IP_MAX}
     )
     mock_groq = MockAsyncOpenAI()
 
@@ -475,14 +476,21 @@ def client_with_auth():
 
 @pytest.fixture()
 def client_no_auth():
+    """Fixture simulating an unauthenticated request.
+
+    FIX-S: get_user_email() always raises HTTP 401 (never returns None).
+    This fixture replicates that real behavior by overriding the dependency
+    with a function that raises the same exception.
+    """
     import app.services.ai as ai_module
     import main as app_module
+    from fastapi import HTTPException as FastAPIHTTPException
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
 
-    async def fake_get_user_email_none():
-        return None
+    async def fake_get_user_email_raises():
+        raise FastAPIHTTPException(status_code=401, detail="Not authenticated")
 
     async def fake_get_user_pro_status(email):
         return False
@@ -495,7 +503,7 @@ def client_no_auth():
          patch.object(ai_module, "init_clients", fake_init_clients), \
          patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
         app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email_none
+            fake_get_user_email_raises
         )
         from fastapi.testclient import TestClient
 
@@ -524,10 +532,13 @@ def mock_supabase_and_quota(monkeypatch):
     m1 = AsyncMock(return_value=0)
     m2 = AsyncMock(return_value=0)
     m3 = AsyncMock(return_value=True)
+    # FIX-J: increment_today_usage_count is the new atomic version used in enforce_quotas_and_protection
+    m_incr = AsyncMock(return_value=0)
     m6 = AsyncMock(return_value={})
     m7 = AsyncMock(return_value=[])
 
     monkeypatch.setattr(quota_module, "get_today_usage_count", m1)
+    monkeypatch.setattr(quota_module, "increment_today_usage_count", m_incr)
     monkeypatch.setattr(db_module, "supabase_request", m6)
     monkeypatch.setattr(db_module, "supabase_request_list", m7)
 

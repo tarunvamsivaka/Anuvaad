@@ -176,7 +176,9 @@ class TestAdvancedSecurity:
         headers = res.headers
         assert headers.get("X-Frame-Options") == "DENY"
         assert headers.get("X-Content-Type-Options") == "nosniff"
-        assert headers.get("X-XSS-Protection") == "1; mode=block"
+        # FIX-T: X-XSS-Protection deprecated; set to 0 (disabled) per modern browser spec.
+        # Protection is provided by CSP instead.
+        assert headers.get("X-XSS-Protection") == "0"
         assert headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
         assert "default-src 'self'" in headers.get("Content-Security-Policy", "")
 

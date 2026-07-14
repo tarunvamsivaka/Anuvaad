@@ -104,6 +104,9 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
     if not raw_code:
         return raw_code
 
+    import unicodedata
+    raw_code = unicodedata.normalize('NFKC', raw_code)
+
     def replacer(match):
         user = email or "anonymous"
         logger.warning(

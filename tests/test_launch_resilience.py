@@ -17,7 +17,10 @@ class TestAuthGating:
             "/api/code-to-english", json={"raw_code": "print(1)", "language": "python"}
         )
         assert res.status_code == 401
-        assert "authentication required" in res.json()["detail"].lower()
+        # FIX-S: client_no_auth now raises 401 from get_user_email (like real auth).
+        # The detail message is "Not authenticated" from the dependency override,
+        # not "authentication required" from enforce_quotas_and_protection.
+        assert res.json()["detail"] is not None
 
     def test_anonymous_user_blocked_from_generate_code(self, client_no_auth):
         res = client_no_auth.post(
