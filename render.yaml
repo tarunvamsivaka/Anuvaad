@@ -1,0 +1,97 @@
+# =============================================================================
+# render.yaml — Anuvaad Infrastructure-as-Code Blueprint for Render.com
+# =============================================================================
+# This file defines the complete Render deployment for Anuvaad.
+# Changes here are automatically picked up when you connect this repo in Render.
+#
+# Documentation: https://render.com/docs/blueprint-spec
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Backend API — FastAPI + Uvicorn
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: anuvaad-api
+    runtime: python
+    plan: starter
+    region: oregon
+    branch: master
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2
+    healthCheckPath: /api/health
+
+    envVars:
+      # ── Runtime environment ──────────────────────────────────────────────
+      - key: ENV
+        value: production
+
+      # ── REQUIRED: Set all values below in Render Dashboard → Environment ─
+      # ── AI Models ────────────────────────────────────────────────────────
+      - key: GROQ_API_KEY
+        sync: false          # Must be set manually in the Render Dashboard
+
+      - key: DEEPSEEK_API_KEY
+        sync: false
+
+      # ── Supabase ─────────────────────────────────────────────────────────
+      # Get from: Supabase Dashboard → Settings → API
+      - key: SUPABASE_URL
+        sync: false
+
+      - key: SUPABASE_ANON_KEY
+        sync: false
+
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # CRITICAL: This fixes "Server misconfiguration: JWT secret not configured"
+      # Get from: Supabase Dashboard → Settings → API → JWT Settings → "JWT Secret"
+      # This is required for ANY authenticated request to work.
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+
+      # ── Database ─────────────────────────────────────────────────────────
+      # Get from: Supabase Dashboard → Settings → Database → Connection string (URI)
+      - key: DATABASE_URL
+        sync: false
+
+      # Optional but recommended for production: PgBouncer connection pooler
+      # Get from: Supabase Dashboard → Settings → Database → Connection pooling → URI
+      - key: DATABASE_POOL_URL
+        sync: false
+
+      # ── Security ─────────────────────────────────────────────────────────
+      # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      - key: TOKEN_ENCRYPTION_KEY
+        generateValue: false
+        sync: false
+
+      # ── Networking ───────────────────────────────────────────────────────
+      # Set to your Vercel frontend URL: https://getanuvaad.vercel.app
+      - key: FRONTEND_URL
+        sync: false
+
+      # ── GitHub OAuth (for GitHub integration features) ────────────────────
+      - key: GITHUB_CLIENT_ID
+        sync: false
+
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+
+      # ── Optional: LLM Fallback ────────────────────────────────────────────
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+      # ── Optional: Error Monitoring ────────────────────────────────────────
+      - key: SENTRY_DSN
+        sync: false
+
+      # ── Optional: Email ───────────────────────────────────────────────────
+      - key: RESEND_API_KEY
+        sync: false
+
+      # ── Optional: Redis ───────────────────────────────────────────────────
+      # Leave blank if not using Redis; the app falls back to in-memory cache.
+      - key: REDIS_URL
+        sync: false
