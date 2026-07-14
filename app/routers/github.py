@@ -19,7 +19,6 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.core.auth import get_user_email
 from app.core.logging import logger
-from app.core.token_encryption import decrypt_token, encrypt_token, is_encrypted
 from app.queue.tasks import process_github_repo_task
 
 UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
@@ -69,30 +68,10 @@ async def github_callback(code: str, user_email: str = Depends(get_user_email)):
 
             plaintext_token = data["access_token"]
 
-            # FIX-01 (P0-01): Encrypt the token before storing it
-            encrypted = encrypt_token(plaintext_token)
-
-            # FIX-26 (P2-01): ORM-based upsert
-            from sqlalchemy import select
-
-            from app.core.database_session import AsyncSessionLocal
-            from app.models.db_models import UserGithubToken
-
-            async with AsyncSessionLocal() as session:
-                result = await session.execute(
-                    select(UserGithubToken).where(UserGithubToken.user_email == user_email)
-                )
-                existing = result.scalars().first()
-                if existing:
-                    existing.access_token = encrypted
-                    existing.updated_at = datetime.now(UTC)
-                else:
-                    session.add(UserGithubToken(
-                        user_email=user_email,
-                        access_token=encrypted,
-                        updated_at=datetime.now(UTC),
-                    ))
-                await session.commit()
+            from app.repositories.github_token import save_github_token
+            success = await save_github_token(user_email, plaintext_token)
+            if not success:
+                raise HTTPException(status_code=500, detail="Failed to save GitHub token")
 
             # Return the plaintext token to the client (one-time only).
             # The frontend stores it in session/memory — never on disk.
@@ -111,27 +90,10 @@ async def _get_github_token(user_email: str) -> str:
     FIX-01: Transparently decrypts Fernet-encrypted tokens.
     FIX-26: ORM-based lookup.
     """
-    from sqlalchemy import select
-
-    from app.core.database_session import AsyncSessionLocal
-    from app.models.db_models import UserGithubToken
-
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(UserGithubToken).where(UserGithubToken.user_email == user_email)
-        )
-        row = result.scalars().first()
-
-    if not row:
+    from app.repositories.github_token import get_github_token
+    token = await get_github_token(user_email)
+    if not token:
         raise HTTPException(status_code=404, detail="GitHub account not connected")
-
-    token = row.access_token
-    # Transparently handle tokens that were stored before the encryption migration
-    if is_encrypted(token):
-        try:
-            token = decrypt_token(token)
-        except Exception:
-            raise HTTPException(status_code=500, detail="Failed to decrypt GitHub token")
     return token
 
 
@@ -188,14 +150,6 @@ async def process_github_repo(
 @router.delete("/github/disconnect")
 async def disconnect_github(user_email: str = Depends(get_user_email)):
     """Remove the stored GitHub OAuth token for the authenticated user."""
-    from sqlalchemy import delete
-
-    from app.core.database_session import AsyncSessionLocal
-    from app.models.db_models import UserGithubToken
-
-    async with AsyncSessionLocal() as session:
-        await session.execute(
-            delete(UserGithubToken).where(UserGithubToken.user_email == user_email)
-        )
-        await session.commit()
+    from app.repositories.github_token import delete_github_token
+    await delete_github_token(user_email)
     return {"message": "GitHub account disconnected"}

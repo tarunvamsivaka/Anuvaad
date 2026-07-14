@@ -1,4 +1,6 @@
+import functools
 import re
+import warnings
 
 from sqlalchemy import asc, delete, desc, insert, select, update
 from sqlalchemy.orm import class_mapper
@@ -78,6 +80,17 @@ def apply_filters(query, model, filters):
                 query = query.where(col.is_not(None))
     return query
 
+def deprecated_async(func):
+    @functools.wraps(func)
+    async def new_func(*args, **kwargs):
+        warnings.warn(f"Call to deprecated function {func.__name__}. Migrate to ORM.",
+                      category=DeprecationWarning,
+                      stacklevel=2)
+        logger.warning(f"DEPRECATED: {func.__name__} is deprecated and will be removed. Migrate to ORM.")
+        return await func(*args, **kwargs)
+    return new_func
+
+@deprecated_async
 async def supabase_request(method: str, path: str, data: dict = None) -> dict | None:
     method = method.upper()
     parts = path.split("?", 1)
@@ -152,6 +165,7 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
             await session.rollback()
             return None
 
+@deprecated_async
 async def supabase_request_list(path: str) -> list:
     parts = path.split("?", 1)
     table_name = parts[0]

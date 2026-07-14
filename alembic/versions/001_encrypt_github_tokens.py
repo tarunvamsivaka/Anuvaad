@@ -1,11 +1,18 @@
 """Encrypt existing GitHub OAuth tokens at rest
 
 Revision ID: 001_encrypt_github_tokens
-Revises: a3f8c1d2e9b4
+Revises: 0d71502217e9
 Create Date: 2026-07-02
 
 FIX-01 (P0-01): One-time data migration to Fernet-encrypt any plaintext
 access_token values already stored in user_github_tokens.
+
+FIX-N (DB-04): Fixed down_revision from a3f8c1d2e9b4 to 0d71502217e9 to
+repair the forked migration chain. The correct tail before the numbered
+migrations is 0d71502217e9 (repo_embedding_provider).
+
+Chain: 7af437a6b3ae → a3f8c1d2e9b4 → 8d3045f704c7 → 0d71502217e9
+       → 001_encrypt_github_tokens → 002 → 003 → 004 → 005
 
 Prerequisites before running:
   1. TOKEN_ENCRYPTION_KEY must be set in the environment.
@@ -22,7 +29,7 @@ from sqlalchemy.orm import Session
 
 # revision identifiers, used by Alembic.
 revision = "001_encrypt_github_tokens"
-down_revision = "a3f8c1d2e9b4"
+down_revision = "0d71502217e9"
 branch_labels = None
 depends_on = None
 
