@@ -15,6 +15,16 @@ updates:
     labels:
       - "frontend"
       - "dependencies"
+    groups:
+      # React + react-dom MUST be bumped together — mismatched versions cause
+      # build failures ("Incompatible React versions" error in Vitest).
+      # Grouping ensures Dependabot opens ONE PR for all React packages.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
     ignore:
       # TypeScript major versions require explicit project compatibility review.
       # TypeScript 6 dropped support for older lib targets and has breaking
