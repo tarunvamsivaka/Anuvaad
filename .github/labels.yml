@@ -1,0 +1,72 @@
+﻿# GitHub Labels definition — managed via .github/labels.yml
+# Apply with: gh label create ... or use the GitHub UI
+# These labels are referenced in dependabot.yml and CODEOWNERS
+
+labels:
+  # Type labels
+  - name: bug
+    color: d73a4a
+    description: Something isn't working
+  - name: enhancement
+    color: a2eeef
+    description: New feature or request
+  - name: documentation
+    color: 0075ca
+    description: Improvements or additions to documentation
+  - name: question
+    color: d876e3
+    description: Further information is requested
+  - name: security
+    color: e4e669
+    description: Security vulnerability or hardening
+  - name: performance
+    color: f9d0c4
+    description: Performance improvement
+
+  # Component labels
+  - name: backend
+    color: 1d76db
+    description: Python / FastAPI backend
+  - name: frontend
+    color: 0052cc
+    description: Next.js / TypeScript frontend
+  - name: dependencies
+    color: 0366d6
+    description: Pull requests that update a dependency file
+  - name: deployment
+    color: e4e669
+    description: CI/CD, Docker, infrastructure
+
+  # Priority labels
+  - name: priority:critical
+    color: b60205
+    description: P0 — must be fixed immediately
+  - name: priority:high
+    color: d93f0b
+    description: P1 — fix in current sprint
+  - name: priority:medium
+    color: e4e669
+    description: P2 — fix in next sprint
+  - name: priority:low
+    color: 0e8a16
+    description: P3 — nice to have
+
+  # Status labels
+  - name: status:in-progress
+    color: fbca04
+    description: Work is actively underway
+  - name: status:blocked
+    color: d73a4a
+    description: Blocked by external dependency
+  - name: status:needs-review
+    color: 0075ca
+    description: Waiting for code review
+  - name: status:wontfix
+    color: ffffff
+    description: This will not be worked on
+  - name: good first issue
+    color: 7057ff
+    description: Good for newcomers
+  - name: help wanted
+    color: 008672
+    description: Extra attention is needed

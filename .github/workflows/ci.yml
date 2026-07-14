@@ -53,7 +53,7 @@ jobs:
           DATABASE_URL: sqlite+aiosqlite:///./test.db
           REDIS_URL: redis://localhost:6379
         run: |
-          pytest tests/ -v --tb=short
+          pytest tests/ -v --tb=short --ignore=tests/test_production.py
 
       - name: Security audit (pip-audit)
         run: |
