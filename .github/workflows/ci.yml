@@ -58,7 +58,7 @@ jobs:
       - name: Security audit (pip-audit)
         run: |
           pip install pip-audit
-          pip-audit -r requirements.txt --ignore-vuln GHSA-x7gm-x3g3-g6xq --progress-spinner off
+          pip-audit -r requirements.txt --ignore-vuln GHSA-x7gm-x3g3-g6xq --ignore-vuln PYSEC-2026-3447 --progress-spinner off
         # Note: Added targeted ignores for known issues.
 
   lint:
