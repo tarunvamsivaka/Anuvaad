@@ -43,7 +43,10 @@ _FREE_MODE_OVERRIDES: dict[str, dict] = {
     "EMERGENCY": {
         "daily_factor": 0.2,
         "char_factor": 0.2,
-        "char_floor": 300,
+        # AUDIT-FIX-01: Renamed char_floor → char_cap. The intent is to impose a
+        # hard ceiling of 300 chars in EMERGENCY mode (very restrictive).
+        # min() is the correct operator — same pattern as _PRO_MODE_OVERRIDES.
+        "char_cap": 300,
         "cooldown": 30,
     },
 }
@@ -78,10 +81,12 @@ def compute_quota_policy(
     """
     # Admins are always unrestricted regardless of mode
     if is_admin:
-        return QuotaPolicy(daily_limit=999_999, char_limit=999_999, cooldown=0)
+        return QuotaPolicy(daily_limit=-1, char_limit=-1, cooldown=0)
 
     if is_pro:
-        daily_limit = int(os.getenv("LIMIT_PRO_DAILY", "999999"))
+        # FIX-R: Use -1 as the "unlimited" sentinel instead of the meaningless 999999 magic number.
+        # The value -1 is recognised by enforce_quotas_and_protection() as "no daily limit".
+        daily_limit = int(os.getenv("LIMIT_PRO_DAILY", "-1"))
         char_limit = int(os.getenv("LIMIT_PRO_CHARS", "50000"))
         cooldown = 0
 
@@ -101,7 +106,11 @@ def compute_quota_policy(
     if override:
         daily_limit = max(1, int(daily_limit * override["daily_factor"]))
         char_limit = max(100, int(char_limit * override["char_factor"]))
-        char_limit = min(char_limit, override.get("char_floor", char_limit))
+        # AUDIT-FIX-01: Apply char_cap if present (EMERGENCY mode caps free users
+        # at a hard maximum of 300 chars to limit API spend during emergencies).
+        # min() is correct: ensures we pick the more restrictive of the two values.
+        if "char_cap" in override:
+            char_limit = min(char_limit, override["char_cap"])
         cooldown = override["cooldown"]
 
     return QuotaPolicy(daily_limit=daily_limit, char_limit=char_limit, cooldown=cooldown)

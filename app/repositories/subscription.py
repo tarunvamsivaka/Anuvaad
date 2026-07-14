@@ -42,6 +42,11 @@ async def atomic_deduct_credit(email: str) -> bool:
     """Atomically decrement credits by 1, only if credits > 0.
 
     BUG#1+#5 definitive fix (Phase 5): single atomic SQL UPDATE with WHERE guard.
+
+    AUDIT NOTE: This function is correct but currently not called directly —
+    all credit deduction is routed through quota.deduct_credit() which uses
+    an equivalent inline UPDATE. Kept here as the canonical implementation
+    in case callers want the repository-layer function directly.
     """
     async with AsyncSessionLocal() as session:
         try:

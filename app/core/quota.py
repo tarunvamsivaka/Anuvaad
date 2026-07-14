@@ -9,9 +9,6 @@ from app.core.auth import get_user_pro_status
 from app.core.cache import cache
 from app.core.config import (
     ADMIN_EMAILS,
-    SUPABASE_SERVICE_KEY,
-    SUPABASE_URL,
-    get_http_client,
     logger,
 )
 from app.domain.quota.policy import compute_quota_policy
@@ -121,53 +118,37 @@ async def save_translation_background(
 
 async def get_today_usage_count(email: str) -> int:
     """Count how many translations a user has made today (UTC).
-    H-2: Uses Prefer: count=exact HEAD-style request instead of fetching all rows.
-    Results are cached for 60 seconds to reduce DB load.
+    H-02: Uses ORM COUNT(*) — correct and no REST dependency.
     """
     if not email:
         return 0
 
-    # Check cache first
-    usage_cache_key = f"today_usage:{email}"
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+    usage_cache_key = f"user_daily_usage:{email}:{today_str}"
+
     cached = await cache.get(usage_cache_key)
     if cached is not None:
         return int(cached)
 
-    from app.core import config
-    url = config.SUPABASE_URL
-    key = config.SUPABASE_SERVICE_KEY
-
-    if not url or not key:
-        return 0
-
-    today_start = datetime.now(UTC).strftime("%Y-%m-%dT00:00:00Z")
-
-    try:
-        http_client = await get_http_client()
-        resp = await http_client.get(
-            f"{url}/rest/v1/translation_history?user_email=eq.{email}&created_at=gte.{today_start}&select=id",
-            headers={
-                "apikey": key,
-                "Authorization": f"Bearer {key}",
-                "Prefer": "count=exact",
-                "Range-Unit": "items",
-                "Range": "0-0",
-            },
-        )
-        if resp.status_code in (200, 206):
-            content_range = resp.headers.get("Content-Range", "")
-            if "/" in content_range:
-                count = int(content_range.split("/")[1])
-                await cache.put(usage_cache_key, count, ttl=60)
-                return count
-    except Exception as e:
-        logger.warning(f"Usage count REST query failed, falling back to ORM: {e}")
-
-    # H-02: Fallback uses ORM COUNT(*) — correct and no REST dependency
-    since = datetime.fromisoformat(today_start.replace("Z", "+00:00"))
-    count = await translation_repo.get_count_since(email, since=since)
-    await cache.put(usage_cache_key, count, ttl=60)
+    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+    count = await translation_repo.get_count_since(email, since=today_start)
+    await cache.put(usage_cache_key, count, ttl=86400)
     return count
+
+async def increment_today_usage_count(email: str) -> int:
+    """Atomically increment daily usage count. Prevents TOCTOU race (FIX-J)."""
+    if not email:
+        return 0
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+    key = f"user_daily_usage:{email}:{today_str}"
+
+    cached = await cache.get(key)
+    if cached is None:
+        today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
+        count = await translation_repo.get_count_since(email, since=today_start)
+        await cache.put(key, count, ttl=86400)
+
+    return await cache.incr_rate_limit(key, 86400)
 
 
 async def get_user_credits(email: str) -> int:
@@ -183,6 +164,7 @@ async def get_user_credits(email: str) -> int:
 async def deduct_credit(email: str) -> bool:
     """Atomically deduct one translation credit from a user.
 
+    FIX-O (P4-01): Replaced TABLE_MODEL_MAP lookup with direct UserSubscription import.
     BUG#1+#5 FIX: Replaced the old two-step read-then-write (TOCTOU race) with
     a single atomic SQL UPDATE that uses a WHERE credits > 0 guard.
 
@@ -194,29 +176,16 @@ async def deduct_credit(email: str) -> bool:
     """
     from sqlalchemy import update
 
-    from app.core.database import TABLE_MODEL_MAP
-    from app.core.database_session import (
-        AsyncSessionLocal,  # M-05: direct import, no re-export chain
-    )
-
-    model = TABLE_MODEL_MAP.get("user_subscriptions")
-    if not model:
-        logger.error("deduct_credit: user_subscriptions model not found")
-        return False
-
-    credits_col = getattr(model, "credits", None)
-    email_col = getattr(model, "user_email", None)
-    if credits_col is None or email_col is None:
-        logger.error("deduct_credit: credits or user_email column not found on model")
-        return False
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import UserSubscription
 
     async with AsyncSessionLocal() as session:
         try:
             stmt = (
-                update(model)
-                .where(email_col == email)
-                .where(credits_col > 0)
-                .values(credits=credits_col - 1)
+                update(UserSubscription)
+                .where(UserSubscription.user_email == email)
+                .where(UserSubscription.credits > 0)
+                .values(credits=UserSubscription.credits - 1)
             )
             result = await session.execute(stmt)
             await session.commit()
@@ -230,34 +199,20 @@ async def deduct_credit(email: str) -> bool:
 
 
 async def get_lifetime_translations(email: str) -> int:
-    """Fetch the lifetime translation count for the user from Supabase."""
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+    """Fetch the lifetime translation count for the user.
+
+    FIX-K: Changed from Supabase REST to ORM.
+    """
+    if not email:
         return 0
     ck = f"lifetime_translations:{email}"
     cached = await cache.get(ck)
     if cached is not None:
         return int(cached)
 
-    base_headers = {
-        "apikey": SUPABASE_SERVICE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        "Prefer": "count=exact",
-        "Range-Unit": "items",
-        "Range": "0-0",
-    }
-    url = f"{SUPABASE_URL}/rest/v1/translation_history?user_email=eq.{email}&select=id"
-    try:
-        http_client = await get_http_client()
-        resp = await http_client.get(url, headers=base_headers)
-        if resp.status_code in (200, 206):
-            content_range = resp.headers.get("Content-Range", "")
-            if "/" in content_range:
-                count = int(content_range.split("/")[1])
-                await cache.put(ck, count, ttl=60)
-                return count
-    except Exception as e:
-        logger.warning(f"Lifetime count query failed: {e}")
-    return 0
+    count = await translation_repo.get_count_since(email)
+    await cache.put(ck, count, ttl=60)
+    return count
 
 
 async def increment_platform_daily_usage() -> int:
@@ -357,7 +312,7 @@ async def enforce_quotas_and_protection(
     policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, mode=mode)
     daily_limit, char_limit, cooldown = policy.daily_limit, policy.char_limit, policy.cooldown
 
-    if char_count > char_limit:
+    if char_limit != -1 and char_count > char_limit:
         raise HTTPException(
             status_code=413,
             detail=f"Input size ({char_count} chars) exceeds the current limit of {char_limit} chars for your tier and protection mode.",
@@ -373,9 +328,10 @@ async def enforce_quotas_and_protection(
             )
 
     deduct_credit_flag = False
-    if not is_pro and not is_admin:
-        today_usage = await get_today_usage_count(email)
-        if today_usage >= daily_limit:
+    # -1 means unlimited (FIX-R sentinel): skip daily limit check for pro/admin
+    if not is_pro and not is_admin and daily_limit != -1:
+        today_usage = await increment_today_usage_count(email)
+        if today_usage > daily_limit:
             deduct_credit_flag = True
             credits = await get_user_credits(email)
             if credits <= 0:

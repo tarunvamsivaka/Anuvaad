@@ -28,9 +28,7 @@ async def create_workspace(
     email: str = Depends(get_user_email),
 ):
     """Create a workspace and automatically add the creator as the owner."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
+    # FIX-30 (P3-04): get_user_email() raises HTTP 401 automatically; guard removed.
     workspace = await workspace_repo.create_workspace(owner_email=email, name=payload.name)
     if not workspace or "id" not in workspace:
         raise HTTPException(status_code=500, detail="Failed to create workspace")
@@ -47,9 +45,7 @@ async def create_workspace(
 @router.get("/workspaces")
 async def list_workspaces(email: str = Depends(get_user_email)):
     """Return all workspaces the authenticated user belongs to."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
+    # FIX-30 (P3-04): get_user_email() raises HTTP 401 automatically; guard removed.
     cache_key = f"user_workspaces:{email}"
     cached = await cache.get(cache_key)
     if cached is not None:
@@ -68,9 +64,7 @@ async def list_workspace_members(
     email: str = Depends(get_user_email),
 ):
     """List all members of a workspace. Requires membership."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
+    # FIX-30 (P3-04): get_user_email() raises HTTP 401 automatically; guard removed.
     membership = await workspace_repo.get_member(workspace_id, email)
     if not membership:
         raise HTTPException(status_code=403, detail="Forbidden")
@@ -84,9 +78,7 @@ async def delete_workspace(
     email: str = Depends(get_user_email),
 ):
     """Delete a workspace. Only the owner can delete it."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
+    # FIX-30 (P3-04): get_user_email() raises HTTP 401 automatically; guard removed.
     membership = await workspace_repo.get_member(workspace_id, email)
     if not membership or membership.get("role") != "owner":
         raise HTTPException(
@@ -118,9 +110,7 @@ async def remove_workspace_member(
     email: str = Depends(get_user_email),
 ):
     """Remove a member from a workspace. Requires admin or owner role."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
+    # FIX-30 (P3-04): get_user_email() raises HTTP 401 automatically; guard removed.
     membership = await workspace_repo.get_member(workspace_id, email)
     if not membership or membership.get("role") not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required")
@@ -144,9 +134,7 @@ async def invite_workspace_member(
     email: str = Depends(get_user_email),
 ):
     """Invite a user to a workspace. Requires admin or owner role."""
-    if not email:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
+    # FIX-30 (P3-04): get_user_email() raises HTTP 401 automatically; guard removed.
     membership = await workspace_repo.get_member(workspace_id, email)
     if not membership or membership.get("role") not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required")

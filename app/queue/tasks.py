@@ -93,12 +93,12 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     """
     logger.info(f"Celery: Processing billing webhook {event_id}")
 
-    async def _process():
-        from sqlalchemy.exc import IntegrityError
+    from sqlalchemy.exc import IntegrityError
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import PaymentTransaction
+    from app.repositories import subscription as subscription_repo  # H-04
 
-        from app.core.database_session import AsyncSessionLocal
-        from app.models.db_models import PaymentTransaction
-        from app.repositories import subscription as subscription_repo  # H-04
+    async def _process():
 
         async with AsyncSessionLocal() as session:
             try:
@@ -171,21 +171,29 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     default_retry_delay=120,
 )
 def prune_translation_history_task(user_email: str):
-    """Prune old translation history items for a user."""
-    logger.info(f"Celery: Pruning translation history for {user_email}")
-    async def _process():
-        from sqlalchemy import delete, desc, select
+    """Prune old translation history items for a single user (immediate, on-demand).
 
-        from app.core.database_session import AsyncSessionLocal
-        from app.models.db_models import TranslationHistory
+    NOTE: This task handles per-user immediate pruning when a new translation
+    is saved. The nightly scheduled prune_old_translation_history_scheduled()
+    task handles bulk cleanup for all users. Both coexist intentionally.
+
+    AUDIT-FIX-02: Replaced magic number 50 with HISTORY_LIMIT_FREE constant.
+    """
+    logger.info(f"Celery: Pruning translation history for {user_email}")
+    from sqlalchemy import delete, desc, select
+    from app.core.config import HISTORY_LIMIT_FREE
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import TranslationHistory
+
+    async def _process():
 
         async with AsyncSessionLocal() as session:
             stmt = select(TranslationHistory.id).where(TranslationHistory.user_email == user_email).order_by(desc(TranslationHistory.created_at))
             result = await session.execute(stmt)
             ids = [row[0] for row in result.all()]
 
-            if len(ids) > 50:
-                ids_to_delete = ids[50:]
+            if len(ids) > HISTORY_LIMIT_FREE:
+                ids_to_delete = ids[HISTORY_LIMIT_FREE:]
                 delete_stmt = delete(TranslationHistory).where(TranslationHistory.id.in_(ids_to_delete))
                 await session.execute(delete_stmt)
                 await session.commit()
@@ -220,9 +228,10 @@ def process_large_file_task(
     FIX-10 (P1-08): Added autoretry with exponential backoff.
     """
     logger.info(f"Celery: Processing large file for {user_email} (is_pro={is_pro})")
+    from app.models.schemas import CodePayload
+    from app.services.ai import stream_code_to_english
+
     async def _process():
-        from app.models.schemas import CodePayload
-        from app.services.ai import stream_code_to_english
         payload = CodePayload(raw_code=file_content, language=language)
         try:
             async for _ in stream_code_to_english(
@@ -242,26 +251,30 @@ def process_large_file_task(
     run_async(_process())
 
 
-@celery_app.task(name="tasks.process_github_repo")
+@celery_app.task(
+    name="tasks.process_github_repo",
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=300,
+    retry_backoff=True
+)
 def process_github_repo_task(repo_name: str, installation_id: str = None):
     """Background pipeline for GitHub repo embeddings.
 
     Arch#2.7: Implemented real GitHub API integration.
     """
     logger.info(f"Celery: process_github_repo_task called for {repo_name}")
+    import os
+    from app.core.database_session import AsyncSessionLocal
+    from app.repositories.vectors import insert_repo_embeddings
+    from app.services.embedding import (
+        chunk_text,
+        generate_embeddings_hf,
+        generate_embeddings_openai,
+    )
+    from app.services.github import fetch_repository_files
 
     async def _process():
-        import os
-
-        from app.core.database_session import AsyncSessionLocal
-        from app.repositories.vectors import insert_repo_embeddings
-        from app.services.embedding import (
-            chunk_text,
-            generate_embeddings_hf,
-            generate_embeddings_openai,
-        )
-        from app.services.github import fetch_repository_files
-
         # 1. Fetch files from GitHub
         files = fetch_repository_files(repo_name)
         if not files:
@@ -329,11 +342,11 @@ def reset_daily_stats():
     """
     logger.info("Celery Beat: Resetting daily translation stats for all users")
 
-    async def _reset():
-        from sqlalchemy import update as sa_update
+    from sqlalchemy import update as sa_update
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import UserTranslationStats
 
-        from app.core.database_session import AsyncSessionLocal
-        from app.models.db_models import UserTranslationStats
+    async def _reset():
 
         async with AsyncSessionLocal() as session:
             await session.execute(
@@ -350,11 +363,11 @@ def reset_weekly_stats():
     """Reset this_week_count for ALL users every Monday at midnight UTC."""
     logger.info("Celery Beat: Resetting weekly translation stats for all users")
 
-    async def _reset():
-        from sqlalchemy import update as sa_update
+    from sqlalchemy import update as sa_update
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import UserTranslationStats
 
-        from app.core.database_session import AsyncSessionLocal
-        from app.models.db_models import UserTranslationStats
+    async def _reset():
 
         async with AsyncSessionLocal() as session:
             await session.execute(
@@ -370,48 +383,70 @@ def reset_weekly_stats():
 def prune_old_translation_history_scheduled():
     """Prune old history entries for ALL users that exceed their tier limits.
 
-    Runs daily at 2am UTC. Free: keep 100. Pro: keep 1000.
+    Runs daily at 2am UTC. Free users: keep 100. Pro users: keep 1000.
+
+    FIX-H/Q (PERF-02, Phase 5): Replaced O(n) per-user subquery loop with
+    two bulk SQL DELETE statements using ROW_NUMBER() window functions.
+    This cuts DB round-trips from 2*N to exactly 2 regardless of user count.
     """
     logger.info("Celery Beat: Running daily history pruning for all users")
 
+    from sqlalchemy import text as sa_text
+    from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO
+    from app.core.database_session import AsyncSessionLocal
+
     async def _prune():
-        from sqlalchemy import delete as sa_delete
-        from sqlalchemy import desc, select
-
-        from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO
-        from app.core.database_session import AsyncSessionLocal
-        from app.models.db_models import TranslationHistory, UserSubscription
-
         async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(TranslationHistory.user_email).distinct()
+            # Single bulk DELETE for FREE users exceeding their limit.
+            # Uses ROW_NUMBER() window function to rank each user's history newest-first,
+            # then deletes all rows ranked beyond :free_limit in one statement.
+            # AUDIT-FIX-03: Replaced f-string interpolation with :bindparam syntax
+            # for clarity and safety, even though the values come from config.
+            await session.execute(
+                sa_text("""
+                    DELETE FROM translation_history
+                    WHERE id IN (
+                        SELECT id FROM (
+                            SELECT id,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY user_email
+                                       ORDER BY created_at DESC
+                                   ) AS rn
+                            FROM translation_history
+                            WHERE user_email NOT IN (
+                                SELECT user_email FROM user_subscriptions WHERE is_pro = TRUE
+                            )
+                        ) ranked
+                        WHERE rn > :free_limit
+                    )
+                """),
+                {"free_limit": HISTORY_LIMIT_FREE},
             )
-            emails = [row[0] for row in result.all()]
 
-            for email in emails:
-                sub_result = await session.execute(
-                    select(UserSubscription.is_pro).where(
-                        UserSubscription.user_email == email
+            # Single bulk DELETE for PRO users exceeding their (larger) limit.
+            await session.execute(
+                sa_text("""
+                    DELETE FROM translation_history
+                    WHERE id IN (
+                        SELECT id FROM (
+                            SELECT id,
+                                   ROW_NUMBER() OVER (
+                                       PARTITION BY user_email
+                                       ORDER BY created_at DESC
+                                   ) AS rn
+                            FROM translation_history
+                            WHERE user_email IN (
+                                SELECT user_email FROM user_subscriptions WHERE is_pro = TRUE
+                            )
+                        ) ranked
+                        WHERE rn > :pro_limit
                     )
-                )
-                sub_row = sub_result.scalars().first()
-                limit = HISTORY_LIMIT_PRO if sub_row else HISTORY_LIMIT_FREE
+                """),
+                {"pro_limit": HISTORY_LIMIT_PRO},
+            )
 
-                ids_result = await session.execute(
-                    select(TranslationHistory.id)
-                    .where(TranslationHistory.user_email == email)
-                    .order_by(desc(TranslationHistory.created_at))
-                )
-                ids = [row[0] for row in ids_result.all()]
-
-                if len(ids) > limit:
-                    ids_to_delete = ids[limit:]
-                    await session.execute(
-                        sa_delete(TranslationHistory).where(
-                            TranslationHistory.id.in_(ids_to_delete)
-                        )
-                    )
             await session.commit()
         logger.info("Celery Beat: Daily history pruning complete")
 
     run_async(_prune())
+
