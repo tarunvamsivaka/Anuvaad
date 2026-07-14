@@ -23,5 +23,5 @@ aiosqlite>=0.19.0
 psycopg2-binary>=2.9.9
 PyGithub>=2.3.0
 cryptography>=42.0.0
-PyJWT>=2.8.0
+PyJWT>=2.13.0
 argon2-cffi>=25.1.0
