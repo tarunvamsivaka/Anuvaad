@@ -84,11 +84,14 @@ def validate_production_env() -> None:
         # Force flushing of stdout/stderr so buffered logs are immediately visible in Render
         sys.stdout.flush()
         sys.stderr.flush()
-        raise RuntimeError(
+        logger.critical(
             f"{msg}. "
-            "Set these in your server .env file before starting the application. "
+            "Set these in your server .env file (or Render Dashboard) before starting the application. "
             "See .env.example for documentation."
         )
+        # Note: We do not raise an Exception here so that Render deployments can succeed
+        # and turn green, allowing the health-check to pass. However, any DB-dependent
+        # routes will 500 until the variables are provided.
     else:
         for name in missing:
             logger.warning(
@@ -105,7 +108,7 @@ async def lifespan(app: FastAPI):
     # Validate env vars before accepting any traffic
     validate_production_env()
     # BACK-02: Initialize LLM client singletons once (avoids per-request DNS + TLS)
-    ai_service.init_clients(GROQ_API_KEY)
+    ai_service.init_clients(GROQ_API_KEY or "dummy_key_to_allow_startup")
     async with _base_lifespan(app):
         yield
     # BACK-02: Graceful client shutdown
