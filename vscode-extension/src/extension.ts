@@ -1,6 +1,26 @@
 import * as vscode from 'vscode';
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
+  // Migration path: if apiKey exists in settings, move it to secrets and remove it from settings
+  const config = vscode.workspace.getConfiguration('anuvaad');
+  const legacyApiKey = config.get<string>('apiKey');
+  if (legacyApiKey) {
+      await context.secrets.store('anuvaad.apiKey', legacyApiKey);
+      await config.update('apiKey', undefined, vscode.ConfigurationTarget.Global);
+  }
+
+  // Register command to set API Key
+  let setApiKeyDisposable = vscode.commands.registerCommand('anuvaad.setApiKey', async () => {
+      const apiKey = await vscode.window.showInputBox({
+          prompt: 'Enter your Anuvaad API Key',
+          password: true
+      });
+      if (apiKey) {
+          await context.secrets.store('anuvaad.apiKey', apiKey);
+          vscode.window.showInformationMessage('Anuvaad API Key saved securely.');
+      }
+  });
+
   // 1. Translate Inline Command
   let translateDisposable = vscode.commands.registerCommand('anuvaad.translateInline', async () => {
     const editor = vscode.window.activeTextEditor;
@@ -20,10 +40,10 @@ export function activate(context: vscode.ExtensionContext) {
     // Get configuration
     const config = vscode.workspace.getConfiguration('anuvaad');
     const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
-    const apiKey = config.get<string>('apiKey', '');
+    const apiKey = await context.secrets.get('anuvaad.apiKey');
 
     if (!apiKey) {
-      vscode.window.showErrorMessage('Anuvaad API Key is not set in settings.');
+      vscode.window.showErrorMessage('Anuvaad API Key is not set. Use "Anuvaad: Set API Key" command.');
       return;
     }
 
@@ -38,7 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
+            'X-API-Key': apiKey
           },
           body: JSON.stringify({
             code: text,
@@ -80,6 +100,8 @@ export function activate(context: vscode.ExtensionContext) {
   });
 
   // 2. Explain Hover Provider
+  let hoverTimeout: NodeJS.Timeout | undefined;
+  
   let hoverProvider = vscode.languages.registerHoverProvider('*', {
     async provideHover(document, position, token) {
       const config = vscode.workspace.getConfiguration('anuvaad');
@@ -87,7 +109,7 @@ export function activate(context: vscode.ExtensionContext) {
         return null;
       }
       
-      const apiKey = config.get<string>('apiKey', '');
+      const apiKey = await context.secrets.get('anuvaad.apiKey');
       if (!apiKey) return null;
       
       const apiUrl = config.get<string>('apiUrl', 'http://localhost:8000');
@@ -100,34 +122,47 @@ export function activate(context: vscode.ExtensionContext) {
       const lineText = document.lineAt(position.line).text.trim();
       if (!lineText || lineText.length < 5) return null;
       
-      try {
-        const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            code: lineText,
-            source_language: document.languageId
-          })
-        });
-
-        if (!response.ok) return null;
-
-        const data: any = await response.json();
+      return new Promise((resolve) => {
+        if (hoverTimeout) {
+            clearTimeout(hoverTimeout);
+        }
         
-        const markdown = new vscode.MarkdownString();
-        markdown.appendMarkdown(`**Anuvaad Explanation**\n\n${data.english_translation}`);
-        
-        return new vscode.Hover(markdown);
-      } catch (e) {
-        return null;
-      }
+        hoverTimeout = setTimeout(async () => {
+            if (token.isCancellationRequested) {
+                return resolve(null);
+            }
+            
+            try {
+              const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-API-Key': apiKey
+                },
+                body: JSON.stringify({
+                  code: lineText,
+                  source_language: document.languageId
+                })
+              });
+
+              if (!response.ok) return resolve(null);
+
+              const data: any = await response.json();
+              
+              const markdown = new vscode.MarkdownString();
+              markdown.appendMarkdown(`**Anuvaad Explanation**\n\n${data.english_translation}`);
+              
+              resolve(new vscode.Hover(markdown));
+            } catch (e) {
+              resolve(null);
+            }
+        }, 800);
+      });
     }
   });
 
-  context.subscriptions.push(translateDisposable, hoverProvider);
+  context.subscriptions.push(setApiKeyDisposable, translateDisposable, hoverProvider);
 }
 
 export function deactivate() {}
+
