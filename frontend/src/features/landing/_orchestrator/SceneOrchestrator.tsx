@@ -15,7 +15,19 @@ import { Scene06_EnglishModification } from "../_scenes/Scene06_EnglishModificat
 import { Scene07_CodeUpdates } from "../_scenes/Scene07_CodeUpdates";
 import { Scene08_FutureVision } from "../_scenes/Scene08_FutureVision";
 import { Scene09_FinalCTA } from "../_scenes/Scene09_FinalCTA";
-import { WebGLCanvas } from "../_canvas/WebGLCanvas";
+// Dynamic import: Three.js is ~1.5MB. Loading it lazily means the initial
+// page JS bundle is significantly smaller, improving First Contentful Paint.
+import dynamic from "next/dynamic";
+const WebGLCanvas = dynamic(
+  () => import("../_canvas/WebGLCanvas").then((mod) => mod.WebGLCanvas),
+  {
+    ssr: false,        // WebGL is browser-only; skip SSR to avoid hydration errors
+    loading: () => (
+      <div className="pointer-events-none fixed inset-0 -z-50 h-screen w-screen bg-surface-base" />
+    ),
+  }
+);
+
 
 // Core Scene Configurations
 const SCENE_CONFIGS: SceneConfig[] = [

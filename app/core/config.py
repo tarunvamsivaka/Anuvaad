@@ -95,7 +95,9 @@ METRICS_PASSWORD: str = os.getenv("METRICS_PASSWORD", "")
 
 # ── SECURITY — ENCRYPTION & JWT ──
 # FIX-01 (P0-01): Fernet key used to encrypt GitHub OAuth tokens at rest.
-# Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# For key rotation without downtime, use TOKEN_ENCRYPTION_KEYS (comma-separated,
+# newest key first).  Falls back to TOKEN_ENCRYPTION_KEY for backwards-compat.
+# Generate a new key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
 
 # FIX-04 (P0-04): Supabase JWT secret for local JWT verification (zero HTTP round-trips).

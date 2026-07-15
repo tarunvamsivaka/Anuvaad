@@ -2,6 +2,19 @@ import asyncio
 import json
 import os
 
+try:
+    import sentry_sdk
+    _SENTRY_AVAILABLE = True
+except ImportError:
+    _SENTRY_AVAILABLE = False
+
+from contextlib import contextmanager
+
+@contextmanager
+def _nullctx():
+    """No-op context manager used when Sentry is not configured."""
+    yield None
+
 from fastapi import HTTPException
 from openai import AsyncOpenAI
 
@@ -317,12 +330,20 @@ async def get_completion(
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        response = await asyncio.wait_for(
-            primary["client"].chat.completions.create(
-                model=primary["model"], messages=messages, **kwargs
-            ),
-            timeout=LLM_TIMEOUT,
-        )
+        with (sentry_sdk.start_span(
+            op="llm.completion",
+            name=f"LLM: {primary['name']}",
+        ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+            if _SENTRY_AVAILABLE and span:
+                span.set_tag("llm.provider", primary["name"])
+                span.set_tag("llm.model", primary["model"])
+                span.set_tag("llm.mode", mode)
+            response = await asyncio.wait_for(
+                primary["client"].chat.completions.create(
+                    model=primary["model"], messages=messages, **kwargs
+                ),
+                timeout=LLM_TIMEOUT,
+            )
         await metrics.record_model_call(primary["model"])
         return _clean_json_response(response.choices[0].message.content), primary[
             "name"
@@ -337,12 +358,21 @@ async def get_completion(
             fallback_kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            response = await asyncio.wait_for(
-                fallback["client"].chat.completions.create(
-                    model=fallback["model"], messages=messages, **fallback_kwargs
-                ),
-                timeout=LLM_TIMEOUT,
-            )
+            with (sentry_sdk.start_span(
+                op="llm.completion",
+                name=f"LLM fallback: {fallback['name']}",
+            ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+                if _SENTRY_AVAILABLE and span:
+                    span.set_tag("llm.provider", fallback["name"])
+                    span.set_tag("llm.model", fallback["model"])
+                    span.set_tag("llm.mode", mode)
+                    span.set_tag("llm.is_fallback", True)
+                response = await asyncio.wait_for(
+                    fallback["client"].chat.completions.create(
+                        model=fallback["model"], messages=messages, **fallback_kwargs
+                    ),
+                    timeout=LLM_TIMEOUT,
+                )
             await metrics.record_model_call(fallback["model"])
             return _clean_json_response(response.choices[0].message.content), fallback[
                 "name"
@@ -365,12 +395,21 @@ async def get_completion(
             if response_format == "json_object":
                 or_kwargs["response_format"] = {"type": "json_object"}
             try:
-                response = await asyncio.wait_for(
-                    openrouter_client.chat.completions.create(
-                        model=or_model, messages=messages, **or_kwargs
-                    ),
-                    timeout=LLM_TIMEOUT,
-                )
+                with (sentry_sdk.start_span(
+                    op="llm.completion",
+                    name="LLM third-level fallback: OpenRouter",
+                ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+                    if _SENTRY_AVAILABLE and span:
+                        span.set_tag("llm.provider", "openrouter")
+                        span.set_tag("llm.model", or_model)
+                        span.set_tag("llm.mode", mode)
+                        span.set_tag("llm.is_fallback", True)
+                    response = await asyncio.wait_for(
+                        openrouter_client.chat.completions.create(
+                            model=or_model, messages=messages, **or_kwargs
+                        ),
+                        timeout=LLM_TIMEOUT,
+                    )
                 await metrics.record_model_call("openrouter-llama")
                 logger.warning("OpenRouter third-level fallback succeeded")
                 return _clean_json_response(response.choices[0].message.content), "OpenRouter Llama 3.3"
