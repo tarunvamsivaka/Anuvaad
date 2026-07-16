@@ -164,3 +164,28 @@ class IndexConfiguration(Base):
     admission_policy_version = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
+# Phase 1B Models
+class DesiredIndexState(Base):
+    __tablename__ = "desired_index_states"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
+    source_state_id = Column(UUID(as_uuid=True), ForeignKey("source_states.id"), nullable=False)
+    index_configuration_id = Column(UUID(as_uuid=True), ForeignKey("index_configurations.id"), nullable=False)
+    incarnation_id = Column(UUID(as_uuid=True), default=uuid.uuid4, nullable=False, unique=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    import_ = relationship("RepositoryImport")
+    source_state = relationship("SourceState")
+    index_configuration = relationship("IndexConfiguration")
+
+class IndexRun(Base):
+    __tablename__ = "index_runs"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    desired_state_id = Column(UUID(as_uuid=True), ForeignKey("desired_index_states.id"), nullable=False, index=True)
+    status = Column(Text, nullable=False)
+    error_diagnostics = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    desired_state = relationship("DesiredIndexState")
+

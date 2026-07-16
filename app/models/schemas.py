@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
+from datetime import datetime
 
 
 class CodePayload(BaseModel):
@@ -172,4 +173,27 @@ class IndexConfigurationCreate(BaseModel):
 
 class IndexConfigurationResponse(IndexConfigurationCreate):
     id: str
+
+
+# Phase 1B Schemas
+class DesiredIndexStateCreate(BaseModel):
+    import_id: str = Field(..., min_length=36, max_length=36)
+    source_state_id: str = Field(..., min_length=36, max_length=36)
+    index_configuration_id: str = Field(..., min_length=36, max_length=36)
+
+class DesiredIndexStateResponse(DesiredIndexStateCreate):
+    id: str
+    incarnation_id: str
+    created_at: datetime
+
+class IndexRunCreate(BaseModel):
+    desired_state_id: str = Field(..., min_length=36, max_length=36)
+    status: str = Field(..., min_length=1, max_length=50)
+    error_diagnostics: str | None = None
+
+class IndexRunResponse(IndexRunCreate):
+    id: str
+    created_at: datetime
+    completed_at: datetime | None = None
+
 
