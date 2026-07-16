@@ -2,8 +2,9 @@ import uuid
 from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, Text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import relationship
 
 from app.core.database_session import Base
 
@@ -41,6 +42,8 @@ class Workspace(Base):
     name = Column(Text, nullable=False)
     owner_email = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    repository_imports = relationship("RepositoryImport", back_populates="workspace")
 
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
@@ -126,3 +129,38 @@ class RepoEmbedding(Base):
     embedding = Column(Vector(1536)) # 1536 dim for openai text-embedding-3-small (was 384)
     provider = Column(Text, default="hf", nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+# Phase 1A Models
+class RepositoryImport(Base):
+    __tablename__ = "repository_imports"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False, index=True)
+    provider = Column(Text, nullable=False)
+    provider_repo_id = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    workspace = relationship("Workspace", back_populates="repository_imports")
+    source_states = relationship("SourceState", back_populates="import_")
+
+    __table_args__ = (
+        Index("ix_repo_imports_workspace_provider", "workspace_id", "provider", "provider_repo_id", unique=True),
+    )
+
+class SourceState(Base):
+    __tablename__ = "source_states"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
+    revision_sha = Column(Text, nullable=False)
+    snapshot_hash = Column(Text, nullable=True) # Fallback hash
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    import_ = relationship("RepositoryImport", back_populates="source_states")
+
+class IndexConfiguration(Base):
+    __tablename__ = "index_configurations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    config_hash = Column(Text, nullable=False, unique=True, index=True)
+    chunk_size = Column(Integer, nullable=False)
+    admission_policy_version = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+

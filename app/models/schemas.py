@@ -147,3 +147,29 @@ class VerifyPaymentPayload(BaseModel):
 class SharePayload(BaseModel):
     """Payload for toggling public/private sharing of a translation history item."""
     is_public: bool
+
+
+class RepositoryImportCreate(BaseModel):
+    workspace_id: str = Field(..., min_length=36, max_length=36)
+    provider: str = Field(..., min_length=1, max_length=50)
+    provider_repo_id: str = Field(..., min_length=1, max_length=255)
+
+class RepositoryImportResponse(RepositoryImportCreate):
+    id: str
+
+class SourceStateCreate(BaseModel):
+    import_id: str = Field(..., min_length=36, max_length=36)
+    revision_sha: str = Field(..., min_length=1, max_length=100)
+    snapshot_hash: str | None = None
+
+class SourceStateResponse(SourceStateCreate):
+    id: str
+
+class IndexConfigurationCreate(BaseModel):
+    config_hash: str = Field(..., min_length=1, max_length=100)
+    chunk_size: int = Field(..., gt=0)
+    admission_policy_version: str = Field(..., min_length=1, max_length=50)
+
+class IndexConfigurationResponse(IndexConfigurationCreate):
+    id: str
+
