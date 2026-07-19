@@ -45,6 +45,7 @@ celery_app.conf.update(
         # ── Heavy tasks → heavy queue ──
         "tasks.process_large_file":         {"queue": "heavy"},
         "tasks.process_github_repo":        {"queue": "heavy"},
+        "tasks.run_repository_indexing":   {"queue": "heavy"},
     },
 )
 

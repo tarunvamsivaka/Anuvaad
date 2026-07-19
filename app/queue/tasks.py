@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from uuid import UUID
 
 from app.core.quota import save_translation_background
 from app.queue.celery_config import celery_app
@@ -330,6 +331,28 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
                 logger.error(f"Error processing batch {i} for {repo_name}: {e}")
 
     run_async(_process())
+
+
+@celery_app.task(
+    name="tasks.run_repository_indexing",
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+    retry_jitter=True,
+)
+def run_repository_indexing_task(workspace_id: str, import_id: str, desired_state_id: str):
+    """Run the workspace-owned Phase 3 ingestion pipeline, never RepoEmbedding."""
+    from app.core.database_session import AsyncSessionLocal
+    from app.services.indexing.pipeline import RepositoryIndexingPipeline
+
+    async def _process():
+        async with AsyncSessionLocal() as session:
+            return await RepositoryIndexingPipeline(session).run(
+                UUID(workspace_id), UUID(import_id), UUID(desired_state_id)
+            )
+
+    return run_async(_process())
 
 
 # ── FIX-11 (P1-04): Celery Beat scheduled tasks ──────────────────────────────
