@@ -61,6 +61,47 @@ jobs:
           pip-audit -r requirements.txt --ignore-vuln GHSA-x7gm-x3g3-g6xq --ignore-vuln PYSEC-2026-3447 --progress-spinner off
         # Note: Added targeted ignores for known issues.
 
+  # Phase 1B: Exercise the additive repository-index lifecycle migration
+  # against PostgreSQL with pgvector.  SQLite cannot validate these PostgreSQL
+  # schema details or the Alembic upgrade/downgrade path.
+  migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: anuvaad_migration
+          POSTGRES_USER: anuvaad
+          POSTGRES_PASSWORD: anuvaad
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U anuvaad -d anuvaad_migration"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+
+      - name: Verify Phase 1B migration upgrade and downgrade
+        env:
+          DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
+          MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
+        run: pytest tests/test_migrations.py -v
+
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -183,7 +224,7 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
-    needs: [test, lint, frontend, e2e]
+    needs: [test, migration, lint, frontend, e2e]
     if: github.ref == 'refs/heads/master'
 
     steps:

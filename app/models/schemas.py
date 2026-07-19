@@ -195,5 +195,3 @@ class IndexRunResponse(IndexRunCreate):
     id: str
     created_at: datetime
     completed_at: datetime | None = None
-
-

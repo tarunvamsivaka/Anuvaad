@@ -1,59 +1,36 @@
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
-from app.models.schemas import DesiredIndexStateCreate, IndexRunCreate
-from pydantic import ValidationError
 import uuid
 
-@pytest.fixture
-def mock_session():
-    session = AsyncMock()
-    session.add = MagicMock()
-    
-    ctx_manager = MagicMock()
-    ctx_manager.__aenter__.return_value = session
-    ctx_manager.__aexit__.return_value = None
-    
-    return session, ctx_manager
+import pytest
+from pydantic import ValidationError
 
-def test_pydantic_schemas():
-    # Test valid creation
-    ds_create = DesiredIndexStateCreate(
+from app.models.db_models import DesiredIndexState, IndexRun
+from app.models.schemas import DesiredIndexStateCreate, IndexRunCreate
+
+
+def test_phase_1b_create_schemas_require_lifecycle_identifiers() -> None:
+    desired_state = DesiredIndexStateCreate(
         import_id=str(uuid.uuid4()),
         source_state_id=str(uuid.uuid4()),
-        index_configuration_id=str(uuid.uuid4())
+        index_configuration_id=str(uuid.uuid4()),
     )
-    assert ds_create.import_id is not None
-    
-    run_create = IndexRunCreate(
-        desired_state_id=str(uuid.uuid4()),
-        status="PENDING"
-    )
-    assert run_create.status == "PENDING"
-    
-    # Test missing fields
+    index_run = IndexRunCreate(desired_state_id=str(uuid.uuid4()), status="PENDING")
+
+    assert desired_state.import_id
+    assert index_run.status == "PENDING"
+
     with pytest.raises(ValidationError):
         IndexRunCreate(status="PENDING")
 
-@pytest.mark.asyncio
-@patch("app.repositories.repository_identity.AsyncSessionLocal") # Mocking just to have a similar structure, but we actually just test schemas and model instantiations
-async def test_mock_creation(mock_local, mock_session):
-    from app.models.db_models import DesiredIndexState, IndexRun
-    session, ctx_manager = mock_session
-    mock_local.return_value = ctx_manager
-    
-    import_id = uuid.uuid4()
-    ds = DesiredIndexState(
-        import_id=import_id,
+
+def test_phase_1b_models_link_only_lifecycle_entities() -> None:
+    desired_state = DesiredIndexState(
+        import_id=uuid.uuid4(),
         source_state_id=uuid.uuid4(),
         index_configuration_id=uuid.uuid4(),
-        incarnation_id=uuid.uuid4()
+        incarnation_id=uuid.uuid4(),
     )
-    session.add(ds)
-    session.add.assert_called_once_with(ds)
-    
-    run = IndexRun(
-        desired_state_id=ds.id,
-        status="PENDING"
-    )
-    session.add(run)
-    assert session.add.call_count == 2
+    index_run = IndexRun(desired_state_id=desired_state.id, status="PENDING")
+
+    assert desired_state.__tablename__ == "desired_index_states"
+    assert index_run.__tablename__ == "index_runs"
+    assert index_run.desired_state_id == desired_state.id
