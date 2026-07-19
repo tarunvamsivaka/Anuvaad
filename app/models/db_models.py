@@ -141,6 +141,8 @@ class RepositoryImport(Base):
 
     workspace = relationship("Workspace", back_populates="repository_imports")
     source_states = relationship("SourceState", back_populates="import_")
+    searchable_materializations = relationship("SearchableMaterialization", back_populates="import_")
+    repository_linked_history = relationship("RepositoryLinkedHistory", back_populates="import_")
 
     __table_args__ = (
         Index("ix_repo_imports_workspace_provider", "workspace_id", "provider", "provider_repo_id", unique=True),
@@ -155,6 +157,7 @@ class SourceState(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     import_ = relationship("RepositoryImport", back_populates="source_states")
+    repository_linked_history = relationship("RepositoryLinkedHistory", back_populates="source_state")
 
 class IndexConfiguration(Base):
     __tablename__ = "index_configurations"
@@ -188,4 +191,114 @@ class IndexRun(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
     desired_state = relationship("DesiredIndexState")
+
+
+# Phase 1C Models
+class SearchableMaterialization(Base):
+    __tablename__ = "searchable_materializations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
+    index_run_id = Column(UUID(as_uuid=True), ForeignKey("index_runs.id"), nullable=False, unique=True, index=True)
+    is_current = Column(Boolean, nullable=False, default=True, server_default="true")
+    published_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+    import_ = relationship("RepositoryImport", back_populates="searchable_materializations")
+    index_run = relationship("IndexRun")
+    structural_files = relationship("StructuralFile", back_populates="materialization")
+
+    __table_args__ = (
+        Index(
+            "uq_searchable_materializations_current_import",
+            "import_id",
+            unique=True,
+            postgresql_where=(is_current.is_(True)),
+        ),
+    )
+
+
+class StructuralFile(Base):
+    __tablename__ = "structural_files"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    materialization_id = Column(UUID(as_uuid=True), ForeignKey("searchable_materializations.id"), nullable=False, index=True)
+    file_path = Column(Text, nullable=False)
+    language = Column(Text, nullable=False)
+    module_identity = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    materialization = relationship("SearchableMaterialization", back_populates="structural_files")
+    symbols = relationship("StructuralSymbol", back_populates="structural_file")
+    declared_imports = relationship(
+        "StructuralImport",
+        back_populates="source_file",
+        foreign_keys="StructuralImport.source_file_id",
+    )
+    resolved_imports = relationship(
+        "StructuralImport",
+        back_populates="resolved_target_file",
+        foreign_keys="StructuralImport.resolved_target_file_id",
+    )
+
+    __table_args__ = (
+        Index("uq_structural_files_materialization_path", "materialization_id", "file_path", unique=True),
+    )
+
+
+class StructuralSymbol(Base):
+    __tablename__ = "structural_symbols"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    structural_file_id = Column(UUID(as_uuid=True), ForeignKey("structural_files.id"), nullable=False, index=True)
+    symbol_name = Column(Text, nullable=False)
+    symbol_kind = Column(Text, nullable=False)
+    location_start = Column(Integer, nullable=False)
+    location_end = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    structural_file = relationship("StructuralFile", back_populates="symbols")
+
+    __table_args__ = (
+        Index(
+            "uq_structural_symbols_file_location",
+            "structural_file_id",
+            "symbol_name",
+            "symbol_kind",
+            "location_start",
+            "location_end",
+            unique=True,
+        ),
+    )
+
+
+class StructuralImport(Base):
+    __tablename__ = "structural_imports"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_file_id = Column(UUID(as_uuid=True), ForeignKey("structural_files.id"), nullable=False, index=True)
+    declared_import = Column(Text, nullable=False)
+    resolved_target_file_id = Column(UUID(as_uuid=True), ForeignKey("structural_files.id"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    source_file = relationship(
+        "StructuralFile", back_populates="declared_imports", foreign_keys=[source_file_id]
+    )
+    resolved_target_file = relationship(
+        "StructuralFile", back_populates="resolved_imports", foreign_keys=[resolved_target_file_id]
+    )
+
+    __table_args__ = (
+        Index("uq_structural_imports_source_declared", "source_file_id", "declared_import", unique=True),
+    )
+
+
+class RepositoryLinkedHistory(Base):
+    __tablename__ = "repository_linked_history"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False, index=True)
+    translation_history_id = Column(UUID(as_uuid=True), ForeignKey("translation_history.id"), nullable=False, unique=True, index=True)
+    import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
+    source_state_id = Column(UUID(as_uuid=True), ForeignKey("source_states.id"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    workspace = relationship("Workspace")
+    translation_history = relationship("TranslationHistory")
+    import_ = relationship("RepositoryImport", back_populates="repository_linked_history")
+    source_state = relationship("SourceState", back_populates="repository_linked_history")
 
