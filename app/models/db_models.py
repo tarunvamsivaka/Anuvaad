@@ -205,6 +205,7 @@ class SearchableMaterialization(Base):
     import_ = relationship("RepositoryImport", back_populates="searchable_materializations")
     index_run = relationship("IndexRun")
     structural_files = relationship("StructuralFile", back_populates="materialization")
+    semantic_artifacts = relationship("SemanticArtifact", back_populates="materialization")
 
     __table_args__ = (
         Index(
@@ -216,10 +217,35 @@ class SearchableMaterialization(Base):
     )
 
 
+class SemanticArtifact(Base):
+    __tablename__ = "semantic_artifacts"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    materialization_id = Column(
+        UUID(as_uuid=True), ForeignKey("searchable_materializations.id"), nullable=False, index=True
+    )
+    file_path = Column(Text, nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    content_hash = Column(Text, nullable=False)
+    embedding = Column(Vector(1536), nullable=False)
+    embedding_model = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+    materialization = relationship("SearchableMaterialization", back_populates="semantic_artifacts")
+
+    __table_args__ = (
+        Index(
+            "uq_semantic_artifacts_materialization_path_chunk",
+            "materialization_id", "file_path", "chunk_index", unique=True,
+        ),
+    )
+
 class StructuralFile(Base):
     __tablename__ = "structural_files"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    materialization_id = Column(UUID(as_uuid=True), ForeignKey("searchable_materializations.id"), nullable=False, index=True)
+    materialization_id = Column(
+        UUID(as_uuid=True), ForeignKey("searchable_materializations.id"), nullable=False, index=True
+    )
     file_path = Column(Text, nullable=False)
     language = Column(Text, nullable=False)
     module_identity = Column(Text, nullable=True)
@@ -301,4 +327,6 @@ class RepositoryLinkedHistory(Base):
     translation_history = relationship("TranslationHistory")
     import_ = relationship("RepositoryImport", back_populates="repository_linked_history")
     source_state = relationship("SourceState", back_populates="repository_linked_history")
+
+
 

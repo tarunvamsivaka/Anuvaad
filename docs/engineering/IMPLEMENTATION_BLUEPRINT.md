@@ -16,13 +16,14 @@ The implementation workstreams follow strict hard dependencies to ensure no phas
 2. **Index Lifecycle Schema (Phase 1B)**: Depends on Phase 1A.
 3. **Searchable Persistence Schema (Phase 1C)**: Depends on Phase 1B. Defines `SearchableMaterialization`.
 4. **Core Domain & Repositories (Phase 2)**: Depends on Phase 1C. Provides the programmatic interface to the database.
-5. **Indexing Pipeline & Extraction (Phase 3)**: Depends on Phase 2. The pipeline requires domain models to persist state and publish `SearchableMaterialization`.
-6. **Retrieval & Trust Boundaries (Phase 4)**: Depends on Phase 3. Retrieval cannot happen until searchable materializations and structural metadata exist.
-7. **Backend API Stabilization (Phase 5A)**: Depends on Phase 4. Freezes API contracts before UI consumes them.
-8. **Frontend Integration (Phase 5B)**: Depends on Phase 5A. Exposes the capabilities to the user interface.
-9. **Continuity & Cleanup (Phase 6)**: Depends on Phase 5B. Background cleanup of stale artifacts once the system is active.
-10. **Compatibility Mode (Phase 7A)**: Depends on Phase 6. Disables legacy writes and observes system stability.
-11. **Legacy Removal (Phase 7B)**: Depends on Phase 7A. Removes old code and tables after full transition observation.
+5. **Tenant-Scoped Semantic Artifact Persistence (Phase 2A)**: Depends on Phase 2. Provides the workspace-owned persistence target required for semantic chunks and embeddings.
+6. **Indexing Pipeline & Extraction (Phase 3)**: Depends on Phase 2A. The pipeline requires semantic artifact persistence as well as domain models to publish `SearchableMaterialization`.
+7. **Retrieval & Trust Boundaries (Phase 4)**: Depends on Phase 3. Retrieval cannot happen until searchable materializations, semantic artifacts, and structural metadata exist.
+8. **Backend API Stabilization (Phase 5A)**: Depends on Phase 4. Freezes API contracts before UI consumes them.
+9. **Frontend Integration (Phase 5B)**: Depends on Phase 5A. Exposes the capabilities to the user interface.
+10. **Continuity & Cleanup (Phase 6)**: Depends on Phase 5B. Background cleanup of stale artifacts once the system is active.
+11. **Compatibility Mode (Phase 7A)**: Depends on Phase 6. Disables legacy writes and observes system stability.
+12. **Legacy Removal (Phase 7B)**: Depends on Phase 7A. Removes old code and tables after full transition observation.
 
 ---
 
@@ -92,6 +93,13 @@ The implementation workstreams follow strict hard dependencies to ensure no phas
 * **Acceptance Criteria**: 100% test coverage on new repository layer. Tenant isolation verified.
 * **Review Gate**: Implementation Complete -> Independent Engineering Review -> Approval -> Merge -> Next Phase
 
+### Phase 2A: Tenant-Scoped Semantic Artifact Persistence
+* **Purpose**: Add persistence for semantic chunks and embeddings without duplicating workspace ownership.
+* **Prerequisites**: Phase 2.
+* **Database Changes**: Add `semantic_artifacts`, owned transitively through `SearchableMaterialization` -> `RepositoryImport` -> `Workspace`; no `workspace_id` column.
+* **API Contract Changes**: None.
+* **Background Worker Changes**: None.
+* **Test Requirements**: Migration, repository unit, and cross-workspace isolation tests.
 ### Phase 3: Structural Extraction & Indexing Pipeline
 * **Purpose**: Implement the background worker pipeline: Admission Validation -> Source Fetch -> Extraction -> Semantic Vectorization -> Publication of `SearchableMaterialization`.
 * **Prerequisites**: Phase 2.
@@ -229,7 +237,11 @@ The implementation workstreams follow strict hard dependencies to ensure no phas
    * **Coexistence Period**: Until Phase 7B.
    * **Cleanup Phase**: N/A.
 
-4. **Migration 4 (Phase 7B): Destructive Cleanup**
+4. **Migration 4 (Phase 2A): Tenant-Scoped Semantic Artifact Persistence
+   * **Objective**: Create `semantic_artifacts`, scoped transitively through `searchable_materializations`.
+   * **Compatibility Strategy**: Coexists with legacy `RepoEmbedding`; no legacy reads or writes change.
+
+5. **Migration 5 (Phase 7B): Destructive Cleanup**
    * **Objective**: Drop legacy `RepoEmbedding`.
    * **Ordering**: Last.
    * **Compatibility Strategy**: Executed only after the application stops reading/writing to the legacy table and passes Phase 7A.
@@ -242,7 +254,7 @@ The implementation workstreams follow strict hard dependencies to ensure no phas
 
 ### Subsystems:
 * **Models**:
-  * **New**: `RepositoryImport`, `SourceState`, `IndexConfiguration` (Phase 1A). `DesiredIndexState`, `IndexRun` (Phase 1B). `SearchableMaterialization`, `StructuralFile`, `StructuralSymbol`, `StructuralImport`, `RepositoryLinkedHistory` (Phase 1C).
+  * **New**: `RepositoryImport`, `SourceState`, `IndexConfiguration` (Phase 1A). `DesiredIndexState`, `IndexRun` (Phase 1B). `SearchableMaterialization`, `StructuralFile`, `StructuralSymbol`, `StructuralImport`, `RepositoryLinkedHistory` (Phase 1C). `SemanticArtifact` (Phase 2A).
   * **Deleted**: `RepoEmbedding` (in Phase 7B).
 * **Repositories**:
   * **New**: Repositories for all new models enforcing workspace scoping, including explicitly retrieving `SearchableMaterialization`.
@@ -341,11 +353,14 @@ The implementation workstreams follow strict hard dependencies to ensure no phas
 3. [ ] Execute Phase 1B: Index Lifecycle (Create & merge).
 4. [ ] Execute Phase 1C: Searchable Persistence (Create & merge).
 5. [ ] Execute Phase 2: Core Domain and Repositories (Create & merge).
-6. [ ] Execute Phase 3: Structural Extraction & Indexing Pipeline (Create & merge).
-7. [ ] Execute Phase 4: Retrieval logic & Prompt Boundaries (Create & merge).
-8. [ ] Execute Phase 5A: Backend API Stabilization (Create & merge).
-9. [ ] Execute Phase 5B: Frontend Integration (Create & merge).
-10. [ ] Execute Phase 6: Cleanup workers and History context linking (Create & merge).
-11. [ ] Execute Phase 7A: Compatibility Mode (Disable legacy writes, observe).
-12. [ ] Execute Phase 7B: Legacy Removal (Drop tables, delete code).
-13. [ ] Final Sign-off.
+6. [ ] Execute Phase 2A: Tenant-Scoped Semantic Artifact Persistence (Create & merge).
+7. [ ] Execute Phase 3: Structural Extraction & Indexing Pipeline (Create & merge).
+8. [ ] Execute Phase 4: Retrieval logic & Prompt Boundaries (Create & merge).
+9. [ ] Execute Phase 5A: Backend API Stabilization (Create & merge).
+10. [ ] Execute Phase 5B: Frontend Integration (Create & merge).
+11. [ ] Execute Phase 6: Cleanup workers and History context linking (Create & merge).
+12. [ ] Execute Phase 7A: Compatibility Mode (Disable legacy writes, observe).
+13. [ ] Execute Phase 7B: Legacy Removal (Drop tables, delete code).
+14. [ ] Final Sign-off.
+
+

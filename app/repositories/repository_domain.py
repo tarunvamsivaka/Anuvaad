@@ -18,6 +18,7 @@ from app.models.db_models import (
     RepositoryImport,
     RepositoryLinkedHistory,
     SearchableMaterialization,
+    SemanticArtifact,
     SourceState,
     StructuralFile,
     StructuralImport,
@@ -31,6 +32,7 @@ from app.schemas.repository_domain import (
     RepositoryImportCreate,
     RepositoryLinkedHistoryCreate,
     SearchableMaterializationCreate,
+    SemanticArtifactCreate,
     SourceStateCreate,
     StructuralFileCreate,
     StructuralImportCreate,
@@ -259,3 +261,34 @@ class RepositoryDomainRepository:
             .order_by(RepositoryLinkedHistory.created_at.desc())
         )
         return list(result.scalars())
+
+    async def create_semantic_artifact(
+        self, workspace_id: UUID, materialization_id: UUID, data: SemanticArtifactCreate
+    ):
+        if await self._owned_materialization(workspace_id, materialization_id) is None:
+            return None
+        return await self._commit(
+            SemanticArtifact(materialization_id=materialization_id, **data.model_dump())
+        )
+
+    async def get_semantic_artifact(self, workspace_id: UUID, artifact_id: UUID):
+        result = await self._session.execute(
+            select(SemanticArtifact)
+            .join(SearchableMaterialization)
+            .join(RepositoryImport)
+            .where(SemanticArtifact.id == artifact_id, RepositoryImport.workspace_id == workspace_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_semantic_artifacts(
+        self, workspace_id: UUID, materialization_id: UUID
+    ) -> list[SemanticArtifact]:
+        if await self._owned_materialization(workspace_id, materialization_id) is None:
+            return []
+        result = await self._session.execute(
+            select(SemanticArtifact)
+            .where(SemanticArtifact.materialization_id == materialization_id)
+            .order_by(SemanticArtifact.file_path, SemanticArtifact.chunk_index)
+        )
+        return list(result.scalars())
+

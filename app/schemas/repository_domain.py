@@ -131,3 +131,17 @@ class RepositoryLinkedHistoryRead(RepositoryLinkedHistoryCreate):
     workspace_id: UUID
     import_id: UUID
     created_at: datetime | None
+
+class SemanticArtifactCreate(_Schema):
+    file_path: str = Field(min_length=1)
+    chunk_index: int = Field(ge=0)
+    content: str = Field(min_length=1)
+    content_hash: str = Field(min_length=1)
+    embedding: list[float] = Field(min_length=1536, max_length=1536)
+    embedding_model: str = Field(min_length=1)
+
+
+class SemanticArtifactRead(SemanticArtifactCreate):
+    id: UUID
+    materialization_id: UUID
+    created_at: datetime
