@@ -1,7 +1,7 @@
 from sqlalchemy import inspect
 from alembic import command
 
-from tests.test_migrations import _alembic_config, _foreign_key_targets
+from tests.test_migrations import _alembic_config, _foreign_key_targets, migration_engine
 
 
 def test_phase_1c_upgrade_and_downgrade(migration_engine) -> None:
@@ -60,3 +60,4 @@ def test_phase_1c_upgrade_and_downgrade(migration_engine) -> None:
 
     command.downgrade(config, "007_phase_1b")
     assert phase_1c_tables.isdisjoint(inspect(migration_engine).get_table_names())
+

@@ -102,6 +102,7 @@ async def test_materialization_creation_rejects_a_non_complete_run():
     repository.get_index_run = AsyncMock(
         return_value=MagicMock(desired_state_id=uuid4(), status="failed")
     )
+    repository.get_desired_state = AsyncMock()
 
     row = await repository.create_materialization(
         workspace_id,
@@ -152,3 +153,5 @@ def test_structural_symbol_schema_requires_an_ordered_location_range():
             location_start=10,
             location_end=9,
         )
+
+

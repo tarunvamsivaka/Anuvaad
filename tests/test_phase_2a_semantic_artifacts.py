@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 from alembic import command
@@ -62,11 +63,12 @@ def test_phase_2a_upgrade_and_downgrade(migration_engine):
 
 
 def test_phase_2a_migration_declares_workspace_transitive_ownership():
-    migration = __import__("importlib").import_module("alembic.versions.009_phase_2a_semantic_artifacts")
-    source = __import__("inspect").getsource(migration)
+    source = Path("alembic/versions/009_phase_2a_semantic_artifacts.py").read_text()
     assert '"semantic_artifacts"' in source
     assert '"materialization_id"' in source
     assert '"workspace_id"' not in source
     assert 'Vector(dim=1536)' in source
+
+
 
 
