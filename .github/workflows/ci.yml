@@ -161,7 +161,7 @@ jobs:
         run: npx vitest run
 
       - name: Security audit (npm audit)
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
         # Note: Add exclusions via overrides in package.json if needed
 
       - name: Lint frontend

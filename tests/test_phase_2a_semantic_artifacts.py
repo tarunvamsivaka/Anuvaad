@@ -9,7 +9,7 @@ import pytest
 
 from app.repositories.repository_domain import RepositoryDomainRepository
 from app.schemas.repository_domain import SemanticArtifactCreate
-from tests.test_migrations import _alembic_config, migration_engine
+from tests.test_migrations import _alembic_config, migration_engine  # noqa: F811
 
 
 def _result(value=None):
@@ -51,7 +51,7 @@ async def test_semantic_artifact_lookup_joins_through_workspace_ownership():
     assert "repository_imports.workspace_id" in statement
 
 
-def test_phase_2a_upgrade_and_downgrade(migration_engine):
+def test_phase_2a_upgrade_and_downgrade(migration_engine):  # noqa: F811
     config = _alembic_config()
     command.upgrade(config, "008_phase_1c")
     assert "semantic_artifacts" not in inspect(migration_engine).get_table_names()

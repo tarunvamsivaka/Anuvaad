@@ -10,11 +10,6 @@ except ImportError:
 
 from contextlib import contextmanager
 
-@contextmanager
-def _nullctx():
-    """No-op context manager used when Sentry is not configured."""
-    yield None
-
 from fastapi import HTTPException
 from openai import AsyncOpenAI
 
@@ -28,6 +23,11 @@ from app.core.config import (
 from app.core.quota import record_successful_completion
 from app.models.schemas import CodePayload, CodeToCodePayload
 from app.queue.tasks import save_translation_history_task
+
+@contextmanager
+def _nullctx():
+    """No-op context manager used when Sentry is not configured."""
+    yield None
 
 # ── LLM CLIENT SINGLETONS (BACK-02) ──
 # Created once at startup in lifespan, reused for all requests.

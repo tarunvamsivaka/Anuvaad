@@ -1,10 +1,10 @@
 from sqlalchemy import inspect
 from alembic import command
 
-from tests.test_migrations import _alembic_config, _foreign_key_targets, migration_engine
+from tests.test_migrations import _alembic_config, _foreign_key_targets, migration_engine  # noqa: F811
 
 
-def test_phase_1c_upgrade_and_downgrade(migration_engine) -> None:
+def test_phase_1c_upgrade_and_downgrade(migration_engine) -> None:  # noqa: F811
     """Phase 1C adds and removes only searchable persistence tables."""
     config = _alembic_config()
     command.upgrade(config, "007_phase_1b")

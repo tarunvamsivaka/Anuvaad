@@ -67,7 +67,11 @@
   },
   "overrides": {
     "serialize-javascript": "^7.0.5",
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.10",
+    "brace-expansion": "^2.0.1",
+    "fast-uri": "^3.0.3",
+    "body-parser": "^2.2.3",
+    "dompurify": "^3.4.12"
   },
   "_comments": {
     "overrides.serialize-javascript": "Security patch: forces all transitive dependents to use serialize-javascript >=7.0.5 which fixes CVE-2020-7660 (XSS via prototype pollution). This override should be periodically reviewed and removed once all direct dependencies have updated.",
