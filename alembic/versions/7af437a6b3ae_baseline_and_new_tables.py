@@ -24,6 +24,52 @@ def upgrade() -> None:
     op.execute('CREATE EXTENSION IF NOT EXISTS vector;')
 
     op.execute("""
+        CREATE TABLE IF NOT EXISTS public.users (
+            id UUID PRIMARY KEY,
+            email TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS public.workspaces (
+            id UUID PRIMARY KEY,
+            name TEXT NOT NULL,
+            owner_email TEXT NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS public.workspace_members (
+            workspace_id UUID NOT NULL,
+            user_email TEXT NOT NULL,
+            role TEXT DEFAULT 'member',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            PRIMARY KEY (workspace_id, user_email)
+        );
+        CREATE TABLE IF NOT EXISTS public.user_subscriptions (
+            id UUID PRIMARY KEY,
+            user_email TEXT UNIQUE NOT NULL,
+            is_pro BOOLEAN DEFAULT FALSE,
+            credits INTEGER DEFAULT 0,
+            current_period_end TIMESTAMP WITH TIME ZONE,
+            onboarded BOOLEAN DEFAULT FALSE,
+            stripe_customer_id TEXT,
+            razorpay_subscription_id TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS public.api_keys (
+            id UUID PRIMARY KEY,
+            workspace_id UUID,
+            user_email TEXT NOT NULL,
+            name TEXT NOT NULL,
+            api_key_hash TEXT NOT NULL,
+            key_prefix TEXT NOT NULL,
+            key_hash_algo TEXT DEFAULT 'sha256',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            last_used_at TIMESTAMP WITH TIME ZONE
+        );
+        CREATE TABLE IF NOT EXISTS public.user_translation_stats (
+            user_email TEXT PRIMARY KEY,
+            total BIGINT DEFAULT 0,
+            today_count BIGINT DEFAULT 0,
+            this_week_count BIGINT DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS public.translation_history (
             id UUID PRIMARY KEY,
             user_email TEXT,
