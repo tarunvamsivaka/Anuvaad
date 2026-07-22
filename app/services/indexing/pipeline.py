@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -28,6 +28,7 @@ from app.services.indexing.admission import AdmissionPolicy, AdmissionRejectedEr
 from app.services.indexing.extraction import extract_structure
 
 logger = logging.getLogger("anuvaad.indexing")
+UTC = timezone.utc  # noqa: UP017 - CI supports Python 3.10.
 EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_BATCH_SIZE = 100
 
