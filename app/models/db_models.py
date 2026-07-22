@@ -1,5 +1,5 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, Text
@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 
 from app.core.database_session import Base
 
-UTC = UTC  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
+UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 class User(Base):
     __tablename__ = "users"
