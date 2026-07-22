@@ -24,6 +24,7 @@ from app.core.quota import record_successful_completion
 from app.models.schemas import CodePayload, CodeToCodePayload
 from app.queue.tasks import save_translation_history_task
 
+
 @contextmanager
 def _nullctx():
     """No-op context manager used when Sentry is not configured."""
@@ -159,8 +160,11 @@ You should update the code_snippet to "print(path.upper())" or language equivale
 
 
 def _clean_json_response(text: str) -> str:
-    """Strip markdown backticks from LLMs that don't enforce strict JSON mode."""
+    """Strip reasoning tags (<think>...</think>) and markdown code fences (```json...```)."""
+    import re
     text = text.strip()
+    # Strip DeepSeek R1 / Reasoning model <think>...</think> tags if present
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
     if text.startswith("```json"):
         text = text[7:]
     elif text.startswith("```"):

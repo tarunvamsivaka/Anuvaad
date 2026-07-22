@@ -482,9 +482,10 @@ def client_no_auth():
     This fixture replicates that real behavior by overriding the dependency
     with a function that raises the same exception.
     """
+    from fastapi import HTTPException as FastAPIHTTPException
+
     import app.services.ai as ai_module
     import main as app_module
-    from fastapi import HTTPException as FastAPIHTTPException
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()

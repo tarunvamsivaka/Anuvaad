@@ -7,13 +7,11 @@ RepositoryImport, SourceState, IndexConfiguration
 from __future__ import annotations
 
 from sqlalchemy import select
-from typing import List, Optional
-
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
-from app.models.db_models import RepositoryImport, SourceState, IndexConfiguration
+from app.models.db_models import IndexConfiguration, RepositoryImport, SourceState
 
 
 async def create_repository_import(workspace_id: str, provider: str, provider_repo_id: str) -> dict | None:
@@ -54,7 +52,7 @@ async def get_repository_import_by_workspace_and_repo(workspace_id: str, provide
             logger.error(f"repository_identity.get_repository_import_by_workspace_and_repo [SQLAlchemyError]: {e}")
             return None
 
-async def get_repository_imports_for_workspace(workspace_id: str) -> List[dict]:
+async def get_repository_imports_for_workspace(workspace_id: str) -> list[dict]:
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(
@@ -68,7 +66,7 @@ async def get_repository_imports_for_workspace(workspace_id: str) -> List[dict]:
             logger.error(f"repository_identity.get_repository_imports_for_workspace [SQLAlchemyError]: {e}")
             return []
 
-async def create_source_state(import_id: str, revision_sha: str, snapshot_hash: Optional[str] = None) -> dict | None:
+async def create_source_state(import_id: str, revision_sha: str, snapshot_hash: str | None = None) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
             row = SourceState(
@@ -89,7 +87,7 @@ async def create_source_state(import_id: str, revision_sha: str, snapshot_hash: 
             await session.rollback()
             return None
 
-async def get_source_states_for_import(import_id: str) -> List[dict]:
+async def get_source_states_for_import(import_id: str) -> list[dict]:
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(

@@ -6,7 +6,7 @@ Phase 5 (Arch#2.1): Typed SQLAlchemy queries replacing supabase_request() string
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, func, select
 
@@ -14,7 +14,7 @@ from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO, logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import TranslationHistory
 
-UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
+UTC = UTC  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 async def get_history(
     email: str,

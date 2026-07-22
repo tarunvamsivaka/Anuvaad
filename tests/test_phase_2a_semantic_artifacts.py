@@ -1,15 +1,14 @@
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
-
-from alembic import command
-from sqlalchemy import inspect
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import inspect
 
+from alembic import command
 from app.repositories.repository_domain import RepositoryDomainRepository
 from app.schemas.repository_domain import SemanticArtifactCreate
-from tests.test_migrations import _alembic_config, migration_engine  # noqa: F811
+from tests.test_migrations import _alembic_config, migration_engine  # noqa: F401
 
 
 def _result(value=None):

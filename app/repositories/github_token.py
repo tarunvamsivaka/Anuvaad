@@ -3,10 +3,10 @@ import datetime
 from sqlalchemy import delete, select
 
 from app.core.database_session import AsyncSessionLocal
+from app.core.token_encryption import decrypt_token, encrypt_token, is_encrypted
 from app.models.db_models import UserGithubToken
-from app.core.token_encryption import encrypt_token, decrypt_token, is_encrypted
 
-UTC = datetime.timezone.utc
+UTC = datetime.UTC
 
 async def save_github_token(email: str, access_token: str) -> bool:
     """Upsert a GitHub OAuth token for a user, Fernet-encrypted.

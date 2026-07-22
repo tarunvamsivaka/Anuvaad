@@ -1,5 +1,7 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+
 from app.repositories import repository_identity
 
 # TODO(Testing): The testing infrastructure currently does not support database-backed

@@ -1,14 +1,14 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Index, Integer, Text, ForeignKey
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database_session import Base
 
-UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
+UTC = UTC  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 class User(Base):
     __tablename__ = "users"

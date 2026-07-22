@@ -11,11 +11,11 @@ from __future__ import annotations
 import os
 
 import pytest
-from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
 
+from alembic import command
 
 MIGRATION_DATABASE_URL = os.getenv("MIGRATION_DATABASE_URL")
 

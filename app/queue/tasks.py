@@ -95,6 +95,7 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     logger.info(f"Celery: Processing billing webhook {event_id}")
 
     from sqlalchemy.exc import IntegrityError
+
     from app.core.database_session import AsyncSessionLocal
     from app.models.db_models import PaymentTransaction
     from app.repositories import subscription as subscription_repo  # H-04
@@ -182,6 +183,7 @@ def prune_translation_history_task(user_email: str):
     """
     logger.info(f"Celery: Pruning translation history for {user_email}")
     from sqlalchemy import delete, desc, select
+
     from app.core.config import HISTORY_LIMIT_FREE
     from app.core.database_session import AsyncSessionLocal
     from app.models.db_models import TranslationHistory
@@ -266,6 +268,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
     """
     logger.info(f"Celery: process_github_repo_task called for {repo_name}")
     import os
+
     from app.core.database_session import AsyncSessionLocal
     from app.repositories.vectors import insert_repo_embeddings
     from app.services.embedding import (
@@ -366,6 +369,7 @@ def reset_daily_stats():
     logger.info("Celery Beat: Resetting daily translation stats for all users")
 
     from sqlalchemy import update as sa_update
+
     from app.core.database_session import AsyncSessionLocal
     from app.models.db_models import UserTranslationStats
 
@@ -387,6 +391,7 @@ def reset_weekly_stats():
     logger.info("Celery Beat: Resetting weekly translation stats for all users")
 
     from sqlalchemy import update as sa_update
+
     from app.core.database_session import AsyncSessionLocal
     from app.models.db_models import UserTranslationStats
 
@@ -415,6 +420,7 @@ def prune_old_translation_history_scheduled():
     logger.info("Celery Beat: Running daily history pruning for all users")
 
     from sqlalchemy import text as sa_text
+
     from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO
     from app.core.database_session import AsyncSessionLocal
 

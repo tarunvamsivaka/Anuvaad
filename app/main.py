@@ -123,9 +123,12 @@ app = FastAPI(title="Anuvaad API", lifespan=lifespan)
 register_all(app)
 
 # ── Sentry ──
-if SENTRY_DSN:
-    sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=0.1, environment=ENV)
-    logger.info("Sentry initialized")
+if SENTRY_DSN and SENTRY_DSN.startswith(("http://", "https://")):
+    try:
+        sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=0.1, environment=ENV)
+        logger.info("Sentry initialized")
+    except Exception as e:
+        logger.warning(f"Sentry initialization skipped: {e}")
 else:
     logger.info("Sentry not configured")
 

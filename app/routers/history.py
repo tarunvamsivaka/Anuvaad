@@ -20,7 +20,7 @@ Endpoints:
 import asyncio
 import base64
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -44,7 +44,7 @@ from app.models.schemas import ApiKeyCreate, SharePayload
 from app.repositories import api_key as api_key_repo
 from app.repositories import translation as translation_repo
 
-UTC = timezone.utc  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
+UTC = UTC  # datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 router = APIRouter(prefix="", tags=["history"])
 

@@ -1,7 +1,7 @@
 from sqlalchemy import inspect
-from alembic import command
 
-from tests.test_migrations import _alembic_config, _foreign_key_targets, migration_engine  # noqa: F811
+from alembic import command
+from tests.test_migrations import _alembic_config, _foreign_key_targets, migration_engine  # noqa: F401  # noqa: F811
 
 
 def test_phase_1c_upgrade_and_downgrade(migration_engine) -> None:  # noqa: F811

@@ -28,7 +28,7 @@ the previous single-key implementation — no migration required.
 """
 import os
 
-from cryptography.fernet import Fernet, MultiFernet, InvalidToken
+from cryptography.fernet import Fernet, MultiFernet
 
 __all__ = ["encrypt_token", "decrypt_token", "is_encrypted"]
 
