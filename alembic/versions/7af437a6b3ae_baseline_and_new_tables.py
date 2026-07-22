@@ -72,6 +72,7 @@ def upgrade() -> None:
         );
         CREATE TABLE IF NOT EXISTS public.translation_history (
             id UUID PRIMARY KEY,
+            workspace_id UUID,
             user_email TEXT,
             is_public BOOLEAN DEFAULT FALSE,
             char_count INTEGER DEFAULT 0,
