@@ -21,6 +21,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    op.execute('CREATE EXTENSION IF NOT EXISTS vector;')
+
     op.execute("""
         CREATE TABLE IF NOT EXISTS public.translation_history (
             id UUID PRIMARY KEY,
