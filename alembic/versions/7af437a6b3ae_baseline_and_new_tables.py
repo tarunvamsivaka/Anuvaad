@@ -60,7 +60,6 @@ def upgrade() -> None:
             name TEXT NOT NULL,
             api_key_hash TEXT NOT NULL,
             key_prefix TEXT NOT NULL,
-            key_hash_algo TEXT DEFAULT 'sha256',
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             last_used_at TIMESTAMP WITH TIME ZONE
         );
