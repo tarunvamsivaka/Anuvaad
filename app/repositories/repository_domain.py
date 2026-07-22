@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import (
@@ -38,6 +38,7 @@ from app.schemas.repository_domain import (
     StructuralImportCreate,
     StructuralSymbolCreate,
 )
+from app.schemas.retrieval import SemanticArtifactMatch, SemanticRetrievalRequest
 
 
 class RepositoryDomainRepository:
@@ -292,3 +293,47 @@ class RepositoryDomainRepository:
         )
         return list(result.scalars())
 
+    async def search_current_semantic_artifacts(
+        self, workspace_id: UUID, request: SemanticRetrievalRequest
+    ) -> list[SemanticArtifactMatch]:
+        """Rank current workspace artifacts by cosine similarity.
+
+        The ownership join and ``is_current`` predicate are mandatory even when
+        callers provide repository or materialization filters. This prevents a
+        stale or cross-workspace artifact identifier from widening the query.
+        """
+        cosine_distance = SemanticArtifact.embedding.cosine_distance(request.query_embedding)
+        similarity = (literal(1.0) - cosine_distance).label("similarity")
+        statement = (
+            select(SemanticArtifact, SearchableMaterialization.import_id, similarity)
+            .join(SearchableMaterialization)
+            .join(RepositoryImport)
+            .where(
+                RepositoryImport.workspace_id == workspace_id,
+                SearchableMaterialization.is_current.is_(True),
+                SemanticArtifact.embedding_model == request.embedding_model,
+                similarity >= request.similarity_threshold,
+            )
+        )
+        if request.repository_import_ids is not None:
+            statement = statement.where(RepositoryImport.id.in_(request.repository_import_ids))
+        if request.materialization_ids is not None:
+            statement = statement.where(SearchableMaterialization.id.in_(request.materialization_ids))
+        statement = statement.order_by(
+            similarity.desc(), SemanticArtifact.file_path, SemanticArtifact.chunk_index
+        ).limit(request.top_k)
+        result = await self._session.execute(statement)
+        return [
+            SemanticArtifactMatch(
+                artifact_id=artifact.id,
+                repository_import_id=import_id,
+                materialization_id=artifact.materialization_id,
+                file_path=artifact.file_path,
+                chunk_index=artifact.chunk_index,
+                content=artifact.content,
+                content_hash=artifact.content_hash,
+                embedding_model=artifact.embedding_model,
+                similarity=float(score),
+            )
+            for artifact, import_id, score in result.all()
+        ]
