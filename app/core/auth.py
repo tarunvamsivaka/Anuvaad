@@ -11,23 +11,88 @@ a hard external dependency from the critical path.
 FIX-12 (P1-06): API key auth (X-API-Key header) is also handled here.
 FIX-30 (P3-04): get_user_email() now raises HTTP 401 instead of returning
 None, so callers no longer need `if not email: raise HTTPException(...)` guards.
+
+FIX-ECC (2026-07): Supabase migrated project JWT signing from HS256 to ECC
+(P-256). auth.py now auto-detects the algorithm from the JWT header and:
+  - For HS256: verifies locally using SUPABASE_JWT_SECRET (fast, zero HTTP).
+  - For ES256 / RS256: fetches Supabase JWKS once, caches the public key in
+    memory (TTL 1 h), and verifies locally from that point.
+This keeps near-zero-outbound-call performance while supporting the new keys.
 """
 import os
+import time
 from datetime import datetime, timezone
+from typing import Any
 
+import httpx
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jwt.algorithms import ECAlgorithm, RSAAlgorithm
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 
 from app.core.cache import cache
 from app.core.config import (
     ADMIN_EMAILS,
     SUPABASE_JWT_SECRET,
+    SUPABASE_URL,
     TRUSTED_EMAILS,
     logger,
 )
 from app.repositories import subscription as subscription_repo
+
+# ---------------------------------------------------------------------------
+# JWKS cache — holds fetched public keys to avoid repeated HTTPS calls
+# ---------------------------------------------------------------------------
+_jwks_cache: dict[str, Any] = {}   # kid → public key object
+_jwks_fetched_at: float = 0.0
+_JWKS_TTL = 3600.0  # re-fetch at most once per hour
+
+
+async def _get_jwks_public_key(kid: str | None) -> Any | None:
+    """Fetch and cache Supabase JWKS public keys for ES256/RS256 tokens."""
+    global _jwks_fetched_at
+
+    now = time.monotonic()
+    if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
+        if not SUPABASE_URL:
+            return None
+        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.get(jwks_url)
+                resp.raise_for_status()
+                jwks = resp.json()
+        except Exception as exc:
+            logger.warning(f"Failed to fetch Supabase JWKS: {exc}")
+            return None
+
+        _jwks_cache.clear()
+        for key_data in jwks.get("keys", []):
+            kty = key_data.get("kty", "")
+            key_kid = key_data.get("kid", "default")
+            try:
+                if kty == "EC":
+                    _jwks_cache[key_kid] = ECAlgorithm.from_jwk(key_data)
+                elif kty == "RSA":
+                    _jwks_cache[key_kid] = RSAAlgorithm.from_jwk(key_data)
+            except Exception as exc:
+                logger.warning(f"Failed to parse JWKS key kid={key_kid}: {exc}")
+        _jwks_fetched_at = now
+
+    if kid and kid in _jwks_cache:
+        return _jwks_cache[kid]
+    if _jwks_cache:
+        return next(iter(_jwks_cache.values()))
+    return None
+
+
+def _peek_header(token: str) -> dict[str, str]:
+    """Decode JWT header without signature verification to detect algorithm."""
+    try:
+        return jwt.get_unverified_header(token)
+    except Exception:
+        return {}
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
@@ -38,29 +103,61 @@ security = HTTPBearer(auto_error=False)
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _authenticate_jwt(token: str) -> str:
-    """Verify a Supabase-issued JWT locally and return the email claim.
+async def _authenticate_jwt(token: str) -> str:
+    """Verify a Supabase-issued JWT (HS256 or ES256/RS256) and return the email claim.
 
-    Raises HTTP 401 on any failure — callers get a str, never None.
+    Strategy:
+      1. Peek at the JWT header to detect the signing algorithm.
+      2. HS256 → verify locally with SUPABASE_JWT_SECRET (fast, zero HTTP).
+      3. ES256/RS256 → verify with cached JWKS public key (≤1 HTTP fetch/hour).
+
+    Raises HTTP 401 on any failure — callers receive a str, never None.
     """
-    if not SUPABASE_JWT_SECRET:
-        # Graceful degradation when the secret is not configured (dev / test)
-        logger.warning(
-            "SUPABASE_JWT_SECRET is not set — local JWT verification disabled. "
-            "Set this env var in production."
-        )
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Server misconfiguration: JWT secret not configured",
-        )
+    header = _peek_header(token)
+    alg = header.get("alg", "HS256")
+    kid = header.get("kid")
+
     try:
-        payload = jwt.decode(
-            token,
-            SUPABASE_JWT_SECRET,
-            algorithms=["HS256"],
-            audience="authenticated",
-            options={"require": ["exp", "email"]},
-        )
+        if alg == "HS256":
+            # ── Legacy HS256 path (fast, no outbound HTTP) ─────────────────
+            if not SUPABASE_JWT_SECRET:
+                logger.warning(
+                    "SUPABASE_JWT_SECRET is not set — HS256 JWT verification disabled. "
+                    "Set this env var in production."
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Server misconfiguration: JWT secret not configured",
+                )
+            payload = jwt.decode(
+                token,
+                SUPABASE_JWT_SECRET,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={"require": ["exp", "email"]},
+            )
+        elif alg in ("ES256", "RS256"):
+            # ── New ECC / RSA path (cached JWKS public key) ────────────────
+            public_key = await _get_jwks_public_key(kid)
+            if public_key is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Unable to fetch Supabase public key for JWT verification",
+                )
+            payload = jwt.decode(
+                token,
+                public_key,
+                algorithms=[alg],
+                audience="authenticated",
+                options={"require": ["exp", "email"]},
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Unsupported JWT algorithm: {alg}",
+            )
+    except HTTPException:
+        raise
     except ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -71,6 +168,7 @@ def _authenticate_jwt(token: str) -> str:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication token",
         )
+
     email: str | None = payload.get("email")
     if not email:
         raise HTTPException(
@@ -120,7 +218,8 @@ async def get_user_email(
       1. X-API-Key header  (machine-to-machine)
       2. Authorization: Bearer <JWT>  (browser sessions)
 
-    FIX-04 (P0-04): JWT is verified LOCALLY — zero outbound HTTP calls.
+    FIX-04 (P0-04): JWT is verified LOCALLY — zero outbound HTTP calls (HS256).
+    FIX-ECC: ES256/RS256 uses cached JWKS public key — one HTTP call per hour.
     FIX-12 (P1-06): API key support wired in.
     FIX-30 (P3-04): Always raises HTTP 401 on failure; never returns None.
 
@@ -128,18 +227,13 @@ async def get_user_email(
     Routes that used `if not email: raise HTTPException(...)` after calling
     this function no longer need that guard — it is handled here.
     """
-    # The Request object is needed to check X-API-Key; get it via FastAPI's DI
-    # We avoid re-declaring Request as a Depends to keep callers simple.
-    # API key support via X-API-Key is handled in the get_user_email_from_request
-    # variant below, which routes can use when they already have a Request object.
-
     if not credentials:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or malformed Authorization header",
         )
     token = credentials.credentials
-    return _authenticate_jwt(token)
+    return await _authenticate_jwt(token)
 
 
 async def get_user_email_from_request(request: Request) -> str:
@@ -153,11 +247,11 @@ async def get_user_email_from_request(request: Request) -> str:
     if api_key:
         return await _authenticate_api_key(api_key)
 
-    # 2. Bearer JWT (browser sessions)
+    # 2. Bearer JWT (browser sessions) — supports both HS256 and ES256/RS256
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header.removeprefix("Bearer ").strip()
-        return _authenticate_jwt(token)
+        return await _authenticate_jwt(token)
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -191,11 +285,12 @@ async def is_token_pro(access_token: str | None) -> bool:
     """Silently checks if a given token belongs to a Pro user.
 
     FIX-04: Uses local JWT decode instead of Supabase HTTP call.
+    FIX-ECC: Also handles ES256/RS256 tokens via JWKS.
     """
     if not access_token:
         return False
     try:
-        email = _authenticate_jwt(access_token)
+        email = await _authenticate_jwt(access_token)
         if email:
             return await get_user_pro_status(email)
     except HTTPException:
