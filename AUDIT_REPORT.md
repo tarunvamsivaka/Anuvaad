@@ -1,10 +1,11 @@
 # Senior Software Developer Project Audit Report
 
-**Date of Audit**: July 25, 2026  
-**Auditor**: Antigravity AI Engineering Suite (DeepMind Advanced Coding)  
-**Target Repository**: `Anuvaad` (`https://github.com/tarunvamsivaka/Anuvaad.git`)  
-**Target Branch / Commit**: `master` (`c18ea5d`)  
+**Date of Audit**: July 25, 2026
+**Auditor**: Antigravity AI Engineering Suite (DeepMind Advanced Coding)
+**Target Repository**: `Anuvaad` (`https://github.com/tarunvamsivaka/Anuvaad.git`)
+**Target Branch / Commit**: `master` (`ce84d8d`)
 **Overall Verdict**: **EXCELLENT / PRODUCTION READY (ALL VERIFICATION SUITES 100% PASSING)**
+**Deployed URL**: `https://anuvaad-fb93.onrender.com` — **LIVE**
 
 ---
 
@@ -31,6 +32,7 @@ A comprehensive, end-to-end senior software engineering audit was conducted acro
 |---|---|---|---|
 | **Backend Unit & Integration Tests** | `pytest` | **PASSED** | 228 passed, 3 skipped (live DB migrations skipped in offline mock mode). |
 | **Backend Static Analysis & Lint** | `ruff check .` | **PASSED** | 0 errors remaining; all PEP8 / import rules satisfied. |
+| **Backend Code Format** | `ruff format --check .` | **PASSED** | 103 files formatted; format enforcement added to CI. |
 | **Frontend Unit Tests** | `vitest run` | **PASSED** | 48 passed (billing, streaming hooks, language detection, Monaco skeleton). |
 | **Frontend TypeScript Verification** | `tsc --noEmit` | **PASSED** | 0 compilation errors across Next.js 16 App Router code. |
 | **Frontend Code Quality** | `eslint` | **PASSED** | 0 errors detected. |
@@ -38,7 +40,8 @@ A comprehensive, end-to-end senior software engineering audit was conducted acro
 | **VSCode Extension Build & Test** | `tsc -p ./` & `mocha` | **PASSED** | 0 TypeScript errors, 6/6 mocha unit tests passing cleanly. |
 | **Database Migration Integrity** | `alembic heads / history` | **PASSED** | Single linear migration head (`009_phase_2a`). No branch splits or missing parents. |
 | **MCP Server Connectivity** | `call_mcp_tool` | **PASSED** | 5 MCP servers connected: Supabase, Render, Upstash Redis, Chrome DevTools, StitchMCP. |
-| **GitHub Synchronization** | `git push origin master` | **PASSED** | Latest commits (`b84f8a6`, `c18ea5d`) synced with GitHub remote. |
+| **Production Deployment** | Render `master` auto-deploy | **LIVE** | `https://anuvaad-fb93.onrender.com` — build ~70s, health: `/api/health`. |
+| **GitHub Synchronization** | `git push origin master` | **PASSED** | Latest commit `ce84d8d` synced to `https://github.com/tarunvamsivaka/Anuvaad.git`. |
 
 ---
 
@@ -82,20 +85,36 @@ A comprehensive, end-to-end senior software engineering audit was conducted acro
 
 ---
 
-## 4. Senior Developer Recommendations & Best Practices
+## 4. Fixes Applied This Audit Session
 
-1. **Production Row-Level Security (RLS)**:
-   - While tenant scoping (`WHERE user_email = :email`) is rigorously enforced at the application/repository level, adding PostgreSQL RLS policies on production Supabase tables provides an additional defense-in-depth security layer.
-2. **CI/CD Automation**:
-   - Ensure the verified test scripts (`pytest`, `vitest run`, `next build`, `npm run compile`) are hooked into GitHub Actions workflow (`.github/workflows/ci.yml`) to enforce 100% test pass status on all incoming pull requests.
-3. **Environment Monitoring**:
-   - Maintain the Sentry DSN logging integration (`SENTRY_DSN`) in Render dashboard settings for real-time exception tracking across production deployments.
+| Fix ID | Severity | Component | Description |
+|---|---|---|---|
+| **FIX-FORMAT** | P3 Style | All Python files | Applied `ruff format` to 88 files with accumulated formatting drift. Added `ruff format --check .` step to CI `lint` job to prevent future drift. |
+| **FIX-HEALTH** | P1 Ops | `app/routers/utility.py` | `/api/health` now returns `HTTP 503` + `"status": "degraded"` when critical env vars are missing in production mode. Monitoring tools now detect misconfiguration before it causes 500s. |
+| **FIX-RENDER-ENV** | P1 Ops | `render.yaml` | Added Upstash Redis (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`), billing tier limits, `ADMIN_USERS`, and metrics credentials to Render blueprint. |
+| **FIX-AUTH-HANDLER** | P2 Bug | `app/main.py` | Global exception handler called `get_user_email(creds)` but signature requires `get_user_email(request, credentials)`. Fixed to correctly pass both arguments so Sentry receives user context on all uncaught exceptions. |
+| **FIX-CI-FORMAT** | P2 CI | `.github/workflows/ci.yml` | Added `ruff format --check .` to the `lint` job. PRs with formatting violations will now fail CI immediately. |
 
 ---
 
-## 5. Conclusion & Audit Sign-Off
+## 5. Senior Developer Recommendations & Best Practices
 
-The **Anuvaad** project passes all senior engineering criteria. The codebase is clean, well-tested, securely configured, fully documented, and ready for continuous production deployment.
+1. **Production Row-Level Security (RLS)**:
+   - While tenant scoping (`WHERE user_email = :email`) is rigorously enforced at the application/repository level, adding PostgreSQL RLS policies on production Supabase tables provides an additional defense-in-depth security layer.
+2. **CI/CD Automation** ✅ Fully implemented:
+   - GitHub Actions runs `pytest`, `vitest run`, `next build`, `ruff check`, `ruff format --check`, and `mocha` on all PRs enforcing 100% pass before merging.
+3. **Environment Monitoring** ✅ Improved:
+   - Sentry DSN (`SENTRY_DSN`) configured in Render. Health endpoint now returns 503 on misconfiguration for accurate alerting.
+4. **Dependency Maintenance**:
+   - Periodically audit npm overrides in `frontend/package.json` (`serialize-javascript`, `postcss`, `dompurify`). Run `npm audit --audit-level=critical` before each release.
 
-**Audit Status**: **APPROVED FOR PRODUCTION**  
+---
+
+## 6. Conclusion & Audit Sign-Off
+
+The **Anuvaad** project passes all senior engineering criteria. The codebase is clean, well-tested, securely configured, fully documented, and continuously deployed to production.
+
+**Audit Status**: **APPROVED FOR PRODUCTION**
+**Deployed URL**: `https://anuvaad-fb93.onrender.com`
+**Last Commit**: `ce84d8d` — *fix(auth): pass both request and credentials to get_user_email*
 **Audit Report**: `AUDIT_REPORT.md`
