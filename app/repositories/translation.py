@@ -4,6 +4,7 @@ app/repositories/translation.py
 Typed repository for translation_history table.
 Phase 5 (Arch#2.1): Typed SQLAlchemy queries replacing supabase_request() strings.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import TranslationHistory
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
+
 
 async def get_history(
     email: str,
@@ -45,8 +47,10 @@ async def get_history(
             if after_id and after_created_at:
                 try:
                     from datetime import datetime
+
                     cursor_dt = datetime.fromisoformat(after_created_at)
                     from sqlalchemy import and_, cast, or_
+
                     query = query.where(
                         or_(
                             TranslationHistory.created_at < cursor_dt,
@@ -84,7 +88,9 @@ async def get_count_since(email: str, workspace_id: str | None = None, since: da
             if workspace_id:
                 query = query.where(TranslationHistory.workspace_id == workspace_id)
             else:
-                query = query.where(TranslationHistory.user_email == email).where(TranslationHistory.workspace_id.is_(None))
+                query = query.where(TranslationHistory.user_email == email).where(
+                    TranslationHistory.workspace_id.is_(None)
+                )
 
             if since:
                 query = query.where(TranslationHistory.created_at >= since)
@@ -158,10 +164,10 @@ async def prune_oldest(email: str, is_pro: bool) -> None:
             await session.execute(
                 delete(TranslationHistory)
                 .where(TranslationHistory.user_email == email)
-                .where(TranslationHistory.created_at <
-                       select(TranslationHistory.created_at)
-                       .where(TranslationHistory.id == cutoff_id)
-                       .scalar_subquery())
+                .where(
+                    TranslationHistory.created_at
+                    < select(TranslationHistory.created_at).where(TranslationHistory.id == cutoff_id).scalar_subquery()
+                )
             )
             await session.commit()
         except Exception as e:
@@ -170,6 +176,7 @@ async def prune_oldest(email: str, is_pro: bool) -> None:
 
 
 # ── FIX-26 (P2-01): ORM replacements for remaining supabase_request() calls ──
+
 
 async def get_by_id(item_id: str, email: str | None = None) -> dict | None:
     """Return a single translation_history row by id.
@@ -180,6 +187,7 @@ async def get_by_id(item_id: str, email: str | None = None) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
             import uuid as uuid_mod
+
             try:
                 item_uuid = uuid_mod.UUID(item_id)
             except ValueError:
@@ -205,6 +213,7 @@ async def delete_by_id(item_id: str, email: str) -> bool:
     async with AsyncSessionLocal() as session:
         try:
             import uuid as uuid_mod
+
             try:
                 item_uuid = uuid_mod.UUID(item_id)
             except ValueError:
@@ -230,9 +239,11 @@ async def update_share_status(item_id: str, email: str, is_public: bool) -> bool
     Verifies ownership before updating. Returns True on success.
     """
     from sqlalchemy import update as sa_update
+
     async with AsyncSessionLocal() as session:
         try:
             import uuid as uuid_mod
+
             try:
                 item_uuid = uuid_mod.UUID(item_id)
             except ValueError:

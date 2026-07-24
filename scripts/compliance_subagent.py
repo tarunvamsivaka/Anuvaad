@@ -20,7 +20,7 @@ import sys
 from datetime import datetime
 
 # Load parent directory for module imports and env loading
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Attempt to import httpx
 try:
@@ -39,15 +39,15 @@ BOLD = "\033[1m"
 RESET = "\033[0m"
 
 # Load local environment vars
-ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.env'))
+ENV_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
 env_vars = {}
 if os.path.exists(ENV_PATH):
     with open(ENV_PATH) as f:
         for line in f:
             line = line.strip()
-            if line and not line.startswith('#'):
+            if line and not line.startswith("#"):
                 try:
-                    k, v = line.split('=', 1)
+                    k, v = line.split("=", 1)
                     env_vars[k.strip()] = v.strip()
                 except ValueError:
                     pass
@@ -56,26 +56,30 @@ BACKEND_URL = env_vars.get("NEXT_PUBLIC_API_URL", "http://localhost:8000")
 METRICS_USER = env_vars.get("METRICS_USERNAME", "")
 METRICS_PASS = env_vars.get("METRICS_PASSWORD", "")
 
-REPORT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'compliance_report.json'))
-LOG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'compliance_report.log'))
+REPORT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "compliance_report.json"))
+LOG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "compliance_report.log"))
+
 
 def log_output(msg, level="INFO"):
     timestamp = datetime.now().isoformat()
     # Replace unicode symbols with ascii equivalents for safe printing if needed
-    safe_msg = (msg.replace("✓", "[OK]")
-                   .replace("✗", "[FAIL]")
-                   .replace("✗", "[FAIL]")
-                   .replace("⚠", "[WARN]")
-                   .replace("\u26a0", "[WARN]")
-                   .replace("\u2717", "[FAIL]")
-                   .replace("·", "*"))
+    safe_msg = (
+        msg.replace("✓", "[OK]")
+        .replace("✗", "[FAIL]")
+        .replace("✗", "[FAIL]")
+        .replace("⚠", "[WARN]")
+        .replace("\u26a0", "[WARN]")
+        .replace("\u2717", "[FAIL]")
+        .replace("·", "*")
+    )
     formatted = f"[{timestamp}] [{level}] {safe_msg}"
     try:
         print(formatted)
     except UnicodeEncodeError:
-        print(formatted.encode('ascii', errors='replace').decode('ascii'))
-    with open(LOG_PATH, 'a', encoding='utf-8') as f:
+        print(formatted.encode("ascii", errors="replace").decode("ascii"))
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
         f.write(formatted + "\n")
+
 
 class ComplianceSubagent:
     def __init__(self):
@@ -169,7 +173,7 @@ class ComplianceSubagent:
                     self.metrics_data = data
 
                     uptime = data.get("uptime_seconds", 0)
-                    log_output(f"Uptime: {uptime} seconds ({uptime/3600:.2f} hours)")
+                    log_output(f"Uptime: {uptime} seconds ({uptime / 3600:.2f} hours)")
 
                     total_errors = sum(data.get("total_errors", {}).values())
                     total_reqs = sum(data.get("total_requests", {}).values())
@@ -208,10 +212,10 @@ class ComplianceSubagent:
 
     def audit_link_integrity(self):
         log_output("Auditing Content & Link Integrity of static legal pages...", "LINKS")
-        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         files_to_check = {
             "privacy.html": os.path.join(root_dir, "privacy.html"),
-            "terms.html": os.path.join(root_dir, "terms.html")
+            "terms.html": os.path.join(root_dir, "terms.html"),
         }
 
         # Find absolute/relative links matching index.html, privacy.html, terms.html
@@ -225,7 +229,7 @@ class ComplianceSubagent:
                 continue
 
             self.passed_checks += 1
-            with open(path, encoding='utf-8') as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
 
             # Audit language attribute
@@ -250,7 +254,7 @@ class ComplianceSubagent:
 
     def audit_security_config(self):
         log_output("Auditing Security Gating and Configuration...", "SECURITY")
-        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
         # 1. Ensure .env is ignored by Git
         gitignore_path = os.path.join(root_dir, ".gitignore")
@@ -277,7 +281,7 @@ class ComplianceSubagent:
             required_headers = {
                 "X-Frame-Options": "DENY",
                 "X-Content-Type-Options": "nosniff",
-                "Referrer-Policy": "strict-origin-when-cross-origin"
+                "Referrer-Policy": "strict-origin-when-cross-origin",
             }
 
             for h, _expected in required_headers.items():
@@ -294,7 +298,7 @@ class ComplianceSubagent:
 
     def audit_dependencies(self):
         log_output("Auditing frontend dependencies using npm audit...", "DEPENDENCIES")
-        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
         frontend_dir = os.path.join(root_dir, "frontend")
 
         if not os.path.exists(os.path.join(frontend_dir, "package.json")):
@@ -304,13 +308,7 @@ class ComplianceSubagent:
         try:
             # Run npm audit in non-blocking mode
             # Use shell=True for Windows compatibility
-            res = subprocess.run(
-                "npm audit --json",
-                cwd=frontend_dir,
-                shell=True,
-                capture_output=True,
-                text=True
-            )
+            res = subprocess.run("npm audit --json", cwd=frontend_dir, shell=True, capture_output=True, text=True)
 
             # npm audit returns 1 if vulnerabilities are found, 0 if clean
             audit_data = json.loads(res.stdout) if res.stdout else {}
@@ -323,7 +321,9 @@ class ComplianceSubagent:
             log_output(f"NPM Vulnerabilities: {total_vulns} total ({high_critical} High/Critical)")
             if high_critical > 0:
                 self.warnings += 1
-                self.findings.append(f"WARNING: Frontend has {high_critical} High/Critical package vulnerabilities. Run 'npm audit fix'.")
+                self.findings.append(
+                    f"WARNING: Frontend has {high_critical} High/Critical package vulnerabilities. Run 'npm audit fix'."
+                )
                 log_output(f"  {YELLOW}⚠{RESET} Action recommended: run 'npm audit fix'")
             else:
                 self.passed_checks += 1
@@ -341,15 +341,18 @@ class ComplianceSubagent:
             "warnings_count": self.warnings,
             "status": "HEALTHY" if self.failed_checks == 0 else "DEGRADED",
             "findings": self.findings,
-            "metrics": self.metrics_data
+            "metrics": self.metrics_data,
         }
 
         # Save JSON report
-        with open(REPORT_PATH, 'w', encoding='utf-8') as f:
+        with open(REPORT_PATH, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
 
         log_output("----------------------------------------------------------------", "SUMMARY")
-        log_output(f"Audit completed: {self.passed_checks} passed checks, {self.failed_checks} failures, {self.warnings} warnings.", "SUMMARY")
+        log_output(
+            f"Audit completed: {self.passed_checks} passed checks, {self.failed_checks} failures, {self.warnings} warnings.",
+            "SUMMARY",
+        )
         log_output(f"Operational status: {report['status']}", "SUMMARY")
         log_output("Report saved to compliance_report.json", "SUMMARY")
 
@@ -357,6 +360,7 @@ class ComplianceSubagent:
             sys.exit(1)
         else:
             sys.exit(0)
+
 
 if __name__ == "__main__":
     subagent = ComplianceSubagent()

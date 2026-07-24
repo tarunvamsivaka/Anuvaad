@@ -15,6 +15,7 @@ Lifecycle:
     lifespan teardown via `close_all_clients()`.
     `app/core/config.py` re-exports both for backward compatibility.
 """
+
 import asyncio
 import weakref
 

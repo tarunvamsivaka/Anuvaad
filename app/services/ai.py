@@ -4,6 +4,7 @@ import os
 
 try:
     import sentry_sdk
+
     _SENTRY_AVAILABLE = True
 except ImportError:
     _SENTRY_AVAILABLE = False
@@ -29,6 +30,7 @@ from app.queue.tasks import save_translation_history_task
 def _nullctx():
     """No-op context manager used when Sentry is not configured."""
     yield None
+
 
 # ── LLM CLIENT SINGLETONS (BACK-02) ──
 # Created once at startup in lifespan, reused for all requests.
@@ -102,6 +104,7 @@ def get_async_openai_class():
     """Legacy compatibility shim — returns the AsyncOpenAI class (not an instance)."""
     return AsyncOpenAI
 
+
 SYSTEM_INSTRUCTION = """
 You are an expert code translator and analyzer. Your job is to break down the provided code into small, precise logical blocks and explain EXACTLY what each block does at the code level.
 
@@ -162,6 +165,7 @@ You should update the code_snippet to "print(path.upper())" or language equivale
 def _clean_json_response(text: str) -> str:
     """Strip reasoning tags (<think>...</think>) and markdown code fences (```json...```)."""
     import re
+
     text = text.strip()
     # Strip DeepSeek R1 / Reasoning model <think>...</think> tags if present
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
@@ -208,9 +212,7 @@ def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> li
             or block.get("comment")
             or ""
         )
-        code = (
-            block.get("code_snippet") or block.get("code") or block.get("snippet") or ""
-        )
+        code = block.get("code_snippet") or block.get("code") or block.get("snippet") or ""
         block_id = block.get("id") or block.get("block_id") or f"block_{i + 1}"
 
         normalized.append(
@@ -223,11 +225,7 @@ def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> li
             }
         )
 
-    normalized = [
-        b
-        for b in normalized
-        if b["english_translation"].strip() or b["code_snippet"].strip()
-    ]
+    normalized = [b for b in normalized if b["english_translation"].strip() or b["code_snippet"].strip()]
 
     if not normalized:
         raise ValueError("API returned no usable translation blocks")
@@ -259,6 +257,7 @@ async def find_stale_translation(
         input_preview = input_text[:80]
         # M-02: Use ORM repository instead of raw supabase_request_list()
         from app.repositories import translation as translation_repo
+
         rows = await translation_repo.get_history(email, limit=10)
         rows = [r for r in rows if r.get("input_preview") == input_preview and r.get("mode") == mode]
         if rows:
@@ -334,38 +333,40 @@ async def get_completion(
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        with (sentry_sdk.start_span(
-            op="llm.completion",
-            name=f"LLM: {primary['name']}",
-        ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+        with (
+            sentry_sdk.start_span(
+                op="llm.completion",
+                name=f"LLM: {primary['name']}",
+            )
+            if _SENTRY_AVAILABLE
+            else _nullctx()
+        ) as span:
             if _SENTRY_AVAILABLE and span:
                 span.set_tag("llm.provider", primary["name"])
                 span.set_tag("llm.model", primary["model"])
                 span.set_tag("llm.mode", mode)
             response = await asyncio.wait_for(
-                primary["client"].chat.completions.create(
-                    model=primary["model"], messages=messages, **kwargs
-                ),
+                primary["client"].chat.completions.create(model=primary["model"], messages=messages, **kwargs),
                 timeout=LLM_TIMEOUT,
             )
         await metrics.record_model_call(primary["model"])
-        return _clean_json_response(response.choices[0].message.content), primary[
-            "name"
-        ]
+        return _clean_json_response(response.choices[0].message.content), primary["name"]
     except Exception as e:
         await metrics.record_model_call(primary["model"], is_error=True)
-        logger.warning(
-            f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}"
-        )
+        logger.warning(f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}")
         fallback_kwargs = {}
         if response_format == "json_object":
             fallback_kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            with (sentry_sdk.start_span(
-                op="llm.completion",
-                name=f"LLM fallback: {fallback['name']}",
-            ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+            with (
+                sentry_sdk.start_span(
+                    op="llm.completion",
+                    name=f"LLM fallback: {fallback['name']}",
+                )
+                if _SENTRY_AVAILABLE
+                else _nullctx()
+            ) as span:
                 if _SENTRY_AVAILABLE and span:
                     span.set_tag("llm.provider", fallback["name"])
                     span.set_tag("llm.model", fallback["model"])
@@ -378,14 +379,10 @@ async def get_completion(
                     timeout=LLM_TIMEOUT,
                 )
             await metrics.record_model_call(fallback["model"])
-            return _clean_json_response(response.choices[0].message.content), fallback[
-                "name"
-            ]
+            return _clean_json_response(response.choices[0].message.content), fallback["name"]
         except TimeoutError:
             await metrics.record_model_call(fallback["model"], is_error=True)
-            logger.error(
-                f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}"
-            )
+            logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}")
         except Exception as fallback_e:
             await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
@@ -399,19 +396,21 @@ async def get_completion(
             if response_format == "json_object":
                 or_kwargs["response_format"] = {"type": "json_object"}
             try:
-                with (sentry_sdk.start_span(
-                    op="llm.completion",
-                    name="LLM third-level fallback: OpenRouter",
-                ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+                with (
+                    sentry_sdk.start_span(
+                        op="llm.completion",
+                        name="LLM third-level fallback: OpenRouter",
+                    )
+                    if _SENTRY_AVAILABLE
+                    else _nullctx()
+                ) as span:
                     if _SENTRY_AVAILABLE and span:
                         span.set_tag("llm.provider", "openrouter")
                         span.set_tag("llm.model", or_model)
                         span.set_tag("llm.mode", mode)
                         span.set_tag("llm.is_fallback", True)
                     response = await asyncio.wait_for(
-                        openrouter_client.chat.completions.create(
-                            model=or_model, messages=messages, **or_kwargs
-                        ),
+                        openrouter_client.chat.completions.create(model=or_model, messages=messages, **or_kwargs),
                         timeout=LLM_TIMEOUT,
                     )
                 await metrics.record_model_call("openrouter-llama")
@@ -484,9 +483,7 @@ async def stream_code_to_english(
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        stream = await client.chat.completions.create(
-            model=model, messages=messages, **kwargs
-        )
+        stream = await client.chat.completions.create(model=model, messages=messages, **kwargs)
 
         full_content = ""
         async for chunk in stream:
@@ -589,9 +586,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        stream = await client.chat.completions.create(
-            model=model, messages=messages, **kwargs
-        )
+        stream = await client.chat.completions.create(model=model, messages=messages, **kwargs)
 
         full_content = ""
         async for chunk in stream:
@@ -627,4 +622,3 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
     except Exception as e:
         logger.error(f"Streaming error: {str(e)}")
         yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
-

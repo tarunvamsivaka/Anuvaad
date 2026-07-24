@@ -95,7 +95,53 @@ services:
       - key: RESEND_API_KEY
         sync: false
 
-      # ── Optional: Redis ───────────────────────────────────────────────────
+      # ── Optional: Redis ───────────────────────────────────────────────
       # Leave blank if not using Redis; the app falls back to in-memory cache.
       - key: REDIS_URL
+        sync: false
+
+      # ── Upstash Redis (Serverless Redis for rate-limiting & caching) ──
+      # Get from: https://console.upstash.com → Your Redis DB → REST API tab
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+
+      - key: UPSTASH_REDIS_URL
+        sync: false
+
+      - key: UPSTASH_REDIS_TOKEN
+        sync: false
+
+      # ── Billing tier limits ───────────────────────────────────────────
+      - key: LIMIT_FREE_DAILY
+        value: "10"
+
+      - key: LIMIT_FREE_CHARS
+        value: "10000"
+
+      - key: LIMIT_PRO_DAILY
+        value: "999999"
+
+      - key: LIMIT_PRO_CHARS
+        value: "50000"
+
+      - key: HISTORY_LIMIT_PRO
+        value: "1000"
+
+      - key: HISTORY_LIMIT_FREE
+        value: "100"
+
+      - key: PLATFORM_DAILY_CAP_TRANSLATIONS
+        value: "1000"
+
+      # ── Metrics / Admin ───────────────────────────────────────────────
+      - key: ADMIN_USERS
+        sync: false
+
+      - key: METRICS_USERNAME
+        value: admin
+
+      - key: METRICS_PASSWORD
         sync: false

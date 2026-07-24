@@ -43,14 +43,18 @@ def upgrade() -> None:
     # ── 2. Add FK constraints with CASCADE deletes ──
     op.create_foreign_key(
         "fk_workspace_members_workspace",
-        "workspace_members", "workspaces",
-        ["workspace_id"], ["id"],
+        "workspace_members",
+        "workspaces",
+        ["workspace_id"],
+        ["id"],
         ondelete="CASCADE",
     )
     op.create_foreign_key(
         "fk_api_keys_workspace",
-        "api_keys", "workspaces",
-        ["workspace_id"], ["id"],
+        "api_keys",
+        "workspaces",
+        ["workspace_id"],
+        ["id"],
         ondelete="CASCADE",
     )
 

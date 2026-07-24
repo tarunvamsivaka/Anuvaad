@@ -76,9 +76,7 @@ def test_production_env_validation():
     frontend_url = mock_getenv("FRONTEND_URL")
     if is_production and frontend_url.startswith("http://localhost"):
         with pytest.raises(RuntimeError):
-            raise RuntimeError(
-                "FATAL: FRONTEND_URL must not be localhost in production"
-            )
+            raise RuntimeError("FATAL: FRONTEND_URL must not be localhost in production")
 
 
 def test_lru_cache_eviction():
@@ -109,7 +107,6 @@ async def test_supabase_request_fallback():
         result = await db_module.supabase_request("test_table", "select", {"id": "1"})
         assert result is None
         assert any(issubclass(warn.category, DeprecationWarning) for warn in w)
-
 
 
 @pytest.mark.asyncio
@@ -201,4 +198,3 @@ async def test_save_translation_background_pruning_pro():
         mock_prune_oldest.assert_not_called()
         # New record should still be saved
         mock_save.assert_called_once()
-

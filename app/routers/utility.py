@@ -159,30 +159,34 @@ async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
             timeout=10.0,
         )
     except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504, detail="Request to fetch file timed out. Please try again."
-        )
+        raise HTTPException(status_code=504, detail="Request to fetch file timed out. Please try again.")
     except httpx.RequestError as e:
         logger.error(f"GitHub fetch network error: {e}")
         raise HTTPException(status_code=502, detail="Could not reach GitHub.")
 
     if resp.status_code == 404:
-        raise HTTPException(
-            status_code=404, detail="File not found on GitHub."
-        )
+        raise HTTPException(status_code=404, detail="File not found on GitHub.")
     if resp.status_code == 403:
-        raise HTTPException(
-            status_code=403, detail="GitHub API rate limit exceeded or file is private."
-        )
+        raise HTTPException(status_code=403, detail="GitHub API rate limit exceeded or file is private.")
     if resp.status_code != 200:
-        raise HTTPException(
-            status_code=502, detail=f"GitHub returned status {resp.status_code}"
-        )
+        raise HTTPException(status_code=502, detail=f"GitHub returned status {resp.status_code}")
     return resp.text
 
 
 @router.get("/health")
 async def health_check():
+    """
+    Health check endpoint for load-balancer probes.
+
+    Returns 200 if all critical services are reachable.
+    Returns 503 if any critical configuration is missing so that Render,
+    Kubernetes, and other health-monitoring tools can detect misconfigured
+    deployments before they receive user traffic.
+    """
+    import os
+
+    from fastapi.responses import JSONResponse
+
     redis_ok = False
     if cache.client:
         try:
@@ -190,20 +194,45 @@ async def health_check():
             redis_ok = True
         except Exception:
             pass
-    return {
-        "status": "healthy",
+
+    llm_configured = bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY)
+    jwt_configured = bool(SUPABASE_JWT_SECRET)
+    supabase_configured = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
+
+    # Check critical env vars required for basic operation
+    critical_missing = []
+    if not llm_configured:
+        critical_missing.append("GROQ_API_KEY or DEEPSEEK_API_KEY")
+    if not jwt_configured:
+        critical_missing.append("SUPABASE_JWT_SECRET")
+    if not supabase_configured:
+        critical_missing.append("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+
+    # Determine overall status
+    is_production = os.getenv("ENV", "development").lower() == "production"
+    if is_production and critical_missing:
+        status_str = "degraded"
+        http_status = 503
+    else:
+        status_str = "healthy"
+        http_status = 200
+
+    payload = {
+        "status": status_str,
         "service": "anuvaad-api",
-        "llm_configured": bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY),
-        "razorpay_configured": bool(
-            RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")
-        ),
+        "llm_configured": llm_configured,
+        "razorpay_configured": bool(RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")),
         "redis_connected": redis_ok,
-        "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
+        "supabase_configured": supabase_configured,
         # JWT secret required for ALL authenticated API calls. If False,
         # every translation/history/workspace request will fail with 401.
         # Fix: set SUPABASE_JWT_SECRET in Render Dashboard → Environment.
-        "jwt_configured": bool(SUPABASE_JWT_SECRET),
+        "jwt_configured": jwt_configured,
     }
+    if critical_missing:
+        payload["critical_missing"] = critical_missing
+
+    return JSONResponse(content=payload, status_code=http_status)
 
 
 @router.get("/import-gist")
@@ -227,25 +256,17 @@ async def import_gist(url: str, file_path: str | None = None):
                 timeout=10.0,
             )
         except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504, detail="GitHub API request timed out. Please try again."
-            )
+            raise HTTPException(status_code=504, detail="GitHub API request timed out. Please try again.")
         except httpx.RequestError as e:
             logger.error(f"Gist fetch network error: {e}")
             raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
 
         if resp.status_code == 404:
-            raise HTTPException(
-                status_code=404, detail="Gist not found. It may be private or deleted."
-            )
+            raise HTTPException(status_code=404, detail="Gist not found. It may be private or deleted.")
         if resp.status_code == 403:
-            raise HTTPException(
-                status_code=403, detail="Gist is private or GitHub rate limit exceeded."
-            )
+            raise HTTPException(status_code=403, detail="Gist is private or GitHub rate limit exceeded.")
         if resp.status_code != 200:
-            raise HTTPException(
-                status_code=502, detail=f"GitHub API returned status {resp.status_code}"
-            )
+            raise HTTPException(status_code=502, detail=f"GitHub API returned status {resp.status_code}")
 
         gist_data = resp.json()
         if not gist_data.get("public", True):
@@ -362,25 +383,17 @@ async def import_gist(url: str, file_path: str | None = None):
                 timeout=10.0,
             )
         except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504, detail="GitHub API request timed out. Please try again."
-            )
+            raise HTTPException(status_code=504, detail="GitHub API request timed out. Please try again.")
         except httpx.RequestError as e:
             logger.error(f"GitHub contents fetch network error: {e}")
             raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
 
         if resp.status_code == 404:
-            raise HTTPException(
-                status_code=404, detail="Repository or file not found. It may be private or deleted."
-            )
+            raise HTTPException(status_code=404, detail="Repository or file not found. It may be private or deleted.")
         if resp.status_code == 403:
-            raise HTTPException(
-                status_code=403, detail="GitHub API rate limit exceeded or repository is private."
-            )
+            raise HTTPException(status_code=403, detail="GitHub API rate limit exceeded or repository is private.")
         if resp.status_code != 200:
-            raise HTTPException(
-                status_code=502, detail=f"GitHub API returned status {resp.status_code}"
-            )
+            raise HTTPException(status_code=502, detail=f"GitHub API returned status {resp.status_code}")
 
         contents = resp.json()
 
@@ -415,16 +428,10 @@ async def import_gist(url: str, file_path: str | None = None):
 
         # It's a directory, return list of files/folders
         files_list = [
-            {"name": item.get("name"), "path": item.get("path"), "type": item.get("type")}
-            for item in contents
+            {"name": item.get("name"), "path": item.get("path"), "type": item.get("type")} for item in contents
         ]
 
-        return {
-            "type": "directory",
-            "username": owner,
-            "repo": repo,
-            "files": files_list
-        }
+        return {"type": "directory", "username": owner, "repo": repo, "files": files_list}
 
     raise HTTPException(
         status_code=400,
@@ -516,9 +523,7 @@ async def get_metrics_prometheus(request: Request):
         lines.append(f'anuvaad_avg_latency_ms{{endpoint="{ep}"}} {lat}')
 
     lines.append("")
-    return PlainTextResponse(
-        "\n".join(lines), media_type="text/plain; version=0.0.4; charset=utf-8"
-    )
+    return PlainTextResponse("\n".join(lines), media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 @router.get("/cache-stats")

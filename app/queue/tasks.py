@@ -8,6 +8,7 @@ from app.services.email import email_service
 
 logger = logging.getLogger("anuvaad")
 
+
 def run_async(coro):
     """Helper to run async functions within synchronous Celery workers.
 
@@ -20,6 +21,7 @@ def run_async(coro):
         return loop.run_until_complete(coro)
     finally:
         loop.close()
+
 
 @celery_app.task(
     name="tasks.save_translation_history",
@@ -40,23 +42,25 @@ def save_translation_history_task(
     workspace_id=None,
     session_id=None,
     repository_name=None,
-    file_path=None
+    file_path=None,
 ):
     """Offloads saving translation history and quota enforcement to Celery."""
     logger.info(f"Celery: Saving translation history for {user_email}")
-    run_async(save_translation_background(
-        user_email=user_email,
-        mode=mode,
-        source_language=source_language,
-        target_language=target_language,
-        input_text=input_text,
-        blocks=blocks,
-        model_used=model_used,
-        workspace_id=workspace_id,
-        session_id=session_id,
-        repository_name=repository_name,
-        file_path=file_path
-    ))
+    run_async(
+        save_translation_background(
+            user_email=user_email,
+            mode=mode,
+            source_language=source_language,
+            target_language=target_language,
+            input_text=input_text,
+            blocks=blocks,
+            model_used=model_used,
+            workspace_id=workspace_id,
+            session_id=session_id,
+            repository_name=repository_name,
+            file_path=file_path,
+        )
+    )
 
 
 @celery_app.task(
@@ -126,11 +130,14 @@ def process_billing_webhook_task(event_id: str, payload: dict):
                 existing = await subscription_repo.get_subscription(user_email)
                 is_new = not existing
                 # H-04: single upsert_subscription() replaces the GET + conditional PATCH/POST
-                await subscription_repo.upsert_subscription(user_email, {
-                    "razorpay_subscription_id": subscription_id,
-                    "is_pro": True,
-                    "onboarded": False,
-                })
+                await subscription_repo.upsert_subscription(
+                    user_email,
+                    {
+                        "razorpay_subscription_id": subscription_id,
+                        "is_pro": True,
+                        "onboarded": False,
+                    },
+                )
                 if is_new:
                     email_service.send_welcome(user_email)
                 email_service.send_subscription_upgrade(user_email, "Pro")
@@ -191,7 +198,11 @@ def prune_translation_history_task(user_email: str):
     async def _process():
 
         async with AsyncSessionLocal() as session:
-            stmt = select(TranslationHistory.id).where(TranslationHistory.user_email == user_email).order_by(desc(TranslationHistory.created_at))
+            stmt = (
+                select(TranslationHistory.id)
+                .where(TranslationHistory.user_email == user_email)
+                .order_by(desc(TranslationHistory.created_at))
+            )
             result = await session.execute(stmt)
             ids = [row[0] for row in result.all()]
 
@@ -240,7 +251,7 @@ def process_large_file_task(
             async for _ in stream_code_to_english(
                 payload=payload,
                 email=user_email,
-                is_pro=is_pro,   # use caller-supplied value, NOT hardcoded True
+                is_pro=is_pro,  # use caller-supplied value, NOT hardcoded True
                 use_r1=False,
                 tier=tier,
                 deduct_credit_flag=False,
@@ -259,7 +270,7 @@ def process_large_file_task(
     autoretry_for=(Exception,),
     max_retries=3,
     default_retry_delay=300,
-    retry_backoff=True
+    retry_backoff=True,
 )
 def process_github_repo_task(repo_name: str, installation_id: str = None):
     """Background pipeline for GitHub repo embeddings.
@@ -290,11 +301,13 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
         for file in files:
             chunks = chunk_text(file["content"], chunk_size=1500, overlap=200)
             for i, chunk in enumerate(chunks):
-                chunks_data.append({
-                    "file_path": file["path"],
-                    "chunk_index": i,
-                    "content": chunk,
-                })
+                chunks_data.append(
+                    {
+                        "file_path": file["path"],
+                        "chunk_index": i,
+                        "content": chunk,
+                    }
+                )
 
         if not chunks_data:
             logger.warning(f"No chunks generated for {repo_name}")
@@ -309,7 +322,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
         # We should chunk the embeddings request in case there are thousands of chunks
         BATCH_SIZE = 100
         for i in range(0, len(chunks_data), BATCH_SIZE):
-            batch = chunks_data[i:i+BATCH_SIZE]
+            batch = chunks_data[i : i + BATCH_SIZE]
             texts = [c["content"] for c in batch]
 
             try:
@@ -323,9 +336,9 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
                         batch[j]["embedding"] = emb
                         batch[j]["provider"] = provider
                     elif j < len(batch):
-                         # Fallback if the embedding is somehow malformed
-                         batch[j]["embedding"] = [0.0] * embedding_dim
-                         batch[j]["provider"] = provider
+                        # Fallback if the embedding is somehow malformed
+                        batch[j]["embedding"] = [0.0] * embedding_dim
+                        batch[j]["provider"] = provider
 
                 # Insert into DB
                 async with AsyncSessionLocal() as session:
@@ -360,6 +373,7 @@ def run_repository_indexing_task(workspace_id: str, import_id: str, desired_stat
 
 # ── FIX-11 (P1-04): Celery Beat scheduled tasks ──────────────────────────────
 
+
 @celery_app.task(name="reset_daily_stats")
 def reset_daily_stats():
     """Reset today_count for ALL users at midnight UTC.
@@ -376,9 +390,7 @@ def reset_daily_stats():
     async def _reset():
 
         async with AsyncSessionLocal() as session:
-            await session.execute(
-                sa_update(UserTranslationStats).values(today_count=0)
-            )
+            await session.execute(sa_update(UserTranslationStats).values(today_count=0))
             await session.commit()
         logger.info("Celery Beat: Daily stats reset complete")
 
@@ -398,9 +410,7 @@ def reset_weekly_stats():
     async def _reset():
 
         async with AsyncSessionLocal() as session:
-            await session.execute(
-                sa_update(UserTranslationStats).values(this_week_count=0)
-            )
+            await session.execute(sa_update(UserTranslationStats).values(this_week_count=0))
             await session.commit()
         logger.info("Celery Beat: Weekly stats reset complete")
 
@@ -478,4 +488,3 @@ def prune_old_translation_history_scheduled():
         logger.info("Celery Beat: Daily history pruning complete")
 
     run_async(_prune())
-

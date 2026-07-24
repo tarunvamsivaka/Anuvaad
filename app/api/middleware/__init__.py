@@ -8,6 +8,7 @@ Order matters: FastAPI adds middleware as a stack (LIFO on incoming, FIFO on out
 Registration order here matches the original main.py declaration order so behavior
 is identical.
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

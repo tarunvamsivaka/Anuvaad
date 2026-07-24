@@ -5,6 +5,7 @@ Empirical test module for Milestone 3 (P2 Architectural Cleanup):
 Verifies get_admin_dashboard_stats() and get_total_user_count() do not make
 any external HTTP requests to Supabase REST.
 """
+
 from unittest.mock import patch
 
 import httpx
@@ -67,6 +68,7 @@ async def test_get_admin_dashboard_stats_no_supabase_rest_http():
 
 def test_admin_dashboard_endpoint_no_supabase_rest_http(client):
     """Verify GET /api/admin/dashboard-stats endpoint makes 0 Supabase REST HTTP calls."""
+
     async def fake_admin_email():
         return "admin@anuvaad.dev"
 

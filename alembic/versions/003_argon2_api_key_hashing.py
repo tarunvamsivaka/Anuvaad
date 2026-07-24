@@ -16,6 +16,7 @@ Migration strategy (rolling, zero-downtime):
 NOTE: This migration only adds the column. The hash upgrade logic lives in
 app/repositories/api_key.py — keys are upgraded lazily on first use.
 """
+
 import sqlalchemy as sa
 
 from alembic import op

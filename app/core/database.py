@@ -13,9 +13,7 @@ async def supabase_request(method: str, path: str, data: dict = None) -> dict | 
         category=DeprecationWarning,
         stacklevel=2,
     )
-    logger.warning(
-        "DEPRECATED: supabase_request is deprecated and retired. Use ORM repositories instead."
-    )
+    logger.warning("DEPRECATED: supabase_request is deprecated and retired. Use ORM repositories instead.")
     return None
 
 
@@ -26,9 +24,7 @@ async def supabase_request_list(path: str) -> list:
         category=DeprecationWarning,
         stacklevel=2,
     )
-    logger.warning(
-        "DEPRECATED: supabase_request_list is deprecated and retired. Use ORM repositories instead."
-    )
+    logger.warning("DEPRECATED: supabase_request_list is deprecated and retired. Use ORM repositories instead.")
     return []
 
 
@@ -45,4 +41,3 @@ async def get_history_columns() -> set[str]:
     if _history_columns_cache is None:
         _history_columns_cache = {c.key for c in class_mapper(TranslationHistory).columns}
     return _history_columns_cache
-

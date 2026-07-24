@@ -61,13 +61,16 @@ def test_phase_1b_upgrade_and_downgrade(migration_engine: Engine) -> None:
     table_names = set(inspector.get_table_names())
     assert phase_1a_tables <= table_names
     assert {"desired_index_states", "index_runs"} <= table_names
-    assert not {
-        "searchable_materializations",
-        "structural_files",
-        "structural_symbols",
-        "structural_imports",
-        "repository_linked_history",
-    } & table_names
+    assert (
+        not {
+            "searchable_materializations",
+            "structural_files",
+            "structural_symbols",
+            "structural_imports",
+            "repository_linked_history",
+        }
+        & table_names
+    )
 
     desired_columns = {column["name"]: column for column in inspector.get_columns("desired_index_states")}
     assert set(desired_columns) == {
@@ -95,8 +98,7 @@ def test_phase_1b_upgrade_and_downgrade(migration_engine: Engine) -> None:
         for constraint in inspector.get_unique_constraints("desired_index_states")
     )
     assert any(
-        index["name"] == "ix_desired_index_states_import_id"
-        and index["column_names"] == ["import_id"]
+        index["name"] == "ix_desired_index_states_import_id" and index["column_names"] == ["import_id"]
         for index in inspector.get_indexes("desired_index_states")
     )
 
@@ -120,8 +122,7 @@ def test_phase_1b_upgrade_and_downgrade(migration_engine: Engine) -> None:
         ("desired_state_id", "desired_index_states"),
     }
     assert any(
-        index["name"] == "ix_index_runs_desired_state_id"
-        and index["column_names"] == ["desired_state_id"]
+        index["name"] == "ix_index_runs_desired_state_id" and index["column_names"] == ["desired_state_id"]
         for index in inspector.get_indexes("index_runs")
     )
 

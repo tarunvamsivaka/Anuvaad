@@ -19,6 +19,7 @@ FIX-ECC (2026-07): Supabase migrated project JWT signing from HS256 to ECC
     memory (TTL 1 h), and verifies locally from that point.
 This keeps near-zero-outbound-call performance while supporting the new keys.
 """
+
 import os
 import time
 from datetime import datetime, timezone
@@ -44,7 +45,7 @@ from app.repositories import subscription as subscription_repo
 # ---------------------------------------------------------------------------
 # JWKS cache — holds fetched public keys to avoid repeated HTTPS calls
 # ---------------------------------------------------------------------------
-_jwks_cache: dict[str, Any] = {}   # kid → public key object
+_jwks_cache: dict[str, Any] = {}  # kid → public key object
 _jwks_fetched_at: float = 0.0
 _JWKS_TTL = 3600.0  # re-fetch at most once per hour
 
@@ -94,6 +95,7 @@ def _peek_header(token: str) -> dict[str, str]:
     except Exception:
         return {}
 
+
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 security = HTTPBearer(auto_error=False)
@@ -102,6 +104,7 @@ security = HTTPBearer(auto_error=False)
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 async def _authenticate_jwt(token: str) -> str:
     """Verify a Supabase-issued JWT (HS256 or ES256/RS256) and return the email claim.
@@ -122,8 +125,7 @@ async def _authenticate_jwt(token: str) -> str:
             # ── Legacy HS256 path (fast, no outbound HTTP) ─────────────────
             if not SUPABASE_JWT_SECRET:
                 logger.warning(
-                    "SUPABASE_JWT_SECRET is not set — HS256 JWT verification disabled. "
-                    "Set this env var in production."
+                    "SUPABASE_JWT_SECRET is not set — HS256 JWT verification disabled. Set this env var in production."
                 )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -208,6 +210,7 @@ async def _authenticate_api_key(raw_key: str) -> str:
 # ---------------------------------------------------------------------------
 # Public interface
 # ---------------------------------------------------------------------------
+
 
 async def get_user_email(
     request: Request,
@@ -311,9 +314,7 @@ def get_client_ip(request: Request) -> str:
     If TRUSTED_PROXIES is not set, we fall through to the socket IP.
     """
     trusted_proxies: frozenset[str] = frozenset(
-        ip.strip()
-        for ip in os.getenv("TRUSTED_PROXIES", "").split(",")
-        if ip.strip()
+        ip.strip() for ip in os.getenv("TRUSTED_PROXIES", "").split(",") if ip.strip()
     )
     direct_ip = request.client.host if request.client else "unknown"
     if trusted_proxies and direct_ip in trusted_proxies:

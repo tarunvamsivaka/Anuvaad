@@ -8,11 +8,8 @@ from app.models.db_models import RepoEmbedding
 
 logger = structlog.get_logger(__name__)
 
-async def insert_repo_embeddings(
-    db: AsyncSession,
-    repository_name: str,
-    chunks: list[dict[str, Any]]
-) -> int:
+
+async def insert_repo_embeddings(db: AsyncSession, repository_name: str, chunks: list[dict[str, Any]]) -> int:
     """
     Inserts a list of repository chunks with their embeddings into the database.
     chunks should be a list of dictionaries containing:
@@ -36,7 +33,7 @@ async def insert_repo_embeddings(
                 chunk_index=chunk["chunk_index"],
                 content=chunk["content"],
                 embedding=chunk["embedding"],
-                provider=chunk.get("provider", "hf")
+                provider=chunk.get("provider", "hf"),
             )
             for chunk in chunks
         ]
@@ -49,6 +46,7 @@ async def insert_repo_embeddings(
         await db.rollback()
         logger.error(f"Database error inserting embeddings for {repository_name}: {e}")
         raise
+
 
 def _is_sqlite_session(session) -> bool:
     try:

@@ -5,6 +5,7 @@ Typed repository for user_subscriptions table.
 Phase 5 (Arch#2.1): Replaces string-based supabase_request() calls for
 subscription data with proper SQLAlchemy queries.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import func, select, update
@@ -29,9 +30,7 @@ async def get_subscription(email: str) -> dict | None:
     """Return the user_subscriptions row for *email*, or None if not found."""
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(UserSubscription).where(UserSubscription.user_email == email)
-            )
+            result = await session.execute(select(UserSubscription).where(UserSubscription.user_email == email))
             row = result.scalars().first()
             if row is None:
                 return None
@@ -84,16 +83,10 @@ async def upsert_subscription(email: str, data: dict) -> bool:
     """
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(UserSubscription).where(UserSubscription.user_email == email)
-            )
+            result = await session.execute(select(UserSubscription).where(UserSubscription.user_email == email))
             existing = result.scalars().first()
             if existing:
-                stmt = (
-                    update(UserSubscription)
-                    .where(UserSubscription.user_email == email)
-                    .values(**data)
-                )
+                stmt = update(UserSubscription).where(UserSubscription.user_email == email).values(**data)
                 await session.execute(stmt)
             else:
                 session.add(UserSubscription(user_email=email, **data))
@@ -123,9 +116,7 @@ async def add_credits(email: str, amount: int) -> bool:
     """
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(UserSubscription).where(UserSubscription.user_email == email)
-            )
+            result = await session.execute(select(UserSubscription).where(UserSubscription.user_email == email))
             existing = result.scalars().first()
             if existing:
                 stmt = (
@@ -135,12 +126,14 @@ async def add_credits(email: str, amount: int) -> bool:
                 )
                 await session.execute(stmt)
             else:
-                session.add(UserSubscription(
-                    user_email=email,
-                    credits=amount,
-                    is_pro=False,
-                    onboarded=False,
-                ))
+                session.add(
+                    UserSubscription(
+                        user_email=email,
+                        credits=amount,
+                        is_pro=False,
+                        onboarded=False,
+                    )
+                )
             await session.commit()
             return True
         except Exception as e:
@@ -153,23 +146,21 @@ async def mark_onboarded(email: str) -> bool:
     """FIX-35 (P3-08): Mark the user's onboarding as complete."""
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(UserSubscription).where(UserSubscription.user_email == email)
-            )
+            result = await session.execute(select(UserSubscription).where(UserSubscription.user_email == email))
             existing = result.scalars().first()
             if existing:
                 await session.execute(
-                    update(UserSubscription)
-                    .where(UserSubscription.user_email == email)
-                    .values(onboarded=True)
+                    update(UserSubscription).where(UserSubscription.user_email == email).values(onboarded=True)
                 )
             else:
-                session.add(UserSubscription(
-                    user_email=email,
-                    is_pro=False,
-                    credits=0,
-                    onboarded=True,
-                ))
+                session.add(
+                    UserSubscription(
+                        user_email=email,
+                        is_pro=False,
+                        credits=0,
+                        onboarded=True,
+                    )
+                )
             await session.commit()
             return True
         except Exception as e:
@@ -208,6 +199,7 @@ async def delete_by_email(email: str) -> bool:
     Returns True if a row existed and was deleted.
     """
     from sqlalchemy import delete as sa_delete
+
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(

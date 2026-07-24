@@ -10,11 +10,13 @@ from app.core.database_session import Base
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
+
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(Text, unique=True, nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
 
 class UserGithubToken(Base):
     __tablename__ = "user_github_tokens"
@@ -23,6 +25,7 @@ class UserGithubToken(Base):
     # Encrypt/decrypt via app.core.token_encryption.{encrypt_token, decrypt_token}.
     access_token = Column(Text, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
+
 
 class UserSubscription(Base):
     __tablename__ = "user_subscriptions"
@@ -36,6 +39,7 @@ class UserSubscription(Base):
     razorpay_subscription_id = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
+
 class Workspace(Base):
     __tablename__ = "workspaces"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -45,12 +49,14 @@ class Workspace(Base):
 
     repository_imports = relationship("RepositoryImport", back_populates="workspace")
 
+
 class WorkspaceMember(Base):
     __tablename__ = "workspace_members"
     workspace_id = Column(UUID(as_uuid=True), primary_key=True)
     user_email = Column(Text, primary_key=True)
     role = Column(Text, default="member")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
 
 class ApiKey(Base):
     __tablename__ = "api_keys"
@@ -65,6 +71,7 @@ class ApiKey(Base):
     key_hash_algo = Column(Text, nullable=False, default="sha256", server_default="sha256")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     last_used_at = Column(DateTime(timezone=True), nullable=True)
+
 
 class TranslationHistory(Base):
     __tablename__ = "translation_history"
@@ -93,12 +100,14 @@ class TranslationHistory(Base):
         Index("ix_translation_history_workspace", "workspace_id"),
     )
 
+
 class UserTranslationStats(Base):
     __tablename__ = "user_translation_stats"
     user_email = Column(Text, primary_key=True)
     total = Column(BigInteger, default=0)
     today_count = Column(BigInteger, default=0)
     this_week_count = Column(BigInteger, default=0)
+
 
 # New table for immutable webhook logs and idempotency
 class PaymentTransaction(Base):
@@ -109,14 +118,16 @@ class PaymentTransaction(Base):
     status = Column(Text, default="pending")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
+
 # New table for vector DB cache
 class LLMSemanticCache(Base):
     __tablename__ = "llm_semantic_cache"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     prompt_hash = Column(Text, unique=True, nullable=False, index=True)
-    embedding = Column(Vector(1536)) # Assuming 1536 dim embeddings (e.g. text-embedding-3-small)
+    embedding = Column(Vector(1536))  # Assuming 1536 dim embeddings (e.g. text-embedding-3-small)
     response = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
 
 # New table for GitHub repo vector embeddings (Phase 4)
 class RepoEmbedding(Base):
@@ -126,9 +137,10 @@ class RepoEmbedding(Base):
     file_path = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(1536)) # 1536 dim for openai text-embedding-3-small (was 384)
+    embedding = Column(Vector(1536))  # 1536 dim for openai text-embedding-3-small (was 384)
     provider = Column(Text, default="hf", nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
 
 # Phase 1A Models
 class RepositoryImport(Base):
@@ -148,16 +160,18 @@ class RepositoryImport(Base):
         Index("ix_repo_imports_workspace_provider", "workspace_id", "provider", "provider_repo_id", unique=True),
     )
 
+
 class SourceState(Base):
     __tablename__ = "source_states"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
     revision_sha = Column(Text, nullable=False)
-    snapshot_hash = Column(Text, nullable=True) # Fallback hash
+    snapshot_hash = Column(Text, nullable=True)  # Fallback hash
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     import_ = relationship("RepositoryImport", back_populates="source_states")
     repository_linked_history = relationship("RepositoryLinkedHistory", back_populates="source_state")
+
 
 class IndexConfiguration(Base):
     __tablename__ = "index_configurations"
@@ -166,6 +180,7 @@ class IndexConfiguration(Base):
     chunk_size = Column(Integer, nullable=False)
     admission_policy_version = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
 
 # Phase 1B Models
 class DesiredIndexState(Base):
@@ -180,6 +195,7 @@ class DesiredIndexState(Base):
     import_ = relationship("RepositoryImport")
     source_state = relationship("SourceState")
     index_configuration = relationship("IndexConfiguration")
+
 
 class IndexRun(Base):
     __tablename__ = "index_runs"
@@ -236,9 +252,13 @@ class SemanticArtifact(Base):
     __table_args__ = (
         Index(
             "uq_semantic_artifacts_materialization_path_chunk",
-            "materialization_id", "file_path", "chunk_index", unique=True,
+            "materialization_id",
+            "file_path",
+            "chunk_index",
+            unique=True,
         ),
     )
+
 
 class StructuralFile(Base):
     __tablename__ = "structural_files"
@@ -302,23 +322,21 @@ class StructuralImport(Base):
     resolved_target_file_id = Column(UUID(as_uuid=True), ForeignKey("structural_files.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
-    source_file = relationship(
-        "StructuralFile", back_populates="declared_imports", foreign_keys=[source_file_id]
-    )
+    source_file = relationship("StructuralFile", back_populates="declared_imports", foreign_keys=[source_file_id])
     resolved_target_file = relationship(
         "StructuralFile", back_populates="resolved_imports", foreign_keys=[resolved_target_file_id]
     )
 
-    __table_args__ = (
-        Index("uq_structural_imports_source_declared", "source_file_id", "declared_import", unique=True),
-    )
+    __table_args__ = (Index("uq_structural_imports_source_declared", "source_file_id", "declared_import", unique=True),)
 
 
 class RepositoryLinkedHistory(Base):
     __tablename__ = "repository_linked_history"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=False, index=True)
-    translation_history_id = Column(UUID(as_uuid=True), ForeignKey("translation_history.id"), nullable=False, unique=True, index=True)
+    translation_history_id = Column(
+        UUID(as_uuid=True), ForeignKey("translation_history.id"), nullable=False, unique=True, index=True
+    )
     import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
     source_state_id = Column(UUID(as_uuid=True), ForeignKey("source_states.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
@@ -327,6 +345,3 @@ class RepositoryLinkedHistory(Base):
     translation_history = relationship("TranslationHistory")
     import_ = relationship("RepositoryImport", back_populates="repository_linked_history")
     source_state = relationship("SourceState", back_populates="repository_linked_history")
-
-
-

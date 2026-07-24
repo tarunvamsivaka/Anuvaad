@@ -11,6 +11,7 @@ FIX-26 (P2-01): Token storage/retrieval now goes through the SQLAlchemy ORM
 FIX-30 (P3-04): Removed redundant `if not user_email` guards.
 FIX-25 (P1-10/A10): httpx client used with follow_redirects=False.
 """
+
 import os
 from datetime import timezone
 
@@ -35,10 +36,7 @@ async def github_login(request: Request):
     """Initiates GitHub OAuth flow."""
     redirect_uri = f"{FRONTEND_URL}/api/auth/github/callback"
     auth_url = (
-        f"https://github.com/login/oauth/authorize"
-        f"?client_id={GITHUB_CLIENT_ID}"
-        f"&redirect_uri={redirect_uri}"
-        f"&scope=repo"
+        f"https://github.com/login/oauth/authorize?client_id={GITHUB_CLIENT_ID}&redirect_uri={redirect_uri}&scope=repo"
     )
     return {"auth_url": auth_url}
 
@@ -69,6 +67,7 @@ async def github_callback(code: str, user_email: str = Depends(get_user_email)):
             plaintext_token = data["access_token"]
 
             from app.repositories.github_token import save_github_token
+
             success = await save_github_token(user_email, plaintext_token)
             if not success:
                 raise HTTPException(status_code=500, detail="Failed to save GitHub token")
@@ -91,6 +90,7 @@ async def _get_github_token(user_email: str) -> str:
     FIX-26: ORM-based lookup.
     """
     from app.repositories.github_token import get_github_token
+
     token = await get_github_token(user_email)
     if not token:
         raise HTTPException(status_code=404, detail="GitHub account not connected")
@@ -151,5 +151,6 @@ async def process_github_repo(
 async def disconnect_github(user_email: str = Depends(get_user_email)):
     """Remove the stored GitHub OAuth token for the authenticated user."""
     from app.repositories.github_token import delete_github_token
+
     await delete_github_token(user_email)
     return {"message": "GitHub account disconnected"}

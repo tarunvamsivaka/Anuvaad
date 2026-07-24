@@ -22,20 +22,15 @@ from .dependencies import sanitise_input, validate_code_input
 
 router = APIRouter()
 
-@router.post(
-    "/code-to-english",
-    response_class=StreamingResponse,
-    dependencies=[Depends(rate_limiter(10, 60))]
-)
+
+@router.post("/code-to-english", response_class=StreamingResponse, dependencies=[Depends(rate_limiter(10, 60))])
 async def function_translate_to_english_stream(
     request: Request,
     payload: CodePayload,
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.raw_code)
-    payload.raw_code = sanitise_input(
-        payload.raw_code, mode="code-to-english", email=email
-    )
+    payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english", email=email)
 
     is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.raw_code)
@@ -45,9 +40,7 @@ async def function_translate_to_english_stream(
     use_r1 = is_pro
 
     return StreamingResponse(
-        stream_code_to_english(
-            payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown
-        ),
+        stream_code_to_english(payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown),
         media_type="text/event-stream",
     )
 
@@ -59,9 +52,7 @@ async def function_translate_to_english(
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.raw_code)
-    payload.raw_code = sanitise_input(
-        payload.raw_code, mode="code-to-english/sync", email=email
-    )
+    payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english/sync", email=email)
 
     is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.raw_code)

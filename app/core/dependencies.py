@@ -29,6 +29,7 @@ async def get_cache(request: Request) -> CacheProxy:
         # This allows routers to work even when app.state.cache isn't set
         # (e.g., during testing without a full lifespan).
         from app.core.cache import cache as module_cache
+
         return module_cache
     return cache
 

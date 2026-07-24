@@ -4,6 +4,7 @@ app/repositories/repository_identity.py
 CRUD operations for Phase 1A Foundational Identity models:
 RepositoryImport, SourceState, IndexConfiguration
 """
+
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -17,11 +18,7 @@ from app.models.db_models import IndexConfiguration, RepositoryImport, SourceSta
 async def create_repository_import(workspace_id: str, provider: str, provider_repo_id: str) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
-            row = RepositoryImport(
-                workspace_id=workspace_id,
-                provider=provider,
-                provider_repo_id=provider_repo_id
-            )
+            row = RepositoryImport(workspace_id=workspace_id, provider=provider, provider_repo_id=provider_repo_id)
             session.add(row)
             await session.commit()
             await session.refresh(row)
@@ -35,7 +32,10 @@ async def create_repository_import(workspace_id: str, provider: str, provider_re
             await session.rollback()
             return None
 
-async def get_repository_import_by_workspace_and_repo(workspace_id: str, provider: str, provider_repo_id: str) -> dict | None:
+
+async def get_repository_import_by_workspace_and_repo(
+    workspace_id: str, provider: str, provider_repo_id: str
+) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(
@@ -52,6 +52,7 @@ async def get_repository_import_by_workspace_and_repo(workspace_id: str, provide
             logger.error(f"repository_identity.get_repository_import_by_workspace_and_repo [SQLAlchemyError]: {e}")
             return None
 
+
 async def get_repository_imports_for_workspace(workspace_id: str) -> list[dict]:
     async with AsyncSessionLocal() as session:
         try:
@@ -66,14 +67,11 @@ async def get_repository_imports_for_workspace(workspace_id: str) -> list[dict]:
             logger.error(f"repository_identity.get_repository_imports_for_workspace [SQLAlchemyError]: {e}")
             return []
 
+
 async def create_source_state(import_id: str, revision_sha: str, snapshot_hash: str | None = None) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
-            row = SourceState(
-                import_id=import_id,
-                revision_sha=revision_sha,
-                snapshot_hash=snapshot_hash
-            )
+            row = SourceState(import_id=import_id, revision_sha=revision_sha, snapshot_hash=snapshot_hash)
             session.add(row)
             await session.commit()
             await session.refresh(row)
@@ -87,13 +85,12 @@ async def create_source_state(import_id: str, revision_sha: str, snapshot_hash: 
             await session.rollback()
             return None
 
+
 async def get_source_states_for_import(import_id: str) -> list[dict]:
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(
-                select(SourceState)
-                .where(SourceState.import_id == import_id)
-                .order_by(SourceState.created_at.desc())
+                select(SourceState).where(SourceState.import_id == import_id).order_by(SourceState.created_at.desc())
             )
             rows = result.scalars().all()
             return [{c.key: getattr(r, c.key) for c in r.__mapper__.columns} for r in rows]
@@ -101,13 +98,12 @@ async def get_source_states_for_import(import_id: str) -> list[dict]:
             logger.error(f"repository_identity.get_source_states_for_import [SQLAlchemyError]: {e}")
             return []
 
+
 async def create_index_configuration(config_hash: str, chunk_size: int, admission_policy_version: str) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
             row = IndexConfiguration(
-                config_hash=config_hash,
-                chunk_size=chunk_size,
-                admission_policy_version=admission_policy_version
+                config_hash=config_hash, chunk_size=chunk_size, admission_policy_version=admission_policy_version
             )
             session.add(row)
             await session.commit()
@@ -122,12 +118,12 @@ async def create_index_configuration(config_hash: str, chunk_size: int, admissio
             await session.rollback()
             return None
 
+
 async def get_index_configuration_by_hash(config_hash: str) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(
-                select(IndexConfiguration)
-                .where(IndexConfiguration.config_hash == config_hash)
+                select(IndexConfiguration).where(IndexConfiguration.config_hash == config_hash)
             )
             row = result.scalars().first()
             if row is None:

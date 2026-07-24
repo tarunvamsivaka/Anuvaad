@@ -24,12 +24,9 @@ def test_phase_1c_upgrade_and_downgrade(migration_engine) -> None:  # noqa: F811
     assert phase_1c_tables <= set(inspector.get_table_names())
 
     materialization_columns = {
-        column["name"]: column
-        for column in inspector.get_columns("searchable_materializations")
+        column["name"]: column for column in inspector.get_columns("searchable_materializations")
     }
-    assert set(materialization_columns) == {
-        "id", "import_id", "index_run_id", "is_current", "published_at"
-    }
+    assert set(materialization_columns) == {"id", "import_id", "index_run_id", "is_current", "published_at"}
     assert _foreign_key_targets(migration_engine, "searchable_materializations") == {
         ("import_id", "repository_imports"),
         ("index_run_id", "index_runs"),
@@ -60,4 +57,3 @@ def test_phase_1c_upgrade_and_downgrade(migration_engine) -> None:  # noqa: F811
 
     command.downgrade(config, "007_phase_1b")
     assert phase_1c_tables.isdisjoint(inspect(migration_engine).get_table_names())
-

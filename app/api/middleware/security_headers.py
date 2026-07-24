@@ -4,6 +4,7 @@ app/api/middleware/security_headers.py
 Adds hardened HTTP security headers to every response.
 Extracted from app/main.py to keep the entry-point lean.
 """
+
 from fastapi import Request
 
 
@@ -15,7 +16,5 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "0"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; frame-ancestors 'none';"
-    )
+    response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none';"
     return response

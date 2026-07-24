@@ -18,7 +18,7 @@ import sys  # noqa: E402
 
 from dotenv import load_dotenv  # noqa: E402
 
-sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.realpath(os.path.join(os.path.dirname(__file__), "..")))
 load_dotenv()
 
 from app.core.config import DATABASE_URL  # noqa: E402
@@ -94,9 +94,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

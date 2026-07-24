@@ -11,6 +11,7 @@ FIX-23 (P1-01): Strengthened prompt injection detection:
   - Added entropy-based detection for base64-encoded payloads in comments
 FIX-25 (P1-10/A10): Added URL-in-code SSRF hardening in validate_code_input.
 """
+
 import re
 
 from fastapi import HTTPException
@@ -35,43 +36,35 @@ _INJECTION_KEYWORDS = (
     r"|new personality"
     r"|exfiltrate"
     r"|forget all"
-    r"|[Ss]ystem:"                  # LLM system message injection
-    r"|[Hh]uman:"                   # LLM conversation injection
-    r"|[Aa]ssistant:"               # LLM conversation injection
-    r"|\[INST\]"                    # Llama-2 instruction injection
-    r"|<\|system\|>"               # Llama-3 / ChatML injection
-    r"|<\|im_start\|>"             # ChatML injection
-    r"|\bpayload\b"                # Common in jailbreak templates
+    r"|[Ss]ystem:"  # LLM system message injection
+    r"|[Hh]uman:"  # LLM conversation injection
+    r"|[Aa]ssistant:"  # LLM conversation injection
+    r"|\[INST\]"  # Llama-2 instruction injection
+    r"|<\|system\|>"  # Llama-3 / ChatML injection
+    r"|<\|im_start\|>"  # ChatML injection
+    r"|\bpayload\b"  # Common in jailbreak templates
 )
 
 _UNICODE_CONTROL = re.compile(
     r"[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff\u00ad"
-    r"\u034f\u115f\u1160\u17b4\u17b5"      # Hangul filler chars
-    r"\u180b-\u180e"                         # Mongolian control chars
-    r"\ufe00-\ufe0f"                         # Variation selectors
-    r"\U000e0020-\U000e007f"                 # Tag characters (Emoji ZWJ tricks)
+    r"\u034f\u115f\u1160\u17b4\u17b5"  # Hangul filler chars
+    r"\u180b-\u180e"  # Mongolian control chars
+    r"\ufe00-\ufe0f"  # Variation selectors
+    r"\U000e0020-\U000e007f"  # Tag characters (Emoji ZWJ tricks)
     r"]"
 )
 
 # Single-line comment injection (Python/JS/C/SQL/Shell)
-_PATTERN_LINE = re.compile(
-    rf"(?i)(//|#|--)[^\n]*?\b(?:{_INJECTION_KEYWORDS})\b[^\n]*"
-)
+_PATTERN_LINE = re.compile(rf"(?i)(//|#|--)[^\n]*?\b(?:{_INJECTION_KEYWORDS})\b[^\n]*")
 
 # Block comment / docstring injection
-_PATTERN_BLOCK = re.compile(
-    rf"(?is)(/\*|<!--|'''|\"\"\").*?\b(?:{_INJECTION_KEYWORDS})\b.*?(?:\*/|-->|'''|\"\"\")"
-)
+_PATTERN_BLOCK = re.compile(rf"(?is)(/\*|<!--|'''|\"\"\").*?\b(?:{_INJECTION_KEYWORDS})\b.*?(?:\*/|-->|'''|\"\"\")")
 
 # HEREDOC-style injection (e.g. Python f-strings, shell heredocs)
-_PATTERN_HEREDOC = re.compile(
-    rf"(?is)<<<?\w+.*?\b(?:{_INJECTION_KEYWORDS})\b.*?<<<?\w+"
-)
+_PATTERN_HEREDOC = re.compile(rf"(?is)<<<?\w+.*?\b(?:{_INJECTION_KEYWORDS})\b.*?<<<?\w+")
 
 # Data/HTTP URIs in comments that could be SSRF-via-prompt
-_PATTERN_URL_IN_COMMENT = re.compile(
-    r"(?i)(//|#|--)[^\n]*?(https?://|data:)[^\n]*"
-)
+_PATTERN_URL_IN_COMMENT = re.compile(r"(?i)(//|#|--)[^\n]*?(https?://|data:)[^\n]*")
 
 
 def _maybe_base64_injection(text: str) -> bool:
@@ -80,12 +73,11 @@ def _maybe_base64_injection(text: str) -> bool:
     Encoded payloads are a common evasion technique — attackers base64-encode
     their injection to bypass keyword matching.
     """
-    b64_candidates = re.findall(
-        r"(?://|#|--)\s*([A-Za-z0-9+/]{40,}={0,2})", text
-    )
+    b64_candidates = re.findall(r"(?://|#|--)\s*([A-Za-z0-9+/]{40,}={0,2})", text)
     for candidate in b64_candidates:
         try:
             import base64
+
             decoded = base64.b64decode(candidate).decode("utf-8", errors="ignore")
             # If the decoded string contains injection keywords, flag it
             if re.search(_INJECTION_KEYWORDS, decoded, re.IGNORECASE):
@@ -105,7 +97,8 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
         return raw_code
 
     import unicodedata
-    raw_code = unicodedata.normalize('NFKC', raw_code)
+
+    raw_code = unicodedata.normalize("NFKC", raw_code)
 
     def replacer(match):
         user = email or "anonymous"
@@ -154,6 +147,7 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
 # Input validation
 # ---------------------------------------------------------------------------
 
+
 def validate_code_input(raw_code: str):
     """Validate the raw code input before passing to LLM.
 
@@ -181,9 +175,7 @@ def validate_code_input(raw_code: str):
 
     lines = raw_code.splitlines()
     if lines:
-        ignore_count = sum(
-            1 for line in lines if re.match(r"^\s*(//|#)\s*ignore", line, re.IGNORECASE)
-        )
+        ignore_count = sum(1 for line in lines if re.match(r"^\s*(//|#)\s*ignore", line, re.IGNORECASE))
         if ignore_count / len(lines) > 0.5:
             raise HTTPException(
                 status_code=422,
@@ -198,8 +190,7 @@ def validate_code_input(raw_code: str):
         raise HTTPException(
             status_code=422,
             detail=(
-                "Input contains a potentially dangerous URL scheme (file://, ftp://, etc). "
-                "Use https:// links only."
+                "Input contains a potentially dangerous URL scheme (file://, ftp://, etc). Use https:// links only."
             ),
         )
 

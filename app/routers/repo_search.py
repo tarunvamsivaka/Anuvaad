@@ -8,6 +8,7 @@ FIX-audit-4: OPENAI_API_KEY is resolved once at module load (not per request)
 FIX-audit-7: Embedding provider is passed explicitly to search_repo_embeddings()
               instead of relying on a dimension-length heuristic.
 """
+
 import logging
 import os
 
@@ -73,10 +74,7 @@ async def repo_status(
     repo_name = f"{owner}/{repo}"
 
     async with AsyncSessionLocal() as session:
-        stmt = (
-            select(func.count(RepoEmbedding.id))
-            .where(RepoEmbedding.repository_name == repo_name)
-        )
+        stmt = select(func.count(RepoEmbedding.id)).where(RepoEmbedding.repository_name == repo_name)
         result = await session.execute(stmt)
         count = result.scalar() or 0
 

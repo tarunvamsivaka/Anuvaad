@@ -10,6 +10,7 @@ Fully unit-testable with zero mocking.
 This is the single source of truth for limit calculation, eliminating the
 40-line copy-paste that previously existed in two places inside quota.py.
 """
+
 import os
 from dataclasses import dataclass
 
@@ -23,6 +24,7 @@ class QuotaPolicy:
         char_limit:   Maximum characters per single request.
         cooldown:     Seconds the user must wait between requests (0 = none).
     """
+
     daily_limit: int
     char_limit: int
     cooldown: int
@@ -54,7 +56,7 @@ _FREE_MODE_OVERRIDES: dict[str, dict] = {
 # Protection-mode overrides for pro users (char + cooldown only)
 _PRO_MODE_OVERRIDES: dict[str, dict] = {
     "RESTRICTED": {"char_cap": 25000, "cooldown": 2},
-    "EMERGENCY":  {"char_cap": 10000, "cooldown": 5},
+    "EMERGENCY": {"char_cap": 10000, "cooldown": 5},
 }
 
 

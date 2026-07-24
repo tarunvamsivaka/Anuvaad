@@ -22,6 +22,7 @@ Prerequisites before running:
 Run with:
     TOKEN_ENCRYPTION_KEY=<key> alembic upgrade head
 """
+
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
@@ -48,19 +49,14 @@ def upgrade() -> None:
     session = Session(bind=bind)
 
     try:
-        rows = session.execute(
-            sa.text("SELECT user_email, access_token FROM user_github_tokens")
-        ).fetchall()
+        rows = session.execute(sa.text("SELECT user_email, access_token FROM user_github_tokens")).fetchall()
 
         for user_email, access_token in rows:
             # Skip already-encrypted tokens (Fernet ciphertext always starts with 'gAAAAA')
             if access_token and not access_token.startswith("gAAAAA"):
                 encrypted = fernet.encrypt(access_token.encode()).decode()
                 session.execute(
-                    sa.text(
-                        "UPDATE user_github_tokens SET access_token = :token "
-                        "WHERE user_email = :email"
-                    ),
+                    sa.text("UPDATE user_github_tokens SET access_token = :token WHERE user_email = :email"),
                     {"token": encrypted, "email": user_email},
                 )
 
@@ -91,18 +87,13 @@ def downgrade() -> None:
     session = Session(bind=bind)
 
     try:
-        rows = session.execute(
-            sa.text("SELECT user_email, access_token FROM user_github_tokens")
-        ).fetchall()
+        rows = session.execute(sa.text("SELECT user_email, access_token FROM user_github_tokens")).fetchall()
 
         for user_email, access_token in rows:
             if access_token and access_token.startswith("gAAAAA"):
                 decrypted = fernet.decrypt(access_token.encode()).decode()
                 session.execute(
-                    sa.text(
-                        "UPDATE user_github_tokens SET access_token = :token "
-                        "WHERE user_email = :email"
-                    ),
+                    sa.text("UPDATE user_github_tokens SET access_token = :token WHERE user_email = :email"),
                     {"token": decrypted, "email": user_email},
                 )
 

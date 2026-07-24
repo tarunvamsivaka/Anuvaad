@@ -1,4 +1,4 @@
-﻿"""
+"""
 app/core/metrics.py
 
 Arch#2.4: MetricsCollector extracted from config.py into its own module.
@@ -9,6 +9,7 @@ H-5: Redis metric writes are fire-and-forget via asyncio.ensure_future so
 they never block the request path. In-memory counters are still updated
 synchronously so snapshot() always has fresh local data.
 """
+
 import asyncio
 import sys
 import time
@@ -49,6 +50,7 @@ class MetricsCollector:
     @staticmethod
     async def _redis_hincrby(key: str, field: str, amount: int = 1) -> None:
         from app.core.cache import cache  # lazy import avoids circular at module init
+
         if cache.client:
             try:
                 await cache.client.hincrby(key, field, amount)
@@ -58,6 +60,7 @@ class MetricsCollector:
     @staticmethod
     async def _redis_incr(key: str) -> None:
         from app.core.cache import cache
+
         if cache.client:
             try:
                 await cache.client.incr(key)
@@ -99,10 +102,7 @@ class MetricsCollector:
 
     @property
     def average_latency_ms(self) -> dict[str, float]:
-        return {
-            ep: round(sum(dq) / len(dq), 2) if dq else 0.0
-            for ep, dq in self._latencies.items()
-        }
+        return {ep: round(sum(dq) / len(dq), 2) if dq else 0.0 for ep, dq in self._latencies.items()}
 
     @property
     def uptime_seconds(self) -> int:
@@ -115,39 +115,41 @@ class MetricsCollector:
         Redis failure falls through to the guaranteed in-memory return.
         """
         from app.core.cache import cache  # lazy import
+
         if cache.client:
             try:
-                redis_requests     = await cache.client.hgetall("metrics:total_requests")
-                redis_errors       = await cache.client.hgetall("metrics:total_errors")
-                redis_model_calls  = await cache.client.hgetall("metrics:model_calls")
+                redis_requests = await cache.client.hgetall("metrics:total_requests")
+                redis_errors = await cache.client.hgetall("metrics:total_errors")
+                redis_model_calls = await cache.client.hgetall("metrics:model_calls")
                 redis_model_errors = await cache.client.hgetall("metrics:model_errors")
-                redis_cache_hits   = await cache.client.get("metrics:cache_hits") or 0
+                redis_cache_hits = await cache.client.get("metrics:cache_hits") or 0
                 redis_cache_misses = await cache.client.get("metrics:cache_misses") or 0
                 return {
-                    "uptime_seconds":     self.uptime_seconds,
-                    "python_version":     sys.version,
-                    "total_requests":     {k: int(v) for k, v in redis_requests.items()}     or dict(self.total_requests),
-                    "total_errors":       {k: int(v) for k, v in redis_errors.items()}       or dict(self.total_errors),
-                    "model_calls":        {k: int(v) for k, v in redis_model_calls.items()}  or dict(self.model_calls),
-                    "model_errors":       {k: int(v) for k, v in redis_model_errors.items()} or dict(self.model_errors),
-                    "cache_hits":         int(redis_cache_hits)   or self.cache_hits,
-                    "cache_misses":       int(redis_cache_misses) or self.cache_misses,
+                    "uptime_seconds": self.uptime_seconds,
+                    "python_version": sys.version,
+                    "total_requests": {k: int(v) for k, v in redis_requests.items()} or dict(self.total_requests),
+                    "total_errors": {k: int(v) for k, v in redis_errors.items()} or dict(self.total_errors),
+                    "model_calls": {k: int(v) for k, v in redis_model_calls.items()} or dict(self.model_calls),
+                    "model_errors": {k: int(v) for k, v in redis_model_errors.items()} or dict(self.model_errors),
+                    "cache_hits": int(redis_cache_hits) or self.cache_hits,
+                    "cache_misses": int(redis_cache_misses) or self.cache_misses,
                     "average_latency_ms": self.average_latency_ms,
                 }
             except Exception as e:
                 import logging
+
                 logging.getLogger("anuvaad").error(f"Failed to snapshot Redis metrics: {e}")
 
         # BUG#8 FIX: guaranteed return — no implicit None
         return {
-            "uptime_seconds":     self.uptime_seconds,
-            "python_version":     sys.version,
-            "total_requests":     dict(self.total_requests),
-            "total_errors":       dict(self.total_errors),
-            "model_calls":        dict(self.model_calls),
-            "model_errors":       dict(self.model_errors),
-            "cache_hits":         self.cache_hits,
-            "cache_misses":       self.cache_misses,
+            "uptime_seconds": self.uptime_seconds,
+            "python_version": sys.version,
+            "total_requests": dict(self.total_requests),
+            "total_errors": dict(self.total_errors),
+            "model_calls": dict(self.model_calls),
+            "model_errors": dict(self.model_errors),
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
             "average_latency_ms": self.average_latency_ms,
         }
 

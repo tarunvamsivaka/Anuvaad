@@ -4,14 +4,11 @@ import ssl
 from celery import Celery
 
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
-REDIS_URL = os.getenv("REDIS_URL", f"redis://:{REDIS_PASSWORD}@localhost:6379" if REDIS_PASSWORD else "redis://localhost:6379")
-
-celery_app = Celery(
-    "anuvaad_worker",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
-    include=["app.queue.tasks"]
+REDIS_URL = os.getenv(
+    "REDIS_URL", f"redis://:{REDIS_PASSWORD}@localhost:6379" if REDIS_PASSWORD else "redis://localhost:6379"
 )
+
+celery_app = Celery("anuvaad_worker", broker=REDIS_URL, backend=REDIS_URL, include=["app.queue.tasks"])
 
 if REDIS_URL.startswith("rediss://"):
     celery_app.conf.broker_use_ssl = {"ssl_cert_reqs": ssl.CERT_NONE}
@@ -38,14 +35,14 @@ celery_app.conf.update(
     },
     task_routes={
         # ── Fast tasks → default queue ──
-        "tasks.save_translation_history":   {"queue": "default"},
-        "tasks.send_transactional_email":   {"queue": "default"},
-        "tasks.process_billing_webhook":    {"queue": "default"},
-        "tasks.prune_translation_history":  {"queue": "default"},
+        "tasks.save_translation_history": {"queue": "default"},
+        "tasks.send_transactional_email": {"queue": "default"},
+        "tasks.process_billing_webhook": {"queue": "default"},
+        "tasks.prune_translation_history": {"queue": "default"},
         # ── Heavy tasks → heavy queue ──
-        "tasks.process_large_file":         {"queue": "heavy"},
-        "tasks.process_github_repo":        {"queue": "heavy"},
-        "tasks.run_repository_indexing":   {"queue": "heavy"},
+        "tasks.process_large_file": {"queue": "heavy"},
+        "tasks.process_github_repo": {"queue": "heavy"},
+        "tasks.run_repository_indexing": {"queue": "heavy"},
     },
 )
 

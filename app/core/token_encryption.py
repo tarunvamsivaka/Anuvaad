@@ -26,6 +26,7 @@ Rotation protocol:
 If only TOKEN_ENCRYPTION_KEY (singular) is set, behaviour is identical to
 the previous single-key implementation — no migration required.
 """
+
 import os
 
 from cryptography.fernet import Fernet, MultiFernet
@@ -33,6 +34,7 @@ from cryptography.fernet import Fernet, MultiFernet
 __all__ = ["encrypt_token", "decrypt_token", "is_encrypted"]
 
 # ── Key loading ──────────────────────────────────────────────────────────────
+
 
 def _load_fernet() -> MultiFernet:
     """
@@ -51,9 +53,7 @@ def _load_fernet() -> MultiFernet:
     if multi_env:
         keys = [k.strip() for k in multi_env.split(",") if k.strip()]
         if not keys:
-            raise RuntimeError(
-                "TOKEN_ENCRYPTION_KEYS is set but contains no valid keys."
-            )
+            raise RuntimeError("TOKEN_ENCRYPTION_KEYS is set but contains no valid keys.")
         return MultiFernet([Fernet(k.encode()) for k in keys])
 
     single_env = os.getenv("TOKEN_ENCRYPTION_KEY", "")
@@ -80,6 +80,7 @@ def _get_fernet() -> MultiFernet:
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
+
 
 def encrypt_token(plaintext: str) -> str:
     """Encrypt a plaintext GitHub OAuth token using the primary (first) key.

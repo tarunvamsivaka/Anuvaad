@@ -12,6 +12,7 @@ Responsibilities (and ONLY these):
 All middleware logic lives in app/api/middleware/.
 All configuration lives in app/core/config.py.
 """
+
 from contextlib import asynccontextmanager
 
 import sentry_sdk
@@ -51,12 +52,12 @@ from app.services import ai as ai_service
 # Critical vars that MUST be set in production.
 # App will refuse to start if any of these are missing when ENV=production.
 _CRITICAL_VARS: list[tuple[str, str]] = [
-    ("GROQ_API_KEY",         GROQ_API_KEY),
-    ("DATABASE_URL",         DATABASE_URL),
-    ("SUPABASE_URL",         SUPABASE_URL),
-    ("SUPABASE_JWT_SECRET",  SUPABASE_JWT_SECRET),
+    ("GROQ_API_KEY", GROQ_API_KEY),
+    ("DATABASE_URL", DATABASE_URL),
+    ("SUPABASE_URL", SUPABASE_URL),
+    ("SUPABASE_JWT_SECRET", SUPABASE_JWT_SECRET),
     ("TOKEN_ENCRYPTION_KEY", TOKEN_ENCRYPTION_KEY),
-    ("FRONTEND_URL",         FRONTEND_URL),
+    ("FRONTEND_URL", FRONTEND_URL),
 ]
 
 
@@ -77,6 +78,7 @@ def validate_production_env() -> None:
     msg = f"Missing critical environment variables: {', '.join(missing)}"
     if ENV == "production":
         import sys
+
         logger.critical(
             f"CRITICAL STARTUP FAILURE: {msg}. "
             "Please configure these environment variables in your Render Dashboard settings."
@@ -95,12 +97,12 @@ def validate_production_env() -> None:
     else:
         for name in missing:
             logger.warning(
-                f"[dev] Environment variable '{name}' is not set. "
-                "This will cause a hard failure in production."
+                f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production."
             )
 
 
 # ── Lifespan ──
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -135,6 +137,7 @@ else:
 
 # ── Global Exception Handler ──
 
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     auth_header = request.headers.get("Authorization")
@@ -158,23 +161,23 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Legacy /api/ routes are kept for backward compatibility during migration.
 # Sunset date: 2027-01-01
 
-app.include_router(translate_router,    prefix="/api/v1")
-app.include_router(history_router,      prefix="/api/v1")
-app.include_router(workspace_router,    prefix="/api/v1")
-app.include_router(billing_router,      prefix="/api/v1")
-app.include_router(github_router,       prefix="/api/v1")
-app.include_router(repo_search_router,  prefix="/api/v1")
-app.include_router(utility_router,      prefix="/api/v1")
-app.include_router(demo_router,         prefix="/api/v1")
-app.include_router(onboarding_router,   prefix="/api/v1")  # FIX-35 (P3-08)
+app.include_router(translate_router, prefix="/api/v1")
+app.include_router(history_router, prefix="/api/v1")
+app.include_router(workspace_router, prefix="/api/v1")
+app.include_router(billing_router, prefix="/api/v1")
+app.include_router(github_router, prefix="/api/v1")
+app.include_router(repo_search_router, prefix="/api/v1")
+app.include_router(utility_router, prefix="/api/v1")
+app.include_router(demo_router, prefix="/api/v1")
+app.include_router(onboarding_router, prefix="/api/v1")  # FIX-35 (P3-08)
 
 # Legacy aliases — api_deprecation_middleware emits Deprecation header
-app.include_router(translate_router,  prefix="/api")
-app.include_router(history_router,    prefix="/api")
-app.include_router(workspace_router,  prefix="/api")
-app.include_router(billing_router,    prefix="/api")
-app.include_router(utility_router,    prefix="/api")
-app.include_router(demo_router,       prefix="/api")
+app.include_router(translate_router, prefix="/api")
+app.include_router(history_router, prefix="/api")
+app.include_router(workspace_router, prefix="/api")
+app.include_router(billing_router, prefix="/api")
+app.include_router(utility_router, prefix="/api")
+app.include_router(demo_router, prefix="/api")
 
 logger.info("Anuvaad API Initialized")
 
@@ -184,4 +187,3 @@ logger.info("Anuvaad API Initialized")
 # to their canonical homes.
 from app.api.middleware.csrf import _allowed_origins_set  # noqa: F401, E402
 from app.core.config import IS_PRODUCTION  # noqa: F401, E402
-

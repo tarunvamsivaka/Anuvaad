@@ -1,4 +1,5 @@
 """Internal DTOs for the Phase 2 repository domain layer."""
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -131,6 +132,7 @@ class RepositoryLinkedHistoryRead(RepositoryLinkedHistoryCreate):
     workspace_id: UUID
     import_id: UUID
     created_at: datetime | None
+
 
 class SemanticArtifactCreate(_Schema):
     file_path: str = Field(min_length=1)

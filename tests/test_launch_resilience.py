@@ -13,9 +13,7 @@ class TestAuthGating:
     """Verify that unauthenticated users are blocked from AI endpoints."""
 
     def test_anonymous_user_blocked_from_code_to_english(self, client_no_auth):
-        res = client_no_auth.post(
-            "/api/code-to-english", json={"raw_code": "print(1)", "language": "python"}
-        )
+        res = client_no_auth.post("/api/code-to-english", json={"raw_code": "print(1)", "language": "python"})
         assert res.status_code == 401
         # FIX-S: client_no_auth now raises 401 from get_user_email (like real auth).
         # The detail message is "Not authenticated" from the dependency override,
@@ -46,9 +44,7 @@ class TestUserTiersAndQuotas:
 
     def test_free_user_char_limit(self, client):
         # Free user character limit is 10,000. Try 10,005 characters -> 413
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": "x" * 10005, "language": "python"}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": "x" * 10005, "language": "python"})
         assert res.status_code == 413
         assert "exceeds the current limit" in res.json()["detail"]
 
@@ -56,6 +52,7 @@ class TestUserTiersAndQuotas:
         # Patch get_user_pro_status in the quota module (enforce_quotas_and_protection
         # calls app.core.quota.get_user_pro_status at line 361 of quota.py)
         from unittest.mock import AsyncMock
+
         with patch("app.core.quota.get_user_pro_status", new_callable=AsyncMock, return_value=True):
             res = client.post(
                 "/api/code-to-english",
@@ -69,9 +66,7 @@ class TestUserTiersAndQuotas:
         async def fake_admin_email():
             return "admin@anuvaad.dev"
 
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_admin_email
-        )
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_admin_email
         try:
             # Send huge code (e.g. 40,000 chars)
             res = client.post(
@@ -118,10 +113,7 @@ class TestBillingGating:
                 },
             )
             assert res1.status_code == 503
-            assert (
-                "billing and payment registration are temporarily paused"
-                in res1.json()["detail"].lower()
-            )
+            assert "billing and payment registration are temporarily paused" in res1.json()["detail"].lower()
 
             res2 = client.post(
                 "/api/create-portal-session",
@@ -146,9 +138,7 @@ class TestAdminDashboardStats:
         async def fake_admin_email():
             return "admin@anuvaad.dev"
 
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_admin_email
-        )
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_admin_email
         try:
             res = client.get("/api/admin/dashboard-stats")
             assert res.status_code == 200
@@ -164,9 +154,7 @@ class TestAdminDashboardStats:
         async def fake_regular_email():
             return "regular@example.com"
 
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_regular_email
-        )
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_regular_email
         try:
             res = client.get("/api/admin/dashboard-stats")
             assert res.status_code == 403
@@ -203,13 +191,14 @@ class TestStaleRecoveryFallback:
         ]
 
         from unittest.mock import AsyncMock
+
         # Mock get_completion to throw an exception
         with patch("app.routers.translate.code_to_english.get_completion", side_effect=Exception("API limit exceeded")):
             with patch.object(
                 app_module.cache,
                 "get",
                 new_callable=AsyncMock,
-                side_effect=[None, mock_blocks, mock_blocks, mock_blocks, mock_blocks, mock_blocks]
+                side_effect=[None, mock_blocks, mock_blocks, mock_blocks, mock_blocks, mock_blocks],
             ):
                 res = client.post(
                     "/api/code-to-english/sync",
@@ -233,4 +222,3 @@ class TestSQLiteMetadataCreation:
         Base.metadata.create_all(sqlite_engine)
         assert "translation_history" in Base.metadata.tables
         assert "payment_transactions" in Base.metadata.tables
-

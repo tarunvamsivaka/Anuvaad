@@ -11,6 +11,7 @@ Provides:
 Use structlog when available (JSON in production, pretty-print in dev).
 Falls back gracefully to stdlib logging when structlog is not installed.
 """
+
 import logging
 import os
 
@@ -30,8 +31,7 @@ try:
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
-        structlog.processors.JSONRenderer() if _is_prod_env
-        else structlog.dev.ConsoleRenderer(colors=True),
+        structlog.processors.JSONRenderer() if _is_prod_env else structlog.dev.ConsoleRenderer(colors=True),
     ]
 
     structlog.configure(
@@ -46,9 +46,7 @@ try:
         return structlog.get_logger(name)
 
 except ImportError:
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
     def get_logger(name: str = "anuvaad"):
         return logging.getLogger(name)

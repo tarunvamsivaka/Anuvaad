@@ -26,7 +26,6 @@ def _compile_jsonb_sqlite(type_, compiler, **kw):
     return "JSON"
 
 
-
 def _sqlite_cosine_distance(v1_raw, v2_raw):
     """Compute cosine distance between two vectors for SQLite in-memory runner.
 
@@ -85,26 +84,28 @@ if not _is_sqlite:
     _use_pgbouncer = IS_PRODUCTION and DATABASE_POOL_URL and DATABASE_POOL_URL != DATABASE_URL
     if _use_pgbouncer:
         # PgBouncer transaction-mode: one connection per Gunicorn worker
-        _engine_kwargs["pool_size"]    = 1
+        _engine_kwargs["pool_size"] = 1
         _engine_kwargs["max_overflow"] = 0
         _engine_kwargs["pool_timeout"] = 30.0
         _engine_kwargs["pool_recycle"] = 1800
     else:
         # Direct connection: let SQLAlchemy manage the pool
-        _engine_kwargs["pool_size"]    = int(os.getenv("DB_POOL_SIZE",      "20"))
-        _engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW",   "10"))
+        _engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "20"))
+        _engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW", "10"))
         _engine_kwargs["pool_timeout"] = float(os.getenv("DB_POOL_TIMEOUT", "30"))
-        _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE",   "1800"))
+        _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE", "1800"))
 
 engine = create_async_engine(_DB_URL, **_engine_kwargs)
 
 if _is_sqlite:
+
     @event.listens_for(engine.sync_engine, "connect")
     def _set_sqlite_pragma(dbapi_conn, connection_record):
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
         dbapi_conn.create_function("cosine_distance", 2, _sqlite_cosine_distance)
+
 
 AsyncSessionLocal = async_sessionmaker(
     engine,

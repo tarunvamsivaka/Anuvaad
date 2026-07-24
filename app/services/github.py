@@ -8,9 +8,29 @@ from github import Auth, Github
 logger = structlog.get_logger(__name__)
 
 SUPPORTED_EXTENSIONS = {
-    ".py", ".ts", ".tsx", ".js", ".jsx", ".md", ".txt", ".json", ".yml", ".yaml",
-    ".html", ".css", ".go", ".rs", ".c", ".cpp", ".h", ".hpp", ".java", ".rb", ".php"
+    ".py",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".md",
+    ".txt",
+    ".json",
+    ".yml",
+    ".yaml",
+    ".html",
+    ".css",
+    ".go",
+    ".rs",
+    ".c",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".java",
+    ".rb",
+    ".php",
 }
+
 
 def get_github_client() -> Github:
     token = os.environ.get("GITHUB_PAT")
@@ -19,6 +39,7 @@ def get_github_client() -> Github:
         return Github()
     auth = Auth.Token(token)
     return Github(auth=auth)
+
 
 def fetch_repository_files(repo_name: str) -> list[dict[str, str]]:
     """
@@ -52,10 +73,7 @@ def fetch_repository_files(repo_name: str) -> list[dict[str, str]]:
                     else:
                         continue
 
-                    files.append({
-                        "path": element.path,
-                        "content": content
-                    })
+                    files.append({"path": element.path, "content": content})
                 except Exception as e:
                     logger.debug(f"Failed to fetch/decode file: {element.path}", error=str(e))
 

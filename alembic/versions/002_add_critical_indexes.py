@@ -13,6 +13,7 @@ Key indexes:
   - workspaces(owner_email)                          — workspace list by owner
   - translation_history(workspace_id)                — workspace history filter
 """
+
 from alembic import op
 
 # revision identifiers, used by Alembic.

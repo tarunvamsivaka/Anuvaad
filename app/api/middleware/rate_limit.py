@@ -6,6 +6,7 @@ Extracted from app/main.py.
 
 SEC-08: Localhost bypass is only active outside production.
 """
+
 import hashlib
 import os
 
@@ -54,9 +55,7 @@ async def rate_limit_middleware(request: Request, call_next):
     if current_count > limit:
         return JSONResponse(
             status_code=429,
-            content={
-                "detail": f"Rate limit exceeded. Max {limit} requests per {RATE_LIMIT_WINDOW}s."
-            },
+            content={"detail": f"Rate limit exceeded. Max {limit} requests per {RATE_LIMIT_WINDOW}s."},
             headers={
                 "X-RateLimit-Limit": str(limit),
                 "X-RateLimit-Remaining": "0",
