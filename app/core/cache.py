@@ -82,15 +82,19 @@ class RedisCache:
 
         # Priority 2: Upstash REST (serverless fallback)
         if not self.client:
-            url = os.environ.get("UPSTASH_REDIS_URL")
-            token = os.environ.get("UPSTASH_REDIS_TOKEN")
-            if url and token:
+            url = os.environ.get("UPSTASH_REDIS_URL", "")
+            token = os.environ.get("UPSTASH_REDIS_TOKEN", "")
+            # Validate both are real values, not placeholders
+            url_valid = url.startswith("https://") and "upstash.io" in url
+            token_valid = token and not token.startswith("your_")
+            if url_valid and token_valid:
                 try:
                     from upstash_redis.asyncio import Redis
                     self.client = Redis(url=url, token=token)
                     self._backend = "upstash"
                 except Exception as e:
                     logger.warning(f"Failed to initialize Upstash Redis: {e}")
+
 
         # Fallback: in-memory LRU
         self.fallback = LRUCache()
