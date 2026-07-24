@@ -145,7 +145,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         token = auth_header.split(" ")[1]
         try:
             creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
-            email = await get_user_email(creds)
+            # Pass both request and credentials as required by the dependency signature
+            email = await get_user_email(request, creds)
             if email:
                 sentry_sdk.set_user({"email": email})
         except Exception:
