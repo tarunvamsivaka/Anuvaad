@@ -82,8 +82,8 @@ class RedisCache:
 
         # Priority 2: Upstash REST (serverless fallback)
         if not self.client:
-            url = os.environ.get("UPSTASH_REDIS_URL", "")
-            token = os.environ.get("UPSTASH_REDIS_TOKEN", "")
+            url = os.environ.get("UPSTASH_REDIS_URL", "") or os.environ.get("UPSTASH_REDIS_REST_URL", "")
+            token = os.environ.get("UPSTASH_REDIS_TOKEN", "") or os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
             # Validate both are real values, not placeholders
             url_valid = url.startswith("https://") and "upstash.io" in url
             token_valid = token and not token.startswith("your_")
