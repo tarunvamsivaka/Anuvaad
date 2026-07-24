@@ -1,5 +1,24 @@
 import * as vscode from 'vscode';
 
+export interface CodePayload {
+  raw_code: string;
+  language: string;
+}
+
+export function formatCodePayload(raw_code: string, language: string): CodePayload {
+  return {
+    raw_code,
+    language
+  };
+}
+
+export function parseTranslationResponse(data: any): string {
+  if (Array.isArray(data)) {
+    return data.map((b: any) => b?.english_translation || '').join('\n');
+  }
+  return data?.english_translation || '';
+}
+
 export async function activate(context: vscode.ExtensionContext) {
   // Migration path: if apiKey exists in settings, move it to secrets and remove it from settings
   const config = vscode.workspace.getConfiguration('anuvaad');
@@ -54,16 +73,14 @@ export async function activate(context: vscode.ExtensionContext) {
       cancellable: false
     }, async (progress) => {
       try {
+        const payload = formatCodePayload(text, editor.document.languageId);
         const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-API-Key': apiKey
           },
-          body: JSON.stringify({
-            code: text,
-            source_language: editor.document.languageId
-          })
+          body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -71,7 +88,7 @@ export async function activate(context: vscode.ExtensionContext) {
         }
 
         const data: any = await response.json();
-        const translation = data.english_translation;
+        const translation = parseTranslationResponse(data);
 
         // Insert the translation above the selection as a comment
         editor.edit(editBuilder => {
@@ -133,24 +150,23 @@ export async function activate(context: vscode.ExtensionContext) {
             }
             
             try {
+              const payload = formatCodePayload(lineText, document.languageId);
               const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
                   'X-API-Key': apiKey
                 },
-                body: JSON.stringify({
-                  code: lineText,
-                  source_language: document.languageId
-                })
+                body: JSON.stringify(payload)
               });
 
               if (!response.ok) return resolve(null);
 
               const data: any = await response.json();
+              const explanation = parseTranslationResponse(data);
               
               const markdown = new vscode.MarkdownString();
-              markdown.appendMarkdown(`**Anuvaad Explanation**\n\n${data.english_translation}`);
+              markdown.appendMarkdown(`**Anuvaad Explanation**\n\n${explanation}`);
               
               resolve(new vscode.Hover(markdown));
             } catch (e) {
@@ -165,4 +181,3 @@ export async function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {}
-

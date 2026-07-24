@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, literal, select
+from sqlalchemy import delete, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import (
@@ -39,6 +39,21 @@ from app.schemas.repository_domain import (
     StructuralSymbolCreate,
 )
 from app.schemas.retrieval import SemanticArtifactMatch, SemanticRetrievalRequest
+
+
+def _is_sqlite_session(session) -> bool:
+    try:
+        bind = getattr(session, "bind", None)
+        if bind is None and hasattr(session, "get_bind"):
+            bind_res = session.get_bind()
+            if not hasattr(bind_res, "__await__"):
+                bind = bind_res
+        if bind is not None:
+            dialect = getattr(bind, "dialect", None)
+            return getattr(dialect, "name", None) == "sqlite"
+    except Exception:
+        pass
+    return False
 
 
 class RepositoryDomainRepository:
@@ -302,7 +317,16 @@ class RepositoryDomainRepository:
         callers provide repository or materialization filters. This prevents a
         stale or cross-workspace artifact identifier from widening the query.
         """
-        cosine_distance = SemanticArtifact.embedding.cosine_distance(request.query_embedding)
+        import json
+        if _is_sqlite_session(self._session):
+            query_str = (
+                json.dumps(request.query_embedding)
+                if isinstance(request.query_embedding, list)
+                else str(request.query_embedding)
+            )
+            cosine_distance = func.cosine_distance(SemanticArtifact.embedding, query_str)
+        else:
+            cosine_distance = SemanticArtifact.embedding.cosine_distance(request.query_embedding)
         similarity = (literal(1.0) - cosine_distance).label("similarity")
         statement = (
             select(SemanticArtifact, SearchableMaterialization.import_id, similarity)

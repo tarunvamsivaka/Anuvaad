@@ -527,7 +527,6 @@ def mock_openai_clients(monkeypatch):
 def mock_supabase_and_quota(monkeypatch):
     from unittest.mock import AsyncMock
 
-    import app.core.database as db_module
     import app.core.quota as quota_module
 
     m1 = AsyncMock(return_value=0)
@@ -535,13 +534,9 @@ def mock_supabase_and_quota(monkeypatch):
     m3 = AsyncMock(return_value=True)
     # FIX-J: increment_today_usage_count is the new atomic version used in enforce_quotas_and_protection
     m_incr = AsyncMock(return_value=0)
-    m6 = AsyncMock(return_value={})
-    m7 = AsyncMock(return_value=[])
 
     monkeypatch.setattr(quota_module, "get_today_usage_count", m1)
     monkeypatch.setattr(quota_module, "increment_today_usage_count", m_incr)
-    monkeypatch.setattr(db_module, "supabase_request", m6)
-    monkeypatch.setattr(db_module, "supabase_request_list", m7)
 
     with patch("app.core.quota.get_user_credits", m2), \
          patch("app.core.quota.deduct_credit", m3):

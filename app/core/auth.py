@@ -210,12 +210,13 @@ async def _authenticate_api_key(raw_key: str) -> str:
 # ---------------------------------------------------------------------------
 
 async def get_user_email(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> str:
     """Authenticate a request and return the caller's email address.
 
     Authentication priority:
-      1. X-API-Key header  (machine-to-machine)
+      1. X-API-Key header  (machine-to-machine, e.g. VSCode extension)
       2. Authorization: Bearer <JWT>  (browser sessions)
 
     FIX-04 (P0-04): JWT is verified LOCALLY — zero outbound HTTP calls (HS256).
@@ -227,13 +228,24 @@ async def get_user_email(
     Routes that used `if not email: raise HTTPException(...)` after calling
     this function no longer need that guard — it is handled here.
     """
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or malformed Authorization header",
-        )
-    token = credentials.credentials
-    return await _authenticate_jwt(token)
+    # 1. API key (machine-to-machine, e.g. VSCode extension)
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        return await _authenticate_api_key(api_key)
+
+    # 2. Bearer JWT (browser sessions)
+    if credentials and credentials.credentials:
+        return await _authenticate_jwt(credentials.credentials)
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ").strip()
+        return await _authenticate_jwt(token)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Missing or malformed Authorization header",
+    )
 
 
 async def get_user_email_from_request(request: Request) -> str:
@@ -242,21 +254,7 @@ async def get_user_email_from_request(request: Request) -> str:
     Use this variant in routes that accept a Request directly and want
     API key support in addition to JWT.
     """
-    # 1. API key (machine-to-machine)
-    api_key = request.headers.get("X-API-Key")
-    if api_key:
-        return await _authenticate_api_key(api_key)
-
-    # 2. Bearer JWT (browser sessions) — supports both HS256 and ES256/RS256
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.removeprefix("Bearer ").strip()
-        return await _authenticate_jwt(token)
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="No authentication credentials provided",
-    )
+    return await get_user_email(request)
 
 
 async def get_user_pro_status(email: str) -> bool:

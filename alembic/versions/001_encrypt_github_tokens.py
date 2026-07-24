@@ -22,10 +22,10 @@ Prerequisites before running:
 Run with:
     TOKEN_ENCRYPTION_KEY=<key> alembic upgrade head
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "001_encrypt_github_tokens"
@@ -37,6 +37,7 @@ depends_on = None
 def upgrade() -> None:
     """Encrypt all plaintext tokens in user_github_tokens."""
     import os
+
     from cryptography.fernet import Fernet
 
     encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY", "JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=")
@@ -79,6 +80,7 @@ def downgrade() -> None:
     unless absolutely required for rollback.
     """
     import os
+
     from cryptography.fernet import Fernet
 
     encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY", "JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=")

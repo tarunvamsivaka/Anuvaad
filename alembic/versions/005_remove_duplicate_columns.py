@@ -14,9 +14,9 @@ FIX-29 (P2-02 + P3-02):
    never completed (project uses Razorpay). The column is always NULL and dead code.
    Remove it.
 """
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "005_remove_duplicate_columns"
 down_revision = "004_add_fk_constraints"

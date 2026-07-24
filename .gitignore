@@ -60,3 +60,5 @@ frontend/playwright/*.png
 # VS Code extension build output
 vscode-extension/out/
 vscode-extension/*.vsix
+vscode-extension/.vscode-test/
+.agents/

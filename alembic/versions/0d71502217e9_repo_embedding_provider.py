@@ -5,12 +5,13 @@ Revises: 8d3045f704c7
 Create Date: 2026-06-27 16:43:05.274070
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
 
-from alembic import op
 import sqlalchemy as sa
 from pgvector.sqlalchemy import Vector
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '0d71502217e9'
@@ -23,8 +24,8 @@ def upgrade() -> None:
     """Upgrade schema."""
     # Add provider column
     op.add_column('repo_embeddings', sa.Column('provider', sa.Text(), server_default='hf', nullable=False))
-    
-    # We must truncate the table because Postgres cannot automatically cast 
+
+    # We must truncate the table because Postgres cannot automatically cast
     # a 384-dimensional vector into a 1536-dimensional vector.
     op.execute('TRUNCATE TABLE repo_embeddings')
 
@@ -42,6 +43,6 @@ def downgrade() -> None:
                existing_type=Vector(1536),
                type_=Vector(384),
                existing_nullable=True)
-               
+
     # Drop provider column
     op.drop_column('repo_embeddings', 'provider')

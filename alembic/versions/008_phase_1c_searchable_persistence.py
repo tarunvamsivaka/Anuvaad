@@ -5,10 +5,10 @@ Revises: 007_phase_1b
 Create Date: 2026-07-19 19:30:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 revision = "008_phase_1c"
 down_revision = "007_phase_1b"

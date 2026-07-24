@@ -217,3 +217,20 @@ class TestStaleRecoveryFallback:
                 )
                 assert res.status_code == 200
                 assert res.json() == mock_blocks
+
+
+class TestSQLiteMetadataCreation:
+    """Verify in-memory SQLite engine creates tables with JSONB columns without CompileError."""
+
+    def test_sqlite_create_all_with_jsonb_models(self):
+        from sqlalchemy import create_engine
+
+        import app.models.db_models  # noqa: F401
+        from app.core.database_session import Base
+
+        sqlite_engine = create_engine("sqlite:///:memory:")
+        # Base.metadata.create_all should succeed without raising CompileError for JSONB columns
+        Base.metadata.create_all(sqlite_engine)
+        assert "translation_history" in Base.metadata.tables
+        assert "payment_transactions" in Base.metadata.tables
+

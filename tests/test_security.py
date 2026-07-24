@@ -259,3 +259,57 @@ class TestAdvancedSecurity:
         finally:
             csrf_module.IS_PRODUCTION = original_production
             csrf_module._allowed_origins_set = original_allowed
+
+
+class TestGetUserEmailRefactor:
+    """Test dual-authentication (X-API-Key and Bearer JWT) in get_user_email."""
+
+    @pytest.mark.asyncio
+    async def test_x_api_key_header_authenticates_successfully(self):
+        from starlette.requests import Request
+
+        from app.core.auth import get_user_email
+
+        scope = {
+            "type": "http",
+            "headers": [(b"x-api-key", b"test_api_key_123")],
+        }
+        request = Request(scope)
+
+        with patch("app.core.auth._authenticate_api_key") as mock_auth_key:
+            mock_auth_key.return_value = "api_key_user@example.com"
+            email = await get_user_email(request, credentials=None)
+            assert email == "api_key_user@example.com"
+            mock_auth_key.assert_called_once_with("test_api_key_123")
+
+    @pytest.mark.asyncio
+    async def test_bearer_credentials_authenticates_successfully(self):
+        from fastapi.security import HTTPAuthorizationCredentials
+        from starlette.requests import Request
+
+        from app.core.auth import get_user_email
+
+        scope = {"type": "http", "headers": []}
+        request = Request(scope)
+        creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="jwt_token_456")
+
+        with patch("app.core.auth._authenticate_jwt") as mock_auth_jwt:
+            mock_auth_jwt.return_value = "jwt_user@example.com"
+            email = await get_user_email(request, credentials=creds)
+            assert email == "jwt_user@example.com"
+            mock_auth_jwt.assert_called_once_with("jwt_token_456")
+
+    @pytest.mark.asyncio
+    async def test_missing_credentials_raises_401(self):
+        from fastapi import HTTPException
+        from starlette.requests import Request
+
+        from app.core.auth import get_user_email
+
+        scope = {"type": "http", "headers": []}
+        request = Request(scope)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_user_email(request, credentials=None)
+        assert exc_info.value.status_code == 401
+

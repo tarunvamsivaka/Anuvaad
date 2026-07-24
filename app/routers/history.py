@@ -42,6 +42,7 @@ from app.core.constants import DEFAULT_HISTORY_PAGE_SIZE, MAX_HISTORY_PAGE_SIZE
 from app.core.quota import get_active_protection_mode
 from app.models.schemas import ApiKeyCreate, SharePayload
 from app.repositories import api_key as api_key_repo
+from app.repositories import subscription as subscription_repo
 from app.repositories import translation as translation_repo
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
@@ -353,27 +354,7 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
     if not email or email.lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required.")
 
-    total_users = 0
-    if SUPABASE_URL and SUPABASE_SERVICE_KEY:
-        base_headers = {
-            "apikey": SUPABASE_SERVICE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-            "Prefer": "count=exact",
-            "Range-Unit": "items",
-            "Range": "0-0",
-        }
-        try:
-            client = await get_http_client()
-            resp = await client.get(
-                f"{SUPABASE_URL}/rest/v1/user_subscriptions?select=user_email",
-                headers=base_headers,
-            )
-            if resp.status_code in (200, 206):
-                content_range = resp.headers.get("Content-Range", "")
-                if "/" in content_range:
-                    total_users = int(content_range.split("/")[1])
-        except Exception as e:
-            logger.warning(f"Admin stats user count failed: {e}")
+    total_users = await subscription_repo.get_total_user_count()
 
     cache_stats = {}
     if hasattr(cache, "fallback") and hasattr(cache.fallback, "stats"):

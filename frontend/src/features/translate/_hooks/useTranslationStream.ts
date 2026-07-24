@@ -140,8 +140,8 @@ export function useTranslationStream({
       readerRef.current = reader;
       const decoder = new TextDecoder("utf-8");
 
-      let completeBlocks = null;
-      let streamError = null;
+      let completeBlocks: TranslationBlock[] | null = null;
+      let streamError: string | null = null;
 
       // Flush the rAF buffer to React state at display refresh cadence
       const scheduleFlush = () => {
@@ -156,62 +156,51 @@ export function useTranslationStream({
         });
       };
 
+      const processSSELine = (line: string) => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine.startsWith("data: ")) return;
+        try {
+          const data = JSON.parse(trimmedLine.slice(6));
+          if (data.error) {
+            streamError = data.error;
+            setRawError(`Error: ${data.error}`);
+          } else if (data.chunk) {
+            // Buffer; flush asynchronously at rAF cadence
+            streamBufferRef.current += data.chunk;
+            scheduleFlush();
+          } else if (data.done && data.blocks) {
+            completeBlocks = data.blocks;
+            if (data.model_used) {
+              setModelUsed(data.model_used);
+            }
+          }
+        } catch {
+          // Ignore invalid JSON chunks (might be split across packets)
+        }
+      };
+
       let streamBuffer = "";
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
-          if (streamBuffer.trim()) {
-            const line = streamBuffer.trim();
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.error) {
-                  streamError = data.error;
-                  setRawError(`Error: ${data.error}`);
-                } else if (data.chunk) {
-                  streamBufferRef.current += data.chunk;
-                  scheduleFlush();
-                } else if (data.done && data.blocks) {
-                  completeBlocks = data.blocks;
-                  if (data.model_used) {
-                    setModelUsed(data.model_used);
-                  }
-                }
-              } catch {
-                // Ignore
-              }
+          // Flush TextDecoder upon stream completion
+          streamBuffer += decoder.decode(new Uint8Array(), { stream: false });
+          if (streamBuffer.length > 0) {
+            const remainingLines = streamBuffer.split("\n");
+            for (const line of remainingLines) {
+              processSSELine(line);
             }
+            streamBuffer = "";
           }
           break;
         }
 
         streamBuffer += decoder.decode(value, { stream: true });
-        const lines = streamBuffer.split('\n');
-        streamBuffer = lines.pop() || "";
+        const lines = streamBuffer.split("\n");
+        streamBuffer = lines.pop() ?? "";
         
         for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(trimmedLine.slice(6));
-              
-              if (data.error) {
-                streamError = data.error;
-                setRawError(`Error: ${data.error}`);
-              } else if (data.chunk) {
-                // Buffer; flush asynchronously at rAF cadence
-                streamBufferRef.current += data.chunk;
-                scheduleFlush();
-              } else if (data.done && data.blocks) {
-                completeBlocks = data.blocks;
-                if (data.model_used) {
-                  setModelUsed(data.model_used);
-                }
-              }
-            } catch {
-              // Ignore invalid JSON chunks (might be split across packets)
-            }
-          }
+          processSSELine(line);
         }
       }
 
@@ -225,14 +214,15 @@ export function useTranslationStream({
         streamBufferRef.current = "";
       }
 
-      if (completeBlocks && !streamError) {
-        setOutputBlocks(completeBlocks);
-        setOriginalBlocks(JSON.parse(JSON.stringify(completeBlocks)));
+      const finalBlocks = completeBlocks as TranslationBlock[] | null;
+      if (finalBlocks && !streamError) {
+        setOutputBlocks(finalBlocks);
+        setOriginalBlocks(JSON.parse(JSON.stringify(finalBlocks)));
         const latency = Date.now() - translateStartTime;
         track("translation_completed", {
           mode,
-          block_count: completeBlocks.length,
-          model_used: completeBlocks[0]?.model_used || "unknown",
+          block_count: finalBlocks.length,
+          model_used: finalBlocks[0]?.model_used || "unknown",
           latency_ms: latency,
           from_cache: false,
         });

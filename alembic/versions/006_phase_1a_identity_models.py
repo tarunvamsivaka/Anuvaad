@@ -5,9 +5,10 @@ Revises: 005_remove_duplicate_columns
 Create Date: 2026-07-16 12:00:00.000000
 
 """
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = '006_phase_1a'

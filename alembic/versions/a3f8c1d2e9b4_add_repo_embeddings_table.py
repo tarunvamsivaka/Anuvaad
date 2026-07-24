@@ -5,12 +5,13 @@ Revises: 7af437a6b3ae
 Create Date: 2026-06-18 00:05:00.000000
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import pgvector.sqlalchemy
+import sqlalchemy as sa
 
 from alembic import op
-import sqlalchemy as sa
-import pgvector.sqlalchemy
-
 
 # revision identifiers, used by Alembic.
 revision: str = 'a3f8c1d2e9b4'

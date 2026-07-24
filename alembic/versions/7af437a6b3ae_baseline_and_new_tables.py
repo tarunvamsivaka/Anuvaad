@@ -1,16 +1,17 @@
 """baseline_and_new_tables
 
 Revision ID: 7af437a6b3ae
-Revises: 
+Revises:
 Create Date: 2026-06-17 23:51:22.643307
 
 """
-from typing import Sequence, Union
+from collections.abc import Sequence
+from typing import Union
+
+import pgvector.sqlalchemy
+import sqlalchemy as sa
 
 from alembic import op
-import sqlalchemy as sa
-import pgvector.sqlalchemy
-
 
 # revision identifiers, used by Alembic.
 revision: str = '7af437a6b3ae'
@@ -125,7 +126,7 @@ def downgrade() -> None:
     op.drop_table('llm_semantic_cache')
     op.drop_index(op.f('ix_payment_transactions_event_id'), table_name='payment_transactions')
     op.drop_table('payment_transactions')
-    
+
     op.execute('DROP INDEX IF EXISTS idx_translation_history_session_id;')
     op.execute('ALTER TABLE public.translation_history DROP COLUMN IF EXISTS file_path;')
     op.execute('ALTER TABLE public.translation_history DROP COLUMN IF EXISTS repository_name;')

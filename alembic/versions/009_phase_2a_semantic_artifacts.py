@@ -3,10 +3,11 @@
 Revision ID: 009_phase_2a
 Revises: 008_phase_1c
 """
-from alembic import op
+import pgvector.sqlalchemy
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-import pgvector.sqlalchemy
+
+from alembic import op
 
 revision = "009_phase_2a"
 down_revision = "008_phase_1c"

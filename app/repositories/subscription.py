@@ -7,11 +7,22 @@ subscription data with proper SQLAlchemy queries.
 """
 from __future__ import annotations
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 
 from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import UserSubscription
+
+
+async def get_total_user_count() -> int:
+    """Return the total number of registered users (user_subscriptions rows)."""
+    async with AsyncSessionLocal() as session:
+        try:
+            result = await session.execute(select(func.count()).select_from(UserSubscription))
+            return result.scalar_one() or 0
+        except Exception as e:
+            logger.error(f"subscription.get_total_user_count: {e}")
+            return 0
 
 
 async def get_subscription(email: str) -> dict | None:

@@ -99,17 +99,16 @@ def test_lru_cache_eviction():
 
 
 @pytest.mark.asyncio
-async def test_supabase_request_fallback(monkeypatch):
-    import importlib
-    from unittest.mock import patch
+async def test_supabase_request_fallback():
+    import warnings
 
     import app.core.database as db_module
 
-    importlib.reload(db_module)
-
-    with patch("app.core.database.AsyncSessionLocal", side_effect=Exception("DB Error")):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         result = await db_module.supabase_request("test_table", "select", {"id": "1"})
         assert result is None
+        assert any(issubclass(warn.category, DeprecationWarning) for warn in w)
 
 
 

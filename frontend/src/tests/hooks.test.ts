@@ -259,3 +259,48 @@ describe("checkProStatus logic", () => {
     expect(result).toBe(false);
   });
 });
+
+// ── SSE Stream Parsing & TextDecoder Flushing ──────────────────────────────
+
+describe("SSE stream buffer parsing logic", () => {
+  it("flushes TextDecoder and processes multi-line data payloads on stream completion", () => {
+    const decoder = new TextDecoder("utf-8");
+    let streamBuffer = "";
+    const parsedChunks: string[] = [];
+
+    const processSSELine = (line: string) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine.startsWith("data: ")) return;
+      try {
+        const data = JSON.parse(trimmedLine.slice(6));
+        if (data.chunk) {
+          parsedChunks.push(data.chunk);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    // Simulate stream reading
+    const chunk1 = new TextEncoder().encode('data: {"chunk": "Hello "}\ndata: {"chunk": "World"}\n');
+    streamBuffer += decoder.decode(chunk1, { stream: true });
+    
+    const lines = streamBuffer.split("\n");
+    streamBuffer = lines.pop() ?? "";
+    for (const line of lines) {
+      processSSELine(line);
+    }
+
+    // Stream ends (done = true)
+    streamBuffer += decoder.decode(new Uint8Array(), { stream: false });
+    if (streamBuffer.length > 0) {
+      const remainingLines = streamBuffer.split("\n");
+      for (const line of remainingLines) {
+        processSSELine(line);
+      }
+    }
+
+    expect(parsedChunks).toEqual(["Hello ", "World"]);
+  });
+});
+

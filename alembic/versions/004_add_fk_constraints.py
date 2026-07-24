@@ -14,9 +14,8 @@ stored — catching bugs at the database layer before they propagate.
 Pre-migration cleanup: deletes any orphaned rows so the constraints can be
 applied without conflict errors.
 """
-from alembic import op
-import sqlalchemy as sa
 
+from alembic import op
 
 revision = "004_add_fk_constraints"
 down_revision = "003_argon2_api_key_hashing"

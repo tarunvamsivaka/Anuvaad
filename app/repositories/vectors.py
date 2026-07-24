@@ -50,6 +50,21 @@ async def insert_repo_embeddings(
         logger.error(f"Database error inserting embeddings for {repository_name}: {e}")
         raise
 
+def _is_sqlite_session(session) -> bool:
+    try:
+        bind = getattr(session, "bind", None)
+        if bind is None and hasattr(session, "get_bind"):
+            bind_res = session.get_bind()
+            if not hasattr(bind_res, "__await__"):
+                bind = bind_res
+        if bind is not None:
+            dialect = getattr(bind, "dialect", None)
+            return getattr(dialect, "name", None) == "sqlite"
+    except Exception:
+        pass
+    return False
+
+
 async def search_repo_embeddings(
     db: AsyncSession,
     repository_name: str,
@@ -71,15 +86,22 @@ async def search_repo_embeddings(
         top_k: Maximum number of results to return.
         provider: "openai" | "hf" — must match what was used at index time.
     """
-    from sqlalchemy import select
+    import json
+
+    from sqlalchemy import func, select
 
     try:
-        # Use cosine distance operator '<=>' (pgvector)
+        if _is_sqlite_session(db):
+            query_str = json.dumps(query_embedding) if isinstance(query_embedding, list) else str(query_embedding)
+            dist_expr = func.cosine_distance(RepoEmbedding.embedding, query_str)
+        else:
+            dist_expr = RepoEmbedding.embedding.cosine_distance(query_embedding)
+
         stmt = (
             select(
                 RepoEmbedding.file_path,
                 RepoEmbedding.content,
-                RepoEmbedding.embedding.cosine_distance(query_embedding).label("similarity"),
+                dist_expr.label("similarity"),
             )
             .where(RepoEmbedding.repository_name == repository_name)
             .where(RepoEmbedding.provider == provider)
