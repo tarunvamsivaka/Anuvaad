@@ -12,6 +12,7 @@ __pycache__/
 
 # IDEs
 .vscode/
+!.vscode/mcp.json
 .idea/
 
 # Dependencies

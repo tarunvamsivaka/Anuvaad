@@ -18,6 +18,15 @@
       },
       "description": "Render MCP Server for service deployment, environment variable management, and cloud monitoring"
     },
+    "upstash-redis": {
+      "command": "npx",
+      "args": ["-y", "@upstash/mcp-server-redis"],
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "${UPSTASH_REDIS_REST_URL}",
+        "UPSTASH_REDIS_REST_TOKEN": "${UPSTASH_REDIS_REST_TOKEN}"
+      },
+      "description": "Upstash Redis MCP Server for serverless key-value storage, caching, rate-limiting, and analytics"
+    },
     "chrome-devtools-mcp": {
       "command": "npx",
       "args": ["-y", "@chrome-devtools/mcp-server@latest"],

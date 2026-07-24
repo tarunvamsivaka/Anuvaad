@@ -1,0 +1,36 @@
+{
+  "inputs": [],
+  "servers": {
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server@latest"],
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}"
+      }
+    },
+    "render": {
+      "command": "npx",
+      "args": ["-y", "@render/mcp-server@latest"],
+      "env": {
+        "RENDER_API_KEY": "${RENDER_API_KEY}"
+      }
+    },
+    "upstash-redis": {
+      "command": "npx",
+      "args": ["-y", "@upstash/mcp-server-redis"],
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "${UPSTASH_REDIS_REST_URL}",
+        "UPSTASH_REDIS_REST_TOKEN": "${UPSTASH_REDIS_REST_TOKEN}"
+      }
+    },
+    "chrome-devtools-mcp": {
+      "command": "npx",
+      "args": ["-y", "@chrome-devtools/mcp-server@latest"]
+    },
+    "StitchMCP": {
+      "command": "npx",
+      "args": ["-y", "@stitch/mcp-server@latest"]
+    }
+  }
+}
