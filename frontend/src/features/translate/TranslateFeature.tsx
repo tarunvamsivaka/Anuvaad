@@ -51,7 +51,7 @@ export function TranslateFeature() {
   const [mode, setMode] = useState("code-to-english");
   const [sourceLanguage, setSourceLanguage] = useState("python");
   const [targetLanguage, setTargetLanguage] = useState("javascript");
-  const [viewType, setViewType] = useState<"editor" | "blocks" | "diff">("editor");
+  const [viewType, setViewType] = useState<"editor" | "blocks" | "diff">("blocks");
   const [customInstructions, setCustomInstructions] = useState("");
   const [repositoryName, setRepositoryName] = useState("");
   const [filePath, setFilePath] = useState("");

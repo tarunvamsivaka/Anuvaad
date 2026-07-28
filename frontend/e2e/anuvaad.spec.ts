@@ -53,9 +53,12 @@ async function mockTranslateAPI(page: import('@playwright/test').Page) {
     '',
   ].join('\n');
   for (const endpoint of [
-    '**/api/code-to-english',
-    '**/api/code-to-code',
-    '**/api/generate-from-english',
+    '**/api/code-to-english*',
+    '**/api/code-to-code*',
+    '**/api/generate-from-english*',
+    '**/api/v1/code-to-english*',
+    '**/api/v1/code-to-code*',
+    '**/api/v1/generate-from-english*',
   ]) {
     await page.route(endpoint, async route => {
       const request = route.request();
