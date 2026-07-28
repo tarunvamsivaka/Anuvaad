@@ -153,7 +153,7 @@ export function OutputPanel({
               title="Copy as formatted Markdown"
             >
               {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-              {copied ? "Copied MD" : "Copy MD"}
+              {copied ? "Copied" : "Copy as Markdown"}
             </Button>
             <Button
               variant="outline"
@@ -173,7 +173,7 @@ export function OutputPanel({
               title="Download JSON blocks"
             >
               <Download className="h-3 w-3" />
-              JSON
+              Download JSON
             </Button>
           </div>
         )}
