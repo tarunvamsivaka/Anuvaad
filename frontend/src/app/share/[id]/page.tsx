@@ -9,6 +9,7 @@
 import type { Metadata } from "next";
 import SharedTranslationClient from "./ShareClient";
 
+// Intentional exception: SSR generateMetadata runs server-side and requires a full backend URL rather than relative proxy path.
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function fetchSharedItem(id: string): Promise<Record<string, unknown> | null> {

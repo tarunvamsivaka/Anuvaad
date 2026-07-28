@@ -127,7 +127,7 @@ async def search_repo(
             {
                 "file_path": r.file_path,
                 "content": r.content,
-                "similarity": r.similarity,
+                "similarity": float(r.similarity) if r.similarity is not None else 0.0,
             }
             for r in results
         ],

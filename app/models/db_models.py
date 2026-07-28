@@ -82,7 +82,6 @@ class TranslationHistory(Base):
     char_count = Column(Integer, default=0)
     block_count = Column(Integer, default=0)
     blocks = Column(JSONB, nullable=True)
-    character_count = Column(Integer, default=0)
     target_language = Column(Text, nullable=True)
     source_language = Column(Text, nullable=True)
     mode = Column(Text, nullable=True)
@@ -93,6 +92,15 @@ class TranslationHistory(Base):
     repository_name = Column(Text, nullable=True)
     input_preview = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+    @property
+    def character_count(self) -> int:
+        """Legacy property alias for char_count (BE-06 reconciliation)."""
+        return self.char_count or 0
+
+    @character_count.setter
+    def character_count(self, value: int) -> None:
+        self.char_count = value
 
     # FIX-03 (P0-05): Composite index for the primary history listing query.
     __table_args__ = (

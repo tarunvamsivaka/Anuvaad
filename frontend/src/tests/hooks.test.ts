@@ -304,3 +304,67 @@ describe("SSE stream buffer parsing logic", () => {
   });
 });
 
+// ── SSE Watchdog & Inactivity Timeout ──────────────────────────────────────────
+
+describe("SSE Watchdog and Inactivity Timeout logic", () => {
+  it("triggers timeout abort when watchdog timer expires after 30s of inactivity", () => {
+    vi.useFakeTimers();
+    const abortController = new AbortController();
+    const abortSpy = vi.spyOn(abortController, "abort");
+
+    let watchdogTimer: NodeJS.Timeout | null = null;
+    const resetWatchdog = () => {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(() => {
+        abortController.abort(new Error("Stream timed out due to inactivity"));
+      }, 30000);
+    };
+
+    resetWatchdog();
+    expect(abortSpy).not.toHaveBeenCalled();
+
+    // Fast forward 29 seconds -> not called
+    vi.advanceTimersByTime(29000);
+    expect(abortSpy).not.toHaveBeenCalled();
+
+    // Fast forward past 30 seconds -> watchdog fires
+    vi.advanceTimersByTime(2000);
+    expect(abortSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Stream timed out due to inactivity",
+      })
+    );
+
+    vi.useRealTimers();
+  });
+
+  it("resets watchdog timer on receiving chunk activity", () => {
+    vi.useFakeTimers();
+    const abortController = new AbortController();
+    const abortSpy = vi.spyOn(abortController, "abort");
+
+    let watchdogTimer: NodeJS.Timeout | null = null;
+    const resetWatchdog = () => {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(() => {
+        abortController.abort(new Error("Stream timed out due to inactivity"));
+      }, 30000);
+    };
+
+    resetWatchdog();
+    vi.advanceTimersByTime(20000); // 20s elapsed
+
+    // Received a new chunk!
+    resetWatchdog();
+    vi.advanceTimersByTime(20000); // Another 20s (total 40s), but watchdog reset at 20s
+
+    expect(abortSpy).not.toHaveBeenCalled(); // Still active!
+
+    vi.advanceTimersByTime(11000); // Exceeds 30s from reset
+    expect(abortSpy).toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+});
+
+

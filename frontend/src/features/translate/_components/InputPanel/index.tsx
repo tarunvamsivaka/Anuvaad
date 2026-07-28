@@ -5,12 +5,12 @@ import { Loader2, RotateCcw, Sparkles, X, FileCode, ArrowRight } from "lucide-re
 import { cn } from "@/lib/utils";
 import { FileDropZone } from "./FileDropZone";
 import { languages } from "../../_constants/languages";
-import { Skeleton } from "@/components/ui/skeleton";
+import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { toast } from "sonner";
 
 const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
-  loading: () => <Skeleton className="h-full w-full min-h-[500px] rounded-lg" />,
+  loading: () => <MonacoSkeleton lines={14} />,
 });
 
 const GithubIcon = ({ className }: { className?: string }) => (
@@ -64,6 +64,10 @@ interface InputPanelProps {
   repoInfo: {username: string; repo: string} | null;
   handleSelectFile: (path: string) => void;
   setFileList: (list: {name: string; path: string; type: string}[] | null) => void;
+  workbenchFiles?: { id: string; name: string; path: string; content: string; language: string; size: number }[];
+  activeFileId?: string | null;
+  selectWorkbenchFile?: (fileId: string) => void;
+  closeWorkbenchFile?: (fileId: string) => void;
 }
 
 export function InputPanel({
@@ -99,12 +103,16 @@ export function InputPanel({
   repoInfo,
   handleSelectFile,
   setFileList,
+  workbenchFiles,
+  activeFileId,
+  selectWorkbenchFile,
+  closeWorkbenchFile,
 }: InputPanelProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
       <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-3">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-text-muted">
             {mode === "english-to-code" ? "Requirements (English)" : "Source Code"}
           </p>
           {uploadedFile && (
@@ -144,6 +152,43 @@ export function InputPanel({
           </Button>
         </div>
       </div>
+
+      {/* Multi-File Selection Workbench Tab Bar */}
+      {workbenchFiles && workbenchFiles.length > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-slate-200/60 dark:border-white/10 bg-slate-100/70 dark:bg-black/20 overflow-x-auto custom-scrollbar">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-1 shrink-0">
+            Files ({workbenchFiles.length}):
+          </span>
+          {workbenchFiles.map((file) => {
+            const isActive = file.id === activeFileId;
+            return (
+              <div
+                key={file.id}
+                onClick={() => selectWorkbenchFile && selectWorkbenchFile(file.id)}
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-mono font-medium cursor-pointer transition-all shrink-0 border",
+                  isActive
+                    ? "bg-white dark:bg-surface-charcoal text-amber-600 dark:text-amber-400 border-amber-500/30 shadow-sm"
+                    : "bg-transparent text-slate-600 dark:text-slate-400 border-transparent hover:bg-slate-200/50 dark:hover:bg-white/5"
+                )}
+              >
+                <FileCode className="h-3 w-3 text-amber-500 shrink-0" />
+                <span className="truncate max-w-[120px]">{file.name}</span>
+                <button
+                  aria-label={`Close ${file.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeWorkbenchFile && closeWorkbenchFile(file.id);
+                  }}
+                  className="ml-1 rounded hover:bg-slate-300 dark:hover:bg-white/10 p-0.5"
+                >
+                  <X className="h-2.5 w-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
       
       {mode === "english-to-code" ? (
         <textarea 
@@ -198,7 +243,7 @@ export function InputPanel({
           )}
 
           {!input && fileList && (
-            <div className="absolute inset-0 z-40 bg-white/95 dark:bg-[#0c1222]/95 backdrop-blur-sm p-6 flex flex-col items-center justify-center animate-in fade-in duration-300">
+            <div className="absolute inset-0 z-40 bg-white/95 dark:bg-surface-charcoal/95 backdrop-blur-sm p-6 flex flex-col items-center justify-center animate-in fade-in duration-300">
               <div className="w-full max-w-lg bg-white dark:bg-surface-charcoal border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[80%]">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/20">
                   <div className="flex items-center gap-2">
@@ -223,8 +268,7 @@ export function InputPanel({
                           onClick={async () => {
                             // Update fileList to the contents of this directory
                             try {
-                              const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                              const res = await fetch(`${API}/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(dir.path)}`);
+                              const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(dir.path)}`);
                               if (res.ok) {
                                 const data = await res.json();
                                 if (data.type === "directory") {

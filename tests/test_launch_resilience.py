@@ -67,6 +67,7 @@ class TestUserTiersAndQuotas:
             return "admin@anuvaad.dev"
 
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_admin_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_admin_email
         try:
             # Send huge code (e.g. 40,000 chars)
             res = client.post(
@@ -77,6 +78,7 @@ class TestUserTiersAndQuotas:
             assert res.status_code == 200
         finally:
             app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+            app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 class TestCooldownEnforcement:

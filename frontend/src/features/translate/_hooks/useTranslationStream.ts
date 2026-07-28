@@ -46,36 +46,53 @@ export function useTranslationStream({
   filePath,
   setModelUsed,
 }: UseTranslationStreamProps) {
+  const [selectedModel, setSelectedModel] = useState("auto");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [rawError, setRawError] = useState("");
   const [outputBlocks, setOutputBlocks] = useState<TranslationBlock[] | null>(null);
   const [originalBlocks, setOriginalBlocks] = useState<TranslationBlock[] | null>(null);
-  
+  const [elapsedTime, setElapsedTime] = useState(0);
+
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const streamBufferRef = useRef("");
   const rafIdRef = useRef<number | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const watchdogTimerRef = useRef<NodeJS.Timeout | null>(null);
   // FIX-18 (P1-10): AbortController to cancel the in-flight fetch when streaming stops.
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const tokenCount = Math.max(0, Math.ceil(streamText.length / 3.8));
+  const throughput = elapsedTime > 0 ? (tokenCount / elapsedTime).toFixed(1) : "0.0";
+
   const handleTranslate = useCallback(async () => {
-    if (!input.trim()) return;
+    if (!input.trim()) {
+      toast.error("Please enter code or requirements to translate.", { id: "translation-input-empty" });
+      return;
+    }
 
     if (isStreaming && readerRef.current) {
       // FIX-18: Cancel both the reader AND the underlying fetch via AbortController.
       readerRef.current.cancel();
       abortControllerRef.current?.abort();
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
       setIsStreaming(false);
       return;
     }
 
     setIsStreaming(true);
+    setElapsedTime(0);
     setOutputBlocks(null);
     setStreamText("");
     setRawError("");
     setModelUsed(null);
 
     const translateStartTime = Date.now();
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setElapsedTime(Number(((Date.now() - translateStartTime) / 1000).toFixed(1)));
+    }, 100);
     track("translation_started", {
       mode,
       source_language: sourceLanguage,
@@ -84,8 +101,16 @@ export function useTranslationStream({
       is_pro: isPro,
     });
 
+    const resetWatchdog = () => {
+      if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+      watchdogTimerRef.current = setTimeout(() => {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort(new Error("Stream timed out due to inactivity"));
+        }
+      }, 30000);
+    };
+
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       let endpoint = "";
       let body: Record<string, string> = {};
       
@@ -114,6 +139,7 @@ export function useTranslationStream({
       body.session_id = currentSessionId;
       if (repositoryName) body.repository_name = repositoryName;
       if (filePath) body.file_path = filePath;
+      if (selectedModel && selectedModel !== "auto") body.model = selectedModel;
       
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (session?.access_token) {
@@ -123,7 +149,7 @@ export function useTranslationStream({
       // FIX-18 (P1-10): Create a fresh AbortController for each streaming request.
       abortControllerRef.current = new AbortController();
 
-      const res = await fetch(`${API}${endpoint}`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -180,9 +206,12 @@ export function useTranslationStream({
       };
 
       let streamBuffer = "";
+      resetWatchdog();
       while (true) {
         const { done, value } = await reader.read();
+        resetWatchdog();
         if (done) {
+          if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
           // Flush TextDecoder upon stream completion
           streamBuffer += decoder.decode(new Uint8Array(), { stream: false });
           if (streamBuffer.length > 0) {
@@ -222,7 +251,7 @@ export function useTranslationStream({
         track("translation_completed", {
           mode,
           block_count: finalBlocks.length,
-          model_used: finalBlocks[0]?.model_used || "unknown",
+          model_used: finalBlocks[0]?.model_used || selectedModel || "unknown",
           latency_ms: latency,
           from_cache: false,
         });
@@ -230,12 +259,11 @@ export function useTranslationStream({
         // M-2: Debounce the three SWR revalidations into one batch after 500ms.
         // Gives the backend time to persist history before refetching, and
         // prevents three separate network calls / render cycles firing at once.
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         if (session?.access_token) {
           setTimeout(() => {
-            mutate([`${API_BASE}/api/stats`, session.access_token]);
-            mutate([`${API_BASE}/api/history?limit=5`, session.access_token]);
-            mutate([`${API_BASE}/api/check-credits`, session.access_token]);
+            mutate(["/api/stats", session.access_token]);
+            mutate(["/api/history?limit=5", session.access_token]);
+            mutate(["/api/check-credits", session.access_token]);
           }, 500);
         }
 
@@ -252,12 +280,16 @@ export function useTranslationStream({
       
     } catch (err: unknown) {
       const errorObj = err as Error & { name?: string; status?: number };
-      if (errorObj?.name === "AbortError" || errorObj?.message?.includes("abort")) {
-        toast.info("Translation stopped");
+      if (errorObj?.name === "AbortError" || errorObj?.message?.includes("abort") || errorObj?.message?.includes("timed out")) {
+        if (errorObj?.message?.includes("timed out")) {
+          toast.error("Stream timed out due to inactivity", { id: "translation-stop" });
+        } else {
+          toast.info("Translation stopped", { id: "translation-stop" });
+        }
       } else {
         const message = err instanceof Error ? err.message : "Translation failed";
         setRawError(`Error: ${message}`);
-        toast.error(message);
+        toast.error(message, { id: "translation-error" });
         track("translation_failed", {
           mode,
           error_type: errorObj?.name || "unknown",
@@ -265,13 +297,17 @@ export function useTranslationStream({
         });
       }
     } finally {
+      if (watchdogTimerRef.current) clearTimeout(watchdogTimerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
       setIsStreaming(false);
       readerRef.current = null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session, sessionId, setSessionId, repositoryName, filePath]);
+  }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session, sessionId, setSessionId, repositoryName, filePath, selectedModel]);
 
   return {
+    selectedModel,
+    setSelectedModel,
     isStreaming,
     streamText,
     rawError,
@@ -281,6 +317,9 @@ export function useTranslationStream({
     setOriginalBlocks,
     setStreamText,
     setRawError,
-    handleTranslate
+    handleTranslate,
+    elapsedTime,
+    tokenCount,
+    throughput,
   };
 }

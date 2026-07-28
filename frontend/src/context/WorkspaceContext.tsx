@@ -33,8 +33,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API}/api/workspaces`, {
+      const res = await fetch("/api/workspaces", {
         headers: {
           'Authorization': `Bearer ${session.session.access_token}`
         }

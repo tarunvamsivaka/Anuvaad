@@ -306,3 +306,41 @@ class TestGetUserEmailRefactor:
         with pytest.raises(HTTPException) as exc_info:
             await get_user_email(request, credentials=None)
         assert exc_info.value.status_code == 401
+
+
+class TestGetClientIp:
+    """Test get_client_ip behavior with TRUST_PROXY_HOPS setting."""
+
+    def test_default_hops_returns_raw_socket_ip(self):
+        """With TRUST_PROXY_HOPS=0 (default), get_client_ip returns raw socket IP even if X-Forwarded-For is spoofed."""
+        from starlette.requests import Request
+
+        from app.core.auth import get_client_ip
+
+        scope = {
+            "type": "http",
+            "client": ("203.0.113.195", 12345),
+            "headers": [(b"x-forwarded-for", b"1.2.3.4, 5.6.7.8")],
+        }
+        request = Request(scope)
+
+        with patch.dict(os.environ, {"TRUST_PROXY_HOPS": "0"}):
+            ip = get_client_ip(request)
+            assert ip == "203.0.113.195"
+
+    def test_trust_one_hop_returns_last_forwarded_ip(self):
+        """With TRUST_PROXY_HOPS=1, get_client_ip returns the last IP in X-Forwarded-For."""
+        from starlette.requests import Request
+
+        from app.core.auth import get_client_ip
+
+        scope = {
+            "type": "http",
+            "client": ("10.0.0.1", 12345),
+            "headers": [(b"x-forwarded-for", b"203.0.113.50, 198.51.100.22")],
+        }
+        request = Request(scope)
+
+        with patch.dict(os.environ, {"TRUST_PROXY_HOPS": "1"}):
+            ip = get_client_ip(request)
+            assert ip == "198.51.100.22"

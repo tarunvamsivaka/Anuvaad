@@ -70,13 +70,12 @@ export default function SettingsPage() {
   const fetchApiKeys = useCallback(async (signal?: AbortSignal, activeRef?: { active: boolean }) => {
     if (!session) return;
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const params = new URLSearchParams();
       if (activeWorkspace) {
         params.set("workspace_id", activeWorkspace.id);
       }
 
-      const res = await fetch(`${API}/api/api-keys?${params.toString()}`, {
+      const res = await fetch(`/api/api-keys?${params.toString()}`, {
         signal,
         headers: {
           "Authorization": `Bearer ${session.access_token}`,
@@ -135,8 +134,7 @@ export default function SettingsPage() {
     if (!session || !newKeyName.trim()) return;
     setLoading(true);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/api-keys`, {
+      const res = await fetch("/api/api-keys", {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -166,8 +164,7 @@ export default function SettingsPage() {
   async function revokeApiKey(id: string) {
     if (!session) return;
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      await fetch(`${API}/api/api-keys/${id}`, {
+      await fetch(`/api/api-keys/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -196,8 +193,7 @@ export default function SettingsPage() {
     if (!session) return;
     setDeleting(true);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/account`, {
+      const res = await fetch("/api/account", {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${session.access_token}` },
       });

@@ -46,12 +46,12 @@ export function TranslateFeature() {
   const { activeWorkspace } = useWorkspace();
   const { theme, systemTheme } = useTheme();
   const isDark = theme === "dark" || (theme === "system" && systemTheme === "dark");
-  
+
   const [showSettings, setShowSettings] = useState(false);
   const [mode, setMode] = useState("code-to-english");
   const [sourceLanguage, setSourceLanguage] = useState("python");
   const [targetLanguage, setTargetLanguage] = useState("javascript");
-  const [viewType, setViewType] = useState<"blocks" | "diff">("blocks");
+  const [viewType, setViewType] = useState<"editor" | "blocks" | "diff">("editor");
   const [customInstructions, setCustomInstructions] = useState("");
   const [repositoryName, setRepositoryName] = useState("");
   const [filePath, setFilePath] = useState("");
@@ -61,21 +61,17 @@ export function TranslateFeature() {
   const [modelUsed, setModelUsed] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState("");
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-  // FIX-22 (P2-10): authFetcher is defined at module level in swr-fetcher.ts
-  //   → SWR key is a stable [url, token] tuple; fetcher reference never changes.
   const { data: creditsData, isLoading: creditsLoading } = useSWR(
-    session?.access_token ? [`${API_BASE}/api/check-credits`, session.access_token] : null,
-    authFetcher,
+    session?.access_token ? ["/api/check-credits", session.access_token] : null,
+    authFetcher
   ) as { data: { credits?: number; tier?: string } | undefined; isLoading: boolean };
 
-  // FIX-21: session is now AnuvaadSession | null — no more (session as any)
   const credits = creditsData?.credits ?? session?.user?.user_metadata?.credits;
   const isPro = creditsData?.tier === "pro" || session?.user?.user_metadata?.is_pro === true;
 
-  // M-1: monacoOptions is now the module-level MONACO_OPTIONS constant (no per-render allocation)
-
   const {
+    selectedModel,
+    setSelectedModel,
     outputBlocks,
     setOutputBlocks,
     originalBlocks,
@@ -86,6 +82,9 @@ export function TranslateFeature() {
     setRawError,
     setStreamText,
     handleTranslate,
+    elapsedTime,
+    tokenCount,
+    throughput,
   } = useTranslationStream({
     input,
     mode,
@@ -140,6 +139,10 @@ export function TranslateFeature() {
     repoInfo,
     handleSelectFile,
     setFileList,
+    workbenchFiles,
+    activeFileId,
+    selectWorkbenchFile,
+    closeWorkbenchFile,
   } = useFileImport({
     mode,
     setInput,
@@ -155,7 +158,9 @@ export function TranslateFeature() {
     hasEdits,
     handleSyncEnglishToCode,
     handleCopyMarkdown,
+    handleCopyCode,
     handleDownloadJson,
+    handleExportCode,
   } = useTranslationSession({
     outputBlocks,
     setOutputBlocks,
@@ -175,12 +180,23 @@ export function TranslateFeature() {
     mode,
   });
 
-  // Calculate some derived props for TranslateShell header
-  const currentModeLabel = mode === "code-to-english" 
-    ? "Code to English" 
-    : mode === "english-to-code" 
-      ? "English to Code" 
+  const currentModeLabel =
+    mode === "code-to-english"
+      ? "Code to English"
+      : mode === "english-to-code"
+      ? "English to Code"
       : "Code to Code";
+
+  const handleSwapContent = () => {
+    if (outputBlocks && outputBlocks.length > 0) {
+      const codeText = outputBlocks.map(b => b.code_snippet).filter(Boolean).join("\n\n");
+      if (codeText) {
+        setInput(codeText);
+        setOutputBlocks(null);
+        setStreamText("");
+      }
+    }
+  };
 
   return (
     <TranslateShell
@@ -208,6 +224,9 @@ export function TranslateFeature() {
           setRepositoryName={setRepositoryName}
           filePath={filePath}
           setFilePath={setFilePath}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+          onSwapContent={handleSwapContent}
         />
       }
       inputPanel={
@@ -247,6 +266,10 @@ export function TranslateFeature() {
           repoInfo={repoInfo}
           handleSelectFile={handleSelectFile}
           setFileList={setFileList}
+          workbenchFiles={workbenchFiles}
+          activeFileId={activeFileId}
+          selectWorkbenchFile={selectWorkbenchFile}
+          closeWorkbenchFile={closeWorkbenchFile}
         />
       }
       outputPanel={
@@ -256,6 +279,8 @@ export function TranslateFeature() {
           viewType={viewType}
           setViewType={setViewType}
           handleCopyMarkdown={handleCopyMarkdown}
+          handleCopyCode={handleCopyCode}
+          handleExportCode={handleExportCode}
           copied={copied}
           handleDownloadJson={handleDownloadJson}
           hasEdits={hasEdits}
@@ -271,6 +296,9 @@ export function TranslateFeature() {
           isDark={isDark}
           monacoOptions={MONACO_OPTIONS}
           modelUsed={modelUsed}
+          elapsedTime={elapsedTime}
+          tokenCount={tokenCount}
+          throughput={throughput}
         />
       }
     />

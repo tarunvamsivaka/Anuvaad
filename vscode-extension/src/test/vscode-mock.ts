@@ -1,8 +1,13 @@
 import Module from 'module';
 
 export const mockVscode = {
+  ConfigurationTarget: {
+    Global: 1,
+    Workspace: 2,
+    WorkspaceFolder: 3
+  },
   commands: {
-    registerCommand: (command: string, callback: (...args: any[]) => any) => {
+    registerCommand: (_command: string, _callback: (...args: any[]) => any) => {
       return { dispose: () => {} };
     },
     getCommands: async (_filterInternal?: boolean) => {
@@ -15,7 +20,9 @@ export const mockVscode = {
       update: async () => {}
     }),
     ConfigurationTarget: {
-      Global: 1
+      Global: 1,
+      Workspace: 2,
+      WorkspaceFolder: 3
     }
   },
   window: {
@@ -35,7 +42,10 @@ export const mockVscode = {
   },
   MarkdownString: class MarkdownString {
     public value = '';
-    appendMarkdown(val: string) { this.value += val; return this; }
+    appendMarkdown(val: string) {
+      this.value += val;
+      return this;
+    }
   },
   Hover: class Hover {
     constructor(public contents: any, public range?: any) {}
@@ -43,6 +53,21 @@ export const mockVscode = {
   EventEmitter: class EventEmitter {
     event = () => {};
     fire() {}
+  },
+  CancellationTokenSource: class CancellationTokenSource {
+    public token = {
+      isCancellationRequested: false,
+      onCancellationRequested: (listener: () => any) => {
+        this.listeners.push(listener);
+        return { dispose: () => {} };
+      }
+    };
+    private listeners: Array<() => any> = [];
+    cancel() {
+      this.token.isCancellationRequested = true;
+      this.listeners.forEach((l) => l());
+    }
+    dispose() {}
   },
   ProgressLocation: {
     Notification: 15
@@ -55,5 +80,5 @@ const originalLoad = (Module as any)._load;
   if (request === 'vscode') {
     return mockVscode;
   }
-  return originalLoad.apply(this, arguments);
+  return originalLoad.apply(this, [request, parent, isMain]);
 };

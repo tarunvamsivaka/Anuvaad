@@ -76,6 +76,9 @@ services:
       - key: FRONTEND_URL
         sync: false
 
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+
       # ── GitHub OAuth (for GitHub integration features) ────────────────────
       - key: GITHUB_CLIENT_ID
         sync: false

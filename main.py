@@ -6,7 +6,7 @@ import os
 from openai import AsyncOpenAI  # noqa: F401
 
 from app.api.middleware.rate_limit import RATE_LIMIT_IP_MAX  # noqa: F401
-from app.core.auth import get_user_email, get_user_pro_status  # noqa: F401
+from app.core.auth import get_user_email, get_user_email_from_request, get_user_pro_status  # noqa: F401
 from app.core.cache import LRUCache, cache, cache_key  # noqa: F401
 from app.core.config import FRONTEND_URL, SENTRY_DSN, SUPABASE_SERVICE_KEY, SUPABASE_URL, _is_production  # noqa: F401
 from app.core.database import supabase_request, supabase_request_list  # noqa: F401

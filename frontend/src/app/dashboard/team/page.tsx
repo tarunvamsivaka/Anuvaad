@@ -27,8 +27,7 @@ export default function TeamPage() {
   const fetchMembers = useCallback(async (signal?: AbortSignal, activeRef?: { active: boolean }) => {
     if (!activeWorkspace || !session) return;
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
+      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/members`, {
         signal,
         headers: { Authorization: `Bearer ${session.access_token}` }
       });
@@ -64,8 +63,7 @@ export default function TeamPage() {
     setLoading(true);
     setError("");
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/workspaces`, {
+      const res = await fetch("/api/workspaces", {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,
@@ -93,8 +91,7 @@ export default function TeamPage() {
     setLoading(true);
     setError("");
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/invite`, {
+      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/invite`, {
         method: 'POST',
         headers: { 
           'Authorization': `Bearer ${session.access_token}`,

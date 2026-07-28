@@ -15,9 +15,33 @@ export default [
       '@typescript-eslint': tseslint,
     },
     rules: {
-      '@typescript-eslint/naming-convention': 'warn',
-      'semi': 'warn',
-      'curly': 'warn',
+      '@typescript-eslint/naming-convention': [
+        'warn',
+        {
+          selector: 'property',
+          format: null
+        },
+        {
+          selector: 'variable',
+          format: ['camelCase', 'UPPER_CASE', 'PascalCase'],
+          leadingUnderscore: 'allow'
+        },
+        {
+          selector: 'function',
+          format: ['camelCase', 'PascalCase']
+        },
+        {
+          selector: 'parameter',
+          format: ['camelCase'],
+          leadingUnderscore: 'allow'
+        },
+        {
+          selector: 'typeLike',
+          format: ['PascalCase']
+        }
+      ],
+      'semi': ['warn', 'always'],
+      'curly': ['warn', 'all'],
       'eqeqeq': 'warn',
       'no-throw-literal': 'warn',
     },

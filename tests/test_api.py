@@ -22,6 +22,16 @@ class TestHealthEndpoint:
         assert "llm_configured" in data
         assert "razorpay_configured" in data
 
+    def test_system_telemetry_returns_200(self, client):
+        res = client.get("/api/v1/system/telemetry")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "healthy"
+        assert "ai_providers" in data
+        assert "telemetry" in data
+
+
+
 
 class TestCodeToEnglish:
     """Tests for POST /api/code-to-english."""

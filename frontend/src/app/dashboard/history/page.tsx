@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar, Hash, Filter, Share2, Check, ExternalLink } from "lucide-react";
+import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar, Hash, Filter, Share2, Check, ExternalLink, Star } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -37,6 +37,7 @@ interface HistoryItem {
   created_at: string;
   model_used: string;
   is_public?: boolean;
+  is_bookmarked?: boolean;
   session_id?: string | null;
   repository_name?: string | null;
   file_path?: string | null;
@@ -78,7 +79,7 @@ function groupHistory(items: HistoryItem[]): { label: string; isRepo: boolean; i
   });
 }
 
-const ALL_MODES = ["All", "Code → English", "English → Code", "Code → Code"];
+const ALL_MODES = ["All", "Bookmarked ⭐️", "Code → English", "English → Code", "Code → Code"];
 
 export default function HistoryPage() {
   const { session } = useAuth();
@@ -88,6 +89,18 @@ export default function HistoryPage() {
   const [activeMode, setActiveMode] = useState("All");
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bookmarkedIds, setBookmarkedIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("anuvaad_bookmarked_ids");
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      } catch {
+        return new Set();
+      }
+    }
+    return new Set();
+  });
+
   // FIX-28 (P3-01): Cursor-based pagination state
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -102,10 +115,9 @@ export default function HistoryPage() {
   const fetchHistory = async (cursor: string | null, append: boolean, signal: AbortSignal) => {
     if (!session?.access_token) return;
 
-    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     let url = activeWorkspace
-      ? `${API}/api/history?workspace_id=${activeWorkspace.id}&limit=20`
-      : `${API}/api/history?limit=20`;
+      ? `/api/history?workspace_id=${activeWorkspace.id}&limit=20`
+      : `/api/history?limit=20`;
     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
 
     const res = await fetch(url, {
@@ -164,9 +176,49 @@ export default function HistoryPage() {
     }
   };
 
+  const handleBookmark = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const nextBookmarked = new Set(bookmarkedIds);
+    const isNowBookmarked = !nextBookmarked.has(id);
+    if (isNowBookmarked) {
+      nextBookmarked.add(id);
+    } else {
+      nextBookmarked.delete(id);
+    }
+    setBookmarkedIds(nextBookmarked);
+    try {
+      localStorage.setItem("anuvaad_bookmarked_ids", JSON.stringify(Array.from(nextBookmarked)));
+    } catch {
+      // ignore
+    }
+
+    setHistory(prev => prev.map(item => item.id === id ? { ...item, is_bookmarked: isNowBookmarked } : item));
+
+    try {
+      await fetch(`/api/history/${id}/bookmark`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_bookmarked: isNowBookmarked }),
+      });
+    } catch {
+      // Fallback cleanly to local state
+    }
+
+    toast.success(isNowBookmarked ? "Bookmarked translation!" : "Removed from bookmarks");
+  };
+
   const filteredHistory = useMemo(() => {
     let items = history;
-    if (activeMode !== "All") items = items.filter(i => i.mode === activeMode);
+    if (activeMode === "Bookmarked ⭐️") {
+      items = items.filter(i => bookmarkedIds.has(i.id) || i.is_bookmarked);
+    } else if (activeMode !== "All") {
+      items = items.filter(i => i.mode === activeMode);
+    }
+
     if (debouncedSearch) {
       const q = debouncedSearch.toLowerCase();
       items = items.filter(
@@ -180,7 +232,7 @@ export default function HistoryPage() {
       );
     }
     return items;
-  }, [history, debouncedSearch, activeMode]);
+  }, [history, debouncedSearch, activeMode, bookmarkedIds]);
 
   const grouped = useMemo(() => groupHistory(filteredHistory), [filteredHistory]);
 
@@ -190,8 +242,7 @@ export default function HistoryPage() {
     const previousHistory = history;
     setHistory(prev => prev.filter(item => item.id !== id));
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/history/${id}`, {
+      const res = await fetch(`/api/history/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -213,8 +264,7 @@ export default function HistoryPage() {
     }
     
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/history/${id}/share`, {
+      const res = await fetch(`/api/history/${id}/share`, {
         method: "PATCH",
         headers: { 
           "Authorization": `Bearer ${session?.access_token}`,
@@ -390,6 +440,26 @@ export default function HistoryPage() {
 
                               {/* Actions */}
                               <div className="flex items-center gap-1">
+                                {(() => {
+                                  const isBookmarked = bookmarkedIds.has(item.id) || !!item.is_bookmarked;
+                                  return (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      aria-label={isBookmarked ? "Remove bookmark" : "Bookmark translation"}
+                                      title={isBookmarked ? "Remove bookmark" : "Bookmark translation"}
+                                      className={cn(
+                                        "h-8 w-8 shrink-0 transition-all rounded-lg",
+                                        isBookmarked
+                                          ? "text-amber-500 hover:bg-amber-500/10 opacity-100"
+                                          : "text-text-muted hover:text-amber-400 hover:bg-amber-500/10 opacity-100 sm:opacity-0 group-hover:opacity-100 focus:opacity-100"
+                                      )}
+                                      onClick={e => handleBookmark(e, item.id)}
+                                    >
+                                      <Star className={cn("h-3.5 w-3.5", isBookmarked && "fill-amber-500")} />
+                                    </Button>
+                                  );
+                                })()}
                                 <Button
                                   variant="ghost"
                                   size="icon"

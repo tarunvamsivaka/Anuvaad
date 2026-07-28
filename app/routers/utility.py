@@ -1,6 +1,8 @@
 import base64
 import os
 import re
+import secrets
+from datetime import UTC
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -25,6 +27,7 @@ from app.core.config import (
     metrics,
 )
 from app.core.quota import get_today_usage_count
+from app.core.rate_limit import rate_limiter
 
 router = APIRouter(prefix="", tags=["utility"])
 
@@ -235,8 +238,12 @@ async def health_check():
     return JSONResponse(content=payload, status_code=http_status)
 
 
-@router.get("/import-gist")
-async def import_gist(url: str, file_path: str | None = None):
+@router.get("/import-gist", dependencies=[Depends(rate_limiter(10, 60))])
+async def import_gist(
+    url: str,
+    file_path: str | None = None,
+    user_email: str = Depends(get_user_email),
+):
     """Fetch a public GitHub Gist, Raw file, Repository file, or Repository's default file and return its content."""
     clean_url = url.strip()
 
@@ -457,7 +464,9 @@ def _check_metrics_auth(request: Request) -> bool:
     try:
         decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
         username, password = decoded.split(":", 1)
-        return username == METRICS_USERNAME and password == METRICS_PASSWORD
+        user_ok = secrets.compare_digest(username, METRICS_USERNAME)
+        pass_ok = secrets.compare_digest(password, METRICS_PASSWORD)
+        return user_ok and pass_ok
     except Exception:
         return False
 
@@ -566,3 +575,25 @@ async def sentry_test():
     if IS_PRODUCTION:
         raise HTTPException(status_code=404, detail="Not found")
     raise ZeroDivisionError("Deliberate error for Sentry verification")
+
+
+@router.get("/system/telemetry")
+async def get_system_telemetry():
+    """Return real-time telemetry metrics for platform monitoring."""
+    from datetime import datetime
+    snap = await metrics.snapshot()
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "ai_providers": {
+            "groq_configured": bool(GROQ_API_KEY),
+            "deepseek_configured": bool(DEEPSEEK_API_KEY),
+        },
+        "cache": {
+            "type": "redis" if cache.client else "lru",
+            "redis_connected": bool(cache.client),
+        },
+        "telemetry": snap,
+    }
+
+

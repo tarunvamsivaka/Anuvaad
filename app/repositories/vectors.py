@@ -95,15 +95,17 @@ async def search_repo_embeddings(
         else:
             dist_expr = RepoEmbedding.embedding.cosine_distance(query_embedding)
 
+        similarity_expr = (1.0 - dist_expr).label("similarity")
+
         stmt = (
             select(
                 RepoEmbedding.file_path,
                 RepoEmbedding.content,
-                dist_expr.label("similarity"),
+                similarity_expr,
             )
             .where(RepoEmbedding.repository_name == repository_name)
             .where(RepoEmbedding.provider == provider)
-            .order_by("similarity")
+            .order_by(dist_expr.asc())
             .limit(top_k)
         )
 

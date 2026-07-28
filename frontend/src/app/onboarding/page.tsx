@@ -22,8 +22,6 @@ import { useAuth } from "@/lib/auth-context";
 import { Code2, Zap, GitBranch, History, CheckCircle2, ChevronRight, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 const STEPS = [
   {
     id: "welcome",
@@ -174,7 +172,7 @@ export default function OnboardingPage() {
   const markOnboarded = async () => {
     if (!session?.access_token) return;
     try {
-      await fetch(`${API_BASE}/api/v1/onboarding/complete`, {
+      await fetch("/api/v1/onboarding/complete", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

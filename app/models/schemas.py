@@ -19,6 +19,13 @@ class CodePayload(BaseModel):
             raise ValueError("Code cannot be empty or whitespace only")
         return v
 
+    @field_validator("language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
+
 
 class EnglishUpdatePayload(BaseModel):
     block_id: str = Field(..., min_length=1, max_length=50)
@@ -42,6 +49,13 @@ class GeneratePayload(BaseModel):
             raise ValueError("Prompt cannot be empty or whitespace only")
         return v
 
+    @field_validator("language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
+
 
 class CodeToCodePayload(BaseModel):
     raw_code: str = Field(..., min_length=1, max_length=50000)
@@ -59,6 +73,13 @@ class CodeToCodePayload(BaseModel):
         if not v.strip():
             raise ValueError("Code cannot be empty or whitespace only")
         return v
+
+    @field_validator("source_language", "target_language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
 
 
 class SaveTranslationPayload(BaseModel):
@@ -91,6 +112,13 @@ class SyncEnglishToCodePayload(BaseModel):
     session_id: str | None = None
     repository_name: str | None = None
     file_path: str | None = None
+
+    @field_validator("language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
 
 
 class CheckoutPayload(BaseModel):

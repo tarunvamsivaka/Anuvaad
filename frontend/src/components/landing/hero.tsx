@@ -5,8 +5,6 @@ import Link from "next/link";
 import { ArrowRight, Play, Loader2 } from "lucide-react";
 import gsap from "gsap";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 // Language tabs for the interactive demo
 const LANGUAGES = [
   { key: "python",     label: "Python",     ext: "py"  },
@@ -68,7 +66,7 @@ export function Hero() {
     setDemoState("loading");
     setEnglishText("");
     try {
-      const res = await fetch(`${API_BASE}/api/demo/translate`, {
+      const res = await fetch("/api/demo/translate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: lang, mode: "code-to-english" }),

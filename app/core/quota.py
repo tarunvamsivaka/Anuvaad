@@ -321,6 +321,7 @@ async def enforce_quotas_and_protection(
             raise HTTPException(
                 status_code=429,
                 detail=f"Please wait {cooldown} seconds between requests. Cooldown active.",
+                headers={"Retry-After": str(cooldown)},
             )
 
     deduct_credit_flag = False
@@ -334,6 +335,7 @@ async def enforce_quotas_and_protection(
                 raise HTTPException(
                     status_code=429,
                     detail=f"Daily translation limit reached ({daily_limit} translations/day). Upgrade to Pro for unlimited access.",
+                    headers={"Retry-After": "86400"},
                 )
 
     return is_pro, daily_limit, deduct_credit_flag, cooldown

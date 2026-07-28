@@ -274,11 +274,13 @@ def client():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -306,11 +308,13 @@ def client_rate_limited():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -337,11 +341,13 @@ def client_multi_block():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -368,11 +374,13 @@ def client_ai_error():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -399,11 +407,13 @@ def client_empty_blocks():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -431,11 +441,13 @@ def client_no_redis():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -462,11 +474,13 @@ def client_with_auth():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -501,11 +515,13 @@ def client_no_auth():
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
         app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email_raises
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email_raises
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()

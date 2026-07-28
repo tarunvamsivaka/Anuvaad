@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { TranslationBlock } from "../_types";
+import { getFileExtensionForLanguage } from "@/lib/detect-language";
 
 interface UseTranslationSessionProps {
   outputBlocks: TranslationBlock[] | null;
@@ -49,8 +50,6 @@ export function useTranslationSession({
     setRawError("");
     
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      
       const payload: Record<string, any> = {
         blocks: outputBlocks.map(b => ({
           id: b.id,
@@ -76,7 +75,7 @@ export function useTranslationSession({
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch(`${API}/api/sync-english-to-code`, {
+      const res = await fetch("/api/sync-english-to-code", {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -96,11 +95,10 @@ export function useTranslationSession({
           setModelUsed(data.model_used);
         }
 
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
         if (session?.access_token) {
-          mutate([`${API_BASE}/api/stats`, session.access_token]);
-          mutate([`${API_BASE}/api/history?limit=5`, session.access_token]);
-          mutate([`${API_BASE}/api/check-credits`, session.access_token]);
+          mutate(["/api/stats", session.access_token]);
+          mutate(["/api/history?limit=5", session.access_token]);
+          mutate(["/api/check-credits", session.access_token]);
         }
 
         toast.success("Synchronized successfully! Code has been updated.");
@@ -116,16 +114,34 @@ export function useTranslationSession({
     }
   };
 
+  const handleCopyCode = useCallback(() => {
+    if (!outputBlocks || !outputBlocks.length) return;
+    const code = outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n");
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    toast.success("Translated code copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  }, [outputBlocks]);
+
   const handleCopyMarkdown = useCallback(() => {
     if (!outputBlocks) return;
     let content = "";
-    
     if (mode === "code-to-english") {
-      content = outputBlocks.map((b, i) => `## Block ${i + 1}\n\n### Code\n\`\`\`${sourceLanguage}\n${b.code_snippet}\n\`\`\`\n\n### Explanation\n${b.english_translation}\n`).join("\n---\n\n");
+      content = outputBlocks
+        .map(
+          (b, i) =>
+            `## Block ${i + 1}\n\n### Code\n\`\`\`${sourceLanguage}\n${b.code_snippet}\n\`\`\`\n\n### Explanation\n${b.english_translation}\n`
+        )
+        .join("\n---\n\n");
     } else {
-      content = outputBlocks.map((b, i) => `## Block ${i + 1}\n\n\`\`\`${targetLanguage}\n${b.code_snippet}\n\`\`\`\n\n**Note**: ${b.english_translation}\n`).join("\n---\n\n");
+      content = outputBlocks
+        .map(
+          (b, i) =>
+            `## Block ${i + 1}\n\n\`\`\`${targetLanguage}\n${b.code_snippet}\n\`\`\`\n\n**Note**: ${b.english_translation}\n`
+        )
+        .join("\n---\n\n");
     }
-    
     navigator.clipboard.writeText(content);
     setCopied(true);
     toast.success("Copied Markdown to clipboard");
@@ -145,6 +161,25 @@ export function useTranslationSession({
     URL.revokeObjectURL(url);
   }, [outputBlocks]);
 
+  const handleExportCode = useCallback(() => {
+    if (!outputBlocks || !outputBlocks.length) return;
+    const code = outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n");
+    if (!code) return;
+
+    const ext = mode === "code-to-english" ? ".md" : getFileExtensionForLanguage(targetLanguage || "python");
+    const filename = `anuvaad_output_${mode}_${Date.now()}${ext}`;
+    const blob = new Blob([code], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported code file: ${filename}`);
+  }, [outputBlocks, mode, targetLanguage]);
+
   const hasEdits = !!(originalBlocks && outputBlocks && JSON.stringify(originalBlocks) !== JSON.stringify(outputBlocks));
 
   return {
@@ -153,6 +188,8 @@ export function useTranslationSession({
     hasEdits,
     handleSyncEnglishToCode,
     handleCopyMarkdown,
+    handleCopyCode,
     handleDownloadJson,
+    handleExportCode,
   };
 }

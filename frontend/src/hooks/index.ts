@@ -1,7 +1,5 @@
 import useSWR from 'swr';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
 const getFetcher = async ([url, token]: [string, string]) => {
   const res = await fetch(url, {
     headers: {
@@ -32,13 +30,13 @@ export interface TranslationHistoryItem {
 export function useTranslationStats(_userEmail: string | undefined, accessToken: string | undefined) {
   // Fetch stats and history using SWR
   const { data: statsData, isLoading: statsLoading } = useSWR(
-    accessToken ? [`${API_BASE}/api/stats`, accessToken] : null,
+    accessToken ? ['/api/stats', accessToken] : null,
     getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
   );
 
   const { data: historyData, isLoading: historyLoading } = useSWR(
-    accessToken ? [`${API_BASE}/api/history?limit=5`, accessToken] : null,
+    accessToken ? ['/api/history?limit=5', accessToken] : null,
     getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
   );
@@ -57,7 +55,7 @@ export function useTranslationStats(_userEmail: string | undefined, accessToken:
 
 export function useSubscriptionStatus(accessToken: string | undefined) {
   const { data, isLoading } = useSWR(
-    accessToken ? [`${API_BASE}/api/subscription-status`, accessToken] : null,
+    accessToken ? ['/api/subscription-status', accessToken] : null,
     getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
   );
@@ -73,7 +71,7 @@ export function useSubscriptionStatus(accessToken: string | undefined) {
 
 export function useCredits(accessToken: string | undefined) {
   const { data, isLoading, mutate } = useSWR(
-    accessToken ? [`${API_BASE}/api/check-credits`, accessToken] : null,
+    accessToken ? ['/api/check-credits', accessToken] : null,
     getFetcher,
     { dedupingInterval: 30000, revalidateOnFocus: false }
   );

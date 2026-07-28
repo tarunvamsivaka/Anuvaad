@@ -18,6 +18,33 @@ from app.models.db_models import TranslationHistory
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 
+async def _is_workspace_member_or_owner(session, workspace_id: str, email: str) -> bool:
+    """Verify that email belongs to either the owner or a member of workspace_id (BE-01)."""
+    import uuid as uuid_mod
+
+    from app.models.db_models import Workspace, WorkspaceMember
+
+    try:
+        ws_uuid = uuid_mod.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+    except (ValueError, TypeError):
+        return False
+
+    ws_stmt = select(Workspace.id).where(
+        Workspace.id == ws_uuid,
+        Workspace.owner_email == email,
+    )
+    ws_res = await session.execute(ws_stmt)
+    if ws_res.scalar_one_or_none() is not None:
+        return True
+
+    wm_stmt = select(WorkspaceMember.workspace_id).where(
+        WorkspaceMember.workspace_id == ws_uuid,
+        WorkspaceMember.user_email == email,
+    )
+    wm_res = await session.execute(wm_stmt)
+    return wm_res.scalar_one_or_none() is not None
+
+
 async def get_history(
     email: str,
     workspace_id: str | None = None,
@@ -32,12 +59,21 @@ async def get_history(
     When after_id and after_created_at are provided, the query uses a keyset
     condition to skip rows before the cursor — O(1) at any page depth.
     Falls back to offset pagination when no cursor is provided.
+    BE-01: Verifies workspace ownership/membership when workspace_id is provided.
     """
     async with AsyncSessionLocal() as session:
         try:
             query = select(TranslationHistory)
             if workspace_id:
-                query = query.where(TranslationHistory.workspace_id == workspace_id)
+                if not await _is_workspace_member_or_owner(session, workspace_id, email):
+                    return []
+                import uuid as uuid_mod
+
+                try:
+                    ws_uuid = uuid_mod.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+                except (ValueError, TypeError):
+                    return []
+                query = query.where(TranslationHistory.workspace_id == ws_uuid)
             else:
                 query = query.where(TranslationHistory.user_email == email).where(
                     TranslationHistory.workspace_id.is_(None)
@@ -81,12 +117,21 @@ async def get_history(
 async def get_count_since(email: str, workspace_id: str | None = None, since: datetime | None = None) -> int:
     """Return the number of translations for *email* since *since* (server-side COUNT).
     If *since* is None, returns the total count.
+    BE-01: Verifies workspace ownership/membership when workspace_id is provided.
     """
     async with AsyncSessionLocal() as session:
         try:
             query = select(func.count()).select_from(TranslationHistory)
             if workspace_id:
-                query = query.where(TranslationHistory.workspace_id == workspace_id)
+                if not await _is_workspace_member_or_owner(session, workspace_id, email):
+                    return 0
+                import uuid as uuid_mod
+
+                try:
+                    ws_uuid = uuid_mod.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+                except (ValueError, TypeError):
+                    return 0
+                query = query.where(TranslationHistory.workspace_id == ws_uuid)
             else:
                 query = query.where(TranslationHistory.user_email == email).where(
                     TranslationHistory.workspace_id.is_(None)
@@ -98,6 +143,8 @@ async def get_count_since(email: str, workspace_id: str | None = None, since: da
             result = await session.execute(query)
             return result.scalar() or 0
         except Exception as e:
+            logger.error(f"translation.get_count_since({email}): {e}")
+            return 0
             logger.error(f"translation.get_count_since({email}): {e}")
             return 0
 

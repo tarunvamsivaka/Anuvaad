@@ -83,8 +83,7 @@ export default function WorkspacePage() {
       if (!session || !activeWorkspace) return;
       setLoadingMembers(true);
       try {
-        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
+        const res = await fetch(`/api/workspaces/${activeWorkspace.id}/members`, {
           signal: controller.signal,
           headers: { Authorization: `Bearer ${session.access_token}` },
         });
@@ -107,8 +106,7 @@ export default function WorkspacePage() {
     if (!newWorkspaceName.trim() || !session) return;
     setCreating(true);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/workspaces`, {
+      const res = await fetch("/api/workspaces", {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ name: newWorkspaceName.trim() }),
@@ -129,8 +127,7 @@ export default function WorkspacePage() {
     if (!inviteEmail.trim() || !session || !activeWorkspace) return;
     setInviting(true);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/invite`, {
+      const res = await fetch(`/api/workspaces/${activeWorkspace.id}/invite`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ email: inviteEmail.trim(), role: "member" }),
@@ -141,7 +138,7 @@ export default function WorkspacePage() {
       }
       toast.success(`Invited ${inviteEmail} to workspace`);
       setInviteEmail("");
-      const membersRes = await fetch(`${API}/api/workspaces/${activeWorkspace.id}/members`, {
+      const membersRes = await fetch(`/api/workspaces/${activeWorkspace.id}/members`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       if (membersRes.ok) setMembers(await membersRes.json());

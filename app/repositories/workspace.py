@@ -15,11 +15,21 @@ from app.models.db_models import Workspace, WorkspaceMember
 
 
 async def get_workspaces(email: str) -> list[dict]:
-    """Return all workspaces the user owns or is a member of."""
+    """Return all workspaces the user owns or is a member of (BE-02)."""
     async with AsyncSessionLocal() as session:
         try:
+            from sqlalchemy import or_
+
+            member_subquery = select(WorkspaceMember.workspace_id).where(WorkspaceMember.user_email == email)
             result = await session.execute(
-                select(Workspace).where(Workspace.owner_email == email).order_by(Workspace.created_at.desc())
+                select(Workspace)
+                .where(
+                    or_(
+                        Workspace.owner_email == email,
+                        Workspace.id.in_(member_subquery),
+                    )
+                )
+                .order_by(Workspace.created_at.desc())
             )
             rows = result.scalars().all()
             return [{c.key: getattr(r, c.key) for c in r.__mapper__.columns} for r in rows]

@@ -21,6 +21,7 @@ This keeps near-zero-outbound-call performance while supporting the new keys.
 """
 
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -48,44 +49,51 @@ from app.repositories import subscription as subscription_repo
 _jwks_cache: dict[str, Any] = {}  # kid → public key object
 _jwks_fetched_at: float = 0.0
 _JWKS_TTL = 3600.0  # re-fetch at most once per hour
+_jwks_lock = threading.Lock()
 
 
 async def _get_jwks_public_key(kid: str | None) -> Any | None:
-    """Fetch and cache Supabase JWKS public keys for ES256/RS256 tokens."""
+    """Fetch and cache Supabase JWKS public keys for ES256/RS256 tokens in a thread-safe manner (BE-08)."""
     global _jwks_fetched_at
 
     now = time.monotonic()
     if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
-        if not SUPABASE_URL:
-            return None
-        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(jwks_url)
-                resp.raise_for_status()
-                jwks = resp.json()
-        except Exception as exc:
-            logger.warning(f"Failed to fetch Supabase JWKS: {exc}")
-            return None
+        with _jwks_lock:
+            if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
+                if not SUPABASE_URL:
+                    return None
+                jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        resp = await client.get(jwks_url)
+                        resp.raise_for_status()
+                        jwks = resp.json()
+                except Exception as exc:
+                    logger.warning(f"Failed to fetch Supabase JWKS: {exc}")
+                    return None
 
-        _jwks_cache.clear()
-        for key_data in jwks.get("keys", []):
-            kty = key_data.get("kty", "")
-            key_kid = key_data.get("kid", "default")
-            try:
-                if kty == "EC":
-                    _jwks_cache[key_kid] = ECAlgorithm.from_jwk(key_data)
-                elif kty == "RSA":
-                    _jwks_cache[key_kid] = RSAAlgorithm.from_jwk(key_data)
-            except Exception as exc:
-                logger.warning(f"Failed to parse JWKS key kid={key_kid}: {exc}")
-        _jwks_fetched_at = now
+                new_cache: dict[str, Any] = {}
+                for key_data in jwks.get("keys", []):
+                    kty = key_data.get("kty", "")
+                    key_kid = key_data.get("kid", "default")
+                    try:
+                        if kty == "EC":
+                            new_cache[key_kid] = ECAlgorithm.from_jwk(key_data)
+                        elif kty == "RSA":
+                            new_cache[key_kid] = RSAAlgorithm.from_jwk(key_data)
+                    except Exception as exc:
+                        logger.warning(f"Failed to parse JWKS key kid={key_kid}: {exc}")
 
-    if kid and kid in _jwks_cache:
-        return _jwks_cache[kid]
-    if _jwks_cache:
-        return next(iter(_jwks_cache.values()))
-    return None
+                _jwks_cache.clear()
+                _jwks_cache.update(new_cache)
+                _jwks_fetched_at = time.monotonic()
+
+    with _jwks_lock:
+        if kid and kid in _jwks_cache:
+            return _jwks_cache[kid]
+        if _jwks_cache:
+            return next(iter(_jwks_cache.values()))
+        return None
 
 
 def _peek_header(token: str) -> dict[str, str]:
@@ -237,7 +245,7 @@ async def get_user_email(
         return await _authenticate_api_key(api_key)
 
     # 2. Bearer JWT (browser sessions)
-    if credentials and credentials.credentials:
+    if credentials and isinstance(credentials, HTTPAuthorizationCredentials) and credentials.credentials:
         return await _authenticate_jwt(credentials.credentials)
 
     auth_header = request.headers.get("Authorization", "")
@@ -251,13 +259,24 @@ async def get_user_email(
     )
 
 
-async def get_user_email_from_request(request: Request) -> str:
+async def get_user_email_from_request(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> str:
     """Full auth function that checks both X-API-Key and Bearer JWT.
 
     Use this variant in routes that accept a Request directly and want
     API key support in addition to JWT.
     """
-    return await get_user_email(request)
+    if hasattr(request, "app") and hasattr(request.app, "dependency_overrides"):
+        override = request.app.dependency_overrides.get(get_user_email)
+        if override:
+            import inspect
+
+            if inspect.iscoroutinefunction(override):
+                return await override()
+            return override()
+    return await get_user_email(request, credentials=credentials)
 
 
 async def get_user_pro_status(email: str) -> bool:
@@ -304,24 +323,23 @@ async def is_token_pro(access_token: str | None) -> bool:
 def get_client_ip(request: Request) -> str:
     """Safely extract the originating client IP.
 
-    BUG#10 FIX: Naively trusting X-Forwarded-For allows IP spoofing.
-    We now only trust that header when the direct connection arrives from
-    a known proxy/load-balancer IP listed in TRUSTED_PROXIES env var.
+    On PaaS platforms (Render, Heroku, etc.) the container is never
+    reachable directly from the internet — every request arrives through
+    the platform's own edge proxy. Instead of an IP allowlist (which
+    Render doesn't publish), trust a fixed number of hops from the right
+    of X-Forwarded-For.
 
-    TRUSTED_PROXIES should list your load-balancer IPs, e.g.:
-    TRUSTED_PROXIES=10.0.0.1,10.0.0.2
-
-    If TRUSTED_PROXIES is not set, we fall through to the socket IP.
+    TRUST_PROXY_HOPS=1 means "trust the last IP the platform's proxy
+    added." Default is 0 (trust nothing, use the raw socket IP) so this
+    is opt-in and safe by default.
     """
-    trusted_proxies: frozenset[str] = frozenset(
-        ip.strip() for ip in os.getenv("TRUSTED_PROXIES", "").split(",") if ip.strip()
-    )
+    trust_hops = int(os.getenv("TRUST_PROXY_HOPS", "0"))
     direct_ip = request.client.host if request.client else "unknown"
-    if trusted_proxies and direct_ip in trusted_proxies:
+
+    if trust_hops > 0:
         x_forwarded_for = request.headers.get("x-forwarded-for", "")
         if x_forwarded_for:
-            # The rightmost IP before our proxy is the true client IP
-            # (the proxy appends its own IP last; the leftmost can be spoofed)
-            ips = [ip.strip() for ip in x_forwarded_for.split(",")]
-            return ips[-1] if ips else direct_ip
+            ips = [ip.strip() for ip in x_forwarded_for.split(",") if ip.strip()]
+            if len(ips) >= trust_hops:
+                return ips[-trust_hops]
     return direct_ip

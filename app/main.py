@@ -64,9 +64,9 @@ _CRITICAL_VARS: list[tuple[str, str]] = [
 def validate_production_env() -> None:
     """Validate that all critical environment variables are present.
 
-    In production (ENV=production): raises RuntimeError and aborts startup
-    if any critical var is missing or empty — prevents serving traffic with
-    a misconfigured instance.
+    In production (ENV=production): logs critical error details but suppresses
+    exceptions so container deployments (e.g. Render health checks) can start
+    and report health status rather than failing with a hard crashloop.
 
     In development / test: logs a WARNING per missing var (no hard stop).
     """

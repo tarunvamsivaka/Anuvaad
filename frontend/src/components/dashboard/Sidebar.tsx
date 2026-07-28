@@ -167,7 +167,7 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
       {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-amber-500/10 bg-white dark:bg-[#090d17] transition-transform duration-300 md:hidden shadow-2xl",
+          "fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-amber-500/10 bg-white dark:bg-surface-mid transition-transform duration-300 md:hidden shadow-2xl",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
