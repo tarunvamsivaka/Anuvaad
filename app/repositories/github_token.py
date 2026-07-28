@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
 
@@ -6,7 +6,7 @@ from app.core.database_session import AsyncSessionLocal
 from app.core.token_encryption import decrypt_token, encrypt_token, is_encrypted
 from app.models.db_models import UserGithubToken
 
-UTC = datetime.UTC
+UTC = timezone.utc  # noqa: UP017 - datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 
 async def save_github_token(email: str, access_token: str) -> bool:

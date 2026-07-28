@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { getFileExtensionForLanguage } from "@/lib/detect-language";
 
 describe("Empirical Stress Tests for Milestone 3 Features", () => {
@@ -168,6 +168,7 @@ describe("Empirical Stress Tests for Milestone 3 Features", () => {
       expect(targetLanguage).toBe("python");
       expect(input).toBe("function foo() {}");
       expect(outputBlocks).toBeNull();
+      expect(streamText).toBe("");
     });
 
     it("does nothing when mode is not code-to-code", () => {

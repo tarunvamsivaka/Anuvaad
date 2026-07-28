@@ -31,8 +31,6 @@ class TestHealthEndpoint:
         assert "telemetry" in data
 
 
-
-
 class TestCodeToEnglish:
     """Tests for POST /api/code-to-english."""
 

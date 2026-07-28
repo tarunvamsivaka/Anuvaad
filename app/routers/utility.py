@@ -2,7 +2,7 @@ import base64
 import os
 import re
 import secrets
-from datetime import UTC
+from datetime import timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -28,6 +28,8 @@ from app.core.config import (
 )
 from app.core.quota import get_today_usage_count
 from app.core.rate_limit import rate_limiter
+
+UTC = timezone.utc  # noqa: UP017 - datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 router = APIRouter(prefix="", tags=["utility"])
 
@@ -581,6 +583,7 @@ async def sentry_test():
 async def get_system_telemetry():
     """Return real-time telemetry metrics for platform monitoring."""
     from datetime import datetime
+
     snap = await metrics.snapshot()
     return {
         "status": "healthy",
@@ -595,5 +598,3 @@ async def get_system_telemetry():
         },
         "telemetry": snap,
     }
-
-

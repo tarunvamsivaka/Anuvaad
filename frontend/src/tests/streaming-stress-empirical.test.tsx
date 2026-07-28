@@ -99,10 +99,8 @@ describe("Empirical Challenge: Streaming UI States & Console Error Regressions",
   });
 
   it("gracefully aborts stream on user cancellation with zero console error regressions", async () => {
-    let controllerToAbort: ReadableStreamDefaultController | null = null;
     const stream = new ReadableStream({
       start(controller) {
-        controllerToAbort = controller;
         controller.enqueue(new TextEncoder().encode('data: {"chunk": "partial... "}\n\n'));
       },
     });
@@ -134,9 +132,8 @@ describe("Empirical Challenge: Streaming UI States & Console Error Regressions",
     );
 
     // Start translation
-    let translatePromise: Promise<void>;
     act(() => {
-      translatePromise = result.current.handleTranslate();
+      void result.current.handleTranslate();
     });
 
     expect(result.current.isStreaming).toBe(true);

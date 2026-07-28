@@ -178,7 +178,7 @@ export function InputPanel({
                   aria-label={`Close ${file.name}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    closeWorkbenchFile && closeWorkbenchFile(file.id);
+                    closeWorkbenchFile?.(file.id);
                   }}
                   className="ml-1 rounded hover:bg-slate-300 dark:hover:bg-white/10 p-0.5"
                 >
