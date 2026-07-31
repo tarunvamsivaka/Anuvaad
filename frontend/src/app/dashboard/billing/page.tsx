@@ -57,8 +57,8 @@ function BillingPageContent() {
     setLoading(true);
     track("upgrade_clicked", { current_plan: isActuallyPro ? "pro" : "free", target_plan: "pro" });
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/create-checkout-session`, {
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/create-checkout-session`, {
         method: "POST",
         // BACK-06: auth via Authorization header, not request body
         headers: {
@@ -87,7 +87,7 @@ function BillingPageContent() {
           handler: async function (response: any) {
             setLoading(true);
             try {
-              const verifyRes = await fetch(`${API}/api/verify-payment`, {
+              const verifyRes = await fetch(`/api/verify-payment`, {
                 method: "POST",
                 // BACK-06: auth via Authorization header, not request body
                 headers: {
@@ -106,8 +106,8 @@ function BillingPageContent() {
                 // FRONT-05: Use router.push instead of window.location.href
                 // This preserves SPA navigation and allows SWR to revalidate.
                 router.push("/dashboard/billing?payment=success");
-                mutate([`${API}/api/subscription-status`, session.access_token]);
-                mutate([`${API}/api/check-credits`, session.access_token]);
+                mutate(["/api/subscription-status", session.access_token]);
+                mutate(["/api/check-credits", session.access_token]);
               } else {
                 const err = await verifyRes.json().catch(() => null);
                 toast.error(err?.detail || "Payment verification failed. Please contact support.");
