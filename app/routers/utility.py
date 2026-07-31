@@ -1,6 +1,7 @@
 import base64
 import os
 import re
+import secrets
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -159,25 +160,17 @@ async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
             timeout=10.0,
         )
     except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504, detail="Request to fetch file timed out. Please try again."
-        )
+        raise HTTPException(status_code=504, detail="Request to fetch file timed out. Please try again.")
     except httpx.RequestError as e:
         logger.error(f"GitHub fetch network error: {e}")
         raise HTTPException(status_code=502, detail="Could not reach GitHub.")
 
     if resp.status_code == 404:
-        raise HTTPException(
-            status_code=404, detail="File not found on GitHub."
-        )
+        raise HTTPException(status_code=404, detail="File not found on GitHub.")
     if resp.status_code == 403:
-        raise HTTPException(
-            status_code=403, detail="GitHub API rate limit exceeded or file is private."
-        )
+        raise HTTPException(status_code=403, detail="GitHub API rate limit exceeded or file is private.")
     if resp.status_code != 200:
-        raise HTTPException(
-            status_code=502, detail=f"GitHub returned status {resp.status_code}"
-        )
+        raise HTTPException(status_code=502, detail=f"GitHub returned status {resp.status_code}")
     return resp.text
 
 
@@ -190,20 +183,29 @@ async def health_check():
             redis_ok = True
         except Exception:
             pass
-    return {
-        "status": "healthy",
+
+    jwt_ok = bool(SUPABASE_JWT_SECRET)
+    llm_ok = bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY)
+
+    # B-07: In production, return 503 Service Unavailable if critical configuration
+    # (SUPABASE_JWT_SECRET) is missing, so PaaS health checks (e.g., Render) fail
+    # natively and block traffic routing to misconfigured instances.
+    is_healthy = not (IS_PRODUCTION and not jwt_ok)
+    status_code = 200 if is_healthy else 503
+
+    payload = {
+        "status": "healthy" if is_healthy else "unhealthy",
         "service": "anuvaad-api",
-        "llm_configured": bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY),
-        "razorpay_configured": bool(
-            RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")
-        ),
+        "llm_configured": llm_ok,
+        "razorpay_configured": bool(RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")),
         "redis_connected": redis_ok,
         "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
         # JWT secret required for ALL authenticated API calls. If False,
         # every translation/history/workspace request will fail with 401.
         # Fix: set SUPABASE_JWT_SECRET in Render Dashboard → Environment.
-        "jwt_configured": bool(SUPABASE_JWT_SECRET),
+        "jwt_configured": jwt_ok,
     }
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 @router.get("/import-gist")
@@ -227,25 +229,17 @@ async def import_gist(url: str, file_path: str | None = None):
                 timeout=10.0,
             )
         except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504, detail="GitHub API request timed out. Please try again."
-            )
+            raise HTTPException(status_code=504, detail="GitHub API request timed out. Please try again.")
         except httpx.RequestError as e:
             logger.error(f"Gist fetch network error: {e}")
             raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
 
         if resp.status_code == 404:
-            raise HTTPException(
-                status_code=404, detail="Gist not found. It may be private or deleted."
-            )
+            raise HTTPException(status_code=404, detail="Gist not found. It may be private or deleted.")
         if resp.status_code == 403:
-            raise HTTPException(
-                status_code=403, detail="Gist is private or GitHub rate limit exceeded."
-            )
+            raise HTTPException(status_code=403, detail="Gist is private or GitHub rate limit exceeded.")
         if resp.status_code != 200:
-            raise HTTPException(
-                status_code=502, detail=f"GitHub API returned status {resp.status_code}"
-            )
+            raise HTTPException(status_code=502, detail=f"GitHub API returned status {resp.status_code}")
 
         gist_data = resp.json()
         if not gist_data.get("public", True):
@@ -362,25 +356,17 @@ async def import_gist(url: str, file_path: str | None = None):
                 timeout=10.0,
             )
         except httpx.TimeoutException:
-            raise HTTPException(
-                status_code=504, detail="GitHub API request timed out. Please try again."
-            )
+            raise HTTPException(status_code=504, detail="GitHub API request timed out. Please try again.")
         except httpx.RequestError as e:
             logger.error(f"GitHub contents fetch network error: {e}")
             raise HTTPException(status_code=502, detail="Could not reach GitHub API.")
 
         if resp.status_code == 404:
-            raise HTTPException(
-                status_code=404, detail="Repository or file not found. It may be private or deleted."
-            )
+            raise HTTPException(status_code=404, detail="Repository or file not found. It may be private or deleted.")
         if resp.status_code == 403:
-            raise HTTPException(
-                status_code=403, detail="GitHub API rate limit exceeded or repository is private."
-            )
+            raise HTTPException(status_code=403, detail="GitHub API rate limit exceeded or repository is private.")
         if resp.status_code != 200:
-            raise HTTPException(
-                status_code=502, detail=f"GitHub API returned status {resp.status_code}"
-            )
+            raise HTTPException(status_code=502, detail=f"GitHub API returned status {resp.status_code}")
 
         contents = resp.json()
 
@@ -415,16 +401,10 @@ async def import_gist(url: str, file_path: str | None = None):
 
         # It's a directory, return list of files/folders
         files_list = [
-            {"name": item.get("name"), "path": item.get("path"), "type": item.get("type")}
-            for item in contents
+            {"name": item.get("name"), "path": item.get("path"), "type": item.get("type")} for item in contents
         ]
 
-        return {
-            "type": "directory",
-            "username": owner,
-            "repo": repo,
-            "files": files_list
-        }
+        return {"type": "directory", "username": owner, "repo": repo, "files": files_list}
 
     raise HTTPException(
         status_code=400,
@@ -450,7 +430,13 @@ def _check_metrics_auth(request: Request) -> bool:
     try:
         decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
         username, password = decoded.split(":", 1)
-        return username == METRICS_USERNAME and password == METRICS_PASSWORD
+        # Use constant-time comparison to prevent timing side-channel attacks.
+        # Both compare_digest() calls must be evaluated unconditionally
+        # (assigned to variables first) — do NOT inline with 'and' as Python
+        # short-circuits, which reintroduces the timing leak.
+        user_ok = secrets.compare_digest(username, METRICS_USERNAME)
+        pass_ok = secrets.compare_digest(password, METRICS_PASSWORD)
+        return user_ok and pass_ok
     except Exception:
         return False
 
@@ -516,9 +502,7 @@ async def get_metrics_prometheus(request: Request):
         lines.append(f'anuvaad_avg_latency_ms{{endpoint="{ep}"}} {lat}')
 
     lines.append("")
-    return PlainTextResponse(
-        "\n".join(lines), media_type="text/plain; version=0.0.4; charset=utf-8"
-    )
+    return PlainTextResponse("\n".join(lines), media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
 @router.get("/cache-stats")

@@ -217,3 +217,28 @@ class TestStaleRecoveryFallback:
                 )
                 assert res.status_code == 200
                 assert res.json() == mock_blocks
+
+
+class TestHealthCheckGating:
+    """B-07: Verify /api/health gating for production deployment resilience."""
+
+    def test_health_check_returns_200_when_jwt_configured(self, client):
+        """When SUPABASE_JWT_SECRET is present (or in non-prod default), health returns 200."""
+        res = client.get("/api/health")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "healthy"
+        assert "service" in data
+
+    def test_health_check_returns_503_when_jwt_unconfigured_in_production(self, client):
+        """In production, missing SUPABASE_JWT_SECRET must return 503 so PaaS edge proxies
+        (e.g., Render) fail health checks natively instead of routing traffic to broken containers.
+        """
+        with patch("app.routers.utility.IS_PRODUCTION", True):
+            with patch("app.routers.utility.SUPABASE_JWT_SECRET", ""):
+                res = client.get("/api/health")
+                assert res.status_code == 503
+                data = res.json()
+                assert data["status"] == "unhealthy"
+                assert data["jwt_configured"] is False
+
