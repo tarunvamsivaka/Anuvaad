@@ -99,3 +99,56 @@ services:
       # Leave blank if not using Redis; the app falls back to in-memory cache.
       - key: REDIS_URL
         sync: false
+
+      # ── Proxy Trust ───────────────────────────────────────────────────
+      # Render's edge proxy always sits in front of the container.
+      # TRUST_PROXY_HOPS=1 tells get_client_ip() to read the originating
+      # client IP from X-Forwarded-For (last 1 hop) instead of the socket
+      # IP (which is Render's proxy, causing all users to share one IP).
+      # Required for per-IP rate limiting and anonymous demo quotas to work.
+      - key: TRUST_PROXY_HOPS
+        value: "1"
+
+      # ── Operational Controls & Metrics ────────────────────────────────
+      - key: METRICS_USERNAME
+        sync: false
+
+      - key: METRICS_PASSWORD
+        sync: false
+
+      - key: LIMIT_FREE_DAILY
+        value: "10"
+
+      - key: LIMIT_FREE_CHARS
+        value: "10000"
+
+      - key: LIMIT_FREE_COOLDOWN
+        value: "5"
+
+      - key: LIMIT_PRO_DAILY
+        value: "-1"
+
+      - key: LIMIT_PRO_CHARS
+        value: "50000"
+
+      - key: DEMO_RATE_LIMIT_PER_DAY
+        value: "3"
+
+      - key: RATE_LIMIT_IP_MAX
+        value: "50"
+
+      - key: RATE_LIMIT_USER_MAX
+        value: "200"
+
+      - key: PLATFORM_DAILY_CAP_TRANSLATIONS
+        value: "1000"
+
+      - key: PROTECTION_MODE
+        value: "NORMAL"
+
+      - key: EMERGENCY_MODE_FLAG
+        value: "false"
+
+      - key: TOKEN_ENCRYPTION_KEYS
+        sync: false
+
