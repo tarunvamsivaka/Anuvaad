@@ -2,12 +2,16 @@ import hashlib
 
 from fastapi import HTTPException, Request
 
+from app.core.auth import get_client_ip
 from app.core.cache import cache
 
 
 def rate_limiter(calls: int, window: int):
     async def _rate_limit_dependency(request: Request):
-        client_ip = request.client.host if request.client else "127.0.0.1"
+        # B-01: Use get_client_ip() so TRUST_PROXY_HOPS is honoured on Render.
+        # request.client.host is the raw socket IP (always Render's proxy IP in
+        # production), which buckets ALL users together under one rate-limit key.
+        client_ip = get_client_ip(request)
         auth_header = request.headers.get("Authorization")
 
         token = None
