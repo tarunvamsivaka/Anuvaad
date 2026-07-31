@@ -99,6 +99,7 @@ def test_lru_cache_eviction():
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings("ignore:supabase_request is deprecated:DeprecationWarning")
 async def test_supabase_request_fallback(monkeypatch):
     import importlib
     from unittest.mock import patch

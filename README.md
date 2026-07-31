@@ -86,7 +86,7 @@ Powered by **Groq (Llama 3.3 70B)** and **DeepSeek (V3 / R1)** with intelligent 
 | Backend | FastAPI, Python 3.11, Uvicorn |
 | AI Models | Groq (Llama 3.3 70B), DeepSeek V3/R1 — dual-model failover |
 | Auth | Supabase (Google + GitHub OAuth) |
-| Database | Supabase PostgreSQL with RLS |
+| Database | Supabase PostgreSQL with application-layer access control |
 | Payments | Razorpay Checkout + Webhooks + Self-service Modal |
 | Cache | Upstash Redis (serverless) with LRU memory fallback |
 | Email | Resend (transactional: welcome, subscription, milestones) |
