@@ -41,7 +41,7 @@ jobs:
       image_tag: ${{ steps.meta.outputs.sha_tag }}
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set lowercase repository name
         run: echo "REPO_LC=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
@@ -104,7 +104,7 @@ jobs:
       cancel-in-progress: false  # Never cancel an in-flight deploy
     steps:
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Deploy via SSH
         if: env.DEPLOY_HOST != ''
