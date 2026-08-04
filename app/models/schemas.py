@@ -19,6 +19,13 @@ class CodePayload(BaseModel):
             raise ValueError("Code cannot be empty or whitespace only")
         return v
 
+    @field_validator("language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
+
 
 class EnglishUpdatePayload(BaseModel):
     block_id: str = Field(..., min_length=1, max_length=50)
@@ -42,6 +49,13 @@ class GeneratePayload(BaseModel):
             raise ValueError("Prompt cannot be empty or whitespace only")
         return v
 
+    @field_validator("language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
+
 
 class CodeToCodePayload(BaseModel):
     raw_code: str = Field(..., min_length=1, max_length=50000)
@@ -59,6 +73,13 @@ class CodeToCodePayload(BaseModel):
         if not v.strip():
             raise ValueError("Code cannot be empty or whitespace only")
         return v
+
+    @field_validator("source_language", "target_language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
 
 
 class SaveTranslationPayload(BaseModel):
@@ -92,9 +113,17 @@ class SyncEnglishToCodePayload(BaseModel):
     repository_name: str | None = None
     file_path: str | None = None
 
+    @field_validator("language")
+    @classmethod
+    def language_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return v.strip().lower()
+
 
 class CheckoutPayload(BaseModel):
     """BACK-06: access_token removed — auth via Authorization header (Depends)."""
+
     user_email: str = Field(..., min_length=5, max_length=254)
 
 
@@ -134,6 +163,7 @@ class ApiKeyCreate(BaseModel):
 
 class CreditCheckoutPayload(BaseModel):
     """BACK-06: access_token removed — auth via Authorization header (Depends)."""
+
     pass  # No fields needed; auth is header-only
 
 
@@ -148,6 +178,7 @@ class VerifyPaymentPayload(BaseModel):
 
 class SharePayload(BaseModel):
     """Payload for toggling public/private sharing of a translation history item."""
+
     is_public: bool
 
 
@@ -156,21 +187,26 @@ class RepositoryImportCreate(BaseModel):
     provider: str = Field(..., min_length=1, max_length=50)
     provider_repo_id: str = Field(..., min_length=1, max_length=255)
 
+
 class RepositoryImportResponse(RepositoryImportCreate):
     id: str
+
 
 class SourceStateCreate(BaseModel):
     import_id: str = Field(..., min_length=36, max_length=36)
     revision_sha: str = Field(..., min_length=1, max_length=100)
     snapshot_hash: str | None = None
 
+
 class SourceStateResponse(SourceStateCreate):
     id: str
+
 
 class IndexConfigurationCreate(BaseModel):
     config_hash: str = Field(..., min_length=1, max_length=100)
     chunk_size: int = Field(..., gt=0)
     admission_policy_version: str = Field(..., min_length=1, max_length=50)
+
 
 class IndexConfigurationResponse(IndexConfigurationCreate):
     id: str
@@ -182,15 +218,18 @@ class DesiredIndexStateCreate(BaseModel):
     source_state_id: str = Field(..., min_length=36, max_length=36)
     index_configuration_id: str = Field(..., min_length=36, max_length=36)
 
+
 class DesiredIndexStateResponse(DesiredIndexStateCreate):
     id: str
     incarnation_id: str
     created_at: datetime
 
+
 class IndexRunCreate(BaseModel):
     desired_state_id: str = Field(..., min_length=36, max_length=36)
     status: str = Field(..., min_length=1, max_length=50)
     error_diagnostics: str | None = None
+
 
 class IndexRunResponse(IndexRunCreate):
     id: str

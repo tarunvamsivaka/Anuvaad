@@ -25,6 +25,7 @@ from .dependencies import sanitise_input, validate_code_input
 
 router = APIRouter()
 
+
 @router.post("/generate-from-english")
 async def function_generate_from_english(
     request: Request,
@@ -32,9 +33,7 @@ async def function_generate_from_english(
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.prompt)
-    payload.prompt = sanitise_input(
-        payload.prompt, mode="generate-from-english", email=email
-    )
+    payload.prompt = sanitise_input(payload.prompt, mode="generate-from-english", email=email)
 
     is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.prompt)
@@ -44,9 +43,7 @@ async def function_generate_from_english(
     use_r1 = is_pro
 
     model_name = "deepseek-reasoner" if use_r1 else "standard"
-    key = cache_key(
-        payload.prompt, payload.language, "generate-from-english", model_name
-    )
+    key = cache_key(payload.prompt, payload.language, "generate-from-english", model_name)
 
     cached = await cache.get(key)
     if cached:
@@ -131,28 +128,19 @@ async def function_generate_from_english(
 
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(
-            status_code=500, detail="Code generation failed. Please try again."
-        )
+        raise HTTPException(status_code=500, detail="Code generation failed. Please try again.")
 
 
-@router.post(
-    "/english-to-code",
-    dependencies=[Depends(rate_limiter(10, 60))]
-)
+@router.post("/english-to-code", dependencies=[Depends(rate_limiter(10, 60))])
 async def function_update_to_code(
     request: Request,
     payload: EnglishUpdatePayload,
     email: str | None = Depends(get_user_email),
 ):
     # SEC-06: Sanitise all free-text fields before sending to LLM
-    payload.modified_english = sanitise_input(
-        payload.modified_english, mode="english-to-code", email=email
-    )
+    payload.modified_english = sanitise_input(payload.modified_english, mode="english-to-code", email=email)
     if payload.full_context:
-        payload.full_context = sanitise_input(
-            payload.full_context, mode="english-to-code/context", email=email
-        )
+        payload.full_context = sanitise_input(payload.full_context, mode="english-to-code/context", email=email)
     is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.modified_english)
     )
@@ -176,9 +164,7 @@ async def function_update_to_code(
         if isinstance(e, HTTPException):
             raise e
         logger.error(f"LLM API Error: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail="Code update failed. Please try again."
-        )
+        raise HTTPException(status_code=500, detail="Code update failed. Please try again.")
 
 
 @router.post("/sync-english-to-code")
@@ -189,14 +175,10 @@ async def function_sync_english_to_code(
 ):
     # SEC-07: Sanitise every block's english_translation before sending to LLM
     for block in payload.blocks:
-        block.english_translation = sanitise_input(
-            block.english_translation, mode="sync-english-to-code", email=email
-        )
+        block.english_translation = sanitise_input(block.english_translation, mode="sync-english-to-code", email=email)
 
     char_count = sum(len(b.code_snippet) for b in payload.blocks)
-    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
-        request, email, char_count
-    )
+    is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(request, email, char_count)
 
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
@@ -231,9 +213,7 @@ async def function_sync_english_to_code(
         updated_code = raw.get("updated_code", "")
         raw_blocks = raw.get("blocks", [])
 
-        normalized_blocks = normalize_blocks(
-            raw_blocks, model_used=model_used, tier=tier
-        )
+        normalized_blocks = normalize_blocks(raw_blocks, model_used=model_used, tier=tier)
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
@@ -261,6 +241,4 @@ async def function_sync_english_to_code(
         logger.error(f"Sync English to Code failed: {str(e)}")
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(
-            status_code=500, detail="Synchronization failed. Please try again."
-        )
+        raise HTTPException(status_code=500, detail="Synchronization failed. Please try again.")

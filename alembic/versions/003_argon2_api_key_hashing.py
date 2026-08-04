@@ -16,9 +16,10 @@ Migration strategy (rolling, zero-downtime):
 NOTE: This migration only adds the column. The hash upgrade logic lives in
 app/repositories/api_key.py — keys are upgraded lazily on first use.
 """
-from alembic import op
+
 import sqlalchemy as sa
 
+from alembic import op
 
 revision = "003_argon2_api_key_hashing"
 down_revision = "002_add_critical_indexes"

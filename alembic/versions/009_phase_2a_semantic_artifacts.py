@@ -3,10 +3,12 @@
 Revision ID: 009_phase_2a
 Revises: 008_phase_1c
 """
-from alembic import op
+
+import pgvector.sqlalchemy
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
-import pgvector.sqlalchemy
+
+from alembic import op
 
 revision = "009_phase_2a"
 down_revision = "008_phase_1c"
@@ -28,7 +30,9 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["materialization_id"], ["searchable_materializations.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("materialization_id", "file_path", "chunk_index", name="uq_semantic_artifacts_materialization_path_chunk"),
+        sa.UniqueConstraint(
+            "materialization_id", "file_path", "chunk_index", name="uq_semantic_artifacts_materialization_path_chunk"
+        ),
     )
     op.execute("ALTER TABLE semantic_artifacts ALTER COLUMN embedding TYPE vector(1536) USING embedding::vector")
     op.create_index("ix_semantic_artifacts_materialization_id", "semantic_artifacts", ["materialization_id"])
@@ -37,4 +41,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index("ix_semantic_artifacts_materialization_id", table_name="semantic_artifacts")
     op.drop_table("semantic_artifacts")
-

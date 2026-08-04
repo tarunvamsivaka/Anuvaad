@@ -69,12 +69,13 @@ class RedisCache:
         if redis_url:
             try:
                 import redis.asyncio as aioredis
+
                 self.client = aioredis.from_url(
                     redis_url,
                     decode_responses=True,
                     socket_timeout=0.5,
                     socket_connect_timeout=0.5,
-                    retry_on_timeout=False
+                    retry_on_timeout=False,
                 )
                 self._backend = "redis"
             except Exception as e:
@@ -90,11 +91,11 @@ class RedisCache:
             if url_valid and token_valid:
                 try:
                     from upstash_redis.asyncio import Redis
+
                     self.client = Redis(url=url, token=token)
                     self._backend = "upstash"
                 except Exception as e:
                     logger.warning(f"Failed to initialize Upstash Redis: {e}")
-
 
         # Fallback: in-memory LRU
         self.fallback = LRUCache()
@@ -235,7 +236,5 @@ def cache_key(code: str, language: str, endpoint: str, model: str) -> str:
     prompt_version = os.getenv("PROMPT_VERSION", "v1")
     return (
         "anuvaad_cache:"
-        + hashlib.sha256(
-            f"{endpoint}:{language}:{normalized}:{model}:{prompt_version}".encode()
-        ).hexdigest()
+        + hashlib.sha256(f"{endpoint}:{language}:{normalized}:{model}:{prompt_version}".encode()).hexdigest()
     )

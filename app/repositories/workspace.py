@@ -4,6 +4,7 @@ app/repositories/workspace.py
 Typed repository for workspaces and workspace_members tables.
 Phase 5 (Arch#2.1).
 """
+
 from __future__ import annotations
 
 from sqlalchemy import delete, select
@@ -14,11 +15,20 @@ from app.models.db_models import Workspace, WorkspaceMember
 
 
 async def get_workspaces(email: str) -> list[dict]:
-    """Return all workspaces the user owns or is a member of."""
+    """Return all workspaces the user owns or is a member of (BE-02)."""
     async with AsyncSessionLocal() as session:
         try:
+            from sqlalchemy import or_
+
+            member_subquery = select(WorkspaceMember.workspace_id).where(WorkspaceMember.user_email == email)
             result = await session.execute(
-                select(Workspace).where(Workspace.owner_email == email)
+                select(Workspace)
+                .where(
+                    or_(
+                        Workspace.owner_email == email,
+                        Workspace.id.in_(member_subquery),
+                    )
+                )
                 .order_by(Workspace.created_at.desc())
             )
             rows = result.scalars().all()
@@ -48,9 +58,7 @@ async def delete_workspace(workspace_id: str, owner_email: str) -> bool:
     async with AsyncSessionLocal() as session:
         try:
             result = await session.execute(
-                delete(Workspace)
-                .where(Workspace.id == workspace_id)
-                .where(Workspace.owner_email == owner_email)
+                delete(Workspace).where(Workspace.id == workspace_id).where(Workspace.owner_email == owner_email)
             )
             await session.commit()
             return (result.rowcount or 0) > 0
@@ -64,10 +72,7 @@ async def get_members(workspace_id: str) -> list[dict]:
     """Return all workspace_members rows for the given workspace."""
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(WorkspaceMember)
-                .where(WorkspaceMember.workspace_id == workspace_id)
-            )
+            result = await session.execute(select(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace_id))
             rows = result.scalars().all()
             return [{c.key: getattr(r, c.key) for c in r.__mapper__.columns} for r in rows]
         except Exception as e:
@@ -101,11 +106,13 @@ async def add_member(
     """Add a member to a workspace. Returns True on success."""
     async with AsyncSessionLocal() as session:
         try:
-            session.add(WorkspaceMember(
-                workspace_id=workspace_id,
-                user_email=email,
-                role=role,
-            ))
+            session.add(
+                WorkspaceMember(
+                    workspace_id=workspace_id,
+                    user_email=email,
+                    role=role,
+                )
+            )
             await session.commit()
             return True
         except Exception as e:
@@ -135,12 +142,8 @@ async def delete_all_members(workspace_id: str) -> None:
     """Remove all members from a workspace (used during workspace deletion)."""
     async with AsyncSessionLocal() as session:
         try:
-            await session.execute(
-                delete(WorkspaceMember)
-                .where(WorkspaceMember.workspace_id == workspace_id)
-            )
+            await session.execute(delete(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace_id))
             await session.commit()
         except Exception as e:
             logger.error(f"workspace.delete_all_members({workspace_id}): {e}")
             await session.rollback()
-

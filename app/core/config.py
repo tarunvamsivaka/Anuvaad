@@ -9,6 +9,7 @@ Single responsibility: load and expose configuration constants.
 Backward-compatible re-exports are kept at the bottom so that any existing
 `from app.core.config import logger / get_http_client / metrics` still works.
 """
+
 import os
 from contextlib import asynccontextmanager
 
@@ -32,8 +33,8 @@ LLM_TIMEOUT: int = 60
 FREE_TIER_DAILY_LIMIT: int = 10
 
 # ── UPLOAD LIMITS ──
-FREE_MAX_FILE_SIZE: int = 50 * 1024   # 50 KB
-PRO_MAX_FILE_SIZE: int = 200 * 1024   # 200 KB
+FREE_MAX_FILE_SIZE: int = 50 * 1024  # 50 KB
+PRO_MAX_FILE_SIZE: int = 200 * 1024  # 200 KB
 
 # ── HISTORY PRUNING LIMITS (single source of truth — Arch#2.8) ──
 HISTORY_LIMIT_PRO: int = int(os.getenv("HISTORY_LIMIT_PRO", "1000"))
@@ -44,28 +45,51 @@ GIST_MAX_SIZE: int = 50 * 1024
 
 # ── EXTENSION → LANGUAGE MAP (Arch#2.9: single definition) ──
 EXTENSION_TO_LANGUAGE: dict[str, str] = {
-    ".py":   "python",
-    ".js":   "javascript",
-    ".ts":   "typescript",
-    ".jsx":  "javascript",
-    ".tsx":  "typescript",
+    ".py": "python",
+    ".js": "javascript",
+    ".ts": "typescript",
+    ".jsx": "javascript",
+    ".tsx": "typescript",
     ".java": "java",
-    ".cpp":  "cpp",
-    ".cc":   "cpp",
-    ".cxx":  "cpp",
-    ".rs":   "rust",
-    ".go":   "go",
-    ".c":    "c",
-    ".cs":   "csharp",
-    ".rb":   "ruby",
-    ".php":  "php",
-    ".kt":   "kotlin",
-    ".swift":"swift",
-    ".r":    "r",
-    ".sh":   "bash",
-    ".sql":  "sql",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".cxx": "cpp",
+    ".rs": "rust",
+    ".go": "go",
+    ".c": "c",
+    ".cs": "csharp",
+    ".rb": "ruby",
+    ".php": "php",
+    ".kt": "kotlin",
+    ".swift": "swift",
+    ".r": "r",
+    ".sh": "bash",
+    ".sql": "sql",
     ".html": "html",
-    ".css":  "css",
+    ".css": "css",
+    ".scala": "scala",
+    ".m": "objective-c",
+    ".mm": "objective-c",
+    ".dart": "dart",
+    ".lua": "lua",
+    ".ex": "elixir",
+    ".exs": "elixir",
+    ".clj": "clojure",
+    ".cljs": "clojure",
+    ".zig": "zig",
+    ".hs": "haskell",
+    ".ml": "ocaml",
+    ".mli": "ocaml",
+    ".erl": "erlang",
+    ".perl": "perl",
+    ".pl": "perl",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".json": "json",
+    ".xml": "xml",
+    ".md": "markdown",
+    ".vue": "vue",
+    ".svelte": "svelte",
 }
 ALLOWED_EXTENSIONS: frozenset[str] = frozenset(EXTENSION_TO_LANGUAGE.keys())
 
@@ -116,11 +140,13 @@ TRUSTED_EMAILS: frozenset[str] = frozenset(
 
 # ── LIFESPAN (HTTP client teardown — delegates to http_client module) ──
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Base lifespan: close HTTP client pool on shutdown."""
     yield
     from app.core.http_client import close_all_clients
+
     await close_all_clients()
 
 

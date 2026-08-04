@@ -4,11 +4,12 @@ All import-derived reads and writes take ``workspace_id`` and prove ownership
 through ``repository_imports`` before returning a domain record.  This module
 does not perform indexing, publication, extraction, retrieval, or prompting.
 """
+
 from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import delete, literal, select
+from sqlalchemy import delete, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.db_models import (
@@ -39,6 +40,21 @@ from app.schemas.repository_domain import (
     StructuralSymbolCreate,
 )
 from app.schemas.retrieval import SemanticArtifactMatch, SemanticRetrievalRequest
+
+
+def _is_sqlite_session(session) -> bool:
+    try:
+        bind = getattr(session, "bind", None)
+        if bind is None and hasattr(session, "get_bind"):
+            bind_res = session.get_bind()
+            if not hasattr(bind_res, "__await__"):
+                bind = bind_res
+        if bind is not None:
+            dialect = getattr(bind, "dialect", None)
+            return getattr(dialect, "name", None) == "sqlite"
+    except Exception:
+        pass
+    return False
 
 
 class RepositoryDomainRepository:
@@ -157,9 +173,7 @@ class RepositoryDomainRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create_materialization(
-        self, workspace_id: UUID, import_id: UUID, data: SearchableMaterializationCreate
-    ):
+    async def create_materialization(self, workspace_id: UUID, import_id: UUID, data: SearchableMaterializationCreate):
         if not await self._owns_import(workspace_id, import_id):
             return None
         run = await self.get_index_run(workspace_id, data.index_run_id)
@@ -185,9 +199,7 @@ class RepositoryDomainRepository:
         )
         return result.scalar_one_or_none()
 
-    async def create_structural_file(
-        self, workspace_id: UUID, materialization_id: UUID, data: StructuralFileCreate
-    ):
+    async def create_structural_file(self, workspace_id: UUID, materialization_id: UUID, data: StructuralFileCreate):
         if await self._owned_materialization(workspace_id, materialization_id) is None:
             return None
         return await self._commit(StructuralFile(materialization_id=materialization_id, **data.model_dump()))
@@ -205,9 +217,7 @@ class RepositoryDomainRepository:
             return None
         return await self._commit(StructuralSymbol(structural_file_id=structural_file_id, **data.model_dump()))
 
-    async def create_structural_import(
-        self, workspace_id: UUID, source_file_id: UUID, data: StructuralImportCreate
-    ):
+    async def create_structural_import(self, workspace_id: UUID, source_file_id: UUID, data: StructuralImportCreate):
         source = await self._session.execute(
             select(StructuralFile.materialization_id)
             .join(SearchableMaterialization)
@@ -228,9 +238,7 @@ class RepositoryDomainRepository:
                 return None
         return await self._commit(StructuralImport(source_file_id=source_file_id, **data.model_dump()))
 
-    async def create_linked_history(
-        self, workspace_id: UUID, import_id: UUID, data: RepositoryLinkedHistoryCreate
-    ):
+    async def create_linked_history(self, workspace_id: UUID, import_id: UUID, data: RepositoryLinkedHistoryCreate):
         if not await self._owns_import(workspace_id, import_id):
             return None
         source = await self._session.execute(
@@ -268,9 +276,7 @@ class RepositoryDomainRepository:
     ):
         if await self._owned_materialization(workspace_id, materialization_id) is None:
             return None
-        return await self._commit(
-            SemanticArtifact(materialization_id=materialization_id, **data.model_dump())
-        )
+        return await self._commit(SemanticArtifact(materialization_id=materialization_id, **data.model_dump()))
 
     async def get_semantic_artifact(self, workspace_id: UUID, artifact_id: UUID):
         result = await self._session.execute(
@@ -281,9 +287,7 @@ class RepositoryDomainRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_semantic_artifacts(
-        self, workspace_id: UUID, materialization_id: UUID
-    ) -> list[SemanticArtifact]:
+    async def list_semantic_artifacts(self, workspace_id: UUID, materialization_id: UUID) -> list[SemanticArtifact]:
         if await self._owned_materialization(workspace_id, materialization_id) is None:
             return []
         result = await self._session.execute(
@@ -302,7 +306,17 @@ class RepositoryDomainRepository:
         callers provide repository or materialization filters. This prevents a
         stale or cross-workspace artifact identifier from widening the query.
         """
-        cosine_distance = SemanticArtifact.embedding.cosine_distance(request.query_embedding)
+        import json
+
+        if _is_sqlite_session(self._session):
+            query_str = (
+                json.dumps(request.query_embedding)
+                if isinstance(request.query_embedding, list)
+                else str(request.query_embedding)
+            )
+            cosine_distance = func.cosine_distance(SemanticArtifact.embedding, query_str)
+        else:
+            cosine_distance = SemanticArtifact.embedding.cosine_distance(request.query_embedding)
         similarity = (literal(1.0) - cosine_distance).label("similarity")
         statement = (
             select(SemanticArtifact, SearchableMaterialization.import_id, similarity)

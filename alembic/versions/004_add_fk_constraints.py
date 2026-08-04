@@ -14,9 +14,8 @@ stored — catching bugs at the database layer before they propagate.
 Pre-migration cleanup: deletes any orphaned rows so the constraints can be
 applied without conflict errors.
 """
-from alembic import op
-import sqlalchemy as sa
 
+from alembic import op
 
 revision = "004_add_fk_constraints"
 down_revision = "003_argon2_api_key_hashing"
@@ -44,14 +43,18 @@ def upgrade() -> None:
     # ── 2. Add FK constraints with CASCADE deletes ──
     op.create_foreign_key(
         "fk_workspace_members_workspace",
-        "workspace_members", "workspaces",
-        ["workspace_id"], ["id"],
+        "workspace_members",
+        "workspaces",
+        ["workspace_id"],
+        ["id"],
         ondelete="CASCADE",
     )
     op.create_foreign_key(
         "fk_api_keys_workspace",
-        "api_keys", "workspaces",
-        ["workspace_id"], ["id"],
+        "api_keys",
+        "workspaces",
+        ["workspace_id"],
+        ["id"],
         ondelete="CASCADE",
     )
 

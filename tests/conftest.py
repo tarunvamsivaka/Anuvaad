@@ -123,14 +123,11 @@ class MockCompletions:
             is_json = True
 
         if self.mock_client.error_mode == "timeout":
-
             raise TimeoutError()
         elif self.mock_client.error_mode:
             content = "this is not valid json {{{"
         elif self.mock_client.empty_mode:
-            content = json.dumps(
-                [{"id": "b1", "code_snippet": "", "english_translation": ""}]
-            )
+            content = json.dumps([{"id": "b1", "code_snippet": "", "english_translation": ""}])
         elif self.mock_client.multi_mode:
             if not is_json:
                 content = "def add(a, b):\n    return a + b"
@@ -270,18 +267,20 @@ def client():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis), \
-         patch.object(cache_module, "cache_override", fake_redis), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis),
+        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -290,9 +289,7 @@ def client_rate_limited():
     import main as app_module
     from app.api.middleware.rate_limit import RATE_LIMIT_IP_MAX
 
-    fake_redis_async = MockRedisCache(
-        {"rate_limit:testclient": RATE_LIMIT_IP_MAX}
-    )
+    fake_redis_async = MockRedisCache({"rate_limit:testclient": RATE_LIMIT_IP_MAX})
     mock_groq = MockAsyncOpenAI()
 
     async def fake_get_user_email():
@@ -304,18 +301,20 @@ def client_rate_limited():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis_async), \
-         patch.object(cache_module, "cache_override", fake_redis_async), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis_async),
+        patch.object(cache_module, "cache_override", fake_redis_async),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -335,18 +334,20 @@ def client_multi_block():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis), \
-         patch.object(cache_module, "cache_override", fake_redis), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis),
+        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -366,18 +367,20 @@ def client_ai_error():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis), \
-         patch.object(cache_module, "cache_override", fake_redis), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis),
+        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -397,18 +400,20 @@ def client_empty_blocks():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis), \
-         patch.object(cache_module, "cache_override", fake_redis), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis),
+        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -429,18 +434,20 @@ def client_no_redis():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis), \
-         patch.object(cache_module, "cache_override", fake_redis), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis),
+        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -460,18 +467,20 @@ def client_with_auth():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis), \
-         patch.object(cache_module, "cache_override", fake_redis), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis),
+        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -499,18 +508,20 @@ def client_no_auth():
     def fake_init_clients(groq_key):
         ai_module._groq_client = mock_groq
 
-    with patch.object(app_module, "cache", fake_redis), \
-         patch.object(cache_module, "cache_override", fake_redis), \
-         patch.object(ai_module, "init_clients", fake_init_clients), \
-         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status):
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email_raises
-        )
+    with (
+        patch.object(app_module, "cache", fake_redis),
+        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(ai_module, "init_clients", fake_init_clients),
+        patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
+    ):
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email_raises
+        app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email_raises
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
         app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture()
@@ -527,7 +538,6 @@ def mock_openai_clients(monkeypatch):
 def mock_supabase_and_quota(monkeypatch):
     from unittest.mock import AsyncMock
 
-    import app.core.database as db_module
     import app.core.quota as quota_module
 
     m1 = AsyncMock(return_value=0)
@@ -535,16 +545,11 @@ def mock_supabase_and_quota(monkeypatch):
     m3 = AsyncMock(return_value=True)
     # FIX-J: increment_today_usage_count is the new atomic version used in enforce_quotas_and_protection
     m_incr = AsyncMock(return_value=0)
-    m6 = AsyncMock(return_value={})
-    m7 = AsyncMock(return_value=[])
 
     monkeypatch.setattr(quota_module, "get_today_usage_count", m1)
     monkeypatch.setattr(quota_module, "increment_today_usage_count", m_incr)
-    monkeypatch.setattr(db_module, "supabase_request", m6)
-    monkeypatch.setattr(db_module, "supabase_request_list", m7)
 
-    with patch("app.core.quota.get_user_credits", m2), \
-         patch("app.core.quota.deduct_credit", m3):
+    with patch("app.core.quota.get_user_credits", m2), patch("app.core.quota.deduct_credit", m3):
         yield
 
 
@@ -586,4 +591,3 @@ def mock_celery_tasks():
 
     for p in active_patches:
         p.stop()
-

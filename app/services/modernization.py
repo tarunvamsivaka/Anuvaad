@@ -6,6 +6,7 @@ from app.services.ai import get_completion
 
 logger = logging.getLogger("anuvaad.modernization")
 
+
 class LegacyModernizationOrchestrator:
     """
     Multi-agent orchestrator for migrating entire legacy codebases (e.g. COBOL, Fortran, legacy Java)
@@ -28,10 +29,7 @@ class LegacyModernizationOrchestrator:
         payload = "\n\n".join([f"--- FILE: {f['name']} ---\n{f['content']}" for f in files])
 
         result, model = await get_completion(
-            prompt=payload,
-            system_instruction=system_prompt,
-            mode="explanation",
-            use_r1=self.use_r1
+            prompt=payload, system_instruction=system_prompt, mode="explanation", use_r1=self.use_r1
         )
         return {"graph": result, "model_used": model}
 
@@ -46,10 +44,7 @@ class LegacyModernizationOrchestrator:
         """
 
         result, model = await get_completion(
-            prompt=str(architecture_graph),
-            system_instruction=system_prompt,
-            mode="translation",
-            use_r1=self.use_r1
+            prompt=str(architecture_graph), system_instruction=system_prompt, mode="translation", use_r1=self.use_r1
         )
         return {"scaffold": result, "model_used": model}
 
@@ -65,7 +60,7 @@ class LegacyModernizationOrchestrator:
             prompt=f"Legacy File: {source_file}\n\nCode:\n{source_content}",
             system_instruction=system_prompt,
             mode="translation",
-            use_r1=self.use_r1
+            use_r1=self.use_r1,
         )
         return result
 
@@ -76,10 +71,7 @@ class LegacyModernizationOrchestrator:
         """
 
         result, _ = await get_completion(
-            prompt=migrated_code,
-            system_instruction=system_prompt,
-            mode="translation",
-            use_r1=self.use_r1
+            prompt=migrated_code, system_instruction=system_prompt, mode="translation", use_r1=self.use_r1
         )
         return result
 
@@ -93,7 +85,7 @@ class LegacyModernizationOrchestrator:
         # Parallel migration of business logic
         tasks = []
         for file in legacy_files:
-            tasks.append(self.migrate_business_logic(file['name'], file['content'], str(scaffold)))
+            tasks.append(self.migrate_business_logic(file["name"], file["content"], str(scaffold)))
 
         migrated_files = await asyncio.gather(*tasks)
 
@@ -102,9 +94,4 @@ class LegacyModernizationOrchestrator:
         tests = await asyncio.gather(*test_tasks)
 
         logger.info("Modernization pipeline complete.")
-        return {
-            "graph": graph,
-            "scaffold": scaffold,
-            "migrated_files": migrated_files,
-            "tests": tests
-        }
+        return {"graph": graph, "scaffold": scaffold, "migrated_files": migrated_files, "tests": tests}

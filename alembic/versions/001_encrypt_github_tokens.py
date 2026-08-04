@@ -22,10 +22,11 @@ Prerequisites before running:
 Run with:
     TOKEN_ENCRYPTION_KEY=<key> alembic upgrade head
 """
-from alembic import op
+
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "001_encrypt_github_tokens"
@@ -37,6 +38,7 @@ depends_on = None
 def upgrade() -> None:
     """Encrypt all plaintext tokens in user_github_tokens."""
     import os
+
     from cryptography.fernet import Fernet
 
     encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY", "JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=")
@@ -47,19 +49,14 @@ def upgrade() -> None:
     session = Session(bind=bind)
 
     try:
-        rows = session.execute(
-            sa.text("SELECT user_email, access_token FROM user_github_tokens")
-        ).fetchall()
+        rows = session.execute(sa.text("SELECT user_email, access_token FROM user_github_tokens")).fetchall()
 
         for user_email, access_token in rows:
             # Skip already-encrypted tokens (Fernet ciphertext always starts with 'gAAAAA')
             if access_token and not access_token.startswith("gAAAAA"):
                 encrypted = fernet.encrypt(access_token.encode()).decode()
                 session.execute(
-                    sa.text(
-                        "UPDATE user_github_tokens SET access_token = :token "
-                        "WHERE user_email = :email"
-                    ),
+                    sa.text("UPDATE user_github_tokens SET access_token = :token WHERE user_email = :email"),
                     {"token": encrypted, "email": user_email},
                 )
 
@@ -79,6 +76,7 @@ def downgrade() -> None:
     unless absolutely required for rollback.
     """
     import os
+
     from cryptography.fernet import Fernet
 
     encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY", "JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=")
@@ -89,18 +87,13 @@ def downgrade() -> None:
     session = Session(bind=bind)
 
     try:
-        rows = session.execute(
-            sa.text("SELECT user_email, access_token FROM user_github_tokens")
-        ).fetchall()
+        rows = session.execute(sa.text("SELECT user_email, access_token FROM user_github_tokens")).fetchall()
 
         for user_email, access_token in rows:
             if access_token and access_token.startswith("gAAAAA"):
                 decrypted = fernet.decrypt(access_token.encode()).decode()
                 session.execute(
-                    sa.text(
-                        "UPDATE user_github_tokens SET access_token = :token "
-                        "WHERE user_email = :email"
-                    ),
+                    sa.text("UPDATE user_github_tokens SET access_token = :token WHERE user_email = :email"),
                     {"token": decrypted, "email": user_email},
                 )
 

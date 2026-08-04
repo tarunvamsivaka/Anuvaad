@@ -5,10 +5,11 @@ Revises: 007_phase_1b
 Create Date: 2026-07-19 19:30:00.000000
 
 """
-from alembic import op
+
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
 
 revision = "008_phase_1c"
 down_revision = "007_phase_1b"
@@ -50,7 +51,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_structural_files_materialization_id", "structural_files", ["materialization_id"])
-    op.create_index("uq_structural_files_materialization_path", "structural_files", ["materialization_id", "file_path"], unique=True)
+    op.create_index(
+        "uq_structural_files_materialization_path", "structural_files", ["materialization_id", "file_path"], unique=True
+    )
 
     op.create_table(
         "structural_symbols",
@@ -65,7 +68,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_structural_symbols_structural_file_id", "structural_symbols", ["structural_file_id"])
-    op.create_index("uq_structural_symbols_file_location", "structural_symbols", ["structural_file_id", "symbol_name", "symbol_kind", "location_start", "location_end"], unique=True)
+    op.create_index(
+        "uq_structural_symbols_file_location",
+        "structural_symbols",
+        ["structural_file_id", "symbol_name", "symbol_kind", "location_start", "location_end"],
+        unique=True,
+    )
 
     op.create_table(
         "structural_imports",
@@ -80,7 +88,12 @@ def upgrade() -> None:
     )
     op.create_index("ix_structural_imports_source_file_id", "structural_imports", ["source_file_id"])
     op.create_index("ix_structural_imports_resolved_target_file_id", "structural_imports", ["resolved_target_file_id"])
-    op.create_index("uq_structural_imports_source_declared", "structural_imports", ["source_file_id", "declared_import"], unique=True)
+    op.create_index(
+        "uq_structural_imports_source_declared",
+        "structural_imports",
+        ["source_file_id", "declared_import"],
+        unique=True,
+    )
 
     op.create_table(
         "repository_linked_history",
@@ -98,7 +111,9 @@ def upgrade() -> None:
         sa.UniqueConstraint("translation_history_id"),
     )
     op.create_index("ix_repository_linked_history_workspace_id", "repository_linked_history", ["workspace_id"])
-    op.create_index("ix_repository_linked_history_translation_history_id", "repository_linked_history", ["translation_history_id"])
+    op.create_index(
+        "ix_repository_linked_history_translation_history_id", "repository_linked_history", ["translation_history_id"]
+    )
     op.create_index("ix_repository_linked_history_import_id", "repository_linked_history", ["import_id"])
     op.create_index("ix_repository_linked_history_source_state_id", "repository_linked_history", ["source_state_id"])
 

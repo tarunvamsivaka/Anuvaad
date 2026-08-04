@@ -82,9 +82,7 @@ async def save_translation_background(
             # prune_oldest() uses 2 SQL statements (SELECT cutoff + DELETE); no O(N) REST loop
             await translation_repo.prune_oldest(user_email, is_pro)
             pruned_count = (current_count + 1) - limit
-            logger.info(
-                f"Pruned {pruned_count} oldest translation history rows for {user_email} (limit={limit})."
-            )
+            logger.info(f"Pruned {pruned_count} oldest translation history rows for {user_email} (limit={limit}).")
 
         # Save new record via ORM (replaces supabase_request POST + get_history_columns guard)
         await translation_repo.save(
@@ -134,6 +132,7 @@ async def get_today_usage_count(email: str) -> int:
     count = await translation_repo.get_count_since(email, since=today_start)
     await cache.put(usage_cache_key, count, ttl=86400)
     return count
+
 
 async def increment_today_usage_count(email: str) -> int:
     """Atomically increment daily usage count. Prevents TOCTOU race (FIX-J)."""
@@ -195,7 +194,6 @@ async def deduct_credit(email: str) -> bool:
             logger.error(f"deduct_credit failed for {email}: {e}")
             await session.rollback()
             return False
-
 
 
 async def get_lifetime_translations(email: str) -> int:
@@ -263,9 +261,7 @@ async def get_active_protection_mode() -> str:
     return "NORMAL"
 
 
-async def get_user_limits_and_cooldown(
-    email: str, is_pro: bool
-) -> tuple[int, int, int]:
+async def get_user_limits_and_cooldown(email: str, is_pro: bool) -> tuple[int, int, int]:
     """Returns (daily_limit, char_limit, cooldown_seconds) based on tier and protection mode.
 
     Delegates the pure limit calculation to domain/quota/policy.py (QuotaPolicy),
@@ -325,6 +321,7 @@ async def enforce_quotas_and_protection(
             raise HTTPException(
                 status_code=429,
                 detail=f"Please wait {cooldown} seconds between requests. Cooldown active.",
+                headers={"Retry-After": str(cooldown)},
             )
 
     deduct_credit_flag = False
@@ -338,6 +335,7 @@ async def enforce_quotas_and_protection(
                 raise HTTPException(
                     status_code=429,
                     detail=f"Daily translation limit reached ({daily_limit} translations/day). Upgrade to Pro for unlimited access.",
+                    headers={"Retry-After": "86400"},
                 )
 
     return is_pro, daily_limit, deduct_credit_flag, cooldown
@@ -366,6 +364,7 @@ async def enforce_workspace_quota(
 
     # Count workspace-scoped translations today
     from app.repositories import translation as translation_repo
+
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
 
     workspace_today = await translation_repo.get_count_since(
@@ -383,15 +382,11 @@ async def enforce_workspace_quota(
         )
 
 
-async def check_free_tier_limit(
-    email: str | None, is_pro: bool, request: Request
-) -> None:
+async def check_free_tier_limit(email: str | None, is_pro: bool, request: Request) -> None:
     await enforce_quotas_and_protection(request, email, 0)
 
 
-async def record_successful_completion(
-    email: str, is_pro: bool, deduct_credit_flag: bool, cooldown: int = 0
-):
+async def record_successful_completion(email: str, is_pro: bool, deduct_credit_flag: bool, cooldown: int = 0):
     """Record a successful translation completion.
 
     M-7/Arch#4.3: Accepts cooldown as parameter (passed from enforce_quotas_and_protection)

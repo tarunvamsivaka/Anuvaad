@@ -7,6 +7,7 @@ delegates all business logic to BillingService, and maps results to HTTP respons
 Business logic (signature verification, DB writes, email dispatch) lives in:
   app/domain/billing/service.py
 """
+
 import json
 import os
 
@@ -35,9 +36,7 @@ else:
     logger.info("Razorpay not configured (Pro tier disabled) in billing router")
 
 #: Shared service instance — created once at module load
-_billing_service: BillingService | None = (
-    BillingService(razorpay_client) if razorpay_client else None
-)
+_billing_service: BillingService | None = BillingService(razorpay_client) if razorpay_client else None
 
 
 def _get_service() -> BillingService:
@@ -56,6 +55,7 @@ def enforce_billing_enabled():
 
 # ── Checkout ──
 
+
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     payload: CheckoutPayload,
@@ -73,13 +73,15 @@ async def create_checkout_session(
         raise HTTPException(status_code=403, detail="Email mismatch: token does not belong to this user.")
 
     try:
-        subscription = razorpay_client.subscription.create({
-            "plan_id": RAZORPAY_PRO_PLAN_ID,
-            "total_count": 12,
-            "quantity": 1,
-            "customer_notify": 1,
-            "notes": {"user_email": user_email},
-        })
+        subscription = razorpay_client.subscription.create(
+            {
+                "plan_id": RAZORPAY_PRO_PLAN_ID,
+                "total_count": 12,
+                "quantity": 1,
+                "customer_notify": 1,
+                "notes": {"user_email": user_email},
+            }
+        )
         return {
             "subscription_id": subscription["id"],
             "key_id": RAZORPAY_KEY_ID,
@@ -124,11 +126,13 @@ async def create_credit_checkout(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     try:
-        order = razorpay_client.order.create({
-            "amount": 10000,
-            "currency": "INR",
-            "notes": {"type": "credits", "amount": 100, "user_email": user_email},
-        })
+        order = razorpay_client.order.create(
+            {
+                "amount": 10000,
+                "currency": "INR",
+                "notes": {"type": "credits", "amount": 100, "user_email": user_email},
+            }
+        )
         return {
             "order_id": order["id"],
             "amount": order["amount"],
@@ -143,6 +147,7 @@ async def create_credit_checkout(
 
 
 # ── Payment Verification ──
+
 
 @router.post("/verify-payment")
 async def verify_payment(
@@ -185,6 +190,7 @@ async def verify_payment(
 
 # ── Subscription Status & Credits ──
 
+
 @router.get("/subscription-status")
 async def get_subscription_status(
     email: str | None = Depends(get_user_email),
@@ -213,6 +219,7 @@ async def get_check_credits(
 
 
 # ── Webhook ──
+
 
 @router.post("/webhook/razorpay")
 async def razorpay_webhook(request: Request):
@@ -245,9 +252,7 @@ async def razorpay_webhook(request: Request):
 
     # BACK-09: Verify signature BEFORE json.loads to prevent info leakage
     try:
-        razorpay_client.utility.verify_webhook_signature(
-            body.decode(), signature, RAZORPAY_WEBHOOK_SECRET
-        )
+        razorpay_client.utility.verify_webhook_signature(body.decode(), signature, RAZORPAY_WEBHOOK_SECRET)
     except Exception:
         logger.error("Razorpay webhook: invalid signature")
         raise HTTPException(status_code=400, detail="Invalid webhook signature")
@@ -274,11 +279,13 @@ async def razorpay_webhook(request: Request):
                     return {"status": "duplicate", "message": "Event already processed"}
 
                 # Insert the record immediately to lock the event_id (unique constraint)
-                session.add(PaymentTransaction(
-                    event_id=event_id,
-                    payload=event,
-                    status="queued",
-                ))
+                session.add(
+                    PaymentTransaction(
+                        event_id=event_id,
+                        payload=event,
+                        status="queued",
+                    )
+                )
                 try:
                     await session.commit()
                 except Exception:

@@ -20,8 +20,12 @@ def _result(value=None):
 
 def _artifact_data():
     return SemanticArtifactCreate(
-        file_path="src/main.py", chunk_index=0, content="print('ok')",
-        content_hash="sha256", embedding=[0.0] * 1536, embedding_model="text-embedding-3-small",
+        file_path="src/main.py",
+        chunk_index=0,
+        content="print('ok')",
+        content_hash="sha256",
+        embedding=[0.0] * 1536,
+        embedding_model="text-embedding-3-small",
     )
 
 
@@ -56,7 +60,17 @@ def test_phase_2a_upgrade_and_downgrade(migration_engine):  # noqa: F811
     assert "semantic_artifacts" not in inspect(migration_engine).get_table_names()
     command.upgrade(config, "009_phase_2a")
     columns = {column["name"] for column in inspect(migration_engine).get_columns("semantic_artifacts")}
-    assert columns == {"id", "materialization_id", "file_path", "chunk_index", "content", "content_hash", "embedding", "embedding_model", "created_at"}
+    assert columns == {
+        "id",
+        "materialization_id",
+        "file_path",
+        "chunk_index",
+        "content",
+        "content_hash",
+        "embedding",
+        "embedding_model",
+        "created_at",
+    }
     command.downgrade(config, "008_phase_1c")
     assert "semantic_artifacts" not in inspect(migration_engine).get_table_names()
 
@@ -66,8 +80,4 @@ def test_phase_2a_migration_declares_workspace_transitive_ownership():
     assert '"semantic_artifacts"' in source
     assert '"materialization_id"' in source
     assert '"workspace_id"' not in source
-    assert 'Vector(dim=1536)' in source
-
-
-
-
+    assert "Vector(dim=1536)" in source

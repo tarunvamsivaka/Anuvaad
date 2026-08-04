@@ -8,7 +8,46 @@ export const EXT_TO_LANGUAGE: Record<string, string> = {
   ".go": "go",
   ".c": "c",
   ".cs": "csharp",
+  ".rb": "ruby",
+  ".php": "php",
+  ".swift": "swift",
+  ".kt": "kotlin",
+  ".sql": "sql",
+  ".sh": "bash",
+  ".html": "html",
+  ".css": "css",
+  ".json": "json",
 };
+
+export const LANGUAGE_TO_EXT: Record<string, string> = {
+  python: ".py",
+  javascript: ".js",
+  typescript: ".ts",
+  java: ".java",
+  cpp: ".cpp",
+  c: ".c",
+  rust: ".rs",
+  go: ".go",
+  csharp: ".cs",
+  ruby: ".rb",
+  php: ".php",
+  swift: ".swift",
+  kotlin: ".kt",
+  dart: ".dart",
+  sql: ".sql",
+  bash: ".sh",
+  powershell: ".ps1",
+  html: ".html",
+  css: ".css",
+  json: ".json",
+  xml: ".xml",
+  yaml: ".yaml",
+  markdown: ".md",
+};
+
+export function getFileExtensionForLanguage(lang: string): string {
+  return LANGUAGE_TO_EXT[lang.toLowerCase()] || ".txt";
+}
 
 export const ACCEPTED_EXTENSIONS = Object.keys(EXT_TO_LANGUAGE);
 

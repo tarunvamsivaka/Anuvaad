@@ -24,12 +24,8 @@ class TestRedisCache:
 
     def test_different_code_not_cached(self, client):
         """Different code should not hit the cache."""
-        res1 = client.post(
-            "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
-        )
-        res2 = client.post(
-            "/api/code-to-english", json={"raw_code": "y = 2", "language": "python"}
-        )
+        res1 = client.post("/api/code-to-english", json={"raw_code": "x = 1", "language": "python"})
+        res2 = client.post("/api/code-to-english", json={"raw_code": "y = 2", "language": "python"})
         assert res1.status_code == 200
         assert res2.status_code == 200
         # Both succeed (cache miss for second, but still processes)
@@ -86,9 +82,7 @@ class TestRateLimiting:
 
     def test_rate_limit_triggers(self, client_rate_limited):
         """After max requests, should return 429."""
-        res = client_rate_limited.post(
-            "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
-        )
+        res = client_rate_limited.post("/api/code-to-english", json={"raw_code": "x = 1", "language": "python"})
         assert res.status_code == 429
         assert "Rate limit exceeded" in res.json()["detail"]
 
@@ -100,7 +94,5 @@ class TestRateLimiting:
     def test_within_rate_limit(self, client):
         """Requests within the limit should succeed."""
         for _ in range(3):
-            res = client.post(
-                "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
-            )
+            res = client.post("/api/code-to-english", json={"raw_code": "x = 1", "language": "python"})
             assert res.status_code == 200

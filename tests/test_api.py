@@ -22,6 +22,14 @@ class TestHealthEndpoint:
         assert "llm_configured" in data
         assert "razorpay_configured" in data
 
+    def test_system_telemetry_returns_200(self, client):
+        res = client.get("/api/v1/system/telemetry")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["status"] == "healthy"
+        assert "ai_providers" in data
+        assert "telemetry" in data
+
 
 class TestCodeToEnglish:
     """Tests for POST /api/code-to-english."""
@@ -42,9 +50,7 @@ class TestCodeToEnglish:
         assert "english_translation" in data[0]
 
     def test_empty_code_rejected(self, client):
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": "", "language": "python"}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": "", "language": "python"})
         assert res.status_code == 422
 
     def test_whitespace_only_rejected(self, client):
@@ -77,9 +83,7 @@ class TestGenerateFromEnglish:
         assert len(data) > 0
 
     def test_empty_prompt_rejected(self, client):
-        res = client.post(
-            "/api/generate-from-english", json={"prompt": "", "language": "python"}
-        )
+        res = client.post("/api/generate-from-english", json={"prompt": "", "language": "python"})
         assert res.status_code == 422
 
     def test_whitespace_prompt_rejected(self, client):
@@ -237,12 +241,7 @@ class TestImportGist:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "public": True,
-            "files": {
-                "test.py": {
-                    "content": "print('hello from Gist')",
-                    "language": "Python"
-                }
-            }
+            "files": {"test.py": {"content": "print('hello from Gist')", "language": "Python"}},
         }
         mock_get.return_value = mock_response
 
@@ -289,7 +288,12 @@ class TestImportGist:
         mock_contents_response = MagicMock()
         mock_contents_response.status_code = 200
         mock_contents_response.json.return_value = [
-            {"name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py", "path": "main.py"}
+            {
+                "name": "main.py",
+                "type": "file",
+                "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py",
+                "path": "main.py",
+            }
         ]
 
         mock_get.side_effect = [mock_contents_response]
@@ -309,7 +313,9 @@ class TestImportGist:
         mock_contents_response = MagicMock()
         mock_contents_response.status_code = 200
         mock_contents_response.json.return_value = {
-            "name": "main.py", "type": "file", "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py"
+            "name": "main.py",
+            "type": "file",
+            "download_url": "https://raw.githubusercontent.com/owner/repo/branch/main.py",
         }
 
         mock_download_response = MagicMock()

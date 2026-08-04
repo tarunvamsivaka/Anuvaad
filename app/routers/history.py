@@ -17,6 +17,7 @@ Endpoints:
   DELETE /account                        — delete user account
   GET    /admin/dashboard-stats          — admin-only dashboard
 """
+
 import asyncio
 import base64
 import json
@@ -42,6 +43,7 @@ from app.core.constants import DEFAULT_HISTORY_PAGE_SIZE, MAX_HISTORY_PAGE_SIZE
 from app.core.quota import get_active_protection_mode
 from app.models.schemas import ApiKeyCreate, SharePayload
 from app.repositories import api_key as api_key_repo
+from app.repositories import subscription as subscription_repo
 from app.repositories import translation as translation_repo
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
@@ -50,6 +52,7 @@ router = APIRouter(prefix="", tags=["history"])
 
 
 # ── Cursor helpers (FIX-13 / P1-07) ──────────────────────────────────────────
+
 
 def _encode_cursor(item: dict) -> str:
     """Encode the last item's (id, created_at) into an opaque base64 cursor."""
@@ -75,12 +78,13 @@ def _decode_cursor(cursor: str) -> tuple[str | None, str | None]:
 
 # ── Translation History ──
 
+
 @router.get("/history")
 async def get_translation_history(
     workspace_id: str | None = None,
     # FIX-31 (P3-01): Use named constants instead of magic numbers
     limit: int = Query(default=DEFAULT_HISTORY_PAGE_SIZE, ge=1, le=MAX_HISTORY_PAGE_SIZE),
-    cursor: str | None = Query(default=None),        # FIX-13: opaque keyset cursor
+    cursor: str | None = Query(default=None),  # FIX-13: opaque keyset cursor
     email: str = Depends(get_user_email),
 ):
     """Return paginated translation history for the authenticated user.
@@ -130,9 +134,7 @@ async def get_translation_stats(
 
     now_utc = datetime.now(UTC)
     today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-    week_start_dt = (now_utc - timedelta(days=now_utc.weekday())).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
+    week_start_dt = (now_utc - timedelta(days=now_utc.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
 
     total, week, today = await asyncio.gather(
         translation_repo.get_count_since(email, workspace_id=workspace_id, since=None),
@@ -234,6 +236,7 @@ async def get_shared_item(item_id: str):
 
 # ── API Keys ──
 
+
 @router.get("/api-keys")
 async def list_api_keys(
     workspace_id: str | None = None,
@@ -286,6 +289,7 @@ async def delete_api_key(
 
 # ── Account ──
 
+
 @router.delete("/account")
 async def delete_account(authorization: str = Header(None)):
     """Delete the authenticated user's account from Supabase Auth.
@@ -320,6 +324,7 @@ async def delete_account(authorization: str = Header(None)):
             deleted_translations = await translation_repo.delete_all_for_user(user_email)
             deleted_keys = await api_key_repo.delete_all_for_user(user_email)
             from app.repositories import subscription as subscription_repo
+
             deleted_sub = await subscription_repo.delete_by_email(user_email)
             logger.info(
                 f"Account deletion data cleanup for {user_email}: "
@@ -347,33 +352,14 @@ async def delete_account(authorization: str = Header(None)):
 
 # ── Admin Dashboard ──
 
+
 @router.get("/admin/dashboard-stats")
 async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
     """Admin dashboard stats. Access restricted to ADMIN_USERS env var."""
     if not email or email.lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Forbidden: Admin access required.")
 
-    total_users = 0
-    if SUPABASE_URL and SUPABASE_SERVICE_KEY:
-        base_headers = {
-            "apikey": SUPABASE_SERVICE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-            "Prefer": "count=exact",
-            "Range-Unit": "items",
-            "Range": "0-0",
-        }
-        try:
-            client = await get_http_client()
-            resp = await client.get(
-                f"{SUPABASE_URL}/rest/v1/user_subscriptions?select=user_email",
-                headers=base_headers,
-            )
-            if resp.status_code in (200, 206):
-                content_range = resp.headers.get("Content-Range", "")
-                if "/" in content_range:
-                    total_users = int(content_range.split("/")[1])
-        except Exception as e:
-            logger.warning(f"Admin stats user count failed: {e}")
+    total_users = await subscription_repo.get_total_user_count()
 
     cache_stats = {}
     if hasattr(cache, "fallback") and hasattr(cache.fallback, "stats"):
@@ -392,10 +378,7 @@ async def get_admin_dashboard_stats(email: str = Depends(get_user_email)):
     model_calls_agg = metrics_snapshot.get("model_calls", {})
     model_errors_agg = metrics_snapshot.get("model_errors", {})
     total_requests_agg = metrics_snapshot.get("total_requests", {})
-    estimated_spend = sum(
-        count * MODEL_PRICING.get(model, 0.001)
-        for model, count in model_calls_agg.items()
-    )
+    estimated_spend = sum(count * MODEL_PRICING.get(model, 0.001) for model, count in model_calls_agg.items())
 
     protection_mode = await get_active_protection_mode()
 

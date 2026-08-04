@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
 
@@ -6,7 +6,8 @@ from app.core.database_session import AsyncSessionLocal
 from app.core.token_encryption import decrypt_token, encrypt_token, is_encrypted
 from app.models.db_models import UserGithubToken
 
-UTC = datetime.UTC
+UTC = timezone.utc  # noqa: UP017 - datetime.UTC requires Python 3.11+; alias for 3.10 compat
+
 
 async def save_github_token(email: str, access_token: str) -> bool:
     """Upsert a GitHub OAuth token for a user, Fernet-encrypted.
@@ -17,9 +18,7 @@ async def save_github_token(email: str, access_token: str) -> bool:
     encrypted = encrypt_token(access_token)
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(UserGithubToken).where(UserGithubToken.user_email == email)
-            )
+            result = await session.execute(select(UserGithubToken).where(UserGithubToken.user_email == email))
             existing = result.scalars().first()
             if existing:
                 existing.access_token = encrypted
@@ -37,11 +36,10 @@ async def save_github_token(email: str, access_token: str) -> bool:
             await session.rollback()
             return False
 
+
 async def get_github_token(email: str) -> str | None:
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(UserGithubToken).where(UserGithubToken.user_email == email)
-        )
+        result = await session.execute(select(UserGithubToken).where(UserGithubToken.user_email == email))
         row = result.scalars().first()
 
     if not row or not row.access_token:
@@ -55,12 +53,11 @@ async def get_github_token(email: str) -> str | None:
             return None
     return token
 
+
 async def delete_github_token(email: str) -> bool:
     async with AsyncSessionLocal() as session:
         try:
-            await session.execute(
-                delete(UserGithubToken).where(UserGithubToken.user_email == email)
-            )
+            await session.execute(delete(UserGithubToken).where(UserGithubToken.user_email == email))
             await session.commit()
             return True
         except Exception:

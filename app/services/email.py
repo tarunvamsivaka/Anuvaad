@@ -37,7 +37,7 @@ def _email_body(header_html: str, body_html: str, footer_html: str = "") -> str:
         Defaults to the standard 'Anuvaad — AI Code Translation Platform' line.
     """
     if not footer_html:
-        footer_html = "<p style=\"margin:0;font-size:11px;color:#a1a1aa;\">Anuvaad — AI Code Translation Platform</p>"
+        footer_html = '<p style="margin:0;font-size:11px;color:#a1a1aa;">Anuvaad — AI Code Translation Platform</p>'
 
     return f"""<!DOCTYPE html>
 <html>

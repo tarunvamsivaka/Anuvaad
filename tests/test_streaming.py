@@ -27,9 +27,7 @@ class TestStreamingEndpoint:
 
     def test_stream_contains_done_true_event(self, client):
         """The SSE stream should contain at least one event with done:true."""
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": "x = 1", "language": "python"}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": "x = 1", "language": "python"})
         assert res.status_code == 200
         # The response body contains SSE lines: "data: {...}\n\n"
         raw_text = res.text
@@ -56,16 +54,10 @@ class TestStreamingEndpoint:
 
     def test_stream_done_event_contains_blocks(self, client):
         """The final done:true SSE event should contain a 'blocks' array."""
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": "y = 2", "language": "python"}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": "y = 2", "language": "python"})
         assert res.status_code == 200
         raw_text = res.text
-        events = [
-            line[6:]
-            for line in raw_text.strip().split("\n\n")
-            if line.startswith("data: ")
-        ]
+        events = [line[6:] for line in raw_text.strip().split("\n\n") if line.startswith("data: ")]
 
         done_event = None
         for event_str in events:
@@ -99,9 +91,7 @@ class TestStreamingEndpoint:
                 "english_translation": "Assigns 3 to z",
             }
         ]
-        cache_key = app_module.cache_key(
-            "z = 3", "python", "code-to-english", "standard"
-        )
+        cache_key = app_module.cache_key("z = 3", "python", "code-to-english", "standard")
         asyncio.run(fake_redis.put(cache_key, cached_blocks))
 
         # Track whether AsyncOpenAI was instantiated
@@ -116,21 +106,22 @@ class TestStreamingEndpoint:
         async def fake_get_user_email():
             return "testuser@example.com"
 
-        app_module.app.dependency_overrides[app_module.get_user_email] = (
-            fake_get_user_email
-        )
+        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
         import app.core.cache as cache_module
-        try:
-            with patch.object(app_module, "cache", fake_redis), \
-                 patch.object(cache_module, "cache_override", fake_redis), \
-                 patch.object(app_module, "AsyncOpenAI", TrackingMock):
-                    from fastapi.testclient import TestClient
 
-                    with TestClient(app_module.app) as tc:
-                        res = tc.post(
-                            "/api/code-to-english",
-                            json={"raw_code": "z = 3", "language": "python"},
-                        )
+        try:
+            with (
+                patch.object(app_module, "cache", fake_redis),
+                patch.object(cache_module, "cache_override", fake_redis),
+                patch.object(app_module, "AsyncOpenAI", TrackingMock),
+            ):
+                from fastapi.testclient import TestClient
+
+                with TestClient(app_module.app) as tc:
+                    res = tc.post(
+                        "/api/code-to-english",
+                        json={"raw_code": "z = 3", "language": "python"},
+                    )
         finally:
             app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
 
@@ -138,11 +129,7 @@ class TestStreamingEndpoint:
 
         # Parse the SSE to find the done event
         raw_text = res.text
-        events = [
-            line[6:]
-            for line in raw_text.strip().split("\n\n")
-            if line.startswith("data: ")
-        ]
+        events = [line[6:] for line in raw_text.strip().split("\n\n") if line.startswith("data: ")]
 
         done_event = None
         for event_str in events:

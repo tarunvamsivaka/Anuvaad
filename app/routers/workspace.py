@@ -11,6 +11,7 @@ Endpoints:
   DELETE /workspaces/{workspace_id}/members/{email}  — remove member (owner/admin)
   POST   /workspaces/{workspace_id}/invite           — invite member (owner/admin)
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth import get_user_email
@@ -81,9 +82,7 @@ async def delete_workspace(
     # FIX-30 (P3-04): get_user_email() raises HTTP 401 automatically; guard removed.
     membership = await workspace_repo.get_member(workspace_id, email)
     if not membership or membership.get("role") != "owner":
-        raise HTTPException(
-            status_code=403, detail="Forbidden: Only the workspace owner can delete it"
-        )
+        raise HTTPException(status_code=403, detail="Forbidden: Only the workspace owner can delete it")
 
     # Collect member emails before deletion (for cache invalidation)
     members = await workspace_repo.get_members(workspace_id)

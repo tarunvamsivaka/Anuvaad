@@ -4,6 +4,7 @@ import os
 
 try:
     import sentry_sdk
+
     _SENTRY_AVAILABLE = True
 except ImportError:
     _SENTRY_AVAILABLE = False
@@ -29,6 +30,7 @@ from app.queue.tasks import save_translation_history_task
 def _nullctx():
     """No-op context manager used when Sentry is not configured."""
     yield None
+
 
 # ── LLM CLIENT SINGLETONS (BACK-02) ──
 # Created once at startup in lifespan, reused for all requests.
@@ -102,6 +104,7 @@ def get_async_openai_class():
     """Legacy compatibility shim — returns the AsyncOpenAI class (not an instance)."""
     return AsyncOpenAI
 
+
 SYSTEM_INSTRUCTION = """
 You are an expert code translator and analyzer. Your job is to break down the provided code into small, precise logical blocks and explain EXACTLY what each block does at the code level.
 
@@ -162,6 +165,7 @@ You should update the code_snippet to "print(path.upper())" or language equivale
 def _clean_json_response(text: str) -> str:
     """Strip reasoning tags (<think>...</think>) and markdown code fences (```json...```)."""
     import re
+
     text = text.strip()
     # Strip DeepSeek R1 / Reasoning model <think>...</think> tags if present
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
@@ -208,9 +212,7 @@ def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> li
             or block.get("comment")
             or ""
         )
-        code = (
-            block.get("code_snippet") or block.get("code") or block.get("snippet") or ""
-        )
+        code = block.get("code_snippet") or block.get("code") or block.get("snippet") or ""
         block_id = block.get("id") or block.get("block_id") or f"block_{i + 1}"
 
         normalized.append(
@@ -223,11 +225,7 @@ def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> li
             }
         )
 
-    normalized = [
-        b
-        for b in normalized
-        if b["english_translation"].strip() or b["code_snippet"].strip()
-    ]
+    normalized = [b for b in normalized if b["english_translation"].strip() or b["code_snippet"].strip()]
 
     if not normalized:
         raise ValueError("API returned no usable translation blocks")
@@ -259,6 +257,7 @@ async def find_stale_translation(
         input_preview = input_text[:80]
         # M-02: Use ORM repository instead of raw supabase_request_list()
         from app.repositories import translation as translation_repo
+
         rows = await translation_repo.get_history(email, limit=10)
         rows = [r for r in rows if r.get("input_preview") == input_preview and r.get("mode") == mode]
         if rows:
@@ -334,38 +333,40 @@ async def get_completion(
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        with (sentry_sdk.start_span(
-            op="llm.completion",
-            name=f"LLM: {primary['name']}",
-        ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+        with (
+            sentry_sdk.start_span(
+                op="llm.completion",
+                name=f"LLM: {primary['name']}",
+            )
+            if _SENTRY_AVAILABLE
+            else _nullctx()
+        ) as span:
             if _SENTRY_AVAILABLE and span:
                 span.set_tag("llm.provider", primary["name"])
                 span.set_tag("llm.model", primary["model"])
                 span.set_tag("llm.mode", mode)
             response = await asyncio.wait_for(
-                primary["client"].chat.completions.create(
-                    model=primary["model"], messages=messages, **kwargs
-                ),
+                primary["client"].chat.completions.create(model=primary["model"], messages=messages, **kwargs),
                 timeout=LLM_TIMEOUT,
             )
         await metrics.record_model_call(primary["model"])
-        return _clean_json_response(response.choices[0].message.content), primary[
-            "name"
-        ]
+        return _clean_json_response(response.choices[0].message.content), primary["name"]
     except Exception as e:
         await metrics.record_model_call(primary["model"], is_error=True)
-        logger.warning(
-            f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}"
-        )
+        logger.warning(f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}")
         fallback_kwargs = {}
         if response_format == "json_object":
             fallback_kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            with (sentry_sdk.start_span(
-                op="llm.completion",
-                name=f"LLM fallback: {fallback['name']}",
-            ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+            with (
+                sentry_sdk.start_span(
+                    op="llm.completion",
+                    name=f"LLM fallback: {fallback['name']}",
+                )
+                if _SENTRY_AVAILABLE
+                else _nullctx()
+            ) as span:
                 if _SENTRY_AVAILABLE and span:
                     span.set_tag("llm.provider", fallback["name"])
                     span.set_tag("llm.model", fallback["model"])
@@ -378,14 +379,10 @@ async def get_completion(
                     timeout=LLM_TIMEOUT,
                 )
             await metrics.record_model_call(fallback["model"])
-            return _clean_json_response(response.choices[0].message.content), fallback[
-                "name"
-            ]
+            return _clean_json_response(response.choices[0].message.content), fallback["name"]
         except TimeoutError:
             await metrics.record_model_call(fallback["model"], is_error=True)
-            logger.error(
-                f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}"
-            )
+            logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}")
         except Exception as fallback_e:
             await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
@@ -399,19 +396,21 @@ async def get_completion(
             if response_format == "json_object":
                 or_kwargs["response_format"] = {"type": "json_object"}
             try:
-                with (sentry_sdk.start_span(
-                    op="llm.completion",
-                    name="LLM third-level fallback: OpenRouter",
-                ) if _SENTRY_AVAILABLE else _nullctx()) as span:
+                with (
+                    sentry_sdk.start_span(
+                        op="llm.completion",
+                        name="LLM third-level fallback: OpenRouter",
+                    )
+                    if _SENTRY_AVAILABLE
+                    else _nullctx()
+                ) as span:
                     if _SENTRY_AVAILABLE and span:
                         span.set_tag("llm.provider", "openrouter")
                         span.set_tag("llm.model", or_model)
                         span.set_tag("llm.mode", mode)
                         span.set_tag("llm.is_fallback", True)
                     response = await asyncio.wait_for(
-                        openrouter_client.chat.completions.create(
-                            model=or_model, messages=messages, **or_kwargs
-                        ),
+                        openrouter_client.chat.completions.create(model=or_model, messages=messages, **or_kwargs),
                         timeout=LLM_TIMEOUT,
                     )
                 await metrics.record_model_call("openrouter-llama")
@@ -436,72 +435,132 @@ async def stream_code_to_english(
     deduct_credit_flag: bool = False,
     cooldown: int = 0,
 ):
-    # Intelligent LLM Routing (Groq Only)
-    model_name = "deepseek-r1" if use_r1 else "standard"
-    model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-
-    key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
-
-    # Check Cache
-    cached = await cache.get(key)
-
-    if cached:
-        await metrics.record_cache_hit()
-        yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-        yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
-
-        if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → English",
-                source_language=payload.language,
-                target_language="english",
-                input_text=payload.raw_code,
-                blocks=cached,
-                model_used=model_name,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
-        return
-
-    await metrics.record_cache_miss()
-    # BACK-02: Use singleton clients instead of creating per-request
-    client = _get_groq_client()
-
-    messages = [
-        {"role": "system", "content": SYSTEM_INSTRUCTION},
-        {
-            "role": "user",
-            "content": f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}",
-        },
-    ]
-
-    kwargs = {"stream": True}
-    if not use_r1:
-        kwargs["response_format"] = {"type": "json_object"}
-
     try:
-        stream = await client.chat.completions.create(
-            model=model, messages=messages, **kwargs
-        )
+        # Intelligent LLM Routing (Groq Only)
+        model_name = "deepseek-r1" if use_r1 else "standard"
+        model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
 
+        key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
+
+        # Check Cache
+        cached = await cache.get(key)
+
+        if cached:
+            await metrics.record_cache_hit()
+            yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
+
+            if email:
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode="Code → English",
+                    source_language=payload.language,
+                    target_language="english",
+                    input_text=payload.raw_code,
+                    blocks=cached,
+                    model_used=model_name,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+            return
+
+        await metrics.record_cache_miss()
+
+        providers = []
+        groq_client = _get_groq_client()
+        if groq_client:
+            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama3-8b-8192"
+            providers.append((groq_client, primary_model, "Groq Primary"))
+            providers.append((groq_client, fallback_model, "Groq Backup"))
+
+        openrouter_client = _get_openrouter_client()
+        if openrouter_client:
+            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
+            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+
+        messages = [
+            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {
+                "role": "user",
+                "content": f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}",
+            },
+        ]
+
+        used_model = model
         full_content = ""
-        async for chunk in stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                full_content += content
-                yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+
+        for p_client, p_model, p_name in providers:
+            try:
+                stream_kwargs = {"stream": True}
+                if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
+                    stream_kwargs["response_format"] = {"type": "json_object"}
+
+                candidate_stream = await asyncio.wait_for(
+                    p_client.chat.completions.create(model=p_model, messages=messages, **stream_kwargs),
+                    timeout=LLM_TIMEOUT,
+                )
+
+                full_content = ""
+                async for chunk in candidate_stream:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        full_content += content
+                        yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+
+                if full_content.strip():
+                    used_model = p_model
+                    await metrics.record_model_call(p_model)
+                    break
+            except Exception as stream_err:
+                await metrics.record_model_call(p_model, is_error=True)
+                logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
+                if full_content:
+                    break
+                continue
+
+        if not full_content.strip():
+            stale_result = await find_stale_translation(
+                email,
+                payload.raw_code,
+                payload.language,
+                "code-to-english",
+                "Code → English",
+            )
+            if stale_result:
+                logger.info("Streaming fallback: returning stale recovery result")
+                yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
+                if email:
+                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                    save_translation_history_task.delay(
+                        user_email=email,
+                        mode="Code → English",
+                        source_language=payload.language,
+                        target_language="english",
+                        input_text=payload.raw_code,
+                        blocks=stale_result,
+                        model_used="stale_recovery",
+                        workspace_id=payload.workspace_id,
+                        session_id=payload.session_id,
+                        repository_name=payload.repository_name,
+                        file_path=payload.file_path,
+                    )
+                return
+
+            yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
+            return
 
         cleaned = _clean_json_response(full_content)
         raw = json.loads(cleaned)
-        result = normalize_blocks(raw, model_used=model, tier=tier)
+        result = normalize_blocks(raw, model_used=used_model, tier=tier)
 
-        await cache.put(key, result)
+        await cache.put(key, result, 86400 * 7)
 
-        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': model})}\n\n"
+        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
@@ -512,7 +571,7 @@ async def stream_code_to_english(
                 target_language="english",
                 input_text=payload.raw_code,
                 blocks=result,
-                model_used=model,
+                model_used=used_model,
                 workspace_id=payload.workspace_id,
                 session_id=payload.session_id,
                 repository_name=payload.repository_name,
@@ -521,7 +580,7 @@ async def stream_code_to_english(
 
     except Exception as e:
         logger.error(f"Streaming error: {str(e)}")
-        yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+        yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
 
 
 async def stream_code_to_code(
@@ -533,80 +592,140 @@ async def stream_code_to_code(
     deduct_credit_flag: bool = False,
     cooldown: int = 0,
 ):
-    # Intelligent LLM Routing (Groq Only)
-    model_name = "deepseek-r1" if use_r1 else "standard"
-    model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+    try:
+        # Intelligent LLM Routing (Groq Only)
+        model_name = "deepseek-r1" if use_r1 else "standard"
+        model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
 
-    key = cache_key(
-        payload.raw_code,
-        f"{payload.source_language}->{payload.target_language}",
-        "code-to-code",
-        model_name,
-    )
+        key = cache_key(
+            payload.raw_code,
+            f"{payload.source_language}->{payload.target_language}",
+            "code-to-code",
+            model_name,
+        )
 
-    # Check Cache
-    cached = await cache.get(key)
+        # Check Cache
+        cached = await cache.get(key)
 
-    if cached:
-        await metrics.record_cache_hit()
-        yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-        yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
+        if cached:
+            await metrics.record_cache_hit()
+            yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+            yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
-        if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → Code",
-                source_language=payload.source_language,
-                target_language=payload.target_language,
-                input_text=payload.raw_code,
-                blocks=cached,
-                model_used=model_name,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
-        return
+            if email:
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode="Code → Code",
+                    source_language=payload.source_language,
+                    target_language=payload.target_language,
+                    input_text=payload.raw_code,
+                    blocks=cached,
+                    model_used=model_name,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+            return
 
-    await metrics.record_cache_miss()
-    # BACK-02: Use singleton clients instead of creating per-request
-    client = _get_groq_client()
+        await metrics.record_cache_miss()
 
-    system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
+        providers = []
+        groq_client = _get_groq_client()
+        if groq_client:
+            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama3-8b-8192"
+            providers.append((groq_client, primary_model, "Groq Primary"))
+            providers.append((groq_client, fallback_model, "Groq Backup"))
+
+        openrouter_client = _get_openrouter_client()
+        if openrouter_client:
+            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
+            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+
+        system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
 Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
 
-    user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
+        user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
 
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": user_prompt},
-    ]
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_prompt},
+        ]
 
-    kwargs = {"stream": True}
-    if not use_r1:
-        kwargs["response_format"] = {"type": "json_object"}
-
-    try:
-        stream = await client.chat.completions.create(
-            model=model, messages=messages, **kwargs
-        )
-
+        used_model = model
         full_content = ""
-        async for chunk in stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                full_content += content
-                yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+
+        for p_client, p_model, p_name in providers:
+            try:
+                stream_kwargs = {"stream": True}
+                if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
+                    stream_kwargs["response_format"] = {"type": "json_object"}
+
+                candidate_stream = await asyncio.wait_for(
+                    p_client.chat.completions.create(model=p_model, messages=messages, **stream_kwargs),
+                    timeout=LLM_TIMEOUT,
+                )
+
+                full_content = ""
+                async for chunk in candidate_stream:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        full_content += content
+                        yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+
+                if full_content.strip():
+                    used_model = p_model
+                    await metrics.record_model_call(p_model)
+                    break
+            except Exception as stream_err:
+                await metrics.record_model_call(p_model, is_error=True)
+                logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
+                if full_content:
+                    break
+                continue
+
+        if not full_content.strip():
+            stale_result = await find_stale_translation(
+                email,
+                payload.raw_code,
+                f"{payload.source_language}->{payload.target_language}",
+                "code-to-code",
+                "Code → Code",
+            )
+            if stale_result:
+                logger.info("Streaming fallback: returning stale recovery result")
+                yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
+                if email:
+                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                    save_translation_history_task.delay(
+                        user_email=email,
+                        mode="Code → Code",
+                        source_language=payload.source_language,
+                        target_language=payload.target_language,
+                        input_text=payload.raw_code,
+                        blocks=stale_result,
+                        model_used="stale_recovery",
+                        workspace_id=payload.workspace_id,
+                        session_id=payload.session_id,
+                        repository_name=payload.repository_name,
+                        file_path=payload.file_path,
+                    )
+                return
+
+            yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
+            return
 
         cleaned = _clean_json_response(full_content)
         raw = json.loads(cleaned)
-        result = normalize_blocks(raw, model_used=model, tier=tier)
+        result = normalize_blocks(raw, model_used=used_model, tier=tier)
 
         await cache.put(key, result, 86400 * 7)
 
-        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': model})}\n\n"
+        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
@@ -617,7 +736,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 target_language=payload.target_language,
                 input_text=payload.raw_code,
                 blocks=result,
-                model_used=model,
+                model_used=used_model,
                 workspace_id=payload.workspace_id,
                 session_id=payload.session_id,
                 repository_name=payload.repository_name,
@@ -626,5 +745,4 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
     except Exception as e:
         logger.error(f"Streaming error: {str(e)}")
-        yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
-
+        yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"

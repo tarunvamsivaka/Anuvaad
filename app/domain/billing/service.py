@@ -12,6 +12,7 @@ Responsibility boundary:
 The billing router (app/routers/billing.py) is now a thin HTTP adapter that
 calls this service and maps results to HTTP responses.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,6 +24,7 @@ from app.repositories import subscription as subscription_repo
 @dataclass
 class PaymentResult:
     """Result returned from BillingService verification methods."""
+
     success: bool
     plan: str | None = None
     credits_added: int | None = None
@@ -54,11 +56,13 @@ class BillingService:
         """
         # 1. Verify HMAC signature
         try:
-            self._client.utility.verify_subscription_payment_signature({
-                "razorpay_payment_id": razorpay_payment_id,
-                "razorpay_subscription_id": razorpay_subscription_id,
-                "razorpay_signature": razorpay_signature,
-            })
+            self._client.utility.verify_subscription_payment_signature(
+                {
+                    "razorpay_payment_id": razorpay_payment_id,
+                    "razorpay_subscription_id": razorpay_subscription_id,
+                    "razorpay_signature": razorpay_signature,
+                }
+            )
         except Exception as e:
             logger.warning(f"BillingService: subscription signature failed for {user_email}: {e}")
             raise ValueError("Payment verification failed: invalid signature")
@@ -77,14 +81,14 @@ class BillingService:
 
         # 3. Invalidate Pro status cache so the upgrade is visible immediately (FRONT-08)
         from app.core.cache import cache
+
         await cache.delete(f"user_pro_status:{user_email}")
 
         # 4. Dispatch email notification (non-blocking Celery task)
         try:
             from app.queue.tasks import send_transactional_email_task
-            send_transactional_email_task.delay(
-                "subscription_upgrade", user_email=user_email, plan_name="pro"
-            )
+
+            send_transactional_email_task.delay("subscription_upgrade", user_email=user_email, plan_name="pro")
         except Exception as e:
             logger.warning(f"BillingService: failed to dispatch upgrade email: {e}")
 
@@ -107,11 +111,13 @@ class BillingService:
         """
         # 1. Verify HMAC signature
         try:
-            self._client.utility.verify_payment_signature({
-                "razorpay_order_id": razorpay_order_id,
-                "razorpay_payment_id": razorpay_payment_id,
-                "razorpay_signature": razorpay_signature,
-            })
+            self._client.utility.verify_payment_signature(
+                {
+                    "razorpay_order_id": razorpay_order_id,
+                    "razorpay_payment_id": razorpay_payment_id,
+                    "razorpay_signature": razorpay_signature,
+                }
+            )
         except Exception as e:
             logger.warning(f"BillingService: credit signature failed for {user_email}: {e}")
             raise ValueError("Payment verification failed: invalid signature")

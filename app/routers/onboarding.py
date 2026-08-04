@@ -8,6 +8,7 @@ the frontend POSTs here to mark their account as onboarded. This sets
 `onboarded=True` on the user_subscriptions row so subsequent auth checks
 can skip the redirect.
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.core.auth import get_user_email

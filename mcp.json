@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/mcp-config.json",
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@supabase/mcp-server@latest"],
+      "env": {
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_SERVICE_ROLE_KEY": "${SUPABASE_SERVICE_ROLE_KEY}"
+      },
+      "description": "Supabase MCP Server for database migrations, edge functions, SQL execution, and schema inspection"
+    },
+    "render": {
+      "command": "npx",
+      "args": ["-y", "@render/mcp-server@latest"],
+      "env": {
+        "RENDER_API_KEY": "${RENDER_API_KEY}"
+      },
+      "description": "Render MCP Server for service deployment, environment variable management, and cloud monitoring"
+    },
+    "upstash-redis": {
+      "command": "npx",
+      "args": ["-y", "@upstash/mcp-server-redis"],
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "${UPSTASH_REDIS_REST_URL}",
+        "UPSTASH_REDIS_REST_TOKEN": "${UPSTASH_REDIS_REST_TOKEN}"
+      },
+      "description": "Upstash Redis MCP Server for serverless key-value storage, caching, rate-limiting, and analytics"
+    },
+    "chrome-devtools-mcp": {
+      "command": "npx",
+      "args": ["-y", "@chrome-devtools/mcp-server@latest"],
+      "description": "Chrome DevTools MCP Server for automated frontend testing, UI interaction, lighthouse audits, and DOM inspection"
+    },
+    "StitchMCP": {
+      "command": "npx",
+      "args": ["-y", "@stitch/mcp-server@latest"],
+      "description": "Stitch MCP Server for AI design generation, screen variants, and design system integration"
+    }
+  }
+}

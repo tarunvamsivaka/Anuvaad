@@ -1,4 +1,4 @@
-﻿"""
+"""
 app/repositories/__init__.py
 
 Phase 5 (Arch#2.1): Typed repository layer replacing the fragile

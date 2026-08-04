@@ -50,9 +50,7 @@ async def test_source_state_creation_rejects_an_import_outside_the_workspace():
     session = _session(_result())
     repository = RepositoryDomainRepository(session)
 
-    row = await repository.create_source_state(
-        uuid4(), uuid4(), SourceStateCreate(revision_sha="abc123")
-    )
+    row = await repository.create_source_state(uuid4(), uuid4(), SourceStateCreate(revision_sha="abc123"))
 
     assert row is None
     session.add.assert_not_called()
@@ -78,9 +76,7 @@ async def test_materialization_creation_requires_a_run_for_the_same_workspace_im
     repository = RepositoryDomainRepository(session)
     workspace_id, import_id = uuid4(), uuid4()
     repository._owns_import = AsyncMock(return_value=True)
-    repository.get_index_run = AsyncMock(
-        return_value=MagicMock(desired_state_id=uuid4(), status="complete")
-    )
+    repository.get_index_run = AsyncMock(return_value=MagicMock(desired_state_id=uuid4(), status="complete"))
     repository.get_desired_state = AsyncMock(return_value=MagicMock(import_id=uuid4()))
 
     row = await repository.create_materialization(
@@ -99,9 +95,7 @@ async def test_materialization_creation_rejects_a_non_complete_run():
     repository = RepositoryDomainRepository(session)
     workspace_id, import_id = uuid4(), uuid4()
     repository._owns_import = AsyncMock(return_value=True)
-    repository.get_index_run = AsyncMock(
-        return_value=MagicMock(desired_state_id=uuid4(), status="failed")
-    )
+    repository.get_index_run = AsyncMock(return_value=MagicMock(desired_state_id=uuid4(), status="failed"))
     repository.get_desired_state = AsyncMock()
 
     row = await repository.create_materialization(
@@ -153,5 +147,3 @@ def test_structural_symbol_schema_requires_an_ordered_location_range():
             location_start=10,
             location_end=9,
         )
-
-

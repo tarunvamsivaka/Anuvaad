@@ -259,3 +259,112 @@ describe("checkProStatus logic", () => {
     expect(result).toBe(false);
   });
 });
+
+// ── SSE Stream Parsing & TextDecoder Flushing ──────────────────────────────
+
+describe("SSE stream buffer parsing logic", () => {
+  it("flushes TextDecoder and processes multi-line data payloads on stream completion", () => {
+    const decoder = new TextDecoder("utf-8");
+    let streamBuffer = "";
+    const parsedChunks: string[] = [];
+
+    const processSSELine = (line: string) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine.startsWith("data: ")) return;
+      try {
+        const data = JSON.parse(trimmedLine.slice(6));
+        if (data.chunk) {
+          parsedChunks.push(data.chunk);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    // Simulate stream reading
+    const chunk1 = new TextEncoder().encode('data: {"chunk": "Hello "}\ndata: {"chunk": "World"}\n');
+    streamBuffer += decoder.decode(chunk1, { stream: true });
+    
+    const lines = streamBuffer.split("\n");
+    streamBuffer = lines.pop() ?? "";
+    for (const line of lines) {
+      processSSELine(line);
+    }
+
+    // Stream ends (done = true)
+    streamBuffer += decoder.decode(new Uint8Array(), { stream: false });
+    if (streamBuffer.length > 0) {
+      const remainingLines = streamBuffer.split("\n");
+      for (const line of remainingLines) {
+        processSSELine(line);
+      }
+    }
+
+    expect(parsedChunks).toEqual(["Hello ", "World"]);
+  });
+});
+
+// ── SSE Watchdog & Inactivity Timeout ──────────────────────────────────────────
+
+describe("SSE Watchdog and Inactivity Timeout logic", () => {
+  it("triggers timeout abort when watchdog timer expires after 30s of inactivity", () => {
+    vi.useFakeTimers();
+    const abortController = new AbortController();
+    const abortSpy = vi.spyOn(abortController, "abort");
+
+    let watchdogTimer: NodeJS.Timeout | null = null;
+    const resetWatchdog = () => {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(() => {
+        abortController.abort(new Error("Stream timed out due to inactivity"));
+      }, 30000);
+    };
+
+    resetWatchdog();
+    expect(abortSpy).not.toHaveBeenCalled();
+
+    // Fast forward 29 seconds -> not called
+    vi.advanceTimersByTime(29000);
+    expect(abortSpy).not.toHaveBeenCalled();
+
+    // Fast forward past 30 seconds -> watchdog fires
+    vi.advanceTimersByTime(2000);
+    expect(abortSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: "Stream timed out due to inactivity",
+      })
+    );
+
+    vi.useRealTimers();
+  });
+
+  it("resets watchdog timer on receiving chunk activity", () => {
+    vi.useFakeTimers();
+    const abortController = new AbortController();
+    const abortSpy = vi.spyOn(abortController, "abort");
+
+    let watchdogTimer: NodeJS.Timeout | null = null;
+    const resetWatchdog = () => {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(() => {
+        abortController.abort(new Error("Stream timed out due to inactivity"));
+      }, 30000);
+    };
+
+    resetWatchdog();
+    vi.advanceTimersByTime(20000); // 20s elapsed
+
+    // Received a new chunk!
+    resetWatchdog();
+    vi.advanceTimersByTime(20000); // Another 20s (total 40s), but watchdog reset at 20s
+
+    expect(abortSpy).not.toHaveBeenCalled(); // Still active!
+
+    vi.advanceTimersByTime(11000); // Exceeds 30s from reset
+    expect(abortSpy).toHaveBeenCalled();
+
+    vi.useRealTimers();
+  });
+});
+
+

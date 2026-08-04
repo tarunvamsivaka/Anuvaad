@@ -77,9 +77,7 @@ class TestAIErrorHandling:
     """Verify graceful handling of AI API failures."""
 
     def test_invalid_json_returns_500(self, client_ai_error):
-        res = client_ai_error.post(
-            "/api/code-to-english", json={"raw_code": "x = 999", "language": "python"}
-        )
+        res = client_ai_error.post("/api/code-to-english", json={"raw_code": "x = 999", "language": "python"})
         assert res.status_code == 200
         assert "detail" in res.json()
 
@@ -103,9 +101,7 @@ class TestAIErrorHandling:
         assert res.status_code == 500
 
     def test_empty_blocks_returns_500(self, client_empty_blocks):
-        res = client_empty_blocks.post(
-            "/api/code-to-english", json={"raw_code": "x = 998", "language": "python"}
-        )
+        res = client_empty_blocks.post("/api/code-to-english", json={"raw_code": "x = 998", "language": "python"})
         assert res.status_code == 200
         assert "detail" in res.json()
 
@@ -165,9 +161,7 @@ class TestWorkspaceAuthGating:
         assert res.status_code in (401, 422)
 
     def test_invite_requires_auth(self, client_no_auth):
-        res = client_no_auth.post(
-            "/api/workspaces/some-id/invite", json={"email": "user@test.com"}
-        )
+        res = client_no_auth.post("/api/workspaces/some-id/invite", json={"email": "user@test.com"})
         assert res.status_code in (401, 422)
 
 
@@ -192,9 +186,7 @@ class TestWorkspaceValidation:
         assert res.status_code == 422
 
     def test_invite_empty_email_rejected(self, client_with_auth):
-        res = client_with_auth.post(
-            "/api/workspaces/test-id/invite", json={"email": "ab"}
-        )
+        res = client_with_auth.post("/api/workspaces/test-id/invite", json={"email": "ab"})
         assert res.status_code == 422
 
     def test_invite_missing_email(self, client_with_auth):
@@ -223,15 +215,11 @@ class TestPydanticModels:
         assert res.status_code == 200
 
     def test_code_payload_null_code(self, client):
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": None, "language": "python"}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": None, "language": "python"})
         assert res.status_code == 422
 
     def test_code_payload_integer_code(self, client):
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": 12345, "language": "python"}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": 12345, "language": "python"})
         # Pydantic should coerce int to str or reject
         assert res.status_code in (200, 422)
 
@@ -241,9 +229,7 @@ class TestPydanticModels:
         assert res.status_code == 422
 
     def test_generate_null_prompt(self, client):
-        res = client.post(
-            "/api/generate-from-english", json={"prompt": None, "language": "python"}
-        )
+        res = client.post("/api/generate-from-english", json={"prompt": None, "language": "python"})
         assert res.status_code == 422
 
     # -- EnglishUpdatePayload --
@@ -399,9 +385,7 @@ class TestNormalizationExtended:
         for key in alt_keys:
             raw = [{"code_snippet": "x", key: f"via_{key}"}]
             result = normalize_blocks(raw)
-            assert result[0]["english_translation"] == f"via_{key}", (
-                f"Failed for key: {key}"
-            )
+            assert result[0]["english_translation"] == f"via_{key}", f"Failed for key: {key}"
 
     def test_all_alternative_code_field_names(self):
         from main import normalize_blocks
@@ -414,19 +398,14 @@ class TestNormalizationExtended:
     def test_all_alternative_id_field_names(self):
         from main import normalize_blocks
 
-        raw = [
-            {"block_id": "custom_id", "code_snippet": "x", "english_translation": "d"}
-        ]
+        raw = [{"block_id": "custom_id", "code_snippet": "x", "english_translation": "d"}]
         result = normalize_blocks(raw)
         assert result[0]["id"] == "custom_id"
 
     def test_large_list_of_blocks(self):
         from main import normalize_blocks
 
-        raw = [
-            {"code_snippet": f"line_{i}", "english_translation": f"desc_{i}"}
-            for i in range(100)
-        ]
+        raw = [{"code_snippet": f"line_{i}", "english_translation": f"desc_{i}"} for i in range(100)]
         result = normalize_blocks(raw)
         assert len(result) == 100
 
@@ -502,9 +481,7 @@ class TestRateLimitingExtended:
     """Extended rate limiting scenarios."""
 
     def test_rate_limit_response_includes_max_info(self, client_rate_limited):
-        res = client_rate_limited.post(
-            "/api/code-to-english", json={"raw_code": "x=1", "language": "python"}
-        )
+        res = client_rate_limited.post("/api/code-to-english", json={"raw_code": "x=1", "language": "python"})
         assert res.status_code == 429
         detail = res.json()["detail"]
         assert "15" in detail  # RATE_LIMIT_MAX
@@ -698,13 +675,9 @@ class TestHTTPMethodValidation:
 class TestSupportedLanguages:
     """Verify all 7 supported languages work for translation."""
 
-    @pytest.mark.parametrize(
-        "lang", ["python", "javascript", "java", "cpp", "typescript", "go", "rust"]
-    )
+    @pytest.mark.parametrize("lang", ["python", "javascript", "java", "cpp", "typescript", "go", "rust"])
     def test_all_languages_accepted(self, client, lang):
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": "x = 1", "language": lang}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": "x = 1", "language": lang})
         assert res.status_code == 200
 
     @pytest.mark.parametrize(
@@ -733,15 +706,11 @@ class TestBoundaryValues:
     """Test boundary values for all field constraints."""
 
     def test_code_at_min_length(self, client):
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": "x", "language": "p"}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": "x", "language": "p"})
         assert res.status_code == 200
 
     def test_language_at_max_length(self, client):
-        res = client.post(
-            "/api/code-to-english", json={"raw_code": "x=1", "language": "a" * 30}
-        )
+        res = client.post("/api/code-to-english", json={"raw_code": "x=1", "language": "a" * 30})
         assert res.status_code == 200
 
     def test_prompt_at_max_length(self, client):

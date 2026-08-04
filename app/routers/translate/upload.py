@@ -29,6 +29,7 @@ from .dependencies import (
 
 router = APIRouter()
 
+
 @router.post("/upload-file")
 async def upload_file_translate(
     request: Request,
@@ -152,9 +153,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
     except Exception as e:
         logger.error(f"Upload translation failed: {str(e)}")
-        stale_result = await find_stale_translation(
-            email, raw_code, detected_language, mode, f"File Upload ({mode})"
-        )
+        stale_result = await find_stale_translation(email, raw_code, detected_language, mode, f"File Upload ({mode})")
         if stale_result:
             if email:
                 await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
@@ -175,6 +174,4 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
         if isinstance(e, HTTPException):
             raise e
-        raise HTTPException(
-            status_code=500, detail="Translation failed. Please try again."
-        )
+        raise HTTPException(status_code=500, detail="Translation failed. Please try again.")

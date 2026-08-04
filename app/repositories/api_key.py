@@ -8,6 +8,7 @@ that were previously scattered inside app/routers/history.py.
 FIX-27 (P2-06): New API keys are hashed with Argon2id (OWASP recommended).
 Existing SHA-256 keys are upgraded transparently on first successful use.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -22,6 +23,7 @@ from app.models.db_models import ApiKey
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
+
 def _sha256_hash(raw_key: str) -> str:
     return hashlib.sha256(raw_key.encode()).hexdigest()
 
@@ -29,10 +31,11 @@ def _sha256_hash(raw_key: str) -> str:
 def _argon2_hash(raw_key: str) -> str:
     """Hash an API key with Argon2id (OWASP-recommended KDF)."""
     from argon2 import PasswordHasher
+
     ph = PasswordHasher(
-        time_cost=2,          # iterations
-        memory_cost=65536,    # 64 MiB
-        parallelism=2,        # threads
+        time_cost=2,  # iterations
+        memory_cost=65536,  # 64 MiB
+        parallelism=2,  # threads
         hash_len=32,
         salt_len=16,
     )
@@ -43,6 +46,7 @@ def _argon2_verify(raw_key: str, stored_hash: str) -> bool:
     """Verify a raw key against an Argon2id hash."""
     from argon2 import PasswordHasher
     from argon2.exceptions import InvalidHashError, VerifyMismatchError
+
     ph = PasswordHasher()
     try:
         return ph.verify(stored_hash, raw_key)
@@ -60,9 +64,7 @@ async def get_by_hash(key_hash: str) -> dict | None:
     """
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(ApiKey).where(ApiKey.api_key_hash == key_hash)
-            )
+            result = await session.execute(select(ApiKey).where(ApiKey.api_key_hash == key_hash))
             row = result.scalars().first()
             if row is None:
                 return None
@@ -82,18 +84,14 @@ async def get_by_raw_key(raw_key: str) -> dict | None:
         try:
             # 1. Try SHA-256 fast path (legacy keys)
             sha_hash = _sha256_hash(raw_key)
-            result = await session.execute(
-                select(ApiKey).where(ApiKey.api_key_hash == sha_hash)
-            )
+            result = await session.execute(select(ApiKey).where(ApiKey.api_key_hash == sha_hash))
             row = result.scalars().first()
 
             if row:
                 # FIX-27: Upgrade SHA-256 hash to Argon2id transparently
                 new_hash = _argon2_hash(raw_key)
                 await session.execute(
-                    update(ApiKey)
-                    .where(ApiKey.id == row.id)
-                    .values(api_key_hash=new_hash, key_hash_algo="argon2id")
+                    update(ApiKey).where(ApiKey.id == row.id).values(api_key_hash=new_hash, key_hash_algo="argon2id")
                 )
                 await session.commit()
                 await session.refresh(row)
@@ -124,9 +122,7 @@ async def update_last_used(key_hash: str) -> None:
     async with AsyncSessionLocal() as session:
         try:
             await session.execute(
-                update(ApiKey)
-                .where(ApiKey.api_key_hash == key_hash)
-                .values(last_used_at=datetime.now(UTC))
+                update(ApiKey).where(ApiKey.api_key_hash == key_hash).values(last_used_at=datetime.now(UTC))
             )
             await session.commit()
         except Exception as e:
@@ -202,11 +198,7 @@ async def get_by_id(key_id: str, email: str) -> dict | None:
     """Return the API key row if it belongs to *email*, else None."""
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                select(ApiKey)
-                .where(ApiKey.id == key_id)
-                .where(ApiKey.user_email == email)
-            )
+            result = await session.execute(select(ApiKey).where(ApiKey.id == key_id).where(ApiKey.user_email == email))
             row = result.scalars().first()
             if row is None:
                 return None
@@ -220,11 +212,7 @@ async def delete_by_id(key_id: str, email: str) -> bool:
     """Delete the key owned by *email*. Returns True if a row was deleted."""
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                delete(ApiKey)
-                .where(ApiKey.id == key_id)
-                .where(ApiKey.user_email == email)
-            )
+            result = await session.execute(delete(ApiKey).where(ApiKey.id == key_id).where(ApiKey.user_email == email))
             await session.commit()
             return (result.rowcount or 0) > 0
         except Exception as e:
@@ -242,11 +230,7 @@ async def delete_all_for_user(email: str) -> int:
     """
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(
-                delete(ApiKey)
-                .where(ApiKey.user_email == email)
-                .returning(ApiKey.id)
-            )
+            result = await session.execute(delete(ApiKey).where(ApiKey.user_email == email).returning(ApiKey.id))
             deleted_rows = result.fetchall()
             await session.commit()
             return len(deleted_rows)
