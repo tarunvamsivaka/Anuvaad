@@ -24,8 +24,8 @@ interface OutputPanelProps {
   viewType: "editor" | "blocks" | "diff";
   setViewType: (type: "editor" | "blocks" | "diff") => void;
   handleCopyMarkdown: () => void;
-  handleCopyCode: () => void;
-  handleExportCode: () => void;
+  handleCopyCode?: () => void;
+  handleExportCode?: () => void;
   copied: boolean;
   handleDownloadJson: () => void;
   hasEdits: boolean;

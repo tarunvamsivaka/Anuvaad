@@ -20,8 +20,8 @@ interface ToolbarProps {
   setRepositoryName: (name: string) => void;
   filePath: string;
   setFilePath: (path: string) => void;
-  selectedModel: string;
-  onModelChange: (modelId: string) => void;
+  selectedModel?: string;
+  onModelChange?: (modelId: string) => void;
   onSwapContent?: () => void;
 }
 
@@ -36,8 +36,8 @@ export function Toolbar({
   setRepositoryName,
   filePath,
   setFilePath,
-  selectedModel,
-  onModelChange,
+  selectedModel = "groq-llama-3.3-70b",
+  onModelChange = () => {},
   onSwapContent,
 }: ToolbarProps) {
   const handleSwapLanguages = () => {
