@@ -22,7 +22,10 @@ import { useAuth } from "@/lib/auth-context";
 import { Code2, Zap, GitBranch, History, CheckCircle2, ChevronRight, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// API calls use relative /api/... paths so they are routed through the
+// Next.js proxy rewrite defined in next.config.ts (source: /api/:path* →
+// destination: NEXT_PUBLIC_API_URL/api/:path*). This avoids CORS issues
+// and keeps the backend URL server-side only.
 
 const STEPS = [
   {
@@ -174,7 +177,8 @@ export default function OnboardingPage() {
   const markOnboarded = async () => {
     if (!session?.access_token) return;
     try {
-      await fetch(`${API_BASE}/api/v1/onboarding/complete`, {
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      await fetch(`/api/v1/onboarding/complete`, {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

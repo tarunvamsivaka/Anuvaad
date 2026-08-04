@@ -85,7 +85,7 @@ export function useTranslationStream({
     });
 
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      // Use relative /api/... paths — routed through Next.js proxy (next.config.ts rewrites).
       let endpoint = "";
       let body: Record<string, string> = {};
       
@@ -123,7 +123,7 @@ export function useTranslationStream({
       // FIX-18 (P1-10): Create a fresh AbortController for each streaming request.
       abortControllerRef.current = new AbortController();
 
-      const res = await fetch(`${API}${endpoint}`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
@@ -240,12 +240,12 @@ export function useTranslationStream({
         // M-2: Debounce the three SWR revalidations into one batch after 500ms.
         // Gives the backend time to persist history before refetching, and
         // prevents three separate network calls / render cycles firing at once.
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        // Uses relative /api/... paths (Next.js proxy rewrite in next.config.ts).
         if (session?.access_token) {
           setTimeout(() => {
-            mutate([`${API_BASE}/api/stats`, session.access_token]);
-            mutate([`${API_BASE}/api/history?limit=5`, session.access_token]);
-            mutate([`${API_BASE}/api/check-credits`, session.access_token]);
+            mutate(['/api/stats', session.access_token]);
+            mutate(['/api/history?limit=5', session.access_token]);
+            mutate(['/api/check-credits', session.access_token]);
           }, 500);
         }
 

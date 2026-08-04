@@ -49,8 +49,7 @@ export function useTranslationSession({
     setRawError("");
     
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
       const payload: Record<string, any> = {
         blocks: outputBlocks.map(b => ({
           id: b.id,
@@ -76,7 +75,7 @@ export function useTranslationSession({
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
 
-      const res = await fetch(`${API}/api/sync-english-to-code`, {
+      const res = await fetch(`/api/sync-english-to-code`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -96,11 +95,11 @@ export function useTranslationSession({
           setModelUsed(data.model_used);
         }
 
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        // Use relative /api/... paths — routed through Next.js proxy (next.config.ts rewrites).
         if (session?.access_token) {
-          mutate([`${API_BASE}/api/stats`, session.access_token]);
-          mutate([`${API_BASE}/api/history?limit=5`, session.access_token]);
-          mutate([`${API_BASE}/api/check-credits`, session.access_token]);
+          mutate(['/api/stats', session.access_token]);
+          mutate(['/api/history?limit=5', session.access_token]);
+          mutate(['/api/check-credits', session.access_token]);
         }
 
         toast.success("Synchronized successfully! Code has been updated.");

@@ -9,6 +9,12 @@
 import type { Metadata } from "next";
 import SharedTranslationClient from "./ShareClient";
 
+// INTENTIONAL EXCEPTION: This is a Next.js Server Component (generateMetadata
+// runs on the Node.js server at SSR/ISR time, not in the browser). Next.js
+// proxy rewrites (next.config.ts) are client/edge rewrites and do NOT apply
+// to server-side fetch() calls. We must therefore call the backend directly
+// via API_URL (a server-only env var, not exposed to the client). The
+// interactive client portion (ShareClient.tsx) uses the proxy correctly.
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 async function fetchSharedItem(id: string): Promise<Record<string, unknown> | null> {

@@ -223,8 +223,8 @@ export function InputPanel({
                           onClick={async () => {
                             // Update fileList to the contents of this directory
                             try {
-                              const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-                              const res = await fetch(`${API}/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(dir.path)}`);
+                              // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+                              const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(dir.path)}`);
                               if (res.ok) {
                                 const data = await res.json();
                                 if (data.type === "directory") {

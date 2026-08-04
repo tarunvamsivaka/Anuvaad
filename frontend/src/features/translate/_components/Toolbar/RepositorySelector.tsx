@@ -39,7 +39,7 @@ export function RepositorySelector({
     });
 
   const { data: repos, error, isLoading } = useSWR(
-    open && session?.access_token ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/github/repos` : null,
+    open && session?.access_token ? '/api/v1/github/repos' : null,
     fetcher
   );
 
@@ -51,7 +51,8 @@ export function RepositorySelector({
   
   const handleConnect = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/oauth/github/login`);
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/v1/oauth/github/login`);
       const data = await res.json();
       window.location.href = data.auth_url;
     } catch (e) {

@@ -40,8 +40,9 @@ export default function SharedTranslationClient({ id }: { id: string }) {
   useEffect(() => {
     async function fetchShared() {
       try {
-        const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const res = await fetch(`${API}/api/v1/share/${id}`);
+        // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+        // Note: the sibling page.tsx (server component) uses API_URL directly for generateMetadata.
+        const res = await fetch(`/api/v1/share/${id}`);
         if (!res.ok) throw new Error("Item not found or is not public");
         const data = await res.json();
         setItem(data);

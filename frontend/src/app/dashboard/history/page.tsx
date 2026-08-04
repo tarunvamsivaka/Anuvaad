@@ -102,10 +102,10 @@ export default function HistoryPage() {
   const fetchHistory = async (cursor: string | null, append: boolean, signal: AbortSignal) => {
     if (!session?.access_token) return;
 
-    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    // Use relative /api/... paths — routed through Next.js proxy (next.config.ts rewrites).
     let url = activeWorkspace
-      ? `${API}/api/history?workspace_id=${activeWorkspace.id}&limit=20`
-      : `${API}/api/history?limit=20`;
+      ? `/api/history?workspace_id=${activeWorkspace.id}&limit=20`
+      : `/api/history?limit=20`;
     if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
 
     const res = await fetch(url, {
@@ -190,8 +190,8 @@ export default function HistoryPage() {
     const previousHistory = history;
     setHistory(prev => prev.filter(item => item.id !== id));
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/history/${id}`, {
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/history/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
@@ -213,8 +213,8 @@ export default function HistoryPage() {
     }
     
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/history/${id}/share`, {
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/history/${id}/share`, {
         method: "PATCH",
         headers: { 
           "Authorization": `Bearer ${session?.access_token}`,

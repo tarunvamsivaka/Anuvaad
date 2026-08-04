@@ -33,8 +33,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API}/api/workspaces`, {
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/workspaces`, {
         headers: {
           'Authorization': `Bearer ${session.session.access_token}`
         }

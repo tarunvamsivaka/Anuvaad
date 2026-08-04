@@ -19,6 +19,7 @@ FIX-ECC (2026-07): Supabase migrated project JWT signing from HS256 to ECC
     memory (TTL 1 h), and verifies locally from that point.
 This keeps near-zero-outbound-call performance while supporting the new keys.
 """
+
 import os
 import time
 from datetime import datetime, timezone
@@ -44,7 +45,7 @@ from app.repositories import subscription as subscription_repo
 # ---------------------------------------------------------------------------
 # JWKS cache — holds fetched public keys to avoid repeated HTTPS calls
 # ---------------------------------------------------------------------------
-_jwks_cache: dict[str, Any] = {}   # kid → public key object
+_jwks_cache: dict[str, Any] = {}  # kid → public key object
 _jwks_fetched_at: float = 0.0
 _JWKS_TTL = 3600.0  # re-fetch at most once per hour
 
@@ -94,6 +95,7 @@ def _peek_header(token: str) -> dict[str, str]:
     except Exception:
         return {}
 
+
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 security = HTTPBearer(auto_error=False)
@@ -102,6 +104,7 @@ security = HTTPBearer(auto_error=False)
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 async def _authenticate_jwt(token: str) -> str:
     """Verify a Supabase-issued JWT (HS256 or ES256/RS256) and return the email claim.
@@ -122,8 +125,7 @@ async def _authenticate_jwt(token: str) -> str:
             # ── Legacy HS256 path (fast, no outbound HTTP) ─────────────────
             if not SUPABASE_JWT_SECRET:
                 logger.warning(
-                    "SUPABASE_JWT_SECRET is not set — HS256 JWT verification disabled. "
-                    "Set this env var in production."
+                    "SUPABASE_JWT_SECRET is not set — HS256 JWT verification disabled. Set this env var in production."
                 )
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -208,6 +210,7 @@ async def _authenticate_api_key(raw_key: str) -> str:
 # ---------------------------------------------------------------------------
 # Public interface
 # ---------------------------------------------------------------------------
+
 
 async def get_user_email(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -303,26 +306,26 @@ async def is_token_pro(access_token: str | None) -> bool:
 def get_client_ip(request: Request) -> str:
     """Safely extract the originating client IP.
 
-    BUG#10 FIX: Naively trusting X-Forwarded-For allows IP spoofing.
-    We now only trust that header when the direct connection arrives from
-    a known proxy/load-balancer IP listed in TRUSTED_PROXIES env var.
+    On PaaS platforms (Render, Heroku, etc.) the container is never
+    reachable directly from the internet — every request arrives through
+    the platform's own edge proxy. Instead of an IP allowlist (which
+    Render doesn't publish), trust a fixed number of hops from the right
+    of X-Forwarded-For.
 
-    TRUSTED_PROXIES should list your load-balancer IPs, e.g.:
-    TRUSTED_PROXIES=10.0.0.1,10.0.0.2
+    TRUST_PROXY_HOPS=1 means "trust the last IP the platform's proxy
+    added." Default is 0 (trust nothing, use the raw socket IP) so this
+    is opt-in and safe by default.
 
-    If TRUSTED_PROXIES is not set, we fall through to the socket IP.
+    Set TRUST_PROXY_HOPS=1 in render.yaml (or your PaaS env config)
+    to correctly isolate per-user IPs for rate limiting and quota logic.
     """
-    trusted_proxies: frozenset[str] = frozenset(
-        ip.strip()
-        for ip in os.getenv("TRUSTED_PROXIES", "").split(",")
-        if ip.strip()
-    )
+    trust_hops = int(os.getenv("TRUST_PROXY_HOPS", "0"))
     direct_ip = request.client.host if request.client else "unknown"
-    if trusted_proxies and direct_ip in trusted_proxies:
+
+    if trust_hops > 0:
         x_forwarded_for = request.headers.get("x-forwarded-for", "")
         if x_forwarded_for:
-            # The rightmost IP before our proxy is the true client IP
-            # (the proxy appends its own IP last; the leftmost can be spoofed)
-            ips = [ip.strip() for ip in x_forwarded_for.split(",")]
-            return ips[-1] if ips else direct_ip
+            ips = [ip.strip() for ip in x_forwarded_for.split(",") if ip.strip()]
+            if len(ips) >= trust_hops:
+                return ips[-trust_hops]
     return direct_ip

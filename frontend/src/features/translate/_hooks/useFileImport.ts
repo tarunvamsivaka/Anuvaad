@@ -62,8 +62,8 @@ export function useFileImport({
     if (!gistUrl.trim()) return;
     setGistLoading(true);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}`);
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}`);
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
@@ -94,8 +94,8 @@ export function useFileImport({
     if (!gistUrl.trim()) return;
     setGistLoading(true);
     try {
-      const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${API}/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(path)}`);
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(path)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);

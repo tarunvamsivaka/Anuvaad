@@ -5,7 +5,10 @@ import Link from "next/link";
 import { ArrowRight, Play, Loader2 } from "lucide-react";
 import gsap from "gsap";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// API calls use relative /api/... paths so they are routed through the
+// Next.js proxy rewrite defined in next.config.ts (source: /api/:path* →
+// destination: NEXT_PUBLIC_API_URL/api/:path*). This avoids CORS issues
+// and keeps the backend URL server-side only.
 
 // Language tabs for the interactive demo
 const LANGUAGES = [
@@ -68,7 +71,8 @@ export function Hero() {
     setDemoState("loading");
     setEnglishText("");
     try {
-      const res = await fetch(`${API_BASE}/api/demo/translate`, {
+      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
+      const res = await fetch(`/api/demo/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: lang, mode: "code-to-english" }),
