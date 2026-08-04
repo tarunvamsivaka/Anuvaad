@@ -405,7 +405,7 @@ test.describe('Translation Workspace', () => {
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
     // Click the reset/clear button (aria-label="Clear")
     await page.locator('button[aria-label="Clear"]').click({ force: true });
-    await expect(page.locator('text=Workspace Empty')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=Workspace Ready')).toBeVisible({ timeout: 5000 });
   });
 
   test('Context & Settings panel toggles open/closed', async ({ page }) => {
