@@ -403,8 +403,8 @@ test.describe('Translation Workspace', () => {
     await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
     await page.click('button:has-text("Translate")', { force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
-    // Click the reset/clear button (rotate-ccw icon)
-    await page.locator('button').filter({ has: page.locator('.lucide-rotate-ccw') }).click({ force: true });
+    // Click the reset/clear button (aria-label="Clear")
+    await page.locator('button[aria-label="Clear"]').click({ force: true });
     await expect(page.locator('text=Workspace Empty')).toBeVisible({ timeout: 5000 });
   });
 
@@ -436,11 +436,8 @@ test.describe('Translation Workspace', () => {
   });
 
   test('"Copy as Markdown" copies to clipboard and shows feedback', async ({ page }) => {
-    await page.goto('/dashboard/translate');
-    await mockTranslateAPI(page);
-    
-    // Mock clipboard API since non-Chromium browsers do not support clipboard permissions in headless mode
-    await page.evaluate(() => {
+    // Mock clipboard API via addInitScript before navigation so it survives page loads
+    await page.addInitScript(() => {
       let clipboardData = '';
       Object.defineProperty(navigator, 'clipboard', {
         value: {
@@ -450,6 +447,9 @@ test.describe('Translation Workspace', () => {
         configurable: true,
       });
     });
+
+    await page.goto('/dashboard/translate');
+    await mockTranslateAPI(page);
 
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'b = 2');

@@ -121,14 +121,8 @@ test.describe('Authenticated Translation Flow', () => {
   });
 
   test('Copy button on an output block copies text to clipboard', async ({ page }) => {
-    // Navigate to translate page
-    await page.goto('/dashboard/translate');
-
-    // Mock the backend API
-    await mockTranslateAPI(page);
-    
-    // Mock clipboard API since non-Chromium browsers do not support clipboard permissions in headless mode
-    await page.evaluate(() => {
+    // Mock clipboard API via addInitScript before navigation so it survives page loads
+    await page.addInitScript(() => {
       let clipboardData = '';
       Object.defineProperty(navigator, 'clipboard', {
         value: {
@@ -138,6 +132,12 @@ test.describe('Authenticated Translation Flow', () => {
         configurable: true,
       });
     });
+
+    // Navigate to translate page
+    await page.goto('/dashboard/translate');
+
+    // Mock the backend API
+    await mockTranslateAPI(page);
     
     // Type code manually
     await page.click('button:has-text("Type Code Manually")');
