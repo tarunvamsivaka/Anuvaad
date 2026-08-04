@@ -2,6 +2,7 @@ import base64
 import os
 import re
 import secrets
+from datetime import timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -26,6 +27,9 @@ from app.core.config import (
     metrics,
 )
 from app.core.quota import get_today_usage_count
+from app.core.rate_limit import rate_limiter
+
+UTC = timezone.utc  # noqa: UP017 - datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 router = APIRouter(prefix="", tags=["utility"])
 
@@ -176,6 +180,18 @@ async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
 
 @router.get("/health")
 async def health_check():
+    """
+    Health check endpoint for load-balancer probes.
+
+    Returns 200 if all critical services are reachable.
+    Returns 503 if any critical configuration is missing so that Render,
+    Kubernetes, and other health-monitoring tools can detect misconfigured
+    deployments before they receive user traffic.
+    """
+    import os
+
+    from fastapi.responses import JSONResponse
+
     redis_ok = False
     if cache.client:
         try:
@@ -184,32 +200,52 @@ async def health_check():
         except Exception:
             pass
 
-    jwt_ok = bool(SUPABASE_JWT_SECRET)
-    llm_ok = bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY)
+    llm_configured = bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY)
+    jwt_configured = bool(SUPABASE_JWT_SECRET)
+    supabase_configured = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 
-    # B-07: In production, return 503 Service Unavailable if critical configuration
-    # (SUPABASE_JWT_SECRET) is missing, so PaaS health checks (e.g., Render) fail
-    # natively and block traffic routing to misconfigured instances.
-    is_healthy = not (IS_PRODUCTION and not jwt_ok)
-    status_code = 200 if is_healthy else 503
+    # Check critical env vars required for basic operation
+    critical_missing = []
+    if not llm_configured:
+        critical_missing.append("GROQ_API_KEY or DEEPSEEK_API_KEY")
+    if not jwt_configured:
+        critical_missing.append("SUPABASE_JWT_SECRET")
+    if not supabase_configured:
+        critical_missing.append("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+
+    # Determine overall status
+    is_production = os.getenv("ENV", "development").lower() == "production"
+    if is_production and critical_missing:
+        status_str = "degraded"
+        http_status = 503
+    else:
+        status_str = "healthy"
+        http_status = 200
 
     payload = {
-        "status": "healthy" if is_healthy else "unhealthy",
+        "status": status_str,
         "service": "anuvaad-api",
-        "llm_configured": llm_ok,
+        "llm_configured": llm_configured,
         "razorpay_configured": bool(RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")),
         "redis_connected": redis_ok,
-        "supabase_configured": bool(SUPABASE_URL and SUPABASE_SERVICE_KEY),
+        "supabase_configured": supabase_configured,
         # JWT secret required for ALL authenticated API calls. If False,
         # every translation/history/workspace request will fail with 401.
         # Fix: set SUPABASE_JWT_SECRET in Render Dashboard → Environment.
-        "jwt_configured": jwt_ok,
+        "jwt_configured": jwt_configured,
     }
-    return JSONResponse(status_code=status_code, content=payload)
+    if critical_missing:
+        payload["critical_missing"] = critical_missing
+
+    return JSONResponse(content=payload, status_code=http_status)
 
 
-@router.get("/import-gist")
-async def import_gist(url: str, file_path: str | None = None):
+@router.get("/import-gist", dependencies=[Depends(rate_limiter(10, 60))])
+async def import_gist(
+    url: str,
+    file_path: str | None = None,
+    user_email: str = Depends(get_user_email),
+):
     """Fetch a public GitHub Gist, Raw file, Repository file, or Repository's default file and return its content."""
     clean_url = url.strip()
 
@@ -430,10 +466,6 @@ def _check_metrics_auth(request: Request) -> bool:
     try:
         decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
         username, password = decoded.split(":", 1)
-        # Use constant-time comparison to prevent timing side-channel attacks.
-        # Both compare_digest() calls must be evaluated unconditionally
-        # (assigned to variables first) — do NOT inline with 'and' as Python
-        # short-circuits, which reintroduces the timing leak.
         user_ok = secrets.compare_digest(username, METRICS_USERNAME)
         pass_ok = secrets.compare_digest(password, METRICS_PASSWORD)
         return user_ok and pass_ok
@@ -545,3 +577,24 @@ async def sentry_test():
     if IS_PRODUCTION:
         raise HTTPException(status_code=404, detail="Not found")
     raise ZeroDivisionError("Deliberate error for Sentry verification")
+
+
+@router.get("/system/telemetry")
+async def get_system_telemetry():
+    """Return real-time telemetry metrics for platform monitoring."""
+    from datetime import datetime
+
+    snap = await metrics.snapshot()
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "ai_providers": {
+            "groq_configured": bool(GROQ_API_KEY),
+            "deepseek_configured": bool(DEEPSEEK_API_KEY),
+        },
+        "cache": {
+            "type": "redis" if cache.client else "lru",
+            "redis_connected": bool(cache.client),
+        },
+        "telemetry": snap,
+    }

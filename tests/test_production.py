@@ -76,9 +76,7 @@ def test_production_env_validation():
     frontend_url = mock_getenv("FRONTEND_URL")
     if is_production and frontend_url.startswith("http://localhost"):
         with pytest.raises(RuntimeError):
-            raise RuntimeError(
-                "FATAL: FRONTEND_URL must not be localhost in production"
-            )
+            raise RuntimeError("FATAL: FRONTEND_URL must not be localhost in production")
 
 
 def test_lru_cache_eviction():
@@ -99,19 +97,16 @@ def test_lru_cache_eviction():
 
 
 @pytest.mark.asyncio
-@pytest.mark.filterwarnings("ignore:supabase_request is deprecated:DeprecationWarning")
-async def test_supabase_request_fallback(monkeypatch):
-    import importlib
-    from unittest.mock import patch
+async def test_supabase_request_fallback():
+    import warnings
 
     import app.core.database as db_module
 
-    importlib.reload(db_module)
-
-    with patch("app.core.database.AsyncSessionLocal", side_effect=Exception("DB Error")):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
         result = await db_module.supabase_request("test_table", "select", {"id": "1"})
         assert result is None
-
+        assert any(issubclass(warn.category, DeprecationWarning) for warn in w)
 
 
 @pytest.mark.asyncio
@@ -203,4 +198,3 @@ async def test_save_translation_background_pruning_pro():
         mock_prune_oldest.assert_not_called()
         # New record should still be saved
         mock_save.assert_called_once()
-

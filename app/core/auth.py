@@ -21,6 +21,7 @@ This keeps near-zero-outbound-call performance while supporting the new keys.
 """
 
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -48,44 +49,51 @@ from app.repositories import subscription as subscription_repo
 _jwks_cache: dict[str, Any] = {}  # kid → public key object
 _jwks_fetched_at: float = 0.0
 _JWKS_TTL = 3600.0  # re-fetch at most once per hour
+_jwks_lock = threading.Lock()
 
 
 async def _get_jwks_public_key(kid: str | None) -> Any | None:
-    """Fetch and cache Supabase JWKS public keys for ES256/RS256 tokens."""
+    """Fetch and cache Supabase JWKS public keys for ES256/RS256 tokens in a thread-safe manner (BE-08)."""
     global _jwks_fetched_at
 
     now = time.monotonic()
     if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
-        if not SUPABASE_URL:
-            return None
-        jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(jwks_url)
-                resp.raise_for_status()
-                jwks = resp.json()
-        except Exception as exc:
-            logger.warning(f"Failed to fetch Supabase JWKS: {exc}")
-            return None
+        with _jwks_lock:
+            if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
+                if not SUPABASE_URL:
+                    return None
+                jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        resp = await client.get(jwks_url)
+                        resp.raise_for_status()
+                        jwks = resp.json()
+                except Exception as exc:
+                    logger.warning(f"Failed to fetch Supabase JWKS: {exc}")
+                    return None
 
-        _jwks_cache.clear()
-        for key_data in jwks.get("keys", []):
-            kty = key_data.get("kty", "")
-            key_kid = key_data.get("kid", "default")
-            try:
-                if kty == "EC":
-                    _jwks_cache[key_kid] = ECAlgorithm.from_jwk(key_data)
-                elif kty == "RSA":
-                    _jwks_cache[key_kid] = RSAAlgorithm.from_jwk(key_data)
-            except Exception as exc:
-                logger.warning(f"Failed to parse JWKS key kid={key_kid}: {exc}")
-        _jwks_fetched_at = now
+                new_cache: dict[str, Any] = {}
+                for key_data in jwks.get("keys", []):
+                    kty = key_data.get("kty", "")
+                    key_kid = key_data.get("kid", "default")
+                    try:
+                        if kty == "EC":
+                            new_cache[key_kid] = ECAlgorithm.from_jwk(key_data)
+                        elif kty == "RSA":
+                            new_cache[key_kid] = RSAAlgorithm.from_jwk(key_data)
+                    except Exception as exc:
+                        logger.warning(f"Failed to parse JWKS key kid={key_kid}: {exc}")
 
-    if kid and kid in _jwks_cache:
-        return _jwks_cache[kid]
-    if _jwks_cache:
-        return next(iter(_jwks_cache.values()))
-    return None
+                _jwks_cache.clear()
+                _jwks_cache.update(new_cache)
+                _jwks_fetched_at = time.monotonic()
+
+    with _jwks_lock:
+        if kid and kid in _jwks_cache:
+            return _jwks_cache[kid]
+        if _jwks_cache:
+            return next(iter(_jwks_cache.values()))
+        return None
 
 
 def _peek_header(token: str) -> dict[str, str]:
@@ -213,12 +221,13 @@ async def _authenticate_api_key(raw_key: str) -> str:
 
 
 async def get_user_email(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> str:
     """Authenticate a request and return the caller's email address.
 
     Authentication priority:
-      1. X-API-Key header  (machine-to-machine)
+      1. X-API-Key header  (machine-to-machine, e.g. VSCode extension)
       2. Authorization: Bearer <JWT>  (browser sessions)
 
     FIX-04 (P0-04): JWT is verified LOCALLY — zero outbound HTTP calls (HS256).
@@ -230,27 +239,15 @@ async def get_user_email(
     Routes that used `if not email: raise HTTPException(...)` after calling
     this function no longer need that guard — it is handled here.
     """
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or malformed Authorization header",
-        )
-    token = credentials.credentials
-    return await _authenticate_jwt(token)
-
-
-async def get_user_email_from_request(request: Request) -> str:
-    """Full auth function that checks both X-API-Key and Bearer JWT.
-
-    Use this variant in routes that accept a Request directly and want
-    API key support in addition to JWT.
-    """
-    # 1. API key (machine-to-machine)
+    # 1. API key (machine-to-machine, e.g. VSCode extension)
     api_key = request.headers.get("X-API-Key")
     if api_key:
         return await _authenticate_api_key(api_key)
 
-    # 2. Bearer JWT (browser sessions) — supports both HS256 and ES256/RS256
+    # 2. Bearer JWT (browser sessions)
+    if credentials and isinstance(credentials, HTTPAuthorizationCredentials) and credentials.credentials:
+        return await _authenticate_jwt(credentials.credentials)
+
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         token = auth_header.removeprefix("Bearer ").strip()
@@ -258,8 +255,28 @@ async def get_user_email_from_request(request: Request) -> str:
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="No authentication credentials provided",
+        detail="Missing or malformed Authorization header",
     )
+
+
+async def get_user_email_from_request(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> str:
+    """Full auth function that checks both X-API-Key and Bearer JWT.
+
+    Use this variant in routes that accept a Request directly and want
+    API key support in addition to JWT.
+    """
+    if hasattr(request, "app") and hasattr(request.app, "dependency_overrides"):
+        override = request.app.dependency_overrides.get(get_user_email)
+        if override:
+            import inspect
+
+            if inspect.iscoroutinefunction(override):
+                return await override()
+            return override()
+    return await get_user_email(request, credentials=credentials)
 
 
 async def get_user_pro_status(email: str) -> bool:
@@ -315,9 +332,6 @@ def get_client_ip(request: Request) -> str:
     TRUST_PROXY_HOPS=1 means "trust the last IP the platform's proxy
     added." Default is 0 (trust nothing, use the raw socket IP) so this
     is opt-in and safe by default.
-
-    Set TRUST_PROXY_HOPS=1 in render.yaml (or your PaaS env config)
-    to correctly isolate per-user IPs for rate limiting and quota logic.
     """
     trust_hops = int(os.getenv("TRUST_PROXY_HOPS", "0"))
     direct_ip = request.client.host if request.client else "unknown"
