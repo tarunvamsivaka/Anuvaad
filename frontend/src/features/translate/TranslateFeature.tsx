@@ -103,6 +103,7 @@ export function TranslateFeature() {
   });
 
   const handleClear = () => {
+    setInput("");
     setOutputBlocks(null);
     setStreamText("");
     setRawError("");

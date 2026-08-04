@@ -150,15 +150,15 @@ test.describe('Authenticated Translation Flow', () => {
     await translateBtn.click({ force: true });
     
     // Wait for the copy button to appear
-    const copyBtn = page.locator('button', { has: page.locator('.lucide-copy') }).first();
+    const copyBtn = page.locator('button:has-text("Copy")').first();
     await expect(copyBtn).toBeVisible({ timeout: 15000 });
 
     // Click to copy
     await copyBtn.scrollIntoViewIfNeeded();
     await copyBtn.click({ force: true });
 
-    // Verify it changes to checkmark
-    await expect(page.locator('.lucide-check')).toBeVisible({ timeout: 2000 });
+    // Verify it changes to Copied text
+    await expect(page.locator('button:has-text("Copied")').first()).toBeVisible({ timeout: 2000 });
 
     // Check clipboard contents (using page.evaluate)
     const clipboardText = await page.evaluate(() => navigator.clipboard.readText());

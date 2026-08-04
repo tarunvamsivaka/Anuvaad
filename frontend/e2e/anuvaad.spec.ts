@@ -458,7 +458,7 @@ test.describe('Translation Workspace', () => {
     await expect(page.locator('button:has-text("Copy as Markdown")')).toBeVisible({ timeout: 10000 });
     await page.click('button:has-text("Copy as Markdown")');
     // Button should briefly change text to confirm copy
-    await expect(page.locator('button:has-text("Copied MD")')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('button:has-text("Copied")')).toBeVisible({ timeout: 3000 });
   });
 });
 
