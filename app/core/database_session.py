@@ -87,13 +87,13 @@ if not _is_sqlite:
         _engine_kwargs["pool_size"] = 1
         _engine_kwargs["max_overflow"] = 0
         _engine_kwargs["pool_timeout"] = 30.0
-        _engine_kwargs["pool_recycle"] = 1800
+        _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE", "300"))
     else:
         # Direct connection: let SQLAlchemy manage the pool
-        _engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "20"))
+        _engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "5"))
         _engine_kwargs["max_overflow"] = int(os.getenv("DB_MAX_OVERFLOW", "10"))
         _engine_kwargs["pool_timeout"] = float(os.getenv("DB_POOL_TIMEOUT", "30"))
-        _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE", "1800"))
+        _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE", "300"))
 
 engine = create_async_engine(_DB_URL, **_engine_kwargs)
 

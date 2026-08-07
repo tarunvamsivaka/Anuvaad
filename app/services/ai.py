@@ -21,7 +21,7 @@ from app.core.config import (
     logger,
     metrics,
 )
-from app.core.quota import record_successful_completion
+from app.core.quota import check_and_track_groq_limits, record_successful_completion
 from app.models.schemas import CodePayload, CodeToCodePayload
 from app.queue.tasks import save_translation_history_task
 
@@ -281,16 +281,19 @@ async def get_completion(
     mode: str,
     response_format: str = "json_object",
     use_r1: bool = False,
+    max_tokens: int = 1500,
 ) -> tuple[str, str]:
     """
     Router for Groq models.
     If use_r1=True, routes to deepseek-r1-distill-llama-70b via Groq.
-    Otherwise uses llama-3.3-70b-versatile.
+    Otherwise uses llama-3.3-70b-versatile with llama-3.1-8b-instant fallback.
     """
     groq_api_key = os.getenv("GROQ_API_KEY")
 
     if not groq_api_key:
         raise HTTPException(status_code=500, detail="Groq API key not configured")
+
+    await check_and_track_groq_limits(prompt, expected_output_tokens=max_tokens)
 
     groq_client = _get_groq_client()
 
@@ -300,9 +303,6 @@ async def get_completion(
             "model": "deepseek-r1-distill-llama-70b",
             "name": "Groq DeepSeek R1",
         }
-        # BUG#6 FIX: Real fallback diversity. Previously fallback = primary (same model, same quota).
-        # During Groq R1 outages, users would wait 2× timeout for the same failure.
-        # Now falls back to the standard Llama model which is on a separate rate-limit bucket.
         fallback = {
             "client": groq_client,
             "model": "llama-3.3-70b-versatile",
@@ -314,13 +314,10 @@ async def get_completion(
             "model": "llama-3.3-70b-versatile",
             "name": "Groq Llama 3.3",
         }
-        # BUG#6 FIX: Use smaller model with its own rate-limit pool as real fallback.
-        # llama3-8b-8192 has a separate token bucket on Groq, so it works even when
-        # the 70B model is rate-limited or temporarily unavailable.
         fallback = {
             "client": groq_client,
-            "model": "llama3-8b-8192",
-            "name": "Groq Llama3 8B (fallback)",
+            "model": "llama-3.1-8b-instant",
+            "name": "Groq Llama 3.1 8B (fallback)",
         }
 
     messages = [
@@ -328,7 +325,7 @@ async def get_completion(
         {"role": "user", "content": prompt},
     ]
 
-    kwargs = {}
+    kwargs = {"max_tokens": max_tokens}
     if response_format == "json_object" and not use_r1:
         kwargs["response_format"] = {"type": "json_object"}
 
@@ -354,7 +351,7 @@ async def get_completion(
     except Exception as e:
         await metrics.record_model_call(primary["model"], is_error=True)
         logger.warning(f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}")
-        fallback_kwargs = {}
+        fallback_kwargs = {"max_tokens": max_tokens}
         if response_format == "json_object":
             fallback_kwargs["response_format"] = {"type": "json_object"}
 
@@ -388,11 +385,10 @@ async def get_completion(
             logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
 
         # FIX-24 (P1-03): Third-level fallback — OpenRouter (external, different infra).
-        # Only attempted when BOTH Groq models fail to avoid paying for unnecessary calls.
         openrouter_client = _get_openrouter_client()
         if openrouter_client:
-            or_model = "meta-llama/llama-3.3-70b-instruct"  # Best Groq-equivalent on OpenRouter
-            or_kwargs = {}
+            or_model = "meta-llama/llama-3.3-70b-instruct"
+            or_kwargs = {"max_tokens": max_tokens}
             if response_format == "json_object":
                 or_kwargs["response_format"] = {"type": "json_object"}
             try:
@@ -419,6 +415,11 @@ async def get_completion(
             except Exception as or_e:
                 await metrics.record_model_call("openrouter-llama", is_error=True)
                 logger.error(f"OpenRouter fallback Error: {str(or_e)}")
+
+        stale_result = await find_stale_translation(None, prompt, "code", mode, mode)
+        if stale_result:
+            logger.info("get_completion fallback: returning stale recovery result")
+            return json.dumps({"blocks": stale_result}), "stale_recovery"
 
         raise HTTPException(
             status_code=500,
@@ -468,12 +469,13 @@ async def stream_code_to_english(
             return
 
         await metrics.record_cache_miss()
+        await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
         providers = []
         groq_client = _get_groq_client()
         if groq_client:
             primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama3-8b-8192"
+            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
             providers.append((groq_client, primary_model, "Groq Primary"))
             providers.append((groq_client, fallback_model, "Groq Backup"))
 
@@ -496,6 +498,8 @@ async def stream_code_to_english(
         for p_client, p_model, p_name in providers:
             try:
                 stream_kwargs = {"stream": True}
+                if tier != "pro":
+                    stream_kwargs["max_tokens"] = 1500
                 if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
                     stream_kwargs["response_format"] = {"type": "json_object"}
 
@@ -579,6 +583,8 @@ async def stream_code_to_english(
             )
 
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         logger.error(f"Streaming error: {str(e)}")
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
 
@@ -630,12 +636,13 @@ async def stream_code_to_code(
             return
 
         await metrics.record_cache_miss()
+        await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
         providers = []
         groq_client = _get_groq_client()
         if groq_client:
             primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama3-8b-8192"
+            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
             providers.append((groq_client, primary_model, "Groq Primary"))
             providers.append((groq_client, fallback_model, "Groq Backup"))
 
@@ -661,6 +668,8 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         for p_client, p_model, p_name in providers:
             try:
                 stream_kwargs = {"stream": True}
+                if tier != "pro":
+                    stream_kwargs["max_tokens"] = 1500
                 if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
                     stream_kwargs["response_format"] = {"type": "json_object"}
 
@@ -744,5 +753,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             )
 
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
         logger.error(f"Streaming error: {str(e)}")
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"

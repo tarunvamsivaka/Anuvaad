@@ -53,9 +53,15 @@ async def rate_limit_middleware(request: Request, call_next):
     current_count = await cache.incr_rate_limit(redis_key, RATE_LIMIT_WINDOW)
 
     if current_count > limit:
+        limit_type = "user_daily_limit" if token else "rpm_limit"
         return JSONResponse(
             status_code=429,
-            content={"detail": f"Rate limit exceeded. Max {limit} requests per {RATE_LIMIT_WINDOW}s."},
+            content={
+                "detail": f"Rate limit exceeded. Max {limit} requests per {RATE_LIMIT_WINDOW}s.",
+                "limit_type": limit_type,
+                "retry_after_seconds": RATE_LIMIT_WINDOW,
+                "tier_limit": limit,
+            },
             headers={
                 "X-RateLimit-Limit": str(limit),
                 "X-RateLimit-Remaining": "0",

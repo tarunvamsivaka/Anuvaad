@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID
 
 from app.core.quota import save_translation_background
@@ -10,12 +11,23 @@ logger = logging.getLogger("anuvaad")
 
 
 def run_async(coro):
-    """Helper to run async functions within synchronous Celery workers.
+    """Helper to run async functions within synchronous Celery workers or tests.
 
     Celery tasks run in non-main threads where asyncio.get_event_loop() is
-    deprecated (Python 3.10+) and raises RuntimeError in Python 3.12+. Always
-    create and close a fresh event loop per task invocation.
+    deprecated (Python 3.10+) and raises RuntimeError in Python 3.12+.
+    If called from a thread with an active event loop (e.g. pytest-asyncio),
+    delegates execution to a worker thread with its own loop to prevent
+    RuntimeError: Cannot run the event loop while another loop is running.
     """
+    try:
+        running_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        running_loop = None
+
+    if running_loop and running_loop.is_running():
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(lambda: asyncio.run(coro)).result()
+
     loop = asyncio.new_event_loop()
     try:
         return loop.run_until_complete(coro)
@@ -488,3 +500,28 @@ def prune_old_translation_history_scheduled():
         logger.info("Celery Beat: Daily history pruning complete")
 
     run_async(_prune())
+
+
+@celery_app.task(name="prune_database_footprint")
+def prune_database_footprint():
+    """Daily database footprint cleanup task.
+
+    Executes prune_anonymous_history(7) and prune_stale_vectors(30).
+    Scheduled by Celery Beat to run daily at 3am UTC.
+    """
+    logger.info("Celery Beat: Running daily database footprint cleanup")
+
+    from app.core.database_session import AsyncSessionLocal
+    from app.repositories.translation import prune_anonymous_history
+    from app.repositories.vectors import prune_stale_vectors
+
+    async def _prune():
+        async with AsyncSessionLocal() as session:
+            deleted_history = await prune_anonymous_history(session, 7)
+            deleted_vectors = await prune_stale_vectors(session, 30)
+            logger.info(
+                f"Celery Beat: Database footprint cleanup complete. Deleted {deleted_history} anonymous history records and {deleted_vectors} stale vector cache records."
+            )
+            return {"deleted_history": deleted_history, "deleted_vectors": deleted_vectors}
+
+    return run_async(_prune())

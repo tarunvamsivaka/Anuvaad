@@ -103,7 +103,7 @@ async def test_be_04_import_gist_auth_and_rate_limiting():
 def test_be_05_validate_production_env_docstring():
     """BE-05: Verify validate_production_env docstring matches implementation."""
     doc = validate_production_env.__doc__ or ""
-    assert "suppresses" in doc.lower() or "health check" in doc.lower() or "logs critical error" in doc.lower()
+    assert "fail fast" in doc.lower() or "required value" in doc.lower()
 
 
 def test_be_06_translation_history_orm_reconciliation():

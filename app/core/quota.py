@@ -1,11 +1,10 @@
-import asyncio
 import os
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, Request
 
-from app.core.auth import get_user_pro_status
+from app.core.auth import get_client_ip, get_user_pro_status
 from app.core.cache import cache
 from app.core.config import (
     ADMIN_EMAILS,
@@ -21,6 +20,67 @@ UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias 
 # ── History pruning limits (Arch#2.8: unified constants, no more conflicting values) ──
 HISTORY_LIMIT_PRO = int(os.getenv("HISTORY_LIMIT_PRO", "1000"))
 HISTORY_LIMIT_FREE = int(os.getenv("HISTORY_LIMIT_FREE", "100"))
+
+
+def raise_quota_429(
+    detail: str,
+    limit_type: str,
+    retry_after_seconds: int = 86400,
+    tier_limit: int = 5,
+):
+    """Raise a standardized HTTP 429 rate limit / quota exception."""
+    raise HTTPException(
+        status_code=429,
+        detail={
+            "detail": detail,
+            "limit_type": limit_type,
+            "retry_after_seconds": retry_after_seconds,
+            "tier_limit": tier_limit,
+        },
+        headers={"Retry-After": str(retry_after_seconds)},
+    )
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count for a text string using 4 chars per token heuristic."""
+    if not text:
+        return 0
+    return max(1, len(text) // 4)
+
+
+async def check_and_track_groq_limits(prompt_text: str, expected_output_tokens: int = 1500) -> None:
+    """Track and enforce Groq Free Tier TPM (100k) and RPM (6k) sliding window limits."""
+    now = datetime.now(UTC)
+    minute_str = now.strftime("%Y%m%d%H%M")
+
+    rpm_key = f"groq_rpm:{minute_str}"
+    tpm_key = f"groq_tpm:{minute_str}"
+
+    estimated_input = estimate_tokens(prompt_text)
+    total_estimated = estimated_input + expected_output_tokens
+
+    current_rpm = await cache.incr_rate_limit(rpm_key, window=120)
+    current_tpm = await cache.incr_rate_limit_by(tpm_key, amount=total_estimated, window=120)
+
+    max_rpm = int(os.getenv("GROQ_MAX_RPM", "6000"))
+    max_tpm = int(os.getenv("GROQ_MAX_TPM", "100000"))
+    seconds_remaining = max(1, 60 - now.second)
+
+    if current_rpm > max_rpm:
+        raise_quota_429(
+            detail=f"Groq API request limit reached ({max_rpm:,} RPM). Please try again shortly.",
+            limit_type="rpm_limit",
+            retry_after_seconds=seconds_remaining,
+            tier_limit=max_rpm,
+        )
+
+    if current_tpm > max_tpm:
+        raise_quota_429(
+            detail=f"Groq API token limit reached ({max_tpm:,} TPM). Please wait before submitting more code.",
+            limit_type="tpm_limit",
+            retry_after_seconds=seconds_remaining,
+            tier_limit=max_tpm,
+        )
 
 
 async def save_translation_background(
@@ -161,18 +221,7 @@ async def get_user_credits(email: str) -> int:
 
 
 async def deduct_credit(email: str) -> bool:
-    """Atomically deduct one translation credit from a user.
-
-    FIX-O (P4-01): Replaced TABLE_MODEL_MAP lookup with direct UserSubscription import.
-    BUG#1+#5 FIX: Replaced the old two-step read-then-write (TOCTOU race) with
-    a single atomic SQL UPDATE that uses a WHERE credits > 0 guard.
-
-    Uses SQLAlchemy column arithmetic so it emits:
-        UPDATE user_subscriptions
-        SET credits = credits - 1
-        WHERE user_email = :email AND credits > 0
-    Returns False (no credit deducted) if no rows were matched.
-    """
+    """Atomically deduct one translation credit from a user."""
     from sqlalchemy import update
 
     from app.core.database_session import AsyncSessionLocal
@@ -188,7 +237,6 @@ async def deduct_credit(email: str) -> bool:
             )
             result = await session.execute(stmt)
             await session.commit()
-            # rowcount > 0 means the WHERE matched (credits were > 0 and decremented)
             return (result.rowcount or 0) > 0
         except Exception as e:
             logger.error(f"deduct_credit failed for {email}: {e}")
@@ -197,10 +245,7 @@ async def deduct_credit(email: str) -> bool:
 
 
 async def get_lifetime_translations(email: str) -> int:
-    """Fetch the lifetime translation count for the user.
-
-    FIX-K: Changed from Supabase REST to ORM.
-    """
+    """Fetch the lifetime translation count for the user."""
     if not email:
         return 0
     ck = f"lifetime_translations:{email}"
@@ -262,14 +307,10 @@ async def get_active_protection_mode() -> str:
 
 
 async def get_user_limits_and_cooldown(email: str, is_pro: bool) -> tuple[int, int, int]:
-    """Returns (daily_limit, char_limit, cooldown_seconds) based on tier and protection mode.
-
-    Delegates the pure limit calculation to domain/quota/policy.py (QuotaPolicy),
-    which is the single source of truth.  No logic duplication.
-    """
+    """Returns (daily_limit, char_limit, cooldown_seconds) based on tier and protection mode."""
     mode = await get_active_protection_mode()
-    is_admin = email.lower() in ADMIN_EMAILS
-    policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, mode=mode)
+    is_admin = email.lower() in ADMIN_EMAILS if email else False
+    policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, is_guest=not bool(email), mode=mode)
     return policy.daily_limit, policy.char_limit, policy.cooldown
 
 
@@ -277,11 +318,7 @@ async def enforce_quotas_and_protection(
     request: Request, email: str | None, char_count: int
 ) -> tuple[bool, int, bool, int]:
     """
-    Enforces the sequential quota and protection checks.
-
-    H-1: Parallelizes independent DB calls with asyncio.gather.
-    M-7/Arch#4.3: Returns cooldown as 4th element so callers don't re-fetch.
-    Delegates limit computation to QuotaPolicy (single source of truth).
+    Enforces the sequential quota and protection checks for guest, free, and pro users.
 
     Returns: (is_pro, daily_limit, deduct_credit_flag, cooldown)
     """
@@ -291,19 +328,35 @@ async def enforce_quotas_and_protection(
             detail="Request payload exceeds absolute maximum size of 50,000 characters.",
         )
 
+    mode = await get_active_protection_mode()
+
+    # ── Guest rate limiting (5 translations/day per client IP) ──
     if not email:
-        raise HTTPException(
-            status_code=401,
-            detail="Authentication required. Anonymous users cannot access AI translation tools.",
-        )
+        client_ip = get_client_ip(request)
+        policy = compute_quota_policy(is_pro=False, is_admin=False, is_guest=True, mode=mode)
 
-    # H-1: Parallel I/O — pro status check and protection mode are independent
-    is_pro, mode = await asyncio.gather(
-        get_user_pro_status(email),
-        get_active_protection_mode(),
-    )
+        if policy.char_limit != -1 and char_count > policy.char_limit:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Input size ({char_count} chars) exceeds the guest limit of {policy.char_limit} chars.",
+            )
 
-    # Delegate pure limit computation to the domain policy object
+        today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        guest_key = f"guest_daily_usage:{client_ip}:{today_str}"
+        guest_usage = await cache.incr_rate_limit(guest_key, 86400)
+
+        if guest_usage > policy.daily_limit:
+            raise_quota_429(
+                detail=f"Daily translation limit reached for guest tier ({policy.daily_limit}/{policy.daily_limit}).",
+                limit_type="guest_daily_limit",
+                retry_after_seconds=86400,
+                tier_limit=policy.daily_limit,
+            )
+
+        return False, policy.daily_limit, False, policy.cooldown
+
+    # ── Signed-in User ──
+    is_pro = await get_user_pro_status(email)
     is_admin = email.lower() in ADMIN_EMAILS
     policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, mode=mode)
     daily_limit, char_limit, cooldown = policy.daily_limit, policy.char_limit, policy.cooldown
@@ -318,24 +371,25 @@ async def enforce_quotas_and_protection(
         cooldown_key = f"cooldown:{email}"
         cooldown_active = await cache.get(cooldown_key)
         if cooldown_active:
-            raise HTTPException(
-                status_code=429,
+            raise_quota_429(
                 detail=f"Please wait {cooldown} seconds between requests. Cooldown active.",
-                headers={"Retry-After": str(cooldown)},
+                limit_type="user_daily_limit",
+                retry_after_seconds=cooldown,
+                tier_limit=daily_limit,
             )
 
     deduct_credit_flag = False
-    # -1 means unlimited (FIX-R sentinel): skip daily limit check for pro/admin
     if not is_pro and not is_admin and daily_limit != -1:
         today_usage = await increment_today_usage_count(email)
         if today_usage > daily_limit:
             deduct_credit_flag = True
             credits = await get_user_credits(email)
             if credits <= 0:
-                raise HTTPException(
-                    status_code=429,
-                    detail=f"Daily translation limit reached ({daily_limit} translations/day). Upgrade to Pro for unlimited access.",
-                    headers={"Retry-After": "86400"},
+                raise_quota_429(
+                    detail=f"Daily translation limit reached for user tier ({daily_limit}/{daily_limit}). Upgrade to Pro for unlimited access.",
+                    limit_type="user_daily_limit",
+                    retry_after_seconds=86400,
+                    tier_limit=daily_limit,
                 )
 
     return is_pro, daily_limit, deduct_credit_flag, cooldown
@@ -346,23 +400,15 @@ async def enforce_workspace_quota(
     owner_email: str,
     is_pro: bool,
 ) -> None:
-    """FIX-21 (P2-02): Enforce workspace-level daily translation quota.
-
-    Workspace requests share the owner's daily quota bucket. A free-tier owner
-    cannot bypass their daily limit by routing through a workspace.
-
-    If the owner is Pro (unlimited), this check is skipped.
-    """
+    """Enforce workspace-level daily translation quota."""
     if is_pro:
-        return  # Pro workspaces have no daily limit
+        return
 
-    # Reuse user quota limits for workspace owner
     mode = await get_active_protection_mode()
     is_admin = owner_email.lower() in ADMIN_EMAILS
     policy = compute_quota_policy(is_pro=False, is_admin=is_admin, mode=mode)
     daily_limit = policy.daily_limit
 
-    # Count workspace-scoped translations today
     from app.repositories import translation as translation_repo
 
     today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -373,12 +419,11 @@ async def enforce_workspace_quota(
         since=today_start,
     )
     if workspace_today >= daily_limit:
-        raise HTTPException(
-            status_code=429,
-            detail=(
-                f"Workspace daily limit reached ({daily_limit} translations/day). "
-                "Upgrade the workspace owner to Pro for unlimited access."
-            ),
+        raise_quota_429(
+            detail=f"Workspace daily limit reached ({daily_limit} translations/day). Upgrade the workspace owner to Pro for unlimited access.",
+            limit_type="user_daily_limit",
+            retry_after_seconds=86400,
+            tier_limit=daily_limit,
         )
 
 
@@ -386,16 +431,11 @@ async def check_free_tier_limit(email: str | None, is_pro: bool, request: Reques
     await enforce_quotas_and_protection(request, email, 0)
 
 
-async def record_successful_completion(email: str, is_pro: bool, deduct_credit_flag: bool, cooldown: int = 0):
-    """Record a successful translation completion.
-
-    M-7/Arch#4.3: Accepts cooldown as parameter (passed from enforce_quotas_and_protection)
-    instead of calling get_user_limits_and_cooldown again (eliminated one redundant DB call).
-    """
+async def record_successful_completion(email: str | None, is_pro: bool, deduct_credit_flag: bool, cooldown: int = 0):
+    """Record a successful translation completion."""
+    await increment_platform_daily_usage()
     if not email:
         return
-
-    await increment_platform_daily_usage()
 
     if deduct_credit_flag:
         await deduct_credit(email)

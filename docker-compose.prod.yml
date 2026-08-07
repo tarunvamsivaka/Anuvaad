@@ -140,6 +140,12 @@ services:
   frontend:
     image: ghcr.io/placeholder-overridden-by-deploy-script-frontend:latest
     container_name: anuvaad-frontend-prod
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     environment:
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-https://api.getanuvaad.com}
     depends_on:

@@ -39,6 +39,7 @@ celery_app.conf.update(
         "tasks.send_transactional_email": {"queue": "default"},
         "tasks.process_billing_webhook": {"queue": "default"},
         "tasks.prune_translation_history": {"queue": "default"},
+        "prune_database_footprint": {"queue": "default"},
         # ── Heavy tasks → heavy queue ──
         "tasks.process_large_file": {"queue": "heavy"},
         "tasks.process_github_repo": {"queue": "heavy"},
@@ -62,5 +63,9 @@ celery_app.conf.beat_schedule = {
     "prune-translation-history": {
         "task": "prune_old_translation_history",
         "schedule": crontab(hour=2, minute=0),  # 2am UTC daily
+    },
+    "prune-database-footprint": {
+        "task": "prune_database_footprint",
+        "schedule": crontab(hour=3, minute=0),  # 3am UTC daily
     },
 }

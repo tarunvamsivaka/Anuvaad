@@ -344,3 +344,34 @@ class TestGetClientIp:
         with patch.dict(os.environ, {"TRUST_PROXY_HOPS": "1"}):
             ip = get_client_ip(request)
             assert ip == "198.51.100.22"
+
+
+class TestRateLimiterDependency:
+    """Test rate_limiter dependency factory with get_client_ip integration."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limiter_uses_proxy_ip_and_enforces_limit(self):
+        from fastapi import HTTPException
+        from starlette.requests import Request
+
+        from app.core.cache import cache
+        from app.core.rate_limit import rate_limiter
+
+        scope = {
+            "type": "http",
+            "path": "/api/v1/code-to-english",
+            "client": ("10.0.0.1", 12345),
+            "headers": [(b"x-forwarded-for", b"203.0.113.100")],
+        }
+        request = Request(scope)
+
+        limiter = rate_limiter(calls=2, window=60)
+        with patch.dict(os.environ, {"TRUST_PROXY_HOPS": "1"}):
+            with patch.object(cache, "incr_rate_limit", side_effect=[1, 2, 3]):
+                # First two calls succeed
+                await limiter(request)
+                await limiter(request)
+                # Third call raises 429
+                with pytest.raises(HTTPException) as exc:
+                    await limiter(request)
+                assert exc.value.status_code == 429

@@ -7,16 +7,13 @@ Responsibilities (and ONLY these):
   3. Register middleware via app.api.middleware.register_all()
   4. Initialize Sentry
   5. Mount all routers
-  6. Register the global exception handler
-
-All middleware logic lives in app/api/middleware/.
-All configuration lives in app/core/config.py.
+  6. Register global exception handlers
 """
 
 from contextlib import asynccontextmanager
 
 import sentry_sdk
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -64,9 +61,9 @@ _CRITICAL_VARS: list[tuple[str, str]] = [
 def validate_production_env() -> None:
     """Validate that all critical environment variables are present.
 
-    In production (ENV=production): logs critical error details but suppresses
-    exceptions so container deployments (e.g. Render health checks) can start
-    and report health status rather than failing with a hard crashloop.
+    In production (ENV=production): fail fast before accepting traffic when a
+    required value is missing.  A process with incomplete configuration must
+    never become a healthy-looking, partially functional deployment.
 
     In development / test: logs a WARNING per missing var (no hard stop).
     """
@@ -77,23 +74,11 @@ def validate_production_env() -> None:
 
     msg = f"Missing critical environment variables: {', '.join(missing)}"
     if ENV == "production":
-        import sys
-
         logger.critical(
             f"CRITICAL STARTUP FAILURE: {msg}. "
-            "Please configure these environment variables in your Render Dashboard settings."
+            "Set them in the deployment secret store before restarting the application."
         )
-        # Force flushing of stdout/stderr so buffered logs are immediately visible in Render
-        sys.stdout.flush()
-        sys.stderr.flush()
-        logger.critical(
-            f"{msg}. "
-            "Set these in your server .env file (or Render Dashboard) before starting the application. "
-            "See .env.example for documentation."
-        )
-        # Note: We do not raise an Exception here so that Render deployments can succeed
-        # and turn green, allowing the health-check to pass. However, any DB-dependent
-        # routes will 500 until the variables are provided.
+        raise RuntimeError(msg)
     else:
         for name in missing:
             logger.warning(
@@ -135,7 +120,18 @@ else:
     logger.info("Sentry not configured")
 
 
-# ── Global Exception Handler ──
+# ── Global Exception Handlers ──
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    headers = exc.headers or {}
+    if exc.status_code == 429 and isinstance(exc.detail, dict):
+        if "retry_after_seconds" in exc.detail:
+            headers = dict(headers)
+            headers["Retry-After"] = str(exc.detail["retry_after_seconds"])
+        return JSONResponse(status_code=429, content=exc.detail, headers=headers)
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=headers)
 
 
 @app.exception_handler(Exception)
@@ -183,8 +179,5 @@ app.include_router(demo_router, prefix="/api")
 logger.info("Anuvaad API Initialized")
 
 # ── Backward-compatible re-exports ──
-# Some tests import from app.main directly (e.g. `app_main_module.IS_PRODUCTION`).
-# These re-exports keep those tests working after the refactor moved these symbols
-# to their canonical homes.
 from app.api.middleware.csrf import _allowed_origins_set  # noqa: F401, E402
 from app.core.config import IS_PRODUCTION  # noqa: F401, E402

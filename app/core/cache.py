@@ -174,7 +174,10 @@ class RedisCache:
                 pipe = self.client.pipeline()
                 pipe.incr(key)
                 pipe.expire(key, window)
-                results = await pipe.execute()
+                if hasattr(pipe, "exec"):
+                    results = await pipe.exec()
+                else:
+                    results = await pipe.execute()
                 return int(results[0])
             except Exception as e:
                 logger.error(f"Redis incr error: {e}")
@@ -182,6 +185,25 @@ class RedisCache:
         # Returning None would cause TypeError in rate_limit_middleware (count > limit).
         val = self.fallback.get(key) or 0
         val += 1
+        self.fallback.set(key, val, window)
+        return val
+
+    async def incr_rate_limit_by(self, key: str, amount: int, window: int) -> int:
+        """Atomically increment a rate-limit counter by `amount` and set TTL via pipeline."""
+        if self.client:
+            try:
+                pipe = self.client.pipeline()
+                pipe.incrby(key, amount)
+                pipe.expire(key, window)
+                if hasattr(pipe, "exec"):
+                    results = await pipe.exec()
+                else:
+                    results = await pipe.execute()
+                return int(results[0])
+            except Exception as e:
+                logger.error(f"Redis incr_rate_limit_by error: {e}")
+        val = self.fallback.get(key) or 0
+        val += amount
         self.fallback.set(key, val, window)
         return val
 

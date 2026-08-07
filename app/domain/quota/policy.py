@@ -62,15 +62,17 @@ _PRO_MODE_OVERRIDES: dict[str, dict] = {
 
 def compute_quota_policy(
     *,
-    is_pro: bool,
-    is_admin: bool,
-    mode: str,
+    is_pro: bool = False,
+    is_admin: bool = False,
+    is_guest: bool = False,
+    mode: str = "NORMAL",
 ) -> QuotaPolicy:
     """Compute the applicable QuotaPolicy for a request.
 
     Args:
         is_pro:   Whether the user has an active Pro subscription.
         is_admin: Whether the user's email is in the ADMIN_EMAILS set.
+        is_guest: Whether the request is from an unauthenticated guest user.
         mode:     Current platform protection mode string
                   ("NORMAL" | "CAUTION" | "RESTRICTED" | "EMERGENCY").
 
@@ -99,9 +101,24 @@ def compute_quota_policy(
 
         return QuotaPolicy(daily_limit=daily_limit, char_limit=char_limit, cooldown=cooldown)
 
-    # ── Free tier ──
-    daily_limit = int(os.getenv("LIMIT_FREE_DAILY", "10"))
-    char_limit = int(os.getenv("LIMIT_FREE_CHARS", "10000"))
+    if is_guest:
+        daily_limit = int(os.getenv("LIMIT_GUEST_DAILY", "5"))
+        char_limit = int(os.getenv("LIMIT_GUEST_CHARS", "4000"))
+        cooldown = int(os.getenv("LIMIT_GUEST_COOLDOWN", "5"))
+
+        override = _FREE_MODE_OVERRIDES.get(mode)
+        if override:
+            daily_limit = max(1, int(daily_limit * override["daily_factor"]))
+            char_limit = max(100, int(char_limit * override["char_factor"]))
+            if "char_cap" in override:
+                char_limit = min(char_limit, override["char_cap"])
+            cooldown = override["cooldown"]
+
+        return QuotaPolicy(daily_limit=daily_limit, char_limit=char_limit, cooldown=cooldown)
+
+    # ── Free tier (signed-in) ──
+    daily_limit = int(os.getenv("LIMIT_FREE_DAILY", "25"))
+    char_limit = int(os.getenv("LIMIT_FREE_CHARS", "4000"))
     cooldown = int(os.getenv("LIMIT_FREE_COOLDOWN", "5"))
 
     override = _FREE_MODE_OVERRIDES.get(mode)

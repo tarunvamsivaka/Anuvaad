@@ -241,6 +241,12 @@ class MockRedisCache:
         self._rate_limits[key] = val
         return val
 
+    async def incr_rate_limit_by(self, key: str, amount: int = 1, window_seconds: int = 86400, window: int = 120) -> int:
+        val = self._rate_limits.get(key, 0)
+        val += amount
+        self._rate_limits[key] = val
+        return val
+
     async def ping(self):
         return True
 
@@ -574,6 +580,7 @@ def mock_celery_tasks():
         "prune_translation_history_task",
         "process_large_file_task",
         "process_github_repo_task",
+        "prune_database_footprint",
     ]
 
     active_patches = []

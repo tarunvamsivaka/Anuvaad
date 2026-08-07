@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO, logger
 from app.core.database_session import AsyncSessionLocal
@@ -145,8 +146,6 @@ async def get_count_since(email: str, workspace_id: str | None = None, since: da
         except Exception as e:
             logger.error(f"translation.get_count_since({email}): {e}")
             return 0
-            logger.error(f"translation.get_count_since({email}): {e}")
-            return 0
 
 
 async def save(
@@ -220,6 +219,55 @@ async def prune_oldest(email: str, is_pro: bool) -> None:
         except Exception as e:
             logger.error(f"translation.prune_oldest({email}): {e}")
             await session.rollback()
+
+
+async def prune_anonymous_history(session: AsyncSession | None = None, days: int = 7) -> int:
+    """Prune anonymous translation history records older than *days* days (default 7).
+
+    Prunes records where `user_email LIKE 'guest:%'`, `user_email == 'anonymous'`,
+    `user_email IS NULL`, or `user_id IS NULL` older than cutoff.
+    Returns the count of deleted rows.
+    """
+    from datetime import timedelta
+
+    from sqlalchemy import or_
+
+    if isinstance(session, int):
+        days = session
+        session = None
+
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+
+    async def _execute(s: AsyncSession) -> int:
+        conditions = [
+            TranslationHistory.user_email.like("guest:%"),
+            TranslationHistory.user_email == "anonymous",
+            TranslationHistory.user_email.is_(None),
+        ]
+        if hasattr(TranslationHistory, "user_id"):
+            conditions.append(
+                TranslationHistory.user_id.is_(None) & TranslationHistory.user_email.like("guest:%")
+            )
+
+        stmt = delete(TranslationHistory).where(
+            TranslationHistory.created_at < cutoff,
+            or_(*conditions),
+        )
+        result = await s.execute(stmt)
+        count = result.rowcount if result.rowcount is not None and result.rowcount >= 0 else 0
+        await s.commit()
+        return count
+
+    if session is not None:
+        return await _execute(session)
+    else:
+        async with AsyncSessionLocal() as s:
+            try:
+                return await _execute(s)
+            except Exception as e:
+                logger.error(f"translation.prune_anonymous_history({days}): {e}")
+                await s.rollback()
+                return 0
 
 
 # ── FIX-26 (P2-01): ORM replacements for remaining supabase_request() calls ──

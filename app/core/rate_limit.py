@@ -31,7 +31,12 @@ def rate_limiter(calls: int, window: int):
         if current_count > calls:
             raise HTTPException(
                 status_code=429,
-                detail=f"Rate limit exceeded for this endpoint. Max {calls} requests per {window}s.",
+                detail={
+                    "detail": f"Rate limit exceeded for this endpoint. Max {calls} requests per {window}s.",
+                    "limit_type": "rpm_limit",
+                    "retry_after_seconds": window,
+                    "tier_limit": calls,
+                },
                 headers={"Retry-After": str(window)},
             )
 

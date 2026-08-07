@@ -1,7 +1,8 @@
 name: Deploy to Production
 
-# FIX-15 (P2-07): CD pipeline — deploys to production on every push to master
-# after CI passes. Uses Docker image tagging by Git SHA for reproducible rollbacks.
+# FIX-15 (P2-07): CD pipeline — deploys only after the CI workflow for the
+# same master commit completes successfully. Uses Docker image tagging by Git
+# SHA for reproducible rollbacks.
 #
 # Required GitHub Secrets (Settings → Secrets and variables → Actions → Environment: production):
 #   PROD_HOST        — production server hostname/IP
@@ -19,14 +20,10 @@ name: Deploy to Production
 #   NEXT_PUBLIC_SUPABASE_ANON_KEY — Supabase public anon key (safe to bake into build)
 
 on:
-  push:
-    branches: [master]   # FIX: was 'main', repo default branch is 'master'
-  workflow_dispatch:
-    inputs:
-      image_tag:
-        description: 'Image tag to deploy (defaults to latest SHA)'
-        required: false
-        default: ''
+  workflow_run:
+    workflows: ["Anuvaad CI"]
+    types: [completed]
+    branches: [master]
 
 permissions:
   contents: read
@@ -36,12 +33,15 @@ jobs:
   # ── Build & Push Docker Images ──────────────────────────────────────────────
   build:
     name: Build & Push Images
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ steps.meta.outputs.sha_tag }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set lowercase repository name
         run: echo "REPO_LC=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
@@ -49,7 +49,7 @@ jobs:
       - name: Determine image tag
         id: meta
         run: |
-          SHA_TAG="${{ github.sha }}"
+          SHA_TAG="${{ github.event.workflow_run.head_sha }}"
           echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
           echo "Image tag: ${SHA_TAG}"
 
@@ -95,6 +95,7 @@ jobs:
   deploy:
     name: Deploy to Production
     needs: [build]
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -105,9 +106,25 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Validate production deployment configuration
+        id: config
+        env:
+          DEPLOY_HOST: ${{ secrets.PROD_HOST }}
+          DEPLOY_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+        run: |
+          if [ -z "$DEPLOY_HOST" ]; then
+            echo "::error title=Missing production configuration::Set the PROD_HOST secret in the production GitHub environment."
+            exit 1
+          fi
+          if [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "::error title=Missing production configuration::Set the PROD_SSH_KEY secret in the production GitHub environment."
+            exit 1
+          fi
 
       - name: Deploy via SSH
-        if: env.DEPLOY_HOST != ''
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_HOST }}
@@ -151,7 +168,7 @@ jobs:
             echo "==> Deployment complete: ${IMAGE_TAG}"
 
       - name: Rollback on failure
-        if: failure() && env.DEPLOY_HOST != ''
+        if: failure() && steps.config.outcome == 'success'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_HOST }}

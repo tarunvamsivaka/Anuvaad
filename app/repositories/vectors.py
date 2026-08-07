@@ -1,4 +1,5 @@
 import uuid
+from datetime import UTC
 from typing import Any
 
 import structlog
@@ -114,3 +115,62 @@ async def search_repo_embeddings(
     except Exception as e:
         logger.error(f"Search query failed for {repository_name}: {e}")
         return []
+
+
+async def prune_stale_vectors(
+    session: AsyncSession | int | None = None,
+    days: int = 30,
+    db: AsyncSession | None = None,
+) -> int:
+    """Prune LLMSemanticCache records older than *days* days (default 30).
+
+    Deletes LLMSemanticCache embedding rows whose created_at or last_accessed
+    timestamp is older than `days` days. Returns count of deleted rows.
+    """
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import delete, or_
+
+    from app.models.db_models import LLMSemanticCache
+
+    session_to_use: AsyncSession | None = None
+    days_val: int = days
+
+    if isinstance(session, AsyncSession):
+        session_to_use = session
+    elif isinstance(session, int):
+        days_val = session
+        session_to_use = db
+    elif db is not None:
+        session_to_use = db
+
+    cutoff = datetime.now(UTC) - timedelta(days=days_val)
+
+    async def _execute(s: AsyncSession) -> int:
+        conditions = [LLMSemanticCache.created_at < cutoff]
+        if hasattr(LLMSemanticCache, "last_accessed"):
+            conditions.append(LLMSemanticCache.last_accessed < cutoff)
+
+        stmt = delete(LLMSemanticCache).where(or_(*conditions))
+        result = await s.execute(stmt)
+        count = result.rowcount if result.rowcount is not None and result.rowcount >= 0 else 0
+        await s.commit()
+        return count
+
+    if session_to_use is not None:
+        try:
+            return await _execute(session_to_use)
+        except Exception as e:
+            logger.error(f"vectors.prune_stale_vectors({days_val}): {e}")
+            await session_to_use.rollback()
+            return 0
+    else:
+        from app.core.database_session import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as s:
+            try:
+                return await _execute(s)
+            except Exception as e:
+                logger.error(f"vectors.prune_stale_vectors({days_val}): {e}")
+                await s.rollback()
+                return 0

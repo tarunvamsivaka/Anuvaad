@@ -76,8 +76,9 @@ class ApiKey(Base):
 class TranslationHistory(Base):
     __tablename__ = "translation_history"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), nullable=True)
     workspace_id = Column(UUID(as_uuid=True), nullable=True)
-    user_email = Column(Text, nullable=False)
+    user_email = Column(Text, nullable=True)
     is_public = Column(Boolean, default=False)
     char_count = Column(Integer, default=0)
     block_count = Column(Integer, default=0)
@@ -135,6 +136,7 @@ class LLMSemanticCache(Base):
     embedding = Column(Vector(1536))  # Assuming 1536 dim embeddings (e.g. text-embedding-3-small)
     response = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    last_accessed = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(UTC))
 
 
 # New table for GitHub repo vector embeddings (Phase 4)

@@ -30,7 +30,7 @@
     "framer-motion": "^12.42.0",
     "gsap": "^3.15.0",
     "lucide-react": "^1.24.0",
-    "next": "^16.2.7",
+    "next": "^16.3.0",
     "next-themes": "^0.4.6",
     "posthog-js": "^1.372.8",
     "react": "19.2.4",
@@ -71,7 +71,11 @@
     "brace-expansion": "^2.0.1",
     "fast-uri": "^3.0.3",
     "body-parser": "^2.2.3",
-    "dompurify": "^3.4.12"
+    "dompurify": "^3.4.12",
+    "hono": "^4.12.34",
+    "ip-address": "^10.4.0",
+    "sharp": "^0.35.0",
+    "undici": "^7.29.0"
   },
   "_comments": {
     "overrides.serialize-javascript": "Security patch: forces all transitive dependents to use serialize-javascript >=7.0.5 which fixes CVE-2020-7660 (XSS via prototype pollution). This override should be periodically reviewed and removed once all direct dependencies have updated.",

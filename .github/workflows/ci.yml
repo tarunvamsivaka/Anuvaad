@@ -166,9 +166,7 @@ jobs:
         run: npx vitest run
 
       - name: Security audit (npm audit)
-        run: npm audit --audit-level=critical
-        # C-03: Audit level is set to critical temporarily while B-03 (21 HIGH npm CVEs)
-        # is being remediated in Batch B. Once npm audit fix is applied, lower to --audit-level=high.
+        run: npm audit --audit-level=high
 
       - name: Lint frontend
         run: npm run lint
@@ -290,4 +288,4 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Lint
-        run: npm run lint --if-present || true  # non-blocking until lint config is added
+        run: npm run lint --if-present
