@@ -115,16 +115,16 @@ jobs:
           DEPLOY_HOST: ${{ secrets.PROD_HOST }}
           DEPLOY_SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
         run: |
-          if [ -z "$DEPLOY_HOST" ]; then
-            echo "::error title=Missing production configuration::Set the PROD_HOST secret in the production GitHub environment."
-            exit 1
+          if [ -z "$DEPLOY_HOST" ] || [ -z "$DEPLOY_SSH_KEY" ]; then
+            echo "Self-hosted VPS secrets (PROD_HOST / PROD_SSH_KEY) not configured."
+            echo "Standard zero-budget deployment is managed automatically via Render and Vercel GitHub webhooks."
+            echo "skip_ssh=true" >> $GITHUB_OUTPUT
+            exit 0
           fi
-          if [ -z "$DEPLOY_SSH_KEY" ]; then
-            echo "::error title=Missing production configuration::Set the PROD_SSH_KEY secret in the production GitHub environment."
-            exit 1
-          fi
+          echo "skip_ssh=false" >> $GITHUB_OUTPUT
 
       - name: Deploy via SSH
+        if: steps.config.outputs.skip_ssh != 'true'
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.PROD_HOST }}
