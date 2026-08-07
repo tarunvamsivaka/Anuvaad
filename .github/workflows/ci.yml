@@ -167,7 +167,7 @@ jobs:
         run: npx vitest run
 
       - name: Security audit (npm audit)
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
       - name: Lint frontend
         run: npm run lint

@@ -28,10 +28,12 @@ from app.services.ai import get_completion
 
 results = []
 
+
 def record(test_name: str, passed: bool, details: str):
     status = "PASS" if passed else "FAIL"
     results.append({"test": test_name, "status": status, "details": details})
     print(f"[{status}] {test_name}: {details}")
+
 
 async def test_policy_defaults():
     print("\n--- Testing Quota Policy Defaults ---")
@@ -45,9 +47,14 @@ async def test_policy_defaults():
     with patch.dict(os.environ, {"LIMIT_FREE_DAILY": "25"}):
         p_free = compute_quota_policy(is_pro=False, is_admin=False, is_guest=False, mode="NORMAL")
         if p_free.daily_limit == 25 and p_free.char_limit == 4000:
-            record("Policy Free User Defaults", True, f"daily_limit={p_free.daily_limit}, char_limit={p_free.char_limit}")
+            record(
+                "Policy Free User Defaults", True, f"daily_limit={p_free.daily_limit}, char_limit={p_free.char_limit}"
+            )
         else:
-            record("Policy Free User Defaults", False, f"Expected 25/4000, got {p_free.daily_limit}/{p_free.char_limit}")
+            record(
+                "Policy Free User Defaults", False, f"Expected 25/4000, got {p_free.daily_limit}/{p_free.char_limit}"
+            )
+
 
 async def test_guest_rate_limiting_adversarial():
     print("\n--- Testing Guest Rate Limiting (5/day) & 429 Payload ---")
@@ -81,11 +88,18 @@ async def test_guest_rate_limiting_adversarial():
                 )
                 valid_headers = "Retry-After" in headers and headers["Retry-After"] == "86400"
                 if valid_detail and valid_headers:
-                    record("Guest 429 Structured Response Payload & Header", True, f"Payload={detail}, Headers={headers}")
+                    record(
+                        "Guest 429 Structured Response Payload & Header", True, f"Payload={detail}, Headers={headers}"
+                    )
                 else:
-                    record("Guest 429 Response Format", False, f"Invalid payload or headers: Payload={detail}, Headers={headers}")
+                    record(
+                        "Guest 429 Response Format",
+                        False,
+                        f"Invalid payload or headers: Payload={detail}, Headers={headers}",
+                    )
             else:
                 record("Guest Request #6 Status Code", False, f"Expected 429, got {exc.status_code}")
+
 
 async def test_free_user_rate_limiting_adversarial():
     print("\n--- Testing Free User Account Rate Limiting (25/day) & 429 Payload ---")
@@ -100,7 +114,9 @@ async def test_free_user_rate_limiting_adversarial():
             patch("app.core.quota.get_user_credits", new_callable=AsyncMock, return_value=0),
         ):
             try:
-                is_pro, daily_limit, deduct, cooldown = await enforce_quotas_and_protection(req, email="test_free@example.com", char_count=500)
+                is_pro, daily_limit, deduct, cooldown = await enforce_quotas_and_protection(
+                    req, email="test_free@example.com", char_count=500
+                )
                 record("Free User Request #25 (Within Limit)", True, f"Allowed. daily_limit={daily_limit}")
             except HTTPException as e:
                 record("Free User Request #25 (Within Limit)", False, f"Unexpected exception: {e}")
@@ -127,11 +143,20 @@ async def test_free_user_rate_limiting_adversarial():
                     )
                     valid_headers = "Retry-After" in headers and headers["Retry-After"] == "86400"
                     if valid_detail and valid_headers:
-                        record("Free User 429 Structured Response Payload & Header", True, f"Payload={detail}, Headers={headers}")
+                        record(
+                            "Free User 429 Structured Response Payload & Header",
+                            True,
+                            f"Payload={detail}, Headers={headers}",
+                        )
                     else:
-                        record("Free User 429 Response Format", False, f"Invalid payload or headers: Payload={detail}, Headers={headers}")
+                        record(
+                            "Free User 429 Response Format",
+                            False,
+                            f"Invalid payload or headers: Payload={detail}, Headers={headers}",
+                        )
                 else:
                     record("Free User Request #26 Status Code", False, f"Expected 429, got {exc.status_code}")
+
 
 async def test_groq_tpm_rpm_limits():
     print("\n--- Testing Groq TPM/RPM Rate Limits ---")
@@ -157,19 +182,24 @@ async def test_groq_tpm_rpm_limits():
                 else:
                     record("Groq RPM Structured 429 Payload", False, f"Got {exc.detail}")
 
+
 async def test_model_failover_adversarial():
     print("\n--- Testing Model Failover on Primary 429 Error ---")
     mock_primary_client = AsyncMock()
 
     mock_fallback_response = MagicMock()
     mock_fallback_response.choices = [
-        MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"x=1","english_translation":"Sets x to 1"}]}'))
+        MagicMock(
+            message=MagicMock(
+                content='{"blocks":[{"id":"b1","code_snippet":"x=1","english_translation":"Sets x to 1"}]}'
+            )
+        )
     ]
 
     # Primary call raises 429 RateLimitError, fallback call succeeds
     mock_primary_client.chat.completions.create.side_effect = [
         Exception("429 RateLimitError: Groq primary model rate limit reached"),
-        mock_fallback_response
+        mock_fallback_response,
     ]
 
     with (
@@ -185,12 +215,19 @@ async def test_model_failover_adversarial():
                 response_format="json_object",
                 use_r1=False,
             )
-            if "llama-3.1-8b-instant" in mock_primary_client.chat.completions.create.call_args_list[1].kwargs.get("model", ""):
+            if "llama-3.1-8b-instant" in mock_primary_client.chat.completions.create.call_args_list[1].kwargs.get(
+                "model", ""
+            ):
                 record("Model Failover to llama-3.1-8b-instant", True, f"Successfully fell back to model: {model_name}")
             else:
-                record("Model Failover to llama-3.1-8b-instant", False, f"Called different model: {mock_primary_client.chat.completions.create.call_args_list}")
+                record(
+                    "Model Failover to llama-3.1-8b-instant",
+                    False,
+                    f"Called different model: {mock_primary_client.chat.completions.create.call_args_list}",
+                )
         except Exception as exc:
             record("Model Failover to llama-3.1-8b-instant", False, f"Failover threw unhandled exception: {exc}")
+
 
 async def main():
     await test_policy_defaults()
@@ -208,6 +245,7 @@ async def main():
         for r in results:
             if r["status"] == "FAIL":
                 print(f"  - {r['test']}: {r['details']}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

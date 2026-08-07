@@ -245,9 +245,7 @@ async def prune_anonymous_history(session: AsyncSession | None = None, days: int
             TranslationHistory.user_email.is_(None),
         ]
         if hasattr(TranslationHistory, "user_id"):
-            conditions.append(
-                TranslationHistory.user_id.is_(None) & TranslationHistory.user_email.like("guest:%")
-            )
+            conditions.append(TranslationHistory.user_id.is_(None) & TranslationHistory.user_email.like("guest:%"))
 
         stmt = delete(TranslationHistory).where(
             TranslationHistory.created_at < cutoff,

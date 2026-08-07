@@ -63,7 +63,10 @@ class TestDBConnectionPoolDefaults:
     """Verify SQLAlchemy async engine defaults for Supabase free tier connection safety."""
 
     def test_connection_pool_default_values(self):
-        from app.core.database_session import _engine_kwargs
+        from app.core.database_session import _engine_kwargs, _is_sqlite
+
+        if _is_sqlite:
+            pytest.skip("SQLite runner does not configure connection pooling")
 
         # Verify defaults when DB_POOL_SIZE and DB_POOL_RECYCLE are not overridden
         assert _engine_kwargs.get("pool_size") == int(os.getenv("DB_POOL_SIZE", "5"))

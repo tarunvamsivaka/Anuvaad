@@ -151,7 +151,11 @@ class TestModelFailover:
 
         mock_fallback_response = MagicMock()
         mock_fallback_response.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"x=1","english_translation":"Sets x to 1"}]}'))
+            MagicMock(
+                message=MagicMock(
+                    content='{"blocks":[{"id":"b1","code_snippet":"x=1","english_translation":"Sets x to 1"}]}'
+                )
+            )
         ]
 
         mock_fallback_client = AsyncMock()

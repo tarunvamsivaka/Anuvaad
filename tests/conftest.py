@@ -241,7 +241,9 @@ class MockRedisCache:
         self._rate_limits[key] = val
         return val
 
-    async def incr_rate_limit_by(self, key: str, amount: int = 1, window_seconds: int = 86400, window: int = 120) -> int:
+    async def incr_rate_limit_by(
+        self, key: str, amount: int = 1, window_seconds: int = 86400, window: int = 120
+    ) -> int:
         val = self._rate_limits.get(key, 0)
         val += amount
         self._rate_limits[key] = val

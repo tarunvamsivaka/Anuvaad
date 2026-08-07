@@ -716,8 +716,9 @@ class TestBoundaryValues:
     def test_prompt_at_max_length(self, client):
         from unittest.mock import patch
 
-        with patch("app.core.auth.get_user_pro_status", return_value=True), patch(
-            "app.core.quota.get_user_pro_status", return_value=True
+        with (
+            patch("app.core.auth.get_user_pro_status", return_value=True),
+            patch("app.core.quota.get_user_pro_status", return_value=True),
         ):
             res = client.post(
                 "/api/generate-from-english",
