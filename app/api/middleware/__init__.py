@@ -43,4 +43,4 @@ def register_all(app: FastAPI) -> None:
     app.middleware("http")(api_deprecation_middleware)
 
 
-__all__ = ["register_all", "allowed_origins"]
+__all__ = ["allowed_origins", "register_all"]

@@ -100,7 +100,7 @@ async def function_generate_from_english(
 
         return result
     except Exception as e:
-        logger.error(f"Generate from English failed: {str(e)}")
+        logger.error(f"Generate from English failed: {e!s}")
         stale_result = await find_stale_translation(
             email,
             payload.prompt,
@@ -163,7 +163,7 @@ async def function_update_to_code(
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        logger.error(f"LLM API Error: {str(e)}")
+        logger.error(f"LLM API Error: {e!s}")
         raise HTTPException(status_code=500, detail="Code update failed. Please try again.")
 
 
@@ -238,7 +238,7 @@ async def function_sync_english_to_code(
             "model_used": model_used,
         }
     except Exception as e:
-        logger.error(f"Sync English to Code failed: {str(e)}")
+        logger.error(f"Sync English to Code failed: {e!s}")
         if isinstance(e, HTTPException):
             raise e
         raise HTTPException(status_code=500, detail="Synchronization failed. Please try again.")

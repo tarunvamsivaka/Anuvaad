@@ -164,7 +164,7 @@ class ApiKeyCreate(BaseModel):
 class CreditCheckoutPayload(BaseModel):
     """BACK-06: access_token removed — auth via Authorization header (Depends)."""
 
-    pass  # No fields needed; auth is header-only
+    # No fields needed; auth is header-only
 
 
 class VerifyPaymentPayload(BaseModel):

@@ -156,6 +156,6 @@ async def lifespan(app: FastAPI):
 # ── BACKWARD-COMPATIBLE RE-EXPORTS ──
 # All existing `from app.core.config import logger / get_http_client / metrics` still work.
 
-from app.core.http_client import get_http_client  # noqa: F401, E402
-from app.core.logging import get_logger, logger  # noqa: F401, E402
-from app.core.metrics import MetricsCollector, metrics  # noqa: F401, E402
+from app.core.http_client import get_http_client  # noqa: E402
+from app.core.logging import get_logger, logger  # noqa: E402
+from app.core.metrics import MetricsCollector, metrics  # noqa: E402

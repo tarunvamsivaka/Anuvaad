@@ -97,6 +97,9 @@ def test_lru_cache_eviction():
 
 
 @pytest.mark.asyncio
+@pytest.mark.filterwarnings(
+    "ignore::DeprecationWarning"
+)  # B-09: Legacy supabase_request() test — warning is intentionally verified inside the test body
 async def test_supabase_request_fallback():
     import warnings
 

@@ -8,13 +8,32 @@ Provides:
 - Auth-mocked clients for testing protected endpoints.
 """
 
-import json
-import os
-from unittest.mock import MagicMock, patch
+import warnings
 
-import httpx
-import pytest
-import razorpay
+# B-08: Starlette TestClient emits a deprecation warning when httpx is imported without
+# httpx2. httpx2 conflicts with httpcore at runtime so cannot be added to requirements.txt.
+# The warning originates from importlib.__init__ during the import chain — too early for
+# pytest.ini filterwarnings to intercept it — so we suppress it here before any imports.
+warnings.filterwarnings(
+    "ignore",
+    message="Using `httpx` with `starlette.testclient` is deprecated",
+    category=DeprecationWarning,
+)
+# B-10: razorpay uses pkg_resources (deprecated upstream). Suppress until Razorpay
+# releases a version that migrates off pkg_resources.
+warnings.filterwarnings(
+    "ignore",
+    message="pkg_resources is deprecated as an API",
+    category=UserWarning,
+)
+
+import json  # noqa: E402
+import os  # noqa: E402
+from unittest.mock import MagicMock, patch  # noqa: E402
+
+import httpx  # noqa: E402
+import pytest  # noqa: E402
+import razorpay  # noqa: E402
 
 _original_json = httpx.Response.json
 
@@ -115,16 +134,12 @@ class MockCompletions:
         fmt = kwargs.get("response_format", {})
         is_json = False
         model = kwargs.get("model", "")
-        if isinstance(fmt, dict) and fmt.get("type") == "json_object":
-            is_json = True
-        elif fmt == "json_object":
-            is_json = True
-        elif "deepseek" in model or "reasoner" in model:
+        if (isinstance(fmt, dict) and fmt.get("type") == "json_object") or fmt == "json_object" or "deepseek" in model or "reasoner" in model:
             is_json = True
 
         if self.mock_client.error_mode == "timeout":
-            raise TimeoutError()
-        elif self.mock_client.error_mode:
+            raise TimeoutError
+        if self.mock_client.error_mode:
             content = "this is not valid json {{{"
         elif self.mock_client.empty_mode:
             content = json.dumps([{"id": "b1", "code_snippet": "", "english_translation": ""}])
@@ -166,8 +181,7 @@ class MockCompletions:
                 yield MockChunk(content)
 
             return stream_generator()
-        else:
-            return MockResponse(content)
+        return MockResponse(content)
 
 
 class MockChat:
@@ -185,7 +199,6 @@ class MockAsyncOpenAI:
 
     async def close(self):
         """No-op close for test compatibility with lifespan teardown."""
-        pass
 
 
 class MockAsyncOpenAIError(MockAsyncOpenAI):
@@ -253,7 +266,7 @@ class MockRedisCache:
         return True
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     """
     Yield a TestClient whose LLM clients are monkey-patched via the
@@ -291,7 +304,7 @@ def client():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_rate_limited():
     import app.services.ai as ai_module
     import main as app_module
@@ -325,7 +338,7 @@ def client_rate_limited():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_multi_block():
     import app.services.ai as ai_module
     import main as app_module
@@ -358,7 +371,7 @@ def client_multi_block():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_ai_error():
     import app.services.ai as ai_module
     import main as app_module
@@ -391,7 +404,7 @@ def client_ai_error():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_empty_blocks():
     import app.services.ai as ai_module
     import main as app_module
@@ -424,7 +437,7 @@ def client_empty_blocks():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_no_redis():
     import app.services.ai as ai_module
     import main as app_module
@@ -458,7 +471,7 @@ def client_no_redis():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_with_auth():
     import app.services.ai as ai_module
     import main as app_module
@@ -491,7 +504,7 @@ def client_with_auth():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_no_auth():
     """Fixture simulating an unauthenticated request.
 
@@ -532,7 +545,7 @@ def client_no_auth():
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_openai_clients(monkeypatch):
     import app.services.ai as ai_module
 

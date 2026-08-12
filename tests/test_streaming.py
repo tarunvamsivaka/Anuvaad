@@ -7,7 +7,9 @@ Verifies SSE content type, event structure, and cache-hit fast path.
 import json
 import os
 import sys
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -146,3 +148,142 @@ class TestStreamingEndpoint:
 
         # The LLM client should NOT have been instantiated for a cache hit
         assert len(calls) == 0, f"Model was called {len(calls)} times despite cache hit"
+
+
+class TestStreamingModelFailover:
+    """Unit tests for stream_code_to_english and stream_code_to_code model failover."""
+
+    @pytest.mark.asyncio
+    async def test_stream_code_to_english_failover_on_429(self):
+        """Verify stream_code_to_english fails over from llama-3.3-70b-versatile to llama-3.1-8b-instant on 429."""
+        from app.models.schemas import CodePayload
+        from app.services.ai import stream_code_to_english
+
+        class MockChunk:
+            def __init__(self, content):
+                self.choices = [MagicMock(delta=MagicMock(content=content))]
+
+        async def mock_stream(content):
+            yield MockChunk(content)
+
+        async def fake_create(**kwargs):
+            model = kwargs.get("model", "")
+            if model == "llama-3.3-70b-versatile":
+                raise Exception("429 RateLimitError on llama-3.3-70b-versatile")
+            elif model == "llama-3.1-8b-instant":
+                valid_json = json.dumps([
+                    {
+                        "id": "block_1",
+                        "code_snippet": "def add(a, b): return a + b",
+                        "english_translation": "Returns sum of a and b",
+                    }
+                ])
+                return mock_stream(valid_json)
+            raise Exception(f"Unexpected model: {model}")
+
+        mock_groq_client = MagicMock()
+        mock_groq_client.chat.completions.create = AsyncMock(side_effect=fake_create)
+
+        payload = CodePayload(raw_code="def add(a, b): return a + b", language="python")
+
+        with (
+            patch("app.services.ai.check_and_track_groq_limits", new_callable=AsyncMock),
+            patch("app.services.ai._get_groq_client", return_value=mock_groq_client),
+            patch("app.services.ai._get_openrouter_client", return_value=None),
+            patch("app.services.ai.cache.get", new_callable=AsyncMock, return_value=None),
+            patch("app.services.ai.cache.put", new_callable=AsyncMock),
+        ):
+            sse_lines = []
+            async for line in stream_code_to_english(
+                payload=payload,
+                email="user@example.com",
+                is_pro=False,
+                use_r1=False,
+                tier="free",
+            ):
+                sse_lines.append(line)
+
+        # Parse SSE events
+        done_event = None
+        for line in sse_lines:
+            line_str = line.strip()
+            if line_str.startswith("data: "):
+                data = json.loads(line_str[6:])
+                if data.get("done") is True:
+                    done_event = data
+                    break
+
+        assert done_event is not None
+        assert done_event.get("model_used") == "llama-3.1-8b-instant"
+        assert "blocks" in done_event
+        assert done_event["blocks"][0]["code_snippet"] == "def add(a, b): return a + b"
+
+    @pytest.mark.asyncio
+    async def test_stream_code_to_code_failover_on_api_error(self):
+        """Verify stream_code_to_code fails over from llama-3.3-70b-versatile to llama-3.1-8b-instant on API error."""
+        from app.models.schemas import CodeToCodePayload
+        from app.services.ai import stream_code_to_code
+
+        class MockChunk:
+            def __init__(self, content):
+                self.choices = [MagicMock(delta=MagicMock(content=content))]
+
+        async def mock_stream(content):
+            yield MockChunk(content)
+
+        async def fake_create(**kwargs):
+            model = kwargs.get("model", "")
+            if model == "llama-3.3-70b-versatile":
+                raise Exception("500 Internal Server Error on primary LLM")
+            elif model == "llama-3.1-8b-instant":
+                valid_json = json.dumps([
+                    {
+                        "id": "block_1",
+                        "code_snippet": "const add = (a, b) => a + b;",
+                        "english_translation": "Adds a and b in JavaScript",
+                    }
+                ])
+                return mock_stream(valid_json)
+            raise Exception(f"Unexpected model: {model}")
+
+        mock_groq_client = MagicMock()
+        mock_groq_client.chat.completions.create = AsyncMock(side_effect=fake_create)
+
+        payload = CodeToCodePayload(
+            raw_code="def add(a, b): return a + b",
+            source_language="python",
+            target_language="javascript",
+        )
+
+        with (
+            patch("app.services.ai.check_and_track_groq_limits", new_callable=AsyncMock),
+            patch("app.services.ai._get_groq_client", return_value=mock_groq_client),
+            patch("app.services.ai._get_openrouter_client", return_value=None),
+            patch("app.services.ai.cache.get", new_callable=AsyncMock, return_value=None),
+            patch("app.services.ai.cache.put", new_callable=AsyncMock),
+        ):
+            sse_lines = []
+            async for line in stream_code_to_code(
+                payload=payload,
+                email="user@example.com",
+                is_pro=False,
+                use_r1=False,
+                tier="free",
+            ):
+                sse_lines.append(line)
+
+        # Parse SSE events
+        done_event = None
+        for line in sse_lines:
+            line_str = line.strip()
+            if line_str.startswith("data: "):
+                data = json.loads(line_str[6:])
+                if data.get("done") is True:
+                    done_event = data
+                    break
+
+        assert done_event is not None
+        assert done_event.get("model_used") == "llama-3.1-8b-instant"
+        assert "blocks" in done_event
+        assert done_event["blocks"][0]["code_snippet"] == "const add = (a, b) => a + b;"
+

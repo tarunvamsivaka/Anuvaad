@@ -8,6 +8,10 @@ from app.core.auth import get_client_ip, get_user_pro_status
 from app.core.cache import cache
 from app.core.config import (
     ADMIN_EMAILS,
+    # N-MED-01: Canonical HISTORY_LIMIT_* definitions — removed duplicate os.getenv() calls.
+    # Arch#2.8: Single source of truth in app.core.config.
+    HISTORY_LIMIT_FREE,
+    HISTORY_LIMIT_PRO,
     logger,
 )
 from app.domain.quota.policy import compute_quota_policy
@@ -17,9 +21,7 @@ from app.services.email import email_service
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
-# ── History pruning limits (Arch#2.8: unified constants, no more conflicting values) ──
-HISTORY_LIMIT_PRO = int(os.getenv("HISTORY_LIMIT_PRO", "1000"))
-HISTORY_LIMIT_FREE = int(os.getenv("HISTORY_LIMIT_FREE", "100"))
+
 
 
 def raise_quota_429(
@@ -296,9 +298,9 @@ async def get_active_protection_mode() -> str:
 
         if ratio >= 0.95:
             return "EMERGENCY"
-        elif ratio >= 0.80:
+        if ratio >= 0.80:
             return "RESTRICTED"
-        elif ratio >= 0.60:
+        if ratio >= 0.60:
             return "CAUTION"
     except Exception as e:
         logger.error(f"Error calculating protection mode: {e}")

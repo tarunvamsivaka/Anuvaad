@@ -258,14 +258,13 @@ async def prune_anonymous_history(session: AsyncSession | None = None, days: int
 
     if session is not None:
         return await _execute(session)
-    else:
-        async with AsyncSessionLocal() as s:
-            try:
-                return await _execute(s)
-            except Exception as e:
-                logger.error(f"translation.prune_anonymous_history({days}): {e}")
-                await s.rollback()
-                return 0
+    async with AsyncSessionLocal() as s:
+        try:
+            return await _execute(s)
+        except Exception as e:
+            logger.error(f"translation.prune_anonymous_history({days}): {e}")
+            await s.rollback()
+            return 0
 
 
 # ── FIX-26 (P2-01): ORM replacements for remaining supabase_request() calls ──

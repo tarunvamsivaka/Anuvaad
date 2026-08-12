@@ -108,7 +108,7 @@ class EmailService:
 
     @staticmethod
     def send_welcome(user_email: str, display_name: str = ""):
-        name = display_name or user_email.split("@")[0]
+        name = display_name or user_email.split("@", maxsplit=1)[0]
         # FIX-32: Uses shared _email_body() instead of duplicating 60 lines of HTML.
         header = """<h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:700;letter-spacing:-0.5px;">Welcome to Anuvaad</h1>
         <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Your AI-powered code translation workspace</p>"""

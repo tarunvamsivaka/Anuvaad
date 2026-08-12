@@ -211,9 +211,8 @@ class RedisCache:
         if self.client:
             if self._backend == "redis":
                 return await self.client.ping()
-            else:
-                await self.client.get("health_ping")
-                return True
+            await self.client.get("health_ping")
+            return True
         return False
 
 

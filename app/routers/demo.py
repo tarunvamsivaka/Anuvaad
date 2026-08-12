@@ -8,13 +8,14 @@ This powers the landing page Live Demo section without requiring a user account.
 
 import os
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_client_ip
 from app.core.cache import cache
 from app.core.config import logger
+from app.core.quota import raise_quota_429
 
 router = APIRouter(prefix="", tags=["demo"])
 
@@ -121,10 +122,11 @@ async def demo_translate(request: Request, payload: DemoTranslateRequest):
     current_count = await cache.incr_rate_limit(rate_key, DEMO_RATE_WINDOW)
     if current_count > DEMO_RATE_LIMIT:
         logger.info(f"Demo rate limit exceeded for IP: {client_ip}")
-        raise HTTPException(
-            status_code=429,
-            detail=f"Demo limit reached. Maximum {DEMO_RATE_LIMIT} demo translations per day. "
-            "Create a free account to get 10 translations/day with no limit reset wait.",
+        raise_quota_429(
+            detail="Demo daily limit reached.",
+            limit_type="daily_quota",
+            retry_after_seconds=86400,
+            tier_limit=5,
         )
 
     remaining = max(0, DEMO_RATE_LIMIT - current_count)

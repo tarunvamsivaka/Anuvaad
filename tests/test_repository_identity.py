@@ -4,10 +4,12 @@ import pytest
 
 from app.repositories import repository_identity
 
-# TODO(Testing): The testing infrastructure currently does not support database-backed
-# integration tests (no real db_session fixture). These tests rely on mocking
-# `AsyncSessionLocal`. Once integration tests are supported, replace these
-# with actual database interactions.
+# INFRASTRUCTURE NOTE (B-13): These tests use mocked AsyncSessionLocal because
+# the CI test suite runs against SQLite (no live PostgreSQL). The mocking approach
+# is intentional and complete for unit-testing the repository layer in isolation.
+# When integration tests with a live DB are added, replace these with ORM-backed
+# fixtures using the `db_session` conftest fixture and real DB round-trips.
+# Tracked in: AUDIT_FINDINGS.md#B-13
 
 
 @pytest.fixture

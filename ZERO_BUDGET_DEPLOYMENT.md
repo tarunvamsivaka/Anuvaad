@@ -14,9 +14,10 @@ This guide outlines how to deploy and operate the complete Anuvaad platform with
 |---|---|---|---|
 | **AI Translation Engine** | **Groq API** (Llama 3.3 70B & 3.1 8B) | **14,400 req/day**, 6,000 RPM, 100,000 TPM | Dual-model fallback (70B ➔ 8B), input cap 4,000 chars, max tokens 1,500 |
 | **Relational & Vector DB** | **Supabase PostgreSQL** | **500 MB** storage, 2 active projects, pgvector | Async pool `pool_size=5`, `pool_recycle=300`, nightly DB pruning of anonymous data |
-| **Cache & Rate Limiting** | **Upstash Redis** | **10,000 commands/day** | In-memory LRU fallback (500 items), client IP & account sliding window rate limits |
+| **Cache & Rate Limiting** | **Upstash Redis** | **10,000 commands/day** | In-memory LRU fallback (100 items), client IP & account sliding window rate limits |
 | **Web Frontend** | **Vercel** / **Render** | **100 GB bandwidth / mo**, Serverless Edge runtime | Static generation for landing/auth, SWR client caching, proxy rewrites |
-| **FastAPI Backend** | **Render Free Web Service** | **750 hours/month** (1 Web Service) | Asynchronous non-blocking I/O, lightweight Uvicorn instance |
+| **FastAPI Backend** | **Render Free Web Service** | **750 hours/month** (1 Web Service) | Asynchronous non-blocking I/O, 4 Uvicorn workers for concurrent SSE streaming |
+| **Background Workers** | **Render Free Background Worker** | **750 hours/month** | Celery + Redis for async history saving, email dispatch, and DB pruning |
 | **Transactional Email** | **Resend** | **3,000 emails/month** (100/day) | Asynchronous Celery background dispatch with retry backoff |
 
 ---
@@ -42,7 +43,7 @@ This guide outlines how to deploy and operate the complete Anuvaad platform with
 ### Step 3: Provision Free Redis & Rate Limiter (Upstash)
 1. Sign up at [upstash.com](https://upstash.com) and create a free Global Redis database.
 2. Under **REST API Details**, copy `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`.
-3. *Note*: If Upstash keys are omitted, Anuvaad automatically operates using an in-memory thread-safe LRU cache with zero downtime.
+3. **Important**: Upstash Redis is required for correct multi-worker rate limiting. Without it, the system falls back to a per-process in-memory LRU cache — rate limits are not shared across workers and can be bypassed via load-balancer round-robin. Upstash is free and takes < 5 minutes to set up.
 
 ### Step 4: Deploy FastAPI Backend (Render)
 1. Create a free account on [render.com](https://render.com).
@@ -50,18 +51,43 @@ This guide outlines how to deploy and operate the complete Anuvaad platform with
 3. Configure the service:
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4`
+   - **Worker count**: 4 workers allows up to 4 concurrent SSE translation streams.
+     Each worker uses ~80–120 MB RAM; 4 workers ≈ 320–480 MB, within Render's 512 MB free limit.
+     If you see OOM restarts, reduce to `--workers 2` as a fallback.
 4. Set Environment Variables:
    - `ENV=production`
    - `GROQ_API_KEY=<your-groq-key>`
+   - `SUPABASE_URL=https://<your-supabase-project-ref>.supabase.co`
+   - `SUPABASE_JWT_SECRET=<your-supabase-jwt-secret>`
    - `DATABASE_URL=<your-supabase-db-url>`
    - `DATABASE_POOL_URL=<your-supabase-pooler-url>`
+   - `TOKEN_ENCRYPTION_KEY=<generated-fernet-key>`
+   - `TRUST_PROXY_HOPS=1`
+   - `FRONTEND_URL=https://<your-frontend-domain>.vercel.app`
    - `UPSTASH_REDIS_URL=<your-upstash-url>`
    - `UPSTASH_REDIS_TOKEN=<your-upstash-token>`
-   - `FRONTEND_URL=https://<your-frontend-domain>.vercel.app`
-   - `JWT_SECRET=<random-32-character-string>`
+   - `DB_POOL_SIZE=5`
+   - `DB_POOL_RECYCLE=300`
 
-### Step 5: Deploy Next.js Frontend (Vercel)
+### Step 5: Deploy Background Workers (Render) — **Required**
+
+Background workers handle async history saving, transactional emails, and scheduled database pruning. Without them, translation history will not be saved and the Supabase 500 MB storage limit will eventually be exhausted.
+
+1. In Render, click **New + ➔ Background Worker**.
+2. Connect the same GitHub repository.
+3. Configure **Celery worker** (handles async tasks):
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `celery -A app.queue.celery_config.celery_app worker --loglevel=info --concurrency=2`
+4. Configure **Celery beat** (handles scheduled tasks like DB pruning):
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `celery -A app.queue.celery_config.celery_app beat --loglevel=info`
+5. Both services must share the same environment variables as the web service, plus:
+   - `REDIS_URL=<your-upstash-or-redis-url>` — Celery uses this as its broker
+
+> **Free Tier Note**: Render's free Background Worker tier provides 750 hours/month, which is sufficient for continuous operation of one worker service. You may need to combine the worker and beat into a single process: `celery -A app.queue.celery_config.celery_app worker --beat --loglevel=info` (not recommended for production, but works on free tier).
+
+### Step 6: Deploy Next.js Frontend (Vercel)
 1. Sign up at [vercel.com](https://vercel.com) and import the `/frontend` subfolder.
 2. Configure Environment Variables:
    - `NEXT_PUBLIC_API_URL=https://<your-render-backend-url>.onrender.com`
@@ -118,7 +144,8 @@ Anuvaad includes multiple proactive guards to prevent accidental overages or acc
 
 ## 4. Operational Monitoring & Health Checks
 
-- **Health Endpoint**: `GET /api/health` — inspects connectivity to Groq, Supabase, and Redis.
-- **Cache Statistics**: `GET /api/cache-stats` — tracks cache hit ratio and LRU fallback memory.
+- **Health Endpoint** *(public)*: `GET /api/health` — simple status indicator for Render health checks. Returns `{"status": "healthy"}` when operational.
+- **Health Detailed** *(auth required)*: `GET /api/health/detailed` — full diagnostic breakdown including Redis, JWT, Supabase, and LLM configuration status. Protected by metrics HTTP Basic Auth (`METRICS_USERNAME` / `METRICS_PASSWORD`).
+- **Cache Statistics** *(auth required)*: `GET /api/cache-stats` — tracks cache hit ratio and LRU fallback memory.
 - **Quota & Usage**: `GET /api/usage` — provides user-specific remaining daily counts.
-- **Prometheus Metrics**: `GET /api/metrics/prometheus` — real-time request counts, error rates, and translation latency.
+- **Prometheus Metrics** *(auth required)*: `GET /api/metrics/prometheus` — real-time request counts, error rates, and translation latency.

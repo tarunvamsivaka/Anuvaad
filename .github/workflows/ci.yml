@@ -39,9 +39,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "setuptools>=70.0.0,<81.0.0"
+          pip install "setuptools>=83.0.0"
           pip install -r requirements.txt
-          pip install pytest httpx "pytest-asyncio>=1.0.0,<2.0.0" structlog aiosqlite
+          pip install pytest httpx httpx2 "pytest-asyncio>=1.0.0,<2.0.0" structlog aiosqlite
 
       - name: Run tests
         env:
@@ -59,7 +59,7 @@ jobs:
       - name: Security audit (pip-audit)
         run: |
           pip install pip-audit
-          pip-audit -r requirements.txt --ignore-vuln PYSEC-2026-3447 --ignore-vuln GHSA-x7gm-x3g3-g6xq --progress-spinner off
+          pip-audit -r requirements.txt --ignore-vuln GHSA-x7gm-x3g3-g6xq --progress-spinner off
         # Note: GHSA-x7gm-x3g3-g6xq is an optional transitive dependency warning.
 
   # Phase 1B: Exercise the additive repository-index lifecycle migration
@@ -167,7 +167,9 @@ jobs:
         run: npx vitest run
 
       - name: Security audit (npm audit)
-        run: npm audit --audit-level=critical
+        # B-03: npm audit fix resolved all HIGH/moderate vulnerabilities (2026-08-08).
+        # Audit level is now hardened to 'high' to gate on any future HIGH+ CVEs.
+        run: npm audit --audit-level=high
 
       - name: Lint frontend
         run: npm run lint

@@ -10,18 +10,22 @@ Business logic (signature verification, DB writes, email dispatch) lives in:
 
 import json
 import os
+from datetime import datetime, timezone
 
 import razorpay
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.core.auth import get_user_email
+from app.core.auth import get_client_ip, get_user_email, get_user_pro_status
 from app.core.cache import cache
 from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
+from app.core.quota import get_today_usage_count
 from app.domain.billing.service import BillingService
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
 from app.queue.tasks import process_billing_webhook_task
 from app.repositories import subscription as subscription_repo
+
+UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 router = APIRouter(prefix="", tags=["billing"])
 
@@ -171,14 +175,14 @@ async def verify_payment(
                 razorpay_signature=payload.razorpay_signature,
             )
             return {"status": "success", "plan": result.plan}
-        else:  # credits
-            result = await service.verify_credit_payment(
-                user_email=user_email,
-                razorpay_order_id=payload.razorpay_order_id or "",
-                razorpay_payment_id=payload.razorpay_payment_id,
-                razorpay_signature=payload.razorpay_signature,
-            )
-            return {"status": "success", "credits_added": result.credits_added}
+        # credits
+        result = await service.verify_credit_payment(
+            user_email=user_email,
+            razorpay_order_id=payload.razorpay_order_id or "",
+            razorpay_payment_id=payload.razorpay_payment_id,
+            razorpay_signature=payload.razorpay_signature,
+        )
+        return {"status": "success", "credits_added": result.credits_added}
 
     except (ValueError, RuntimeError) as e:
         logger.error(f"Payment verification failed for {user_email}: {e}")
@@ -208,14 +212,42 @@ async def get_subscription_status(
 
 @router.get("/check-credits")
 async def get_check_credits(
+    request: Request,
     email: str | None = Depends(get_user_email),
 ):
-    """Return the user's current translation credit balance."""
+    """Return the user's current translation credit balance and remaining daily quota."""
     if not email:
-        raise HTTPException(status_code=401, detail="Authentication required")
+        client_ip = get_client_ip(request)
+        today_str = datetime.now(UTC).strftime("%Y-%m-%d")
+        guest_key = f"guest_daily_usage:{client_ip}:{today_str}"
+        used = await cache.get(guest_key)
+        used_count = int(used) if used is not None else 0
+        remaining = max(0, 5 - used_count)
+        return {
+            "remaining": remaining,
+            "limit": 5,
+            "tier": "guest",
+            "credits": 0,
+        }
 
+    is_pro = await get_user_pro_status(email)
     credits = await subscription_repo.get_credits(email)
-    return {"credits": credits}
+    if is_pro:
+        return {
+            "remaining": -1,
+            "limit": -1,
+            "tier": "pro",
+            "credits": credits,
+        }
+
+    used = await get_today_usage_count(email)
+    remaining = max(0, 25 - used)
+    return {
+        "remaining": remaining,
+        "limit": 25,
+        "tier": "free",
+        "credits": credits,
+    }
 
 
 # ── Webhook ──

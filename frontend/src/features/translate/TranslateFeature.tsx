@@ -15,6 +15,8 @@ import { TranslateShell } from "./_components/TranslateShell";
 import { Toolbar } from "./_components/Toolbar";
 import { InputPanel } from "./_components/InputPanel";
 import { OutputPanel } from "./_components/OutputPanel";
+import { QuotaExceededModal } from "@/components/modals/QuotaExceededModal";
+import { GuestOnboardingModal } from "@/components/modals/GuestOnboardingModal";
 
 // Hooks
 import { useTranslationStream } from "./_hooks/useTranslationStream";
@@ -86,6 +88,10 @@ export function TranslateFeature() {
     setRawError,
     setStreamText,
     handleTranslate,
+    // M3 Feature #7: Quota exceeded modal state
+    quotaError,
+    setQuotaError,
+    dismissQuotaError,
   } = useTranslationStream({
     input,
     mode,
@@ -124,6 +130,10 @@ export function TranslateFeature() {
     return () => clearTimeout(timeout);
   }, [input, isStreaming, sourceLanguage]);
 
+  const [guestModalOpen, setGuestModalOpen] = useState(false);
+  const [guestModalReason, setGuestModalReason] = useState<"gist" | "save" | "export">("save");
+  const [pendingGuestAction, setPendingGuestAction] = useState<(() => void) | null>(null);
+
   const {
     showGistInput,
     setShowGistInput,
@@ -148,6 +158,7 @@ export function TranslateFeature() {
     setFilePath,
     setSourceLanguage,
     setGistSource,
+    onQuotaExceeded: setQuotaError,
   });
 
   const {
@@ -174,7 +185,38 @@ export function TranslateFeature() {
     repositoryName,
     filePath,
     mode,
+    onQuotaExceeded: setQuotaError,
   });
+
+  const triggerGistImportWithGuestPrompt = () => {
+    if (!session) {
+      setGuestModalReason("gist");
+      setPendingGuestAction(() => handleGistImport);
+      setGuestModalOpen(true);
+    } else {
+      handleGistImport();
+    }
+  };
+
+  const triggerSyncWithGuestPrompt = () => {
+    if (!session) {
+      setGuestModalReason("save");
+      setPendingGuestAction(() => handleSyncEnglishToCode);
+      setGuestModalOpen(true);
+    } else {
+      handleSyncEnglishToCode();
+    }
+  };
+
+  const triggerExportWithGuestPrompt = () => {
+    if (!session) {
+      setGuestModalReason("export");
+      setPendingGuestAction(() => handleDownloadJson);
+      setGuestModalOpen(true);
+    } else {
+      handleDownloadJson();
+    }
+  };
 
   // Calculate some derived props for TranslateShell header
   const currentModeLabel = mode === "code-to-english" 
@@ -184,96 +226,114 @@ export function TranslateFeature() {
       : "Code to Code";
 
   return (
-    <TranslateShell
-      currentModeLabel={currentModeLabel}
-      showSettings={showSettings}
-      setShowSettings={setShowSettings}
-      isPro={isPro}
-      creditsLoading={creditsLoading}
-      credits={credits}
-      customInstructions={customInstructions}
-      setCustomInstructions={setCustomInstructions}
-      repositoryName={repositoryName}
-      setRepositoryName={setRepositoryName}
-      filePath={filePath}
-      setFilePath={setFilePath}
-      toolbar={
-        <Toolbar
-          mode={mode}
-          setMode={setMode}
-          sourceLanguage={sourceLanguage}
-          setSourceLanguage={setSourceLanguage}
-          targetLanguage={targetLanguage}
-          setTargetLanguage={setTargetLanguage}
-          repositoryName={repositoryName}
-          setRepositoryName={setRepositoryName}
-          filePath={filePath}
-          setFilePath={setFilePath}
-        />
-      }
-      inputPanel={
-        <InputPanel
-          mode={mode}
-          uploadedFile={uploadedFile}
-          handleClearFile={handleClearFile}
-          gistSource={gistSource}
-          setGistSource={setGistSource}
-          input={input}
-          setInput={setInput}
-          isStreaming={isStreaming}
-          handleTranslate={handleTranslate}
-          handleClear={() => {
-            handleClear();
-            handleClearFile();
-          }}
-          sourceLanguage={sourceLanguage}
-          setSourceLanguage={setSourceLanguage}
-          isDark={isDark}
-          monacoOptions={MONACO_OPTIONS}
-          detectedLang={detectedLang}
-          setDetectedLang={setDetectedLang}
-          isTypingManually={isTypingManually}
-          setIsTypingManually={setIsTypingManually}
-          getRootProps={getRootProps}
-          getInputProps={getInputProps}
-          isDragActive={isDragActive}
-          showGistInput={showGistInput}
-          setShowGistInput={setShowGistInput}
-          gistUrl={gistUrl}
-          setGistUrl={setGistUrl}
-          gistLoading={gistLoading}
-          handleGistImport={handleGistImport}
-          hasOutputBlocks={!!outputBlocks && outputBlocks.length > 0}
-          fileList={fileList}
-          repoInfo={repoInfo}
-          handleSelectFile={handleSelectFile}
-          setFileList={setFileList}
-        />
-      }
-      outputPanel={
-        <OutputPanel
-          mode={mode}
-          outputBlocks={outputBlocks}
-          viewType={viewType}
-          setViewType={setViewType}
-          handleCopyMarkdown={handleCopyMarkdown}
-          copied={copied}
-          handleDownloadJson={handleDownloadJson}
-          hasEdits={hasEdits}
-          originalBlocks={originalBlocks}
-          setOutputBlocks={setOutputBlocks}
-          isSyncing={isSyncing}
-          handleSyncEnglishToCode={handleSyncEnglishToCode}
-          isStreaming={isStreaming}
-          streamText={streamText}
-          rawError={rawError}
-          input={input}
-          targetLanguage={targetLanguage}
-          isDark={isDark}
-          monacoOptions={MONACO_OPTIONS}
-          modelUsed={modelUsed}
-        />
-      }
-    />
+    <>
+      <TranslateShell
+        currentModeLabel={currentModeLabel}
+        showSettings={showSettings}
+        setShowSettings={setShowSettings}
+        isPro={isPro}
+        creditsLoading={creditsLoading}
+        credits={credits}
+        customInstructions={customInstructions}
+        setCustomInstructions={setCustomInstructions}
+        repositoryName={repositoryName}
+        setRepositoryName={setRepositoryName}
+        filePath={filePath}
+        setFilePath={setFilePath}
+        toolbar={
+          <Toolbar
+            mode={mode}
+            setMode={setMode}
+            sourceLanguage={sourceLanguage}
+            setSourceLanguage={setSourceLanguage}
+            targetLanguage={targetLanguage}
+            setTargetLanguage={setTargetLanguage}
+            repositoryName={repositoryName}
+            setRepositoryName={setRepositoryName}
+            filePath={filePath}
+            setFilePath={setFilePath}
+          />
+        }
+        inputPanel={
+          <InputPanel
+            mode={mode}
+            uploadedFile={uploadedFile}
+            handleClearFile={handleClearFile}
+            gistSource={gistSource}
+            setGistSource={setGistSource}
+            input={input}
+            setInput={setInput}
+            isStreaming={isStreaming}
+            handleTranslate={handleTranslate}
+            handleClear={() => {
+              handleClear();
+              handleClearFile();
+            }}
+            sourceLanguage={sourceLanguage}
+            setSourceLanguage={setSourceLanguage}
+            isDark={isDark}
+            monacoOptions={MONACO_OPTIONS}
+            detectedLang={detectedLang}
+            setDetectedLang={setDetectedLang}
+            isTypingManually={isTypingManually}
+            setIsTypingManually={setIsTypingManually}
+            getRootProps={getRootProps}
+            getInputProps={getInputProps}
+            isDragActive={isDragActive}
+            showGistInput={showGistInput}
+            setShowGistInput={setShowGistInput}
+            gistUrl={gistUrl}
+            setGistUrl={setGistUrl}
+            gistLoading={gistLoading}
+            handleGistImport={triggerGistImportWithGuestPrompt}
+            hasOutputBlocks={!!outputBlocks && outputBlocks.length > 0}
+            fileList={fileList}
+            repoInfo={repoInfo}
+            handleSelectFile={handleSelectFile}
+            setFileList={setFileList}
+          />
+        }
+        outputPanel={
+          <OutputPanel
+            mode={mode}
+            outputBlocks={outputBlocks}
+            viewType={viewType}
+            setViewType={setViewType}
+            handleCopyMarkdown={handleCopyMarkdown}
+            copied={copied}
+            handleDownloadJson={triggerExportWithGuestPrompt}
+            hasEdits={hasEdits}
+            originalBlocks={originalBlocks}
+            setOutputBlocks={setOutputBlocks}
+            isSyncing={isSyncing}
+            handleSyncEnglishToCode={triggerSyncWithGuestPrompt}
+            isStreaming={isStreaming}
+            streamText={streamText}
+            rawError={rawError}
+            input={input}
+            targetLanguage={targetLanguage}
+            isDark={isDark}
+            monacoOptions={MONACO_OPTIONS}
+            modelUsed={modelUsed}
+          />
+        }
+      />
+      {/* M3 Feature #7: Quota Exceeded Modal — renders on top of everything when 429 fires */}
+      <QuotaExceededModal error={quotaError} onClose={dismissQuotaError} />
+
+      {/* M3 Feature #11: Streamlined Guest Onboarding Modal */}
+      <GuestOnboardingModal
+        isOpen={guestModalOpen}
+        onClose={() => setGuestModalOpen(false)}
+        onContinueAsGuest={() => {
+          if (pendingGuestAction) {
+            pendingGuestAction();
+            setPendingGuestAction(null);
+          }
+        }}
+        reason={guestModalReason}
+      />
+    </>
   );
 }
+

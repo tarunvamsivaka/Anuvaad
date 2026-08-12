@@ -3,6 +3,7 @@ import { useDropzone } from "react-dropzone";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import { EXT_TO_LANGUAGE, ACCEPTED_EXTENSIONS } from "../_constants/languages";
+import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
 
 interface UseFileImportProps {
   mode: string;
@@ -11,6 +12,7 @@ interface UseFileImportProps {
   setFilePath: (path: string) => void;
   setSourceLanguage: (lang: string) => void;
   setGistSource: (source: { username: string; filename: string } | null) => void;
+  onQuotaExceeded?: (error: QuotaError) => void;
 }
 
 export function useFileImport({
@@ -20,6 +22,7 @@ export function useFileImport({
   setFilePath,
   setSourceLanguage,
   setGistSource,
+  onQuotaExceeded,
 }: UseFileImportProps) {
   const [showGistInput, setShowGistInput] = useState(false);
   const [gistUrl, setGistUrl] = useState("");
@@ -65,6 +68,13 @@ export function useFileImport({
       // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
       const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}`);
       if (!res.ok) {
+        if (res.status === 429) {
+          const retryAfterHeader = res.headers.get("Retry-After");
+          const errData = await res.json().catch(() => null);
+          const quotaErr = parseQuotaErrorPayload(errData, retryAfterHeader);
+          onQuotaExceeded?.(quotaErr);
+          return;
+        }
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
@@ -97,6 +107,13 @@ export function useFileImport({
       // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
       const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(path)}`);
       if (!res.ok) {
+        if (res.status === 429) {
+          const retryAfterHeader = res.headers.get("Retry-After");
+          const errData = await res.json().catch(() => null);
+          const quotaErr = parseQuotaErrorPayload(errData, retryAfterHeader);
+          onQuotaExceeded?.(quotaErr);
+          return;
+        }
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }

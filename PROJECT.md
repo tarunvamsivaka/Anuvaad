@@ -33,22 +33,65 @@
 | 5 | M5: Test Verification & Zero Regression | Pytest, Vitest, npm run build, and ruff checks all pass with 0 failures | M1, M2, M3, M4 | DONE |
 
 ## Code Layout
-- `app/`: FastAPI backend
-  - `core/database_session.py`: Connection pool configuration
-  - `domain/quota/policy.py`: Quota limits & policy definitions
-  - `services/ai.py`: LLM provider calls & model failover
-  - `core/quota.py` & `api/middleware/rate_limit.py`: Rate limit checking & structured 429 responses
-  - `repositories/translation.py` & `vectors.py`: Database pruning queries
-  - `queue/tasks.py`: Scheduled Celery tasks
-- `frontend/`: Next.js frontend
-  - `src/components/common/UsageCounterBadge.tsx`: Usage counter UI
-  - `src/components/modals/QuotaExceededModal.tsx`: Quota modal
-  - `src/features/translate/_hooks/useTranslationStream.ts`: 429 response interceptor
-  - `src/components/dashboard/TopBar.tsx`, `TranslateShell.tsx`, `Navbar.tsx`: Header badge integration
-  - `src/components/landing/`: Pricing, FAQ, ExitIntentModal
-- `ZERO_BUDGET_DEPLOYMENT.md`: Root deployment guide
-- `tests/`: Pytest test suite
-- `frontend/src/tests/`: Vitest test suite
+- `app/`: FastAPI backend application
+  - `main.py`: App entry-point, lifespan, FastAPI factory, router mounts
+  - `core/`: Cross-cutting concerns
+    - `auth.py`: JWT (HS256/ES256/RS256) + API key verification; `get_client_ip()` proxy-trust
+    - `cache.py`: `RedisCache` with Upstash REST + in-memory LRU fallback
+    - `config.py`: All environment variable declarations and application constants
+    - `constants.py`: Named constants replacing magic numbers (page sizes, limits, TTLs)
+    - `database_session.py`: SQLAlchemy async engine, PgBouncer pool config
+    - `metrics.py`: `MetricsCollector` for request/error/latency tracking
+    - `quota.py`: `enforce_quotas_and_protection()`, usage tracking, rate-limit 429 helpers
+    - `rate_limit.py`: FastAPI `Depends`-based sliding window rate limiter
+    - `token_encryption.py`: `MultiFernet` key rotation for API key encryption
+  - `api/middleware/`: HTTP middleware stack
+    - `rate_limit.py`: Global per-IP/per-token sliding window middleware
+    - `csrf.py`: CSRF protection for state-mutating endpoints
+    - `security_headers.py`: HSTS, CSP, X-Frame-Options headers
+    - `metrics_middleware.py`: Request latency and error recording
+  - `domain/quota/policy.py`: `QuotaPolicy` dataclass — pure, side-effect-free quota logic
+  - `models/`: SQLAlchemy ORM model definitions
+  - `repositories/`: Data access layer (no raw SQL, no Supabase REST)
+    - `translation.py`: Translation history CRUD + cursor-paginated queries
+    - `subscription.py`: Pro/credit subscription queries
+    - `api_key.py`: API key creation, Argon2id hashing, verification, revocation
+    - `vectors.py`: pgvector embedding queries
+  - `routers/`: HTTP route handlers (thin — delegate to services/repositories)
+    - `translate/`: `code_to_english.py`, `english_to_code.py`, `code_to_code.py`, `upload.py`
+    - `history.py`: Translation history, API keys, account management
+    - `utility.py`: `/health`, `/health/detailed`, `/metrics`, `/cache-stats`, `/usage`
+    - `workspace.py`: Team workspace CRUD
+    - `billing.py`: Razorpay webhook + subscription management
+    - `github.py`: GitHub OAuth + repository integration
+    - `demo.py`: Anonymous demo endpoint (rate-limited, pre-cached)
+    - `repo_search.py`: Repository semantic search (pgvector)
+  - `services/`: Business logic + external integrations
+    - `ai.py`: LLM client singletons (Groq + OpenRouter), streaming, failover
+    - `email.py`: Transactional email via Resend
+  - `queue/`: Celery background workers
+    - `tasks.py`: `save_translation_history_task`, `send_transactional_email_task`
+    - `celery_config.py`: Celery app factory and broker configuration
+- `frontend/`: Next.js 16 / React 19 frontend
+  - `src/app/`: Next.js App Router pages and API routes
+  - `src/components/`: Reusable UI components (Monaco editor, modals, nav)
+  - `src/features/`: Domain-specific feature modules (translate, dashboard)
+  - `src/hooks/`: Custom React hooks (`useTranslationStream`, quota hooks)
+  - `src/lib/`: Supabase client, SWR fetchers, API utilities
+  - `src/context/`: React context providers
+  - `src/proxy.ts`: Middleware-level auth proxy for SSR dashboard routes
+- `vscode-extension/`: VS Code extension for in-editor code translation
+  - `src/extension.ts`: Command handlers, SecretStorage migration, API client
+  - `src/test/`: Mocha unit tests (16 tests)
+- `tests/`: Pytest backend test suite (341 tests)
+- `frontend/src/tests/`: Vitest frontend test suite (134 tests)
+- `alembic/`: Database migration scripts
+- `ZERO_BUDGET_DEPLOYMENT.md`: Render/Vercel/Supabase/Upstash deployment guide
+- `AUDIT_FINDINGS.md`: Security and architectural audit findings log
+- `DEEP_DIVE_REPORT.md`: Comprehensive remediation status report
+- `render.yaml`: Render infrastructure-as-code blueprint
+- `nginx.conf`: Nginx reverse proxy configuration (security headers, real IP)
+
 
 ## Interface Contracts
 ### Structured 429 Rate Limit Response Header & JSON Payload

@@ -182,3 +182,46 @@ class TestModelFailover:
 
             assert "Groq Llama 3.1 8B" in model_name or "fallback" in model_name.lower()
             assert "b1" in res_text
+
+
+class TestWireContract429Response:
+    """Verify FastAPI TestClient HTTP 429 response wire contract and headers."""
+
+    def test_demo_endpoint_429_wire_contract(self, client):
+        """Test demo translation endpoint when rate limit is exceeded returning structured 429 payload."""
+        with patch("app.routers.demo.cache.incr_rate_limit", new_callable=AsyncMock, return_value=4):
+            response = client.post(
+                "/api/v1/demo/translate",
+                json={"language": "javascript", "mode": "code-to-english"},
+            )
+            assert response.status_code == 429
+            assert response.headers.get("Retry-After") == "86400"
+
+            data = response.json()
+            assert isinstance(data, dict)
+            assert data.get("detail") == "Demo daily limit reached."
+            assert data.get("limit_type") == "daily_quota"
+            assert data.get("retry_after_seconds") == 86400
+            assert data.get("tier_limit") == 5
+
+    def test_user_quota_exceeded_wire_contract(self, client):
+        """Test signed-in user daily quota rate limit returning structured 429 payload over HTTP wire."""
+        with (
+            patch("app.core.quota.get_user_pro_status", new_callable=AsyncMock, return_value=False),
+            patch("app.core.quota.increment_today_usage_count", new_callable=AsyncMock, return_value=26),
+            patch("app.core.quota.get_user_credits", new_callable=AsyncMock, return_value=0),
+        ):
+            response = client.post(
+                "/api/v1/code-to-english",
+                json={"raw_code": "print('hello')", "language": "python"},
+            )
+            assert response.status_code == 429
+            assert response.headers.get("Retry-After") == "86400"
+
+            data = response.json()
+            assert isinstance(data, dict)
+            assert "Daily translation limit reached for user tier" in data.get("detail", "")
+            assert data.get("limit_type") == "user_daily_limit"
+            assert data.get("retry_after_seconds") == 86400
+            assert data.get("tier_limit") == 25
+

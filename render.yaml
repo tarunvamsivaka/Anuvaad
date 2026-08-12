@@ -22,7 +22,8 @@ services:
     # This guarantees schema consistency across all deployment stages and prevents
     # startup failures when new columns/tables are required by the app version.
     preDeployCommand: alembic upgrade head
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4
+
     healthCheckPath: /api/health
 
     envVars:
@@ -117,7 +118,7 @@ services:
         sync: false
 
       - key: LIMIT_FREE_DAILY
-        value: "10"
+        value: "25"
 
       - key: LIMIT_FREE_CHARS
         value: "10000"
@@ -152,3 +153,57 @@ services:
       - key: TOKEN_ENCRYPTION_KEYS
         sync: false
 
+      # ── Guest Tier Limits ──────────────────────────────────────────────────
+      # Guest = unauthenticated user. 5/day is the product default (PROJECT.md).
+      - key: LIMIT_GUEST_DAILY
+        value: "5"
+
+      - key: LIMIT_GUEST_CHARS
+        value: "4000"
+
+      - key: LIMIT_GUEST_COOLDOWN
+        value: "5"
+
+      # ── Translation History Limits ─────────────────────────────────────────
+      - key: HISTORY_LIMIT_PRO
+        value: "1000"
+
+      - key: HISTORY_LIMIT_FREE
+        value: "100"
+
+      # ── Database Connection Pool Tuning ────────────────────────────────────
+      # Note: When DATABASE_POOL_URL is set (PgBouncer), these are overridden
+      # and pool_size is forced to 1 (PgBouncer manages the actual pool).
+      - key: DB_POOL_SIZE
+        value: "5"
+
+      - key: DB_MAX_OVERFLOW
+        value: "10"
+
+      - key: DB_POOL_TIMEOUT
+        value: "30"
+
+      - key: DB_POOL_RECYCLE
+        value: "300"
+
+      # ── Cache & Storage Settings ───────────────────────────────────────────
+      - key: CACHE_LRU_MAX_SIZE
+        value: "100"
+
+      - key: PROMPT_VERSION
+        value: "v1"
+
+      # ── CORS (leave blank unless you have additional frontend origins) ─────
+      - key: CORS_ORIGINS
+        value: ""
+
+      # ── Groq API Limits (tune to match your Groq plan tier) ───────────────
+      - key: GROQ_MAX_RPM
+        value: "6000"
+
+      - key: GROQ_MAX_TPM
+        value: "100000"
+
+      # ── Worker concurrency (set to 2*CPU+1 for IO-bound workloads) ─────────
+      - key: WEB_CONCURRENCY
+        value: "2"

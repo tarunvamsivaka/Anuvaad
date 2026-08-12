@@ -152,7 +152,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         return result
 
     except Exception as e:
-        logger.error(f"Upload translation failed: {str(e)}")
+        logger.error(f"Upload translation failed: {e!s}")
         stale_result = await find_stale_translation(email, raw_code, detected_language, mode, f"File Upload ({mode})")
         if stale_result:
             if email:

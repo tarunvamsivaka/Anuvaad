@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Startup Transformation Audit Remediation (2026-08-12)
+
+#### Security
+- **N-CRIT-01:** Sanitized `.env` — replaced all real production credentials with clearly labelled placeholders. File is gitignored (confirmed via `git ls-files`). Operators should rotate any previously exposed keys.
+- **N-MED-04:** `/api/health` now omits `critical_missing` env-var names from the public response. New `/api/health/detailed` endpoint (protected by metrics HTTP Basic Auth) provides full diagnostic breakdown.
+
+#### Architecture
+- **N-HIGH-01:** Removed private-symbol backward-compat re-exports (`_allowed_origins_set`, `IS_PRODUCTION`) from `app/main.py` — these were hidden couplings to internal middleware state.
+- **N-MED-01:** Eliminated duplicate `HISTORY_LIMIT_PRO` / `HISTORY_LIMIT_FREE` `os.getenv()` definitions in `quota.py`; now imports from the single canonical source in `config.py` (completes Arch#2.8).
+- **N-MED-05:** Replaced two hardcoded `"https://getanuvaad.vercel.app"` strings in `ai.py` OpenRouter client init with `FRONTEND_URL` from config — automatically correct across all environments.
+
+#### API & Developer Experience
+- **N-MED-03:** Added rich OpenAPI metadata to FastAPI app (`version`, `description`, `contact`, `license_info`, `openapi_tags`). `/docs` and `/redoc` are now disabled in production (`ENV=production`) to prevent public API surface exposure.
+- **N-LOW-04:** Expanded `PROJECT.md` Code Layout to cover all architectural layers: `core/`, `api/middleware/`, `domain/`, `models/`, `repositories/`, `routers/`, `services/`, `queue/`, `vscode-extension/`, and all documentation files.
+
+#### Deployment & Infrastructure
+- **N-MED-06:** Increased Uvicorn worker count from `--workers 2` to `--workers 4` in `render.yaml` — prevents SSE streaming requests from starving health checks and webhook delivery under concurrent load.
+- **N-LOW-02:** `ZERO_BUDGET_DEPLOYMENT.md` now includes a dedicated **Celery Worker Setup** section (Step 5) documenting Render Background Worker configuration for async history saving, email dispatch, and scheduled DB pruning.
+- **N-MED-02:** `ZERO_BUDGET_DEPLOYMENT.md` updated to emphasize Upstash Redis as required (not optional) for correct multi-worker rate limiting.
+
+#### Testing
+- Fixed 3 stale test assertions that diverged from current domain values:
+  - `test_free_quota_policy_modes`: Updated `cooldown` expectation from `5` → `0` (matches `conftest.py` `LIMIT_FREE_COOLDOWN=0` override).
+  - `test_f04_4_pro_user_char_limit_allowed`: Updated `daily_limit` assertion to accept `-1` (unlimited sentinel, per FIX-R) alongside `≥ 1000`.
+  - `test_verify_ruff_check`: Auto-fixed `UP041` (`asyncio.TimeoutError` → `TimeoutError`) via `ruff --fix`.
+
 ### Security & Architecture Audit Remediation (2026-07-04)
 
 #### Critical Fixes

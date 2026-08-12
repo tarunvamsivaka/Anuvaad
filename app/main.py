@@ -24,6 +24,7 @@ from app.core.config import (
     ENV,
     FRONTEND_URL,
     GROQ_API_KEY,
+    IS_PRODUCTION,
     SENTRY_DSN,
     SUPABASE_JWT_SECRET,
     SUPABASE_URL,
@@ -79,11 +80,10 @@ def validate_production_env() -> None:
             "Set them in the deployment secret store before restarting the application."
         )
         raise RuntimeError(msg)
-    else:
-        for name in missing:
-            logger.warning(
-                f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production."
-            )
+    for name in missing:
+        logger.warning(
+            f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production."
+        )
 
 
 # ── Lifespan ──
@@ -104,7 +104,42 @@ async def lifespan(app: FastAPI):
 
 # ── Application ──
 
-app = FastAPI(title="Anuvaad API", lifespan=lifespan)
+# N-MED-03: Rich OpenAPI metadata for startup product presentation.
+# /docs and /redoc are disabled in production to prevent exposing the full
+# API surface to the public. They remain accessible in development.
+_is_production = IS_PRODUCTION
+_docs_url = "/docs" if not _is_production else None
+_redoc_url = "/redoc" if not _is_production else None
+
+app = FastAPI(
+    title="Anuvaad API",
+    version="3.0.0",
+    description=(
+        "**Anuvaad** — AI-powered code translation platform.\n\n"
+        "Translate code to plain English, English to code, and between 35+ languages.\n\n"
+        "All new clients should use the `/api/v1/` prefix. "
+        "Legacy `/api/` routes are deprecated and will be removed on **2027-01-01**."
+    ),
+    contact={
+        "name": "Anuvaad Support",
+        "url": FRONTEND_URL,
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=[
+        {"name": "translation", "description": "Core code translation endpoints (SSE streaming + sync)"},
+        {"name": "history", "description": "Translation history, API keys, and account management"},
+        {"name": "workspace", "description": "Collaborative translation workspaces"},
+        {"name": "billing", "description": "Subscription and credit management"},
+        {"name": "github", "description": "GitHub OAuth and repository integration"},
+        {"name": "utility", "description": "Health check, metrics, and utility endpoints"},
+    ],
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    lifespan=lifespan,
+)
 
 # Register all HTTP middleware (CORS, security headers, CSRF, metrics, rate-limit, deprecation)
 register_all(app)
@@ -177,7 +212,3 @@ app.include_router(utility_router, prefix="/api")
 app.include_router(demo_router, prefix="/api")
 
 logger.info("Anuvaad API Initialized")
-
-# ── Backward-compatible re-exports ──
-from app.api.middleware.csrf import _allowed_origins_set  # noqa: F401, E402
-from app.core.config import IS_PRODUCTION  # noqa: F401, E402

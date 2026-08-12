@@ -132,7 +132,7 @@ async def function_translate_to_english(
 
         return result
     except Exception as e:
-        logger.error(f"Code to English failed: {str(e)}")
+        logger.error(f"Code to English failed: {e!s}")
         stale_result = await find_stale_translation(
             email,
             payload.raw_code,

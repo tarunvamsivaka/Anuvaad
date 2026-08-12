@@ -16,6 +16,7 @@ from openai import AsyncOpenAI
 
 from app.core.cache import cache, cache_key
 from app.core.config import (
+    FRONTEND_URL,
     LLM_TIMEOUT,
     OPENROUTER_API_KEY,
     logger,
@@ -53,13 +54,16 @@ def init_clients(groq_key: str) -> None:
             api_key=OPENROUTER_API_KEY,
             base_url="https://openrouter.ai/api/v1",
             default_headers={
-                "HTTP-Referer": "https://getanuvaad.vercel.app",
+                # N-MED-05: Use FRONTEND_URL from config instead of a hardcoded Vercel URL.
+                # This automatically reflects the correct domain across all environments.
+                "HTTP-Referer": FRONTEND_URL,
                 "X-Title": "Anuvaad",
             },
         )
         logger.info("LLM client singletons initialized (Groq + OpenRouter fallback)")
     else:
         logger.info("LLM client singleton initialized (Groq only — OPENROUTER_API_KEY not set)")
+
 
 
 async def close_clients() -> None:
@@ -94,15 +98,12 @@ def _get_openrouter_client() -> AsyncOpenAI | None:
         api_key=key,
         base_url="https://openrouter.ai/api/v1",
         default_headers={
-            "HTTP-Referer": "https://getanuvaad.vercel.app",
+            # N-MED-05: Use FRONTEND_URL from config (consistent with init_clients).
+            "HTTP-Referer": FRONTEND_URL,
             "X-Title": "Anuvaad",
         },
     )
 
-
-def get_async_openai_class():
-    """Legacy compatibility shim — returns the AsyncOpenAI class (not an instance)."""
-    return AsyncOpenAI
 
 
 SYSTEM_INSTRUCTION = """
@@ -173,8 +174,7 @@ def _clean_json_response(text: str) -> str:
         text = text[7:]
     elif text.startswith("```"):
         text = text[3:]
-    if text.endswith("```"):
-        text = text[:-3]
+    text = text.removesuffix("```")
     return text.strip()
 
 
@@ -382,7 +382,7 @@ async def get_completion(
             logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}")
         except Exception as fallback_e:
             await metrics.record_model_call(fallback["model"], is_error=True)
-            logger.error(f"Fallback {fallback['name']} Error: {str(fallback_e)}")
+            logger.error(f"Fallback {fallback['name']} Error: {fallback_e!s}")
 
         # FIX-24 (P1-03): Third-level fallback — OpenRouter (external, different infra).
         openrouter_client = _get_openrouter_client()
@@ -414,7 +414,7 @@ async def get_completion(
                 return _clean_json_response(response.choices[0].message.content), "OpenRouter Llama 3.3"
             except Exception as or_e:
                 await metrics.record_model_call("openrouter-llama", is_error=True)
-                logger.error(f"OpenRouter fallback Error: {str(or_e)}")
+                logger.error(f"OpenRouter fallback Error: {or_e!s}")
 
         stale_result = await find_stale_translation(None, prompt, "code", mode, mode)
         if stale_result:
@@ -585,7 +585,7 @@ async def stream_code_to_english(
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        logger.error(f"Streaming error: {str(e)}")
+        logger.error(f"Streaming error: {e!s}")
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
 
 
@@ -755,5 +755,5 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        logger.error(f"Streaming error: {str(e)}")
+        logger.error(f"Streaming error: {e!s}")
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"

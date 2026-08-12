@@ -31,7 +31,7 @@ import os
 
 from cryptography.fernet import Fernet, MultiFernet
 
-__all__ = ["encrypt_token", "decrypt_token", "is_encrypted"]
+__all__ = ["decrypt_token", "encrypt_token", "is_encrypted"]
 
 # ── Key loading ──────────────────────────────────────────────────────────────
 

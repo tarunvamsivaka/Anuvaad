@@ -93,4 +93,4 @@ async def close_all_clients() -> None:
     logger.info("HTTP client singletons closed")
 
 
-__all__ = ["get_http_client", "close_all_clients"]
+__all__ = ["close_all_clients", "get_http_client"]

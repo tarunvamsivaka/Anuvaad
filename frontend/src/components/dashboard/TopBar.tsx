@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { UsageCounterBadge } from "@/components/common/UsageCounterBadge";
 
 export function WorkspaceSwitcher() {
   const { workspaces, activeWorkspace, setActiveWorkspace } = useWorkspace();
@@ -101,6 +102,8 @@ export function TopBar({ breadcrumb, action }: { breadcrumb?: React.ReactNode; a
 
       <div className="flex items-center gap-3">
         {action}
+        {/* M3 Feature #6: Remaining credits badge for free-tier users */}
+        <UsageCounterBadge />
         <ThemeToggle />
         <div className="group relative">
           <UserAvatar email={user?.email} />

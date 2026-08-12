@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 import { track } from "@/lib/analytics";
 import { TranslationBlock } from "../_types";
+import type { QuotaError } from "@/components/modals/QuotaExceededModal";
+import { parseQuotaErrorPayload } from "@/components/modals/QuotaExceededModal";
 
 // M-3: Cache the canvas-confetti dynamic import at module level.
 // Previously imported inside handleTranslate on every success call,
@@ -51,6 +53,9 @@ export function useTranslationStream({
   const [rawError, setRawError] = useState("");
   const [outputBlocks, setOutputBlocks] = useState<TranslationBlock[] | null>(null);
   const [originalBlocks, setOriginalBlocks] = useState<TranslationBlock[] | null>(null);
+  // M3 Feature #7: Structured 429 quota error — consumed by QuotaExceededModal.
+  const [quotaError, setQuotaError] = useState<QuotaError | null>(null);
+  const dismissQuotaError = useCallback(() => setQuotaError(null), []);
   
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const streamBufferRef = useRef("");
@@ -131,6 +136,16 @@ export function useTranslationStream({
       });
       
       if (!res.ok) {
+        // M3 Feature #7: Intercept 429 to show structured QuotaExceededModal
+        // instead of a generic toast. Parse the structured payload from the backend.
+        if (res.status === 429) {
+          const retryAfterHeader = res.headers.get("Retry-After");
+          const payload = await res.json().catch(() => null);
+          const quotaErr = parseQuotaErrorPayload(payload, retryAfterHeader);
+          setQuotaError(quotaErr);
+          setIsStreaming(false);
+          return;
+        }
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
@@ -287,6 +302,9 @@ export function useTranslationStream({
     rawError,
     outputBlocks,
     originalBlocks,
+    quotaError,
+    setQuotaError,
+    dismissQuotaError,
     setOutputBlocks,
     setOriginalBlocks,
     setStreamText,

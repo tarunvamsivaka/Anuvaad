@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { TranslationBlock } from "../_types";
+import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
 
 interface UseTranslationSessionProps {
   outputBlocks: TranslationBlock[] | null;
@@ -20,6 +21,7 @@ interface UseTranslationSessionProps {
   repositoryName: string;
   filePath: string;
   mode: string;
+  onQuotaExceeded?: (error: QuotaError) => void;
 }
 
 export function useTranslationSession({
@@ -39,6 +41,7 @@ export function useTranslationSession({
   repositoryName,
   filePath,
   mode,
+  onQuotaExceeded,
 }: UseTranslationSessionProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -82,6 +85,13 @@ export function useTranslationSession({
       });
 
       if (!res.ok) {
+        if (res.status === 429) {
+          const retryAfterHeader = res.headers.get("Retry-After");
+          const errData = await res.json().catch(() => null);
+          const quotaErr = parseQuotaErrorPayload(errData, retryAfterHeader);
+          onQuotaExceeded?.(quotaErr);
+          return;
+        }
         const err = await res.json().catch(() => null);
         throw new Error(err?.detail || `HTTP ${res.status}`);
       }
