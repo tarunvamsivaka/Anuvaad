@@ -224,4 +224,3 @@ class TestWireContract429Response:
             assert data.get("limit_type") == "user_daily_limit"
             assert data.get("retry_after_seconds") == 86400
             assert data.get("tier_limit") == 25
-

@@ -65,7 +65,6 @@ def init_clients(groq_key: str) -> None:
         logger.info("LLM client singleton initialized (Groq only — OPENROUTER_API_KEY not set)")
 
 
-
 async def close_clients() -> None:
     """Gracefully close all LLM clients. Call from app lifespan shutdown."""
     global _groq_client, _openrouter_client
@@ -103,7 +102,6 @@ def _get_openrouter_client() -> AsyncOpenAI | None:
             "X-Title": "Anuvaad",
         },
     )
-
 
 
 SYSTEM_INSTRUCTION = """

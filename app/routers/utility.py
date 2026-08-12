@@ -206,7 +206,6 @@ async def health_check():
     jwt_configured = bool(SUPABASE_JWT_SECRET)
     supabase_configured = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
 
-
     is_production = os.getenv("ENV", "development").lower() == "production"
     critical_missing = [
         name

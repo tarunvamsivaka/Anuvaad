@@ -229,7 +229,11 @@ class TestModelFailoverResilience:
 
         mock_fallback_resp = MagicMock()
         mock_fallback_resp.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"a=1","english_translation":"Sets a"}]}'))
+            MagicMock(
+                message=MagicMock(
+                    content='{"blocks":[{"id":"b1","code_snippet":"a=1","english_translation":"Sets a"}]}'
+                )
+            )
         ]
         mock_fallback = AsyncMock()
         mock_fallback.chat.completions.create.return_value = mock_fallback_resp
@@ -256,7 +260,11 @@ class TestModelFailoverResilience:
     async def test_failover_on_500_503_server_error(self):
         mock_fallback_resp = MagicMock()
         mock_fallback_resp.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"b=2","english_translation":"Sets b"}]}'))
+            MagicMock(
+                message=MagicMock(
+                    content='{"blocks":[{"id":"b1","code_snippet":"b=2","english_translation":"Sets b"}]}'
+                )
+            )
         ]
         mock_primary = AsyncMock()
 
@@ -283,7 +291,11 @@ class TestModelFailoverResilience:
     async def test_failover_on_timeout(self):
         mock_fallback_resp = MagicMock()
         mock_fallback_resp.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"c=3","english_translation":"Sets c"}]}'))
+            MagicMock(
+                message=MagicMock(
+                    content='{"blocks":[{"id":"b1","code_snippet":"c=3","english_translation":"Sets c"}]}'
+                )
+            )
         ]
         mock_primary = AsyncMock()
 

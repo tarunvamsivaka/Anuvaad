@@ -22,8 +22,6 @@ from app.services.email import email_service
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 
-
-
 def raise_quota_429(
     detail: str,
     limit_type: str,

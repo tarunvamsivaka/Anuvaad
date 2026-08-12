@@ -81,9 +81,7 @@ def validate_production_env() -> None:
         )
         raise RuntimeError(msg)
     for name in missing:
-        logger.warning(
-            f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production."
-        )
+        logger.warning(f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production.")
 
 
 # ── Lifespan ──

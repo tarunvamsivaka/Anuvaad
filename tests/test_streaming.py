@@ -171,13 +171,15 @@ class TestStreamingModelFailover:
             if model == "llama-3.3-70b-versatile":
                 raise Exception("429 RateLimitError on llama-3.3-70b-versatile")
             elif model == "llama-3.1-8b-instant":
-                valid_json = json.dumps([
-                    {
-                        "id": "block_1",
-                        "code_snippet": "def add(a, b): return a + b",
-                        "english_translation": "Returns sum of a and b",
-                    }
-                ])
+                valid_json = json.dumps(
+                    [
+                        {
+                            "id": "block_1",
+                            "code_snippet": "def add(a, b): return a + b",
+                            "english_translation": "Returns sum of a and b",
+                        }
+                    ]
+                )
                 return mock_stream(valid_json)
             raise Exception(f"Unexpected model: {model}")
 
@@ -236,13 +238,15 @@ class TestStreamingModelFailover:
             if model == "llama-3.3-70b-versatile":
                 raise Exception("500 Internal Server Error on primary LLM")
             elif model == "llama-3.1-8b-instant":
-                valid_json = json.dumps([
-                    {
-                        "id": "block_1",
-                        "code_snippet": "const add = (a, b) => a + b;",
-                        "english_translation": "Adds a and b in JavaScript",
-                    }
-                ])
+                valid_json = json.dumps(
+                    [
+                        {
+                            "id": "block_1",
+                            "code_snippet": "const add = (a, b) => a + b;",
+                            "english_translation": "Adds a and b in JavaScript",
+                        }
+                    ]
+                )
                 return mock_stream(valid_json)
             raise Exception(f"Unexpected model: {model}")
 
@@ -286,4 +290,3 @@ class TestStreamingModelFailover:
         assert done_event.get("model_used") == "llama-3.1-8b-instant"
         assert "blocks" in done_event
         assert done_event["blocks"][0]["code_snippet"] == "const add = (a, b) => a + b;"
-

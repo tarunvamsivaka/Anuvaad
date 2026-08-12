@@ -62,6 +62,7 @@ def validate_production_env():
 # Test Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def e2e_db_session():
     """Isolated in-memory SQLite database session fixture."""
@@ -79,6 +80,7 @@ async def e2e_db_session():
 
     session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     import app.core.database_session as db_session_module
+
     with patch.object(db_session_module, "AsyncSessionLocal", session_maker):
         async with session_maker() as session:
             yield session
@@ -87,10 +89,10 @@ async def e2e_db_session():
     await engine.dispose()
 
 
-
 # ---------------------------------------------------------------------------
 # TIER 1: Feature Coverage (>= 5 test cases per feature)
 # ---------------------------------------------------------------------------
+
 
 class TestTier1Feature01DeadCodeRemoval:
     """Feature 1: Backend Dead Code Removal (>5 test cases)."""
@@ -113,12 +115,14 @@ class TestTier1Feature01DeadCodeRemoval:
 
     def test_f01_5_get_async_openai_class_shim_removed(self):
         import app.services.ai as ai_module
+
         assert not hasattr(ai_module, "get_async_openai_class")
 
     @pytest.mark.asyncio
     async def test_f01_6_active_repositories_functional(self):
         import app.repositories.translation as trans_repo
         import app.repositories.vectors as vec_repo
+
         assert hasattr(trans_repo, "prune_anonymous_history")
         assert hasattr(vec_repo, "prune_stale_vectors")
 
@@ -201,7 +205,6 @@ class TestTier1Feature04GroqCapsAndLimits:
             # -1 was adopted as the canonical "no limit" value (FIX-R) replacing 999999.
             assert daily_limit == -1 or daily_limit >= 1000
 
-
     @pytest.mark.asyncio
     async def test_f04_5_groq_rpm_limit_exceeded_429(self):
         with patch.dict(os.environ, {"GROQ_MAX_RPM": "1"}):
@@ -228,7 +231,9 @@ class TestTier1Feature05ModelFailover:
     async def test_f05_1_primary_model_success_path(self):
         mock_response = MagicMock()
         mock_response.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"1","code_snippet":"x=1","english_translation":"Set x"}]}'))
+            MagicMock(
+                message=MagicMock(content='{"blocks":[{"id":"1","code_snippet":"x=1","english_translation":"Set x"}]}')
+            )
         ]
         mock_client = AsyncMock()
         mock_client.chat.completions.create.return_value = mock_response
@@ -247,7 +252,9 @@ class TestTier1Feature05ModelFailover:
     async def test_f05_2_primary_429_fails_over_to_llama_31_8b_instant(self):
         mock_fallback_response = MagicMock()
         mock_fallback_response.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"y=2","english_translation":"Set y"}]}'))
+            MagicMock(
+                message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"y=2","english_translation":"Set y"}]}')
+            )
         ]
         mock_client = AsyncMock()
         mock_client.chat.completions.create.side_effect = [
@@ -269,7 +276,9 @@ class TestTier1Feature05ModelFailover:
     async def test_f05_3_primary_timeout_fails_over_to_llama_31_8b_instant(self):
         mock_fallback_response = MagicMock()
         mock_fallback_response.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"z=3","english_translation":"Set z"}]}'))
+            MagicMock(
+                message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"z=3","english_translation":"Set z"}]}')
+            )
         ]
         mock_client = AsyncMock()
         mock_client.chat.completions.create.side_effect = [
@@ -291,9 +300,13 @@ class TestTier1Feature05ModelFailover:
         with patch(
             "app.core.cache.cache.get",
             new_callable=AsyncMock,
-            return_value=[{"id": "b1", "code_snippet": "def hello(): pass", "english_translation": "Defines hello function"}],
+            return_value=[
+                {"id": "b1", "code_snippet": "def hello(): pass", "english_translation": "Defines hello function"}
+            ],
         ):
-            stale_res = await find_stale_translation("test@test.com", "def hello(): pass", "python", "code-to-english", "NORMAL")
+            stale_res = await find_stale_translation(
+                "test@test.com", "def hello(): pass", "python", "code-to-english", "NORMAL"
+            )
             assert stale_res is not None
             assert isinstance(stale_res, list)
 
@@ -309,7 +322,11 @@ class TestTier1Feature05ModelFailover:
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await get_completion(
-                    prompt="fail", system_instruction="test", mode="explanation", response_format="json_object", use_r1=False
+                    prompt="fail",
+                    system_instruction="test",
+                    mode="explanation",
+                    response_format="json_object",
+                    use_r1=False,
                 )
             assert exc_info.value.status_code == 500
 
@@ -387,10 +404,12 @@ class TestTier1Feature07DBConnectionPoolAndSafety:
 
     def test_f07_2_pgbouncer_mode_pool_override(self):
         from app.core.config import DATABASE_POOL_URL
+
         assert isinstance(DATABASE_POOL_URL, str)
 
     def test_f07_3_sqlite_cosine_distance_registered(self):
         from app.core.database_session import _sqlite_cosine_distance
+
         dist = _sqlite_cosine_distance("[1.0, 0.0]", "[1.0, 0.0]")
         assert dist == 0.0
 
@@ -474,7 +493,6 @@ class TestTier1Feature08FootprintPruning:
         res = prune_database_footprint()
         assert isinstance(res, dict)
         assert "deleted_history" in res or "history_deleted" in res
-
 
     def test_f08_4_celery_beat_schedule_registration(self):
         beat_schedule = celery_app.conf.beat_schedule
@@ -641,6 +659,7 @@ class TestTier1Feature15E2ETestingSuiteAndGreenGate:
 
     def test_f15_3_conftest_fixtures_available(self):
         import tests.conftest as conftest_module
+
         assert hasattr(conftest_module, "client")
         assert hasattr(conftest_module, "client_with_auth")
         assert hasattr(conftest_module, "client_rate_limited")
@@ -661,6 +680,7 @@ class TestTier1Feature15E2ETestingSuiteAndGreenGate:
 # ---------------------------------------------------------------------------
 # TIER 2: Boundary & Corner Cases
 # ---------------------------------------------------------------------------
+
 
 class TestTier2BoundaryAndCornerCases:
     """Tier 2: Boundary Value Analysis & Edge Conditions."""
@@ -807,7 +827,12 @@ class TestTier2BoundaryAndCornerCases:
     def test_t2_bva_retry_after_header_formatting_match(self):
         exc = HTTPException(
             status_code=429,
-            detail={"message": "Guest daily quota exceeded", "limit_type": "guest_daily_limit", "retry_after_seconds": 86400, "tier_limit": 5},
+            detail={
+                "message": "Guest daily quota exceeded",
+                "limit_type": "guest_daily_limit",
+                "retry_after_seconds": 86400,
+                "tier_limit": 5,
+            },
             headers={"Retry-After": "86400"},
         )
         assert str(exc.detail["retry_after_seconds"]) == exc.headers["Retry-After"]
@@ -817,6 +842,7 @@ class TestTier2BoundaryAndCornerCases:
 # TIER 3: Cross-Feature Interaction Scenarios
 # ---------------------------------------------------------------------------
 
+
 class TestTier3CrossFeatureInteractions:
     """Tier 3: Pairwise & Cross-Feature Interaction Scenarios."""
 
@@ -825,7 +851,11 @@ class TestTier3CrossFeatureInteractions:
         """Feature 4 x Feature 5: Groq caps & TPM tracking alongside LLM model failover."""
         mock_fallback_response = MagicMock()
         mock_fallback_response.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"a=1","english_translation":"Assign a"}]}'))
+            MagicMock(
+                message=MagicMock(
+                    content='{"blocks":[{"id":"b1","code_snippet":"a=1","english_translation":"Assign a"}]}'
+                )
+            )
         ]
         mock_client = AsyncMock()
         # Primary raises 429, secondary succeeds
@@ -907,6 +937,7 @@ class TestTier3CrossFeatureInteractions:
 # TIER 4: Real-World Workload Scenarios
 # ---------------------------------------------------------------------------
 
+
 class TestTier4RealWorldWorkloadScenarios:
     """Tier 4: End-to-End Real-World Application Workload Scenarios."""
 
@@ -915,7 +946,11 @@ class TestTier4RealWorldWorkloadScenarios:
         """20 concurrent translation requests encounter primary model failure and fail over cleanly."""
         mock_fallback_response = MagicMock()
         mock_fallback_response.choices = [
-            MagicMock(message=MagicMock(content='{"blocks":[{"id":"b1","code_snippet":"concat","english_translation":"Concatenates strings"}]}'))
+            MagicMock(
+                message=MagicMock(
+                    content='{"blocks":[{"id":"b1","code_snippet":"concat","english_translation":"Concatenates strings"}]}'
+                )
+            )
         ]
         mock_client = AsyncMock()
         mock_client.chat.completions.create.side_effect = [
@@ -969,7 +1004,9 @@ class TestTier4RealWorldWorkloadScenarios:
                 patch("app.core.quota.get_user_pro_status", new_callable=AsyncMock, return_value=False),
                 patch("app.core.quota.increment_today_usage_count", new_callable=AsyncMock, return_value=i),
             ):
-                _, limit, _, _ = await enforce_quotas_and_protection(req, email="fresh_user@example.com", char_count=100)
+                _, limit, _, _ = await enforce_quotas_and_protection(
+                    req, email="fresh_user@example.com", char_count=100
+                )
                 assert limit == 25
 
         # Step 4: 26th translation attempt fails with 429 user_daily_limit

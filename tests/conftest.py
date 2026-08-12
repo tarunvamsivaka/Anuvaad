@@ -134,7 +134,12 @@ class MockCompletions:
         fmt = kwargs.get("response_format", {})
         is_json = False
         model = kwargs.get("model", "")
-        if (isinstance(fmt, dict) and fmt.get("type") == "json_object") or fmt == "json_object" or "deepseek" in model or "reasoner" in model:
+        if (
+            (isinstance(fmt, dict) and fmt.get("type") == "json_object")
+            or fmt == "json_object"
+            or "deepseek" in model
+            or "reasoner" in model
+        ):
             is_json = True
 
         if self.mock_client.error_mode == "timeout":

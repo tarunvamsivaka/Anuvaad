@@ -86,10 +86,13 @@ class TestCooldownEnforcement:
 
     def test_cooldown_raises_429(self, client):
         # Simulate active cooldown in cache and set cooldown env limit to 5
-        with patch.dict(os.environ, {"LIMIT_FREE_COOLDOWN": "5"}), patch.object(
-            app_module.cache,
-            "get",
-            side_effect=lambda k: True if "cooldown:" in k else None,
+        with (
+            patch.dict(os.environ, {"LIMIT_FREE_COOLDOWN": "5"}),
+            patch.object(
+                app_module.cache,
+                "get",
+                side_effect=lambda k: True if "cooldown:" in k else None,
+            ),
         ):
             res = client.post(
                 "/api/code-to-english",

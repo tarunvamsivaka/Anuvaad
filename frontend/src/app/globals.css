@@ -5,10 +5,9 @@
    Route-specific CSS (landing/dashboard/auth) is imported in their layouts.
    ============================================================ */
 
-/* ── TAILWIND + SHADCN ECOSYSTEM ──────────────────────────── */
+/* ── TAILWIND ECOSYSTEM ───────────────────────────────────── */
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 /* ── DESIGN SYSTEM V2 TOKENS ──────────────────────────────── */
 @import "../design/tokens/index.css";
