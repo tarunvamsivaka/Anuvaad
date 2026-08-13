@@ -19,8 +19,8 @@ def test_verify_ruff_check():
 
 
 def test_verify_npm_build():
-    if not shutil.which("npm"):
-        pytest.skip("npm not installed in current environment")
+    if not shutil.which("npm") or not (frontend_dir / "node_modules" / "next").exists():
+        pytest.skip("frontend dependencies not installed (run npm ci first)")
     res = subprocess.run("npm run build", cwd=frontend_dir, capture_output=True, text=True, shell=True)
     print("\n[NPM BUILD STDOUT]\n" + res.stdout)
     if res.stderr:
@@ -29,8 +29,8 @@ def test_verify_npm_build():
 
 
 def test_verify_vitest_run():
-    if not shutil.which("npx"):
-        pytest.skip("npx not installed in current environment")
+    if not shutil.which("npx") or not (frontend_dir / "node_modules" / "vitest").exists():
+        pytest.skip("frontend dependencies not installed (run npm ci first)")
     res = subprocess.run("npx vitest run", cwd=frontend_dir, capture_output=True, text=True, shell=True)
     print("\n[VITEST STDOUT]\n" + res.stdout)
     if res.stderr:
