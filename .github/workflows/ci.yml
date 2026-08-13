@@ -41,7 +41,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install "setuptools>=83.0.0"
           pip install -r requirements.txt
-          pip install pytest httpx httpx2 "pytest-asyncio>=1.0.0,<2.0.0" structlog aiosqlite
+          pip install pytest httpx "pytest-asyncio>=1.0.0,<2.0.0" structlog aiosqlite
 
       - name: Run tests
         env:

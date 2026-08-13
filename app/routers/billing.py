@@ -16,6 +16,7 @@ import razorpay
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+import app.compat  # noqa: F401
 from app.core.auth import get_client_ip, get_user_email, get_user_pro_status
 from app.core.cache import cache
 from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
