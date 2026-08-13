@@ -1,10 +1,16 @@
+import shutil
 import subprocess
+from pathlib import Path
 
-base_dir = r"C:\Users\tarun\Anuvaad\Anuvaad"
-frontend_dir = r"C:\Users\tarun\Anuvaad\Anuvaad\frontend"
+import pytest
+
+base_dir = Path(__file__).resolve().parent.parent
+frontend_dir = base_dir / "frontend"
 
 
 def test_verify_ruff_check():
+    if not shutil.which("ruff"):
+        pytest.skip("ruff not installed in current environment")
     res = subprocess.run("ruff check .", cwd=base_dir, capture_output=True, text=True, shell=True)
     print("\n[RUFF STDOUT]\n" + res.stdout)
     if res.stderr:
@@ -13,6 +19,8 @@ def test_verify_ruff_check():
 
 
 def test_verify_npm_build():
+    if not shutil.which("npm"):
+        pytest.skip("npm not installed in current environment")
     res = subprocess.run("npm run build", cwd=frontend_dir, capture_output=True, text=True, shell=True)
     print("\n[NPM BUILD STDOUT]\n" + res.stdout)
     if res.stderr:
@@ -21,6 +29,8 @@ def test_verify_npm_build():
 
 
 def test_verify_vitest_run():
+    if not shutil.which("npx"):
+        pytest.skip("npx not installed in current environment")
     res = subprocess.run("npx vitest run", cwd=frontend_dir, capture_output=True, text=True, shell=True)
     print("\n[VITEST STDOUT]\n" + res.stdout)
     if res.stderr:
