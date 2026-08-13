@@ -55,12 +55,14 @@ import httpx  # noqa: E402
 import pytest  # noqa: E402
 import razorpay  # noqa: E402
 
-_original_json = httpx.Response.json
+_original_httpx_json = httpx.Response.json
 
 
 def _patched_json(self, **kwargs):
     try:
-        return _original_json(self, **kwargs)
+        if hasattr(self, "_original_json_fn"):
+            return self._original_json_fn(**kwargs)
+        return _original_httpx_json(self, **kwargs)
     except json.JSONDecodeError:
         if self.text.startswith("data: "):
             lines = self.text.strip().split("\n\n")
@@ -79,6 +81,13 @@ def _patched_json(self, **kwargs):
 
 
 httpx.Response.json = _patched_json
+
+try:
+    import httpx2
+
+    httpx2.Response.json = _patched_json
+except ImportError:
+    pass
 
 # ── Ensure env vars are set BEFORE importing main ──
 os.environ.setdefault("GROQ_API_KEY", "test_key_for_ci")

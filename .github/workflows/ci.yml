@@ -42,6 +42,7 @@ jobs:
           pip install "setuptools>=83.0.0"
           pip install -r requirements.txt
           pip install pytest httpx "pytest-asyncio>=1.0.0,<2.0.0" structlog aiosqlite
+          pip uninstall -y httpx2 || true
 
       - name: Run tests
         env:
