@@ -953,10 +953,14 @@ class TestTier4RealWorldWorkloadScenarios:
             )
         ]
         mock_client = AsyncMock()
-        mock_client.chat.completions.create.side_effect = [
-            Exception("429 Primary model rate limited"),
-            mock_fallback_response,
-        ] * 20
+
+        async def _mock_create(**kwargs):
+            model = kwargs.get("model", "")
+            if "8b" in model.lower() or "fallback" in model.lower():
+                return mock_fallback_response
+            raise Exception("429 Primary model rate limited")
+
+        mock_client.chat.completions.create.side_effect = _mock_create
 
         with (
             patch("app.services.ai.check_and_track_groq_limits", new_callable=AsyncMock),
