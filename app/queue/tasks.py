@@ -343,14 +343,13 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
                 else:
                     embeddings = await generate_embeddings_hf(texts)
 
-                for j, emb in enumerate(embeddings):
-                    if j < len(batch) and isinstance(emb, list):
-                        batch[j]["embedding"] = emb
-                        batch[j]["provider"] = provider
-                    elif j < len(batch):
+                for item, emb in zip(batch, embeddings):
+                    if isinstance(emb, list):
+                        item["embedding"] = emb
+                    else:
                         # Fallback if the embedding is somehow malformed
-                        batch[j]["embedding"] = [0.0] * embedding_dim
-                        batch[j]["provider"] = provider
+                        item["embedding"] = [0.0] * embedding_dim
+                    item["provider"] = provider
 
                 # Insert into DB
                 async with AsyncSessionLocal() as session:
