@@ -114,7 +114,8 @@ class TestStreamingEndpoint:
         try:
             with (
                 patch.object(app_module, "cache", fake_redis),
-                patch.object(cache_module, "cache_override", fake_redis),
+                patch.object(cache_module.cache, "get", fake_redis.get),
+                patch.object(cache_module.cache, "put", fake_redis.put),
                 patch.object(app_module, "AsyncOpenAI", TrackingMock),
             ):
                 from fastapi.testclient import TestClient

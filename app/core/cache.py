@@ -216,22 +216,7 @@ class RedisCache:
         return False
 
 
-# Override hook for unit testing (replaces sys.modules.get("main") hack)
-cache_override = None
-
-
-class CacheProxy:
-    def __init__(self, target):
-        self._target = target
-
-    def __getattr__(self, name):
-        global cache_override
-        if cache_override is not None:
-            return getattr(cache_override, name)
-        return getattr(self._target, name)
-
-
-cache = CacheProxy(RedisCache())
+cache = RedisCache()
 
 
 def normalize_code_for_cache(code: str) -> str:
