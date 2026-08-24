@@ -111,7 +111,7 @@ class MetricsCollector:
     async def snapshot(self) -> dict:
         """Return current metrics snapshot.
 
-        BUG#8 FIX: Always returns a dict — no implicit None return path.
+        Always returns a dict — no implicit None return path.
         Redis failure falls through to the guaranteed in-memory return.
         """
         from app.core.cache import cache  # lazy import
@@ -140,7 +140,7 @@ class MetricsCollector:
 
                 logging.getLogger("anuvaad").error(f"Failed to snapshot Redis metrics: {e}")
 
-        # BUG#8 FIX: guaranteed return — no implicit None
+        # guaranteed return — no implicit None
         return {
             "uptime_seconds": self.uptime_seconds,
             "python_version": sys.version,
