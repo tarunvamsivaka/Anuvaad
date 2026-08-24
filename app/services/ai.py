@@ -273,7 +273,6 @@ async def find_stale_translation(
     return None
 
 
-
 async def _execute_provider_call(
     client,
     model: str,
