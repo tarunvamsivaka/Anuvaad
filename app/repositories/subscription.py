@@ -11,8 +11,23 @@ from __future__ import annotations
 from sqlalchemy import func, select, update
 
 from app.core.config import logger
-from app.core.database_session import AsyncSessionLocal
+from app.core.database_session import AsyncSessionLocal, engine
 from app.models.db_models import UserSubscription
+
+
+def _get_upsert_stmt(dialect_name: str, table, values: dict, index_elements: list[str], set_: dict):
+    if dialect_name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert as pg_insert
+
+        stmt = pg_insert(table).values(**values)
+        return stmt.on_conflict_do_update(index_elements=index_elements, set_=set_)
+    elif dialect_name == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+        stmt = sqlite_insert(table).values(**values)
+        return stmt.on_conflict_do_update(index_elements=index_elements, set_=set_)
+    else:
+        raise ValueError(f"Unsupported dialect for upsert: {dialect_name}")
 
 
 async def get_total_user_count() -> int:
@@ -76,20 +91,22 @@ async def atomic_deduct_credit(email: str) -> bool:
 
 
 async def upsert_subscription(email: str, data: dict) -> bool:
-    """Insert or update a subscription row.
+    """Insert or update a subscription row atomically.
 
-    Checks for an existing row first; uses UPDATE if found, INSERT otherwise.
     Prevents UNIQUE constraint violations on repeated billing events (BUG#2).
     """
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(select(UserSubscription).where(UserSubscription.user_email == email))
-            existing = result.scalars().first()
-            if existing:
-                stmt = update(UserSubscription).where(UserSubscription.user_email == email).values(**data)
-                await session.execute(stmt)
-            else:
-                session.add(UserSubscription(user_email=email, **data))
+            values = {"user_email": email, **data}
+            dialect = session.bind.dialect.name if session.bind else engine.dialect.name
+            stmt = _get_upsert_stmt(
+                dialect_name=dialect,
+                table=UserSubscription,
+                values=values,
+                index_elements=["user_email"],
+                set_=data,
+            )
+            await session.execute(stmt)
             await session.commit()
             return True
         except Exception as e:
@@ -116,24 +133,21 @@ async def add_credits(email: str, amount: int) -> bool:
     """
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(select(UserSubscription).where(UserSubscription.user_email == email))
-            existing = result.scalars().first()
-            if existing:
-                stmt = (
-                    update(UserSubscription)
-                    .where(UserSubscription.user_email == email)
-                    .values(credits=UserSubscription.credits + amount)
-                )
-                await session.execute(stmt)
-            else:
-                session.add(
-                    UserSubscription(
-                        user_email=email,
-                        credits=amount,
-                        is_pro=False,
-                        onboarded=False,
-                    )
-                )
+            values = {
+                "user_email": email,
+                "credits": amount,
+                "is_pro": False,
+                "onboarded": False,
+            }
+            dialect = session.bind.dialect.name if session.bind else engine.dialect.name
+            stmt = _get_upsert_stmt(
+                dialect_name=dialect,
+                table=UserSubscription,
+                values=values,
+                index_elements=["user_email"],
+                set_={"credits": UserSubscription.credits + amount},
+            )
+            await session.execute(stmt)
             await session.commit()
             return True
         except Exception as e:
@@ -146,21 +160,21 @@ async def mark_onboarded(email: str) -> bool:
     """FIX-35 (P3-08): Mark the user's onboarding as complete."""
     async with AsyncSessionLocal() as session:
         try:
-            result = await session.execute(select(UserSubscription).where(UserSubscription.user_email == email))
-            existing = result.scalars().first()
-            if existing:
-                await session.execute(
-                    update(UserSubscription).where(UserSubscription.user_email == email).values(onboarded=True)
-                )
-            else:
-                session.add(
-                    UserSubscription(
-                        user_email=email,
-                        is_pro=False,
-                        credits=0,
-                        onboarded=True,
-                    )
-                )
+            values = {
+                "user_email": email,
+                "is_pro": False,
+                "credits": 0,
+                "onboarded": True,
+            }
+            dialect = session.bind.dialect.name if session.bind else engine.dialect.name
+            stmt = _get_upsert_stmt(
+                dialect_name=dialect,
+                table=UserSubscription,
+                values=values,
+                index_elements=["user_email"],
+                set_={"onboarded": True},
+            )
+            await session.execute(stmt)
             await session.commit()
             return True
         except Exception as e:
