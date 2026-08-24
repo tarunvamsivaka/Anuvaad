@@ -509,8 +509,8 @@ async def _stream_translation_from_providers(
                     yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
 
             if full_content.strip():
-                output_state['full_content'] = full_content
-                output_state['used_model'] = p_model
+                output_state["full_content"] = full_content
+                output_state["used_model"] = p_model
                 await metrics.record_model_call(p_model)
                 break
         except Exception as stream_err:
@@ -547,9 +547,20 @@ async def stream_code_to_english(
 
             if email:
                 await _record_and_save_history(
-                    email, is_pro, deduct_credit_flag, cooldown, "Code → English",
-                    payload.language, "english", payload.raw_code, cached, model_name,
-                    payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
+                    email,
+                    is_pro,
+                    deduct_credit_flag,
+                    cooldown,
+                    "Code → English",
+                    payload.language,
+                    "english",
+                    payload.raw_code,
+                    cached,
+                    model_name,
+                    payload.workspace_id,
+                    payload.session_id,
+                    payload.repository_name,
+                    payload.file_path,
                 )
             return
 
@@ -566,12 +577,12 @@ async def stream_code_to_english(
             },
         ]
 
-        output_state = {'full_content': '', 'used_model': model}
+        output_state = {"full_content": "", "used_model": model}
         async for chunk in _stream_translation_from_providers(providers, messages, tier, output_state):
             yield chunk
 
-        full_content = output_state['full_content']
-        used_model = output_state['used_model']
+        full_content = output_state["full_content"]
+        used_model = output_state["used_model"]
 
         if not full_content.strip():
             stale_result = await find_stale_translation(
@@ -587,9 +598,20 @@ async def stream_code_to_english(
                 yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
                 if email:
                     await _record_and_save_history(
-                        email, is_pro, deduct_credit_flag, cooldown, "Code → English",
-                        payload.language, "english", payload.raw_code, stale_result, "stale_recovery",
-                        payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
+                        email,
+                        is_pro,
+                        deduct_credit_flag,
+                        cooldown,
+                        "Code → English",
+                        payload.language,
+                        "english",
+                        payload.raw_code,
+                        stale_result,
+                        "stale_recovery",
+                        payload.workspace_id,
+                        payload.session_id,
+                        payload.repository_name,
+                        payload.file_path,
                     )
                 return
 
@@ -606,9 +628,20 @@ async def stream_code_to_english(
 
         if email:
             await _record_and_save_history(
-                email, is_pro, deduct_credit_flag, cooldown, "Code → English",
-                payload.language, "english", payload.raw_code, result, used_model,
-                payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
+                email,
+                is_pro,
+                deduct_credit_flag,
+                cooldown,
+                "Code → English",
+                payload.language,
+                "english",
+                payload.raw_code,
+                result,
+                used_model,
+                payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
 
     except Exception as e:
@@ -649,9 +682,20 @@ async def stream_code_to_code(
 
             if email:
                 await _record_and_save_history(
-                    email, is_pro, deduct_credit_flag, cooldown, "Code → Code",
-                    payload.source_language, payload.target_language, payload.raw_code, cached, model_name,
-                    payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
+                    email,
+                    is_pro,
+                    deduct_credit_flag,
+                    cooldown,
+                    "Code → Code",
+                    payload.source_language,
+                    payload.target_language,
+                    payload.raw_code,
+                    cached,
+                    model_name,
+                    payload.workspace_id,
+                    payload.session_id,
+                    payload.repository_name,
+                    payload.file_path,
                 )
             return
 
@@ -671,12 +715,12 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             {"role": "user", "content": user_prompt},
         ]
 
-        output_state = {'full_content': '', 'used_model': model}
+        output_state = {"full_content": "", "used_model": model}
         async for chunk in _stream_translation_from_providers(providers, messages, tier, output_state):
             yield chunk
 
-        full_content = output_state['full_content']
-        used_model = output_state['used_model']
+        full_content = output_state["full_content"]
+        used_model = output_state["used_model"]
 
         if not full_content.strip():
             stale_result = await find_stale_translation(
@@ -692,9 +736,20 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
                 if email:
                     await _record_and_save_history(
-                        email, is_pro, deduct_credit_flag, cooldown, "Code → Code",
-                        payload.source_language, payload.target_language, payload.raw_code, stale_result, "stale_recovery",
-                        payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
+                        email,
+                        is_pro,
+                        deduct_credit_flag,
+                        cooldown,
+                        "Code → Code",
+                        payload.source_language,
+                        payload.target_language,
+                        payload.raw_code,
+                        stale_result,
+                        "stale_recovery",
+                        payload.workspace_id,
+                        payload.session_id,
+                        payload.repository_name,
+                        payload.file_path,
                     )
                 return
 
@@ -711,9 +766,20 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
         if email:
             await _record_and_save_history(
-                email, is_pro, deduct_credit_flag, cooldown, "Code → Code",
-                payload.source_language, payload.target_language, payload.raw_code, result, used_model,
-                payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
+                email,
+                is_pro,
+                deduct_credit_flag,
+                cooldown,
+                "Code → Code",
+                payload.source_language,
+                payload.target_language,
+                payload.raw_code,
+                result,
+                used_model,
+                payload.workspace_id,
+                payload.session_id,
+                payload.repository_name,
+                payload.file_path,
             )
 
     except Exception as e:
