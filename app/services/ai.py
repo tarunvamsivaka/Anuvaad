@@ -425,15 +425,17 @@ async def get_completion(
         )
 
 
-
 def _format_chunk(content: str) -> str:
     return f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+
 
 def _format_done(blocks: list, model_used: str) -> str:
     return f"data: {json.dumps({'done': True, 'blocks': blocks, 'model_used': model_used})}\n\n"
 
+
 def _format_error(error_msg: str) -> str:
     return f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
+
 
 def _get_streaming_providers(use_r1: bool) -> list:
     providers = []
@@ -451,6 +453,7 @@ def _get_streaming_providers(use_r1: bool) -> list:
 
     return providers
 
+
 def _build_streaming_kwargs(p_model: str, tier: str) -> dict:
     stream_kwargs = {"stream": True}
     if tier != "pro":
@@ -458,6 +461,7 @@ def _build_streaming_kwargs(p_model: str, tier: str) -> dict:
     if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
         stream_kwargs["response_format"] = {"type": "json_object"}
     return stream_kwargs
+
 
 async def _handle_translation_history(
     email: str | None,
@@ -488,6 +492,7 @@ async def _handle_translation_history(
         file_path=payload.file_path,
     )
 
+
 async def _stream_translation_base(
     payload,
     email: str | None,
@@ -506,14 +511,30 @@ async def _stream_translation_base(
         model_name = "deepseek-r1" if use_r1 else "standard"
         model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
 
-        key = cache_key(payload.raw_code, f"{source_language}->{target_language}" if cache_key_type == "code-to-code" else payload.language, cache_key_type, model_name)
+        key = cache_key(
+            payload.raw_code,
+            f"{source_language}->{target_language}" if cache_key_type == "code-to-code" else payload.language,
+            cache_key_type,
+            model_name,
+        )
 
         cached = await cache.get(key)
         if cached:
             await metrics.record_cache_hit()
             yield _format_chunk("")
             yield _format_done(cached, model)
-            await _handle_translation_history(email, is_pro, deduct_credit_flag, cooldown, payload, mode, source_language, target_language, cached, model_name)
+            await _handle_translation_history(
+                email,
+                is_pro,
+                deduct_credit_flag,
+                cooldown,
+                payload,
+                mode,
+                source_language,
+                target_language,
+                cached,
+                model_name,
+            )
             return
 
         await metrics.record_cache_miss()
@@ -560,11 +581,22 @@ async def _stream_translation_base(
             if stale_result:
                 logger.info("Streaming fallback: returning stale recovery result")
                 yield _format_chunk("")
-                yield _format_done(stale_result, 'stale_recovery')
-                await _handle_translation_history(email, is_pro, deduct_credit_flag, cooldown, payload, mode, source_language, target_language, stale_result, "stale_recovery")
+                yield _format_done(stale_result, "stale_recovery")
+                await _handle_translation_history(
+                    email,
+                    is_pro,
+                    deduct_credit_flag,
+                    cooldown,
+                    payload,
+                    mode,
+                    source_language,
+                    target_language,
+                    stale_result,
+                    "stale_recovery",
+                )
                 return
 
-            yield _format_error('Translation engine encountered an error. Please try again.')
+            yield _format_error("Translation engine encountered an error. Please try again.")
             return
 
         cleaned = _clean_json_response(full_content)
@@ -574,13 +606,24 @@ async def _stream_translation_base(
         await cache.put(key, result, 86400 * 7)
 
         yield _format_done(result, used_model)
-        await _handle_translation_history(email, is_pro, deduct_credit_flag, cooldown, payload, mode, source_language, target_language, result, used_model)
+        await _handle_translation_history(
+            email,
+            is_pro,
+            deduct_credit_flag,
+            cooldown,
+            payload,
+            mode,
+            source_language,
+            target_language,
+            result,
+            used_model,
+        )
 
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
         logger.error(f"Streaming error: {e!s}")
-        yield _format_error('Translation engine encountered an error. Please try again.')
+        yield _format_error("Translation engine encountered an error. Please try again.")
 
 
 async def stream_code_to_english(
