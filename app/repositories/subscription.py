@@ -18,10 +18,12 @@ from app.models.db_models import UserSubscription
 def _get_upsert_stmt(dialect_name: str, table, values: dict, index_elements: list[str], set_: dict):
     if dialect_name == "postgresql":
         from sqlalchemy.dialects.postgresql import insert as pg_insert
+
         stmt = pg_insert(table).values(**values)
         return stmt.on_conflict_do_update(index_elements=index_elements, set_=set_)
     elif dialect_name == "sqlite":
         from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
         stmt = sqlite_insert(table).values(**values)
         return stmt.on_conflict_do_update(index_elements=index_elements, set_=set_)
     else:
