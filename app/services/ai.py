@@ -9,6 +9,7 @@ try:
 except ImportError:
     _SENTRY_AVAILABLE = False
 
+from collections.abc import AsyncGenerator
 from contextlib import contextmanager
 
 from fastapi import HTTPException
@@ -102,6 +103,24 @@ def _get_openrouter_client() -> AsyncOpenAI | None:
             "X-Title": "Anuvaad",
         },
     )
+
+
+def _get_streaming_providers(use_r1: bool) -> list[tuple[AsyncOpenAI, str, str]]:
+    """Returns a list of tuples (client, model_name, provider_name) configured for streaming."""
+    providers = []
+    groq_client = _get_groq_client()
+    if groq_client:
+        primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+        fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
+        providers.append((groq_client, primary_model, "Groq Primary"))
+        providers.append((groq_client, fallback_model, "Groq Backup"))
+
+    openrouter_client = _get_openrouter_client()
+    if openrouter_client:
+        or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
+        providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+
+    return providers
 
 
 SYSTEM_INSTRUCTION = """
@@ -273,6 +292,39 @@ async def find_stale_translation(
     return None
 
 
+async def _record_and_save_history(
+    email: str,
+    is_pro: bool,
+    deduct_credit_flag: bool,
+    cooldown: int,
+    mode: str,
+    source_language: str,
+    target_language: str,
+    input_text: str,
+    blocks: list,
+    model_used: str,
+    workspace_id: str | None,
+    session_id: str | None,
+    repository_name: str | None,
+    file_path: str | None,
+) -> None:
+    """Helper to record successful completion and save history."""
+    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+    save_translation_history_task.delay(
+        user_email=email,
+        mode=mode,
+        source_language=source_language,
+        target_language=target_language,
+        input_text=input_text,
+        blocks=blocks,
+        model_used=model_used,
+        workspace_id=workspace_id,
+        session_id=session_id,
+        repository_name=repository_name,
+        file_path=file_path,
+    )
+
+
 async def get_completion(
     prompt: str,
     system_instruction: str,
@@ -425,6 +477,50 @@ async def get_completion(
         )
 
 
+async def _stream_translation_from_providers(
+    providers: list[tuple[AsyncOpenAI, str, str]],
+    messages: list[dict],
+    tier: str,
+    output_state: dict,
+) -> AsyncGenerator[str, None]:
+    """
+    Attempts to stream responses from a list of providers.
+    Yields SSE chunk strings.
+    Updates `output_state` with 'full_content' and 'used_model' on success.
+    """
+    for p_client, p_model, p_name in providers:
+        full_content = ""
+        try:
+            stream_kwargs = {"stream": True}
+            if tier != "pro":
+                stream_kwargs["max_tokens"] = 1500
+            if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
+                stream_kwargs["response_format"] = {"type": "json_object"}
+
+            candidate_stream = await asyncio.wait_for(
+                p_client.chat.completions.create(model=p_model, messages=messages, **stream_kwargs),
+                timeout=LLM_TIMEOUT,
+            )
+
+            async for chunk in candidate_stream:
+                content = chunk.choices[0].delta.content
+                if content:
+                    full_content += content
+                    yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+
+            if full_content.strip():
+                output_state['full_content'] = full_content
+                output_state['used_model'] = p_model
+                await metrics.record_model_call(p_model)
+                break
+        except Exception as stream_err:
+            await metrics.record_model_call(p_model, is_error=True)
+            logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
+            if full_content:
+                break
+            continue
+
+
 async def stream_code_to_english(
     payload: CodePayload,
     email: str | None,
@@ -450,37 +546,17 @@ async def stream_code_to_english(
             yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
             if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                save_translation_history_task.delay(
-                    user_email=email,
-                    mode="Code → English",
-                    source_language=payload.language,
-                    target_language="english",
-                    input_text=payload.raw_code,
-                    blocks=cached,
-                    model_used=model_name,
-                    workspace_id=payload.workspace_id,
-                    session_id=payload.session_id,
-                    repository_name=payload.repository_name,
-                    file_path=payload.file_path,
+                await _record_and_save_history(
+                    email, is_pro, deduct_credit_flag, cooldown, "Code → English",
+                    payload.language, "english", payload.raw_code, cached, model_name,
+                    payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
                 )
             return
 
         await metrics.record_cache_miss()
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
-        providers = []
-        groq_client = _get_groq_client()
-        if groq_client:
-            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
-            providers.append((groq_client, primary_model, "Groq Primary"))
-            providers.append((groq_client, fallback_model, "Groq Backup"))
-
-        openrouter_client = _get_openrouter_client()
-        if openrouter_client:
-            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
-            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+        providers = _get_streaming_providers(use_r1)
 
         messages = [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
@@ -490,39 +566,12 @@ async def stream_code_to_english(
             },
         ]
 
-        used_model = model
-        full_content = ""
+        output_state = {'full_content': '', 'used_model': model}
+        async for chunk in _stream_translation_from_providers(providers, messages, tier, output_state):
+            yield chunk
 
-        for p_client, p_model, p_name in providers:
-            try:
-                stream_kwargs = {"stream": True}
-                if tier != "pro":
-                    stream_kwargs["max_tokens"] = 1500
-                if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
-                    stream_kwargs["response_format"] = {"type": "json_object"}
-
-                candidate_stream = await asyncio.wait_for(
-                    p_client.chat.completions.create(model=p_model, messages=messages, **stream_kwargs),
-                    timeout=LLM_TIMEOUT,
-                )
-
-                full_content = ""
-                async for chunk in candidate_stream:
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        full_content += content
-                        yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
-
-                if full_content.strip():
-                    used_model = p_model
-                    await metrics.record_model_call(p_model)
-                    break
-            except Exception as stream_err:
-                await metrics.record_model_call(p_model, is_error=True)
-                logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
-                if full_content:
-                    break
-                continue
+        full_content = output_state['full_content']
+        used_model = output_state['used_model']
 
         if not full_content.strip():
             stale_result = await find_stale_translation(
@@ -537,19 +586,10 @@ async def stream_code_to_english(
                 yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
                 yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
                 if email:
-                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                    save_translation_history_task.delay(
-                        user_email=email,
-                        mode="Code → English",
-                        source_language=payload.language,
-                        target_language="english",
-                        input_text=payload.raw_code,
-                        blocks=stale_result,
-                        model_used="stale_recovery",
-                        workspace_id=payload.workspace_id,
-                        session_id=payload.session_id,
-                        repository_name=payload.repository_name,
-                        file_path=payload.file_path,
+                    await _record_and_save_history(
+                        email, is_pro, deduct_credit_flag, cooldown, "Code → English",
+                        payload.language, "english", payload.raw_code, stale_result, "stale_recovery",
+                        payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
                     )
                 return
 
@@ -565,19 +605,10 @@ async def stream_code_to_english(
         yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → English",
-                source_language=payload.language,
-                target_language="english",
-                input_text=payload.raw_code,
-                blocks=result,
-                model_used=used_model,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
+            await _record_and_save_history(
+                email, is_pro, deduct_credit_flag, cooldown, "Code → English",
+                payload.language, "english", payload.raw_code, result, used_model,
+                payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
             )
 
     except Exception as e:
@@ -617,37 +648,17 @@ async def stream_code_to_code(
             yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
             if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                save_translation_history_task.delay(
-                    user_email=email,
-                    mode="Code → Code",
-                    source_language=payload.source_language,
-                    target_language=payload.target_language,
-                    input_text=payload.raw_code,
-                    blocks=cached,
-                    model_used=model_name,
-                    workspace_id=payload.workspace_id,
-                    session_id=payload.session_id,
-                    repository_name=payload.repository_name,
-                    file_path=payload.file_path,
+                await _record_and_save_history(
+                    email, is_pro, deduct_credit_flag, cooldown, "Code → Code",
+                    payload.source_language, payload.target_language, payload.raw_code, cached, model_name,
+                    payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
                 )
             return
 
         await metrics.record_cache_miss()
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
-        providers = []
-        groq_client = _get_groq_client()
-        if groq_client:
-            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
-            providers.append((groq_client, primary_model, "Groq Primary"))
-            providers.append((groq_client, fallback_model, "Groq Backup"))
-
-        openrouter_client = _get_openrouter_client()
-        if openrouter_client:
-            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
-            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+        providers = _get_streaming_providers(use_r1)
 
         system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
@@ -660,39 +671,12 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             {"role": "user", "content": user_prompt},
         ]
 
-        used_model = model
-        full_content = ""
+        output_state = {'full_content': '', 'used_model': model}
+        async for chunk in _stream_translation_from_providers(providers, messages, tier, output_state):
+            yield chunk
 
-        for p_client, p_model, p_name in providers:
-            try:
-                stream_kwargs = {"stream": True}
-                if tier != "pro":
-                    stream_kwargs["max_tokens"] = 1500
-                if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
-                    stream_kwargs["response_format"] = {"type": "json_object"}
-
-                candidate_stream = await asyncio.wait_for(
-                    p_client.chat.completions.create(model=p_model, messages=messages, **stream_kwargs),
-                    timeout=LLM_TIMEOUT,
-                )
-
-                full_content = ""
-                async for chunk in candidate_stream:
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        full_content += content
-                        yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
-
-                if full_content.strip():
-                    used_model = p_model
-                    await metrics.record_model_call(p_model)
-                    break
-            except Exception as stream_err:
-                await metrics.record_model_call(p_model, is_error=True)
-                logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
-                if full_content:
-                    break
-                continue
+        full_content = output_state['full_content']
+        used_model = output_state['used_model']
 
         if not full_content.strip():
             stale_result = await find_stale_translation(
@@ -707,19 +691,10 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
                 yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
                 if email:
-                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                    save_translation_history_task.delay(
-                        user_email=email,
-                        mode="Code → Code",
-                        source_language=payload.source_language,
-                        target_language=payload.target_language,
-                        input_text=payload.raw_code,
-                        blocks=stale_result,
-                        model_used="stale_recovery",
-                        workspace_id=payload.workspace_id,
-                        session_id=payload.session_id,
-                        repository_name=payload.repository_name,
-                        file_path=payload.file_path,
+                    await _record_and_save_history(
+                        email, is_pro, deduct_credit_flag, cooldown, "Code → Code",
+                        payload.source_language, payload.target_language, payload.raw_code, stale_result, "stale_recovery",
+                        payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
                     )
                 return
 
@@ -735,19 +710,10 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
 
         if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → Code",
-                source_language=payload.source_language,
-                target_language=payload.target_language,
-                input_text=payload.raw_code,
-                blocks=result,
-                model_used=used_model,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
+            await _record_and_save_history(
+                email, is_pro, deduct_credit_flag, cooldown, "Code → Code",
+                payload.source_language, payload.target_language, payload.raw_code, result, used_model,
+                payload.workspace_id, payload.session_id, payload.repository_name, payload.file_path
             )
 
     except Exception as e:
