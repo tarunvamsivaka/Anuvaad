@@ -425,82 +425,107 @@ async def get_completion(
         )
 
 
-async def stream_code_to_english(
-    payload: CodePayload,
+
+def _format_chunk(content: str) -> str:
+    return f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+
+def _format_done(blocks: list, model_used: str) -> str:
+    return f"data: {json.dumps({'done': True, 'blocks': blocks, 'model_used': model_used})}\n\n"
+
+def _format_error(error_msg: str) -> str:
+    return f"data: {json.dumps({'error': error_msg, 'done': True})}\n\n"
+
+def _get_streaming_providers(use_r1: bool) -> list:
+    providers = []
+    groq_client = _get_groq_client()
+    if groq_client:
+        primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+        fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
+        providers.append((groq_client, primary_model, "Groq Primary"))
+        providers.append((groq_client, fallback_model, "Groq Backup"))
+
+    openrouter_client = _get_openrouter_client()
+    if openrouter_client:
+        or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
+        providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+
+    return providers
+
+def _build_streaming_kwargs(p_model: str, tier: str) -> dict:
+    stream_kwargs = {"stream": True}
+    if tier != "pro":
+        stream_kwargs["max_tokens"] = 1500
+    if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
+        stream_kwargs["response_format"] = {"type": "json_object"}
+    return stream_kwargs
+
+async def _handle_translation_history(
+    email: str | None,
+    is_pro: bool,
+    deduct_credit_flag: bool,
+    cooldown: int,
+    payload,
+    mode: str,
+    source_language: str,
+    target_language: str,
+    blocks: list,
+    model_used: str,
+):
+    if not email:
+        return
+    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+    save_translation_history_task.delay(
+        user_email=email,
+        mode=mode,
+        source_language=source_language,
+        target_language=target_language,
+        input_text=payload.raw_code,
+        blocks=blocks,
+        model_used=model_used,
+        workspace_id=payload.workspace_id,
+        session_id=payload.session_id,
+        repository_name=payload.repository_name,
+        file_path=payload.file_path,
+    )
+
+async def _stream_translation_base(
+    payload,
     email: str | None,
     is_pro: bool,
     use_r1: bool,
     tier: str,
-    deduct_credit_flag: bool = False,
-    cooldown: int = 0,
+    deduct_credit_flag: bool,
+    cooldown: int,
+    cache_key_type: str,
+    mode: str,
+    source_language: str,
+    target_language: str,
+    messages: list,
 ):
     try:
-        # Intelligent LLM Routing (Groq Only)
         model_name = "deepseek-r1" if use_r1 else "standard"
         model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
 
-        key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
+        key = cache_key(payload.raw_code, f"{source_language}->{target_language}" if cache_key_type == "code-to-code" else payload.language, cache_key_type, model_name)
 
-        # Check Cache
         cached = await cache.get(key)
-
         if cached:
             await metrics.record_cache_hit()
-            yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
-
-            if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                save_translation_history_task.delay(
-                    user_email=email,
-                    mode="Code → English",
-                    source_language=payload.language,
-                    target_language="english",
-                    input_text=payload.raw_code,
-                    blocks=cached,
-                    model_used=model_name,
-                    workspace_id=payload.workspace_id,
-                    session_id=payload.session_id,
-                    repository_name=payload.repository_name,
-                    file_path=payload.file_path,
-                )
+            yield _format_chunk("")
+            yield _format_done(cached, model)
+            await _handle_translation_history(email, is_pro, deduct_credit_flag, cooldown, payload, mode, source_language, target_language, cached, model_name)
             return
 
         await metrics.record_cache_miss()
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
-        providers = []
-        groq_client = _get_groq_client()
-        if groq_client:
-            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
-            providers.append((groq_client, primary_model, "Groq Primary"))
-            providers.append((groq_client, fallback_model, "Groq Backup"))
-
-        openrouter_client = _get_openrouter_client()
-        if openrouter_client:
-            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
-            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
-
-        messages = [
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {
-                "role": "user",
-                "content": f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}",
-            },
-        ]
-
+        providers = _get_streaming_providers(use_r1)
         used_model = model
         full_content = ""
 
         for p_client, p_model, p_name in providers:
             try:
-                stream_kwargs = {"stream": True}
-                if tier != "pro":
-                    stream_kwargs["max_tokens"] = 1500
-                if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
-                    stream_kwargs["response_format"] = {"type": "json_object"}
-
+                stream_kwargs = _build_streaming_kwargs(p_model, tier)
                 candidate_stream = await asyncio.wait_for(
                     p_client.chat.completions.create(model=p_model, messages=messages, **stream_kwargs),
                     timeout=LLM_TIMEOUT,
@@ -511,7 +536,7 @@ async def stream_code_to_english(
                     content = chunk.choices[0].delta.content
                     if content:
                         full_content += content
-                        yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+                        yield _format_chunk(content)
 
                 if full_content.strip():
                     used_model = p_model
@@ -528,32 +553,18 @@ async def stream_code_to_english(
             stale_result = await find_stale_translation(
                 email,
                 payload.raw_code,
-                payload.language,
-                "code-to-english",
-                "Code → English",
+                f"{source_language}->{target_language}" if cache_key_type == "code-to-code" else payload.language,
+                cache_key_type,
+                mode,
             )
             if stale_result:
                 logger.info("Streaming fallback: returning stale recovery result")
-                yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
-                if email:
-                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                    save_translation_history_task.delay(
-                        user_email=email,
-                        mode="Code → English",
-                        source_language=payload.language,
-                        target_language="english",
-                        input_text=payload.raw_code,
-                        blocks=stale_result,
-                        model_used="stale_recovery",
-                        workspace_id=payload.workspace_id,
-                        session_id=payload.session_id,
-                        repository_name=payload.repository_name,
-                        file_path=payload.file_path,
-                    )
+                yield _format_chunk("")
+                yield _format_done(stale_result, 'stale_recovery')
+                await _handle_translation_history(email, is_pro, deduct_credit_flag, cooldown, payload, mode, source_language, target_language, stale_result, "stale_recovery")
                 return
 
-            yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
+            yield _format_error('Translation engine encountered an error. Please try again.')
             return
 
         cleaned = _clean_json_response(full_content)
@@ -562,29 +573,48 @@ async def stream_code_to_english(
 
         await cache.put(key, result, 86400 * 7)
 
-        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
-
-        if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → English",
-                source_language=payload.language,
-                target_language="english",
-                input_text=payload.raw_code,
-                blocks=result,
-                model_used=used_model,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
+        yield _format_done(result, used_model)
+        await _handle_translation_history(email, is_pro, deduct_credit_flag, cooldown, payload, mode, source_language, target_language, result, used_model)
 
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
         logger.error(f"Streaming error: {e!s}")
-        yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
+        yield _format_error('Translation engine encountered an error. Please try again.')
+
+
+async def stream_code_to_english(
+    payload: CodePayload,
+    email: str | None,
+    is_pro: bool,
+    use_r1: bool,
+    tier: str,
+    deduct_credit_flag: bool = False,
+    cooldown: int = 0,
+):
+    messages = [
+        {"role": "system", "content": SYSTEM_INSTRUCTION},
+        {
+            "role": "user",
+            "content": f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}",
+        },
+    ]
+
+    async for chunk in _stream_translation_base(
+        payload=payload,
+        email=email,
+        is_pro=is_pro,
+        use_r1=use_r1,
+        tier=tier,
+        deduct_credit_flag=deduct_credit_flag,
+        cooldown=cooldown,
+        cache_key_type="code-to-english",
+        mode="Code → English",
+        source_language=payload.language,
+        target_language="english",
+        messages=messages,
+    ):
+        yield chunk
 
 
 async def stream_code_to_code(
@@ -596,162 +626,29 @@ async def stream_code_to_code(
     deduct_credit_flag: bool = False,
     cooldown: int = 0,
 ):
-    try:
-        # Intelligent LLM Routing (Groq Only)
-        model_name = "deepseek-r1" if use_r1 else "standard"
-        model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-
-        key = cache_key(
-            payload.raw_code,
-            f"{payload.source_language}->{payload.target_language}",
-            "code-to-code",
-            model_name,
-        )
-
-        # Check Cache
-        cached = await cache.get(key)
-
-        if cached:
-            await metrics.record_cache_hit()
-            yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
-
-            if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                save_translation_history_task.delay(
-                    user_email=email,
-                    mode="Code → Code",
-                    source_language=payload.source_language,
-                    target_language=payload.target_language,
-                    input_text=payload.raw_code,
-                    blocks=cached,
-                    model_used=model_name,
-                    workspace_id=payload.workspace_id,
-                    session_id=payload.session_id,
-                    repository_name=payload.repository_name,
-                    file_path=payload.file_path,
-                )
-            return
-
-        await metrics.record_cache_miss()
-        await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
-
-        providers = []
-        groq_client = _get_groq_client()
-        if groq_client:
-            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
-            providers.append((groq_client, primary_model, "Groq Primary"))
-            providers.append((groq_client, fallback_model, "Groq Backup"))
-
-        openrouter_client = _get_openrouter_client()
-        if openrouter_client:
-            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
-            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
-
-        system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
+    system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
 Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
 
-        user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
+    user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
 
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user_prompt},
-        ]
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user_prompt},
+    ]
 
-        used_model = model
-        full_content = ""
-
-        for p_client, p_model, p_name in providers:
-            try:
-                stream_kwargs = {"stream": True}
-                if tier != "pro":
-                    stream_kwargs["max_tokens"] = 1500
-                if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
-                    stream_kwargs["response_format"] = {"type": "json_object"}
-
-                candidate_stream = await asyncio.wait_for(
-                    p_client.chat.completions.create(model=p_model, messages=messages, **stream_kwargs),
-                    timeout=LLM_TIMEOUT,
-                )
-
-                full_content = ""
-                async for chunk in candidate_stream:
-                    content = chunk.choices[0].delta.content
-                    if content:
-                        full_content += content
-                        yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
-
-                if full_content.strip():
-                    used_model = p_model
-                    await metrics.record_model_call(p_model)
-                    break
-            except Exception as stream_err:
-                await metrics.record_model_call(p_model, is_error=True)
-                logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
-                if full_content:
-                    break
-                continue
-
-        if not full_content.strip():
-            stale_result = await find_stale_translation(
-                email,
-                payload.raw_code,
-                f"{payload.source_language}->{payload.target_language}",
-                "code-to-code",
-                "Code → Code",
-            )
-            if stale_result:
-                logger.info("Streaming fallback: returning stale recovery result")
-                yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
-                if email:
-                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                    save_translation_history_task.delay(
-                        user_email=email,
-                        mode="Code → Code",
-                        source_language=payload.source_language,
-                        target_language=payload.target_language,
-                        input_text=payload.raw_code,
-                        blocks=stale_result,
-                        model_used="stale_recovery",
-                        workspace_id=payload.workspace_id,
-                        session_id=payload.session_id,
-                        repository_name=payload.repository_name,
-                        file_path=payload.file_path,
-                    )
-                return
-
-            yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
-            return
-
-        cleaned = _clean_json_response(full_content)
-        raw = json.loads(cleaned)
-        result = normalize_blocks(raw, model_used=used_model, tier=tier)
-
-        await cache.put(key, result, 86400 * 7)
-
-        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
-
-        if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → Code",
-                source_language=payload.source_language,
-                target_language=payload.target_language,
-                input_text=payload.raw_code,
-                blocks=result,
-                model_used=used_model,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
-
-    except Exception as e:
-        if isinstance(e, HTTPException):
-            raise e
-        logger.error(f"Streaming error: {e!s}")
-        yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
+    async for chunk in _stream_translation_base(
+        payload=payload,
+        email=email,
+        is_pro=is_pro,
+        use_r1=use_r1,
+        tier=tier,
+        deduct_credit_flag=deduct_credit_flag,
+        cooldown=cooldown,
+        cache_key_type="code-to-code",
+        mode="Code → Code",
+        source_language=payload.source_language,
+        target_language=payload.target_language,
+        messages=messages,
+    ):
+        yield chunk
