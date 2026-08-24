@@ -67,15 +67,21 @@ class RedisCache:
         # Priority 1: Standard Redis via REDIS_URL
         redis_url = os.environ.get("REDIS_URL")
         if redis_url:
+            # Fix Upstash/Render TLS timeouts by enforcing rediss:// and keepalives
+            if "upstash.io" in redis_url and redis_url.startswith("redis://"):
+                redis_url = redis_url.replace("redis://", "rediss://", 1)
+
             try:
                 import redis.asyncio as aioredis
 
                 self.client = aioredis.from_url(
                     redis_url,
                     decode_responses=True,
-                    socket_timeout=0.5,
-                    socket_connect_timeout=0.5,
-                    retry_on_timeout=False,
+                    socket_timeout=1.0,  # Increased for serverless
+                    socket_connect_timeout=1.0,
+                    retry_on_timeout=True,
+                    health_check_interval=10,
+                    socket_keepalive=True,
                 )
                 self._backend = "redis"
             except Exception as e:
