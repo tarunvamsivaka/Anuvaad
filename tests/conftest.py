@@ -101,7 +101,6 @@ os.environ.setdefault("RATE_LIMIT_IP_MAX", "15")
 # BACK-01: Signal test mode via env var (replaces sys.modules inspection in quota.py)
 os.environ["TESTING"] = "true"
 
-import app.core.cache as cache_module  # noqa: E402
 
 # ── Patch Razorpay Webhook Verification ──
 
@@ -306,6 +305,7 @@ def client():
     Yield a TestClient whose LLM clients are monkey-patched via the
     ai module singleton accessors so tests run offline and instantly.
     """
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
 
@@ -323,8 +323,13 @@ def client():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis),
-        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(app.core.cache.cache, "get", fake_redis.get),
+        patch.object(app.core.cache.cache, "put", fake_redis.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
@@ -340,6 +345,7 @@ def client():
 
 @pytest.fixture
 def client_rate_limited():
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
     from app.api.middleware.rate_limit import RATE_LIMIT_IP_MAX
@@ -357,8 +363,13 @@ def client_rate_limited():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis_async),
-        patch.object(cache_module, "cache_override", fake_redis_async),
+        patch.object(app.core.cache.cache, "get", fake_redis_async.get),
+        patch.object(app.core.cache.cache, "put", fake_redis_async.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis_async.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis_async.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis_async.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis_async.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis_async.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
@@ -374,6 +385,7 @@ def client_rate_limited():
 
 @pytest.fixture
 def client_multi_block():
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
 
@@ -390,8 +402,13 @@ def client_multi_block():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis),
-        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(app.core.cache.cache, "get", fake_redis.get),
+        patch.object(app.core.cache.cache, "put", fake_redis.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
@@ -407,6 +424,7 @@ def client_multi_block():
 
 @pytest.fixture
 def client_ai_error():
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
 
@@ -423,8 +441,13 @@ def client_ai_error():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis),
-        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(app.core.cache.cache, "get", fake_redis.get),
+        patch.object(app.core.cache.cache, "put", fake_redis.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
@@ -440,6 +463,7 @@ def client_ai_error():
 
 @pytest.fixture
 def client_empty_blocks():
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
 
@@ -456,8 +480,13 @@ def client_empty_blocks():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis),
-        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(app.core.cache.cache, "get", fake_redis.get),
+        patch.object(app.core.cache.cache, "put", fake_redis.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
@@ -473,6 +502,7 @@ def client_empty_blocks():
 
 @pytest.fixture
 def client_no_redis():
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
 
@@ -490,8 +520,13 @@ def client_no_redis():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis),
-        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(app.core.cache.cache, "get", fake_redis.get),
+        patch.object(app.core.cache.cache, "put", fake_redis.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
@@ -507,6 +542,7 @@ def client_no_redis():
 
 @pytest.fixture
 def client_with_auth():
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
 
@@ -523,8 +559,13 @@ def client_with_auth():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis),
-        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(app.core.cache.cache, "get", fake_redis.get),
+        patch.object(app.core.cache.cache, "put", fake_redis.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
@@ -548,6 +589,7 @@ def client_no_auth():
     """
     from fastapi import HTTPException as FastAPIHTTPException
 
+    import app.core.cache
     import app.services.ai as ai_module
     import main as app_module
 
@@ -564,8 +606,13 @@ def client_no_auth():
         ai_module._groq_client = mock_groq
 
     with (
-        patch.object(app_module, "cache", fake_redis),
-        patch.object(cache_module, "cache_override", fake_redis),
+        patch.object(app.core.cache.cache, "get", fake_redis.get),
+        patch.object(app.core.cache.cache, "put", fake_redis.put),
+        patch.object(app.core.cache.cache, "delete", fake_redis.delete),
+        patch.object(app.core.cache.cache, "delete_prefix", fake_redis.delete_prefix),
+        patch.object(app.core.cache.cache, "incr_rate_limit", fake_redis.incr_rate_limit),
+        patch.object(app.core.cache.cache, "incr_rate_limit_by", fake_redis.incr_rate_limit_by),
+        patch.object(app.core.cache.cache, "ping", fake_redis.ping),
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):

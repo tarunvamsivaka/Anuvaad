@@ -8,10 +8,8 @@ module-level state access with proper FastAPI Depends() patterns.
 
 from fastapi import HTTPException, Request
 
-from app.core.cache import CacheProxy
 
-
-async def get_cache(request: Request) -> CacheProxy:
+async def get_cache(request: Request):
     """FastAPI dependency: retrieve the shared cache proxy from app state.
 
     Usage in a router:
