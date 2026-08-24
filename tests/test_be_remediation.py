@@ -213,3 +213,24 @@ async def test_m2_streaming_llm_fallback():
         done_chunk = json.loads(chunks[-1].removeprefix("data: ").strip())
         assert done_chunk.get("done") is True
         assert "blocks" in done_chunk
+
+
+@pytest.mark.asyncio
+async def test_be_delete_workspace_error_path():
+    """Verify that delete_workspace catches and logs exceptions correctly."""
+    from app.repositories.workspace import delete_workspace
+
+    with patch("app.repositories.workspace.AsyncSessionLocal") as mock_session_cls:
+        mock_session = AsyncMock()
+        mock_session.execute.side_effect = Exception("Database connection error")
+        mock_session_cls.return_value.__aenter__.return_value = mock_session
+
+        with patch("app.repositories.workspace.logger") as mock_logger:
+            result = await delete_workspace("ws_123", "owner@example.com")
+
+            assert result is False
+            mock_session.rollback.assert_called_once()
+            mock_logger.error.assert_called_once()
+            args, _ = mock_logger.error.call_args
+            assert "workspace.delete_workspace(ws_123)" in args[0]
+            assert "Database connection error" in args[0]
