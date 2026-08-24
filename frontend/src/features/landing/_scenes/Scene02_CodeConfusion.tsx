@@ -112,12 +112,11 @@ export function Scene02_CodeConfusion({ id, active, progress }: SceneProps) {
               <p className="pl-4">if (n == NULL || m == NULL) return;</p>
               <p className="noise-glitch pl-4 text-slate-700">if ((flags &amp; 0x01) &amp;&amp; !(n-&gt;status &amp; NODE_ACTIVE)) &#123;</p>
               <p className="pl-8">float* sub_m = (float*)malloc(16 * sizeof(float));</p>
-              <p className="pl-8 text-red-600/80 font-semibold">{"// FIXME: Memory leak occurs here occasionally"}</p>
               <p className="pl-8">_matrix_multiply(n-&gt;transform, m, sub_m);</p>
               <p className="noise-glitch pl-8 text-slate-700">for(int i = 0; i &lt; n-&gt;child_count; i++) &#123;</p>
               <p className="pl-12 text-slate-700">_render_node_matrix(n-&gt;children[i], sub_m, flags | 0x02);</p>
               <p className="pl-8 text-slate-700">&#125;</p>
-              <p className="pl-8 text-slate-400 font-semibold">{"_free_matrix_context_buffer(sub_m); // Wait, does this free?"}</p>
+              <p className="pl-8 text-slate-700">free(sub_m);</p>
               <p className="pl-4 text-slate-700">&#125;</p>
               <p className="text-slate-700">&#125;</p>
             </div>
