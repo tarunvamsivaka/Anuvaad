@@ -755,3 +755,103 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             raise e
         logger.error(f"Streaming error: {e!s}")
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
+
+async def process_code_to_english_sync(
+    payload: CodePayload,
+    email: str | None,
+    is_pro: bool,
+    use_r1: bool,
+    tier: str,
+    deduct_credit_flag: bool = False,
+    cooldown: int = 0,
+):
+    model_name = "deepseek-reasoner" if use_r1 else "standard"
+    key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
+
+    cached = await cache.get(key)
+    if cached:
+        await metrics.record_cache_hit()
+        if email:
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → English",
+                source_language=payload.language,
+                target_language="english",
+                input_text=payload.raw_code,
+                blocks=cached,
+                model_used=model_name,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
+            )
+        return cached
+
+    await metrics.record_cache_miss()
+
+    user_prompt = f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}"
+
+    try:
+        response_text, model_used = await get_completion(
+            prompt=user_prompt,
+            system_instruction=SYSTEM_INSTRUCTION,
+            mode="explanation",
+            response_format="json_object",
+            use_r1=use_r1,
+        )
+        raw = json.loads(response_text)
+        result = normalize_blocks(raw, model_used=model_used, tier=tier)
+
+        await cache.put(key, result, 86400 * 7)
+
+        if email:
+            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+            save_translation_history_task.delay(
+                user_email=email,
+                mode="Code → English",
+                source_language=payload.language,
+                target_language="english",
+                input_text=payload.raw_code,
+                blocks=result,
+                model_used=model_used,
+                workspace_id=payload.workspace_id,
+                session_id=payload.session_id,
+                repository_name=payload.repository_name,
+                file_path=payload.file_path,
+            )
+
+        return result
+    except Exception as e:
+        logger.error(f"Code to English failed: {e!s}")
+        stale_result = await find_stale_translation(
+            email,
+            payload.raw_code,
+            payload.language,
+            "code-to-english",
+            "Code → English",
+        )
+        if stale_result:
+            if email:
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode="Code → English",
+                    source_language=payload.language,
+                    target_language="english",
+                    input_text=payload.raw_code,
+                    blocks=stale_result,
+                    model_used=model_name,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+            return stale_result
+
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(
+            status_code=500,
+            detail="Translation engine returned an error. Please try again.",
+        )
