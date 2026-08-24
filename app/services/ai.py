@@ -756,6 +756,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         logger.error(f"Streaming error: {e!s}")
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
 
+
 async def process_code_to_english_sync(
     payload: CodePayload,
     email: str | None,
