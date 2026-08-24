@@ -273,6 +273,48 @@ async def find_stale_translation(
     return None
 
 
+async def _execute_provider_call(
+    client,
+    model: str,
+    provider_name: str,
+    span_name: str,
+    messages: list,
+    mode: str,
+    kwargs: dict,
+    metrics_model_name: str | None = None,
+    is_fallback: bool = False,
+) -> str:
+    """Helper to execute LLM calls with tracing, metrics, and error handling."""
+    if metrics_model_name is None:
+        metrics_model_name = model
+
+    try:
+        with (
+            sentry_sdk.start_span(
+                op="llm.completion",
+                name=span_name,
+            )
+            if _SENTRY_AVAILABLE
+            else _nullctx()
+        ) as span:
+            if _SENTRY_AVAILABLE and span:
+                span.set_tag("llm.provider", provider_name)
+                span.set_tag("llm.model", model)
+                span.set_tag("llm.mode", mode)
+                if is_fallback:
+                    span.set_tag("llm.is_fallback", True)
+
+            response = await asyncio.wait_for(
+                client.chat.completions.create(model=model, messages=messages, **kwargs),
+                timeout=LLM_TIMEOUT,
+            )
+        await metrics.record_model_call(metrics_model_name)
+        return _clean_json_response(response.choices[0].message.content)
+    except Exception:
+        await metrics.record_model_call(metrics_model_name, is_error=True)
+        raise
+
+
 async def get_completion(
     prompt: str,
     system_instruction: str,
@@ -323,95 +365,66 @@ async def get_completion(
         {"role": "user", "content": prompt},
     ]
 
-    kwargs = {"max_tokens": max_tokens}
+    kwargs: dict = {"max_tokens": max_tokens}
     if response_format == "json_object" and not use_r1:
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
-        with (
-            sentry_sdk.start_span(
-                op="llm.completion",
-                name=f"LLM: {primary['name']}",
-            )
-            if _SENTRY_AVAILABLE
-            else _nullctx()
-        ) as span:
-            if _SENTRY_AVAILABLE and span:
-                span.set_tag("llm.provider", primary["name"])
-                span.set_tag("llm.model", primary["model"])
-                span.set_tag("llm.mode", mode)
-            response = await asyncio.wait_for(
-                primary["client"].chat.completions.create(model=primary["model"], messages=messages, **kwargs),
-                timeout=LLM_TIMEOUT,
-            )
-        await metrics.record_model_call(primary["model"])
-        return _clean_json_response(response.choices[0].message.content), primary["name"]
+        res = await _execute_provider_call(
+            client=primary["client"],
+            model=primary["model"],
+            provider_name=primary["name"],
+            span_name=f"LLM: {primary['name']}",
+            messages=messages,
+            mode=mode,
+            kwargs=kwargs,
+        )
+        return res, primary["name"]
     except Exception as e:
-        await metrics.record_model_call(primary["model"], is_error=True)
         logger.warning(f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}")
-        fallback_kwargs = {"max_tokens": max_tokens}
+        fallback_kwargs: dict = {"max_tokens": max_tokens}
         if response_format == "json_object":
             fallback_kwargs["response_format"] = {"type": "json_object"}
 
         try:
-            with (
-                sentry_sdk.start_span(
-                    op="llm.completion",
-                    name=f"LLM fallback: {fallback['name']}",
-                )
-                if _SENTRY_AVAILABLE
-                else _nullctx()
-            ) as span:
-                if _SENTRY_AVAILABLE and span:
-                    span.set_tag("llm.provider", fallback["name"])
-                    span.set_tag("llm.model", fallback["model"])
-                    span.set_tag("llm.mode", mode)
-                    span.set_tag("llm.is_fallback", True)
-                response = await asyncio.wait_for(
-                    fallback["client"].chat.completions.create(
-                        model=fallback["model"], messages=messages, **fallback_kwargs
-                    ),
-                    timeout=LLM_TIMEOUT,
-                )
-            await metrics.record_model_call(fallback["model"])
-            return _clean_json_response(response.choices[0].message.content), fallback["name"]
+            res = await _execute_provider_call(
+                client=fallback["client"],
+                model=fallback["model"],
+                provider_name=fallback["name"],
+                span_name=f"LLM fallback: {fallback['name']}",
+                messages=messages,
+                mode=mode,
+                kwargs=fallback_kwargs,
+                is_fallback=True,
+            )
+            return res, fallback["name"]
         except TimeoutError:
-            await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}")
         except Exception as fallback_e:
-            await metrics.record_model_call(fallback["model"], is_error=True)
             logger.error(f"Fallback {fallback['name']} Error: {fallback_e!s}")
 
         # FIX-24 (P1-03): Third-level fallback — OpenRouter (external, different infra).
         openrouter_client = _get_openrouter_client()
         if openrouter_client:
             or_model = "meta-llama/llama-3.3-70b-instruct"
-            or_kwargs = {"max_tokens": max_tokens}
+            or_kwargs: dict = {"max_tokens": max_tokens}
             if response_format == "json_object":
                 or_kwargs["response_format"] = {"type": "json_object"}
             try:
-                with (
-                    sentry_sdk.start_span(
-                        op="llm.completion",
-                        name="LLM third-level fallback: OpenRouter",
-                    )
-                    if _SENTRY_AVAILABLE
-                    else _nullctx()
-                ) as span:
-                    if _SENTRY_AVAILABLE and span:
-                        span.set_tag("llm.provider", "openrouter")
-                        span.set_tag("llm.model", or_model)
-                        span.set_tag("llm.mode", mode)
-                        span.set_tag("llm.is_fallback", True)
-                    response = await asyncio.wait_for(
-                        openrouter_client.chat.completions.create(model=or_model, messages=messages, **or_kwargs),
-                        timeout=LLM_TIMEOUT,
-                    )
-                await metrics.record_model_call("openrouter-llama")
+                res = await _execute_provider_call(
+                    client=openrouter_client,
+                    model=or_model,
+                    provider_name="openrouter",
+                    span_name="LLM third-level fallback: OpenRouter",
+                    messages=messages,
+                    mode=mode,
+                    kwargs=or_kwargs,
+                    metrics_model_name="openrouter-llama",
+                    is_fallback=True,
+                )
                 logger.warning("OpenRouter third-level fallback succeeded")
-                return _clean_json_response(response.choices[0].message.content), "OpenRouter Llama 3.3"
+                return res, "OpenRouter Llama 3.3"
             except Exception as or_e:
-                await metrics.record_model_call("openrouter-llama", is_error=True)
                 logger.error(f"OpenRouter fallback Error: {or_e!s}")
 
         stale_result = await find_stale_translation(None, prompt, "code", mode, mode)
@@ -495,7 +508,7 @@ async def stream_code_to_english(
 
         for p_client, p_model, p_name in providers:
             try:
-                stream_kwargs = {"stream": True}
+                stream_kwargs: dict = {"stream": True}
                 if tier != "pro":
                     stream_kwargs["max_tokens"] = 1500
                 if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
@@ -665,7 +678,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
         for p_client, p_model, p_name in providers:
             try:
-                stream_kwargs = {"stream": True}
+                stream_kwargs: dict = {"stream": True}
                 if tier != "pro":
                     stream_kwargs["max_tokens"] = 1500
                 if "r1" not in p_model.lower() and "reasoner" not in p_model.lower():
