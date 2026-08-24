@@ -9,6 +9,7 @@ async def sample_coroutine(x):
     await asyncio.sleep(0.01)
     return x * 2
 
+
 async def failing_coroutine():
     await asyncio.sleep(0.01)
     raise ValueError("Test error")
@@ -23,10 +24,12 @@ def test_run_async_no_running_loop():
     result = run_async(sample_coroutine(5))
     assert result == 10
 
+
 def test_run_async_no_running_loop_exception():
     """Test run_async propagates exceptions correctly when there is no running loop."""
     with pytest.raises(ValueError, match="Test error"):
         run_async(failing_coroutine())
+
 
 @pytest.mark.asyncio
 async def test_run_async_with_running_loop():
@@ -38,11 +41,13 @@ async def test_run_async_with_running_loop():
     result = run_async(sample_coroutine(10))
     assert result == 20
 
+
 @pytest.mark.asyncio
 async def test_run_async_with_running_loop_exception():
     """Test run_async propagates exceptions when there IS a running event loop."""
     with pytest.raises(ValueError, match="Test error"):
         run_async(failing_coroutine())
+
 
 def test_run_async_loop_closed():
     """Test run_async handles a loop that exists but is not running."""
