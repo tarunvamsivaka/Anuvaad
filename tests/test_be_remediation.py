@@ -214,6 +214,7 @@ async def test_m2_streaming_llm_fallback():
         assert done_chunk.get("done") is True
         assert "blocks" in done_chunk
 
+
 @pytest.mark.asyncio
 async def test_be_delete_workspace_error_path():
     """Verify that delete_workspace catches and logs exceptions correctly."""
