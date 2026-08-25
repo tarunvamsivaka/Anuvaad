@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/Logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
-import { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { WorkspaceSwitcher } from "@/components/dashboard/TopBar";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { ErrorCard } from "@/components/ui/error-card";
@@ -25,7 +25,7 @@ const sidebarLinks = [
   { label: "Settings", href: "/dashboard/settings", icon: Settings, desc: "Config" },
 ];
 
-function SidebarContent({
+const SidebarContent = React.memo(function SidebarContent({
   pathname,
   isPro,
   onNavigate,
@@ -110,7 +110,7 @@ function SidebarContent({
       </div>
     </div>
   );
-}
+});
 
 export function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -137,6 +137,10 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
       }
     }
   }, [user, loading, pathname, router]);
+
+  const handleMobileNavigate = React.useCallback(() => {
+    setMobileOpen(false);
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-surface-low text-text-primary relative">
@@ -181,7 +185,7 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
         <SidebarContent
           pathname={pathname}
           isPro={isPro}
-          onNavigate={() => setMobileOpen(false)}
+          onNavigate={handleMobileNavigate}
           showSwitcher={true}
         />
       </aside>
