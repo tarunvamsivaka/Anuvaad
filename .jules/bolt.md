@@ -1,0 +1,3 @@
+## 2025-02-25 - Sidebar Re-render Optimization
+**Learning:** React context changes (like `useAuth` which fires when auth state updates or tokens refresh) and local state changes (`mobileOpen`) in the `DashboardSidebar` component were causing the entire sidebar (including the Logo, Navigation Links, and Theme Toggle) to re-render. Since the sidebar content only depends on `pathname` and `isPro`, these re-renders were unnecessary.
+**Action:** When a parent component subscribes to frequently updating context or has local state that toggles visibility (like a mobile menu), extract the heavy static content into a separate component and wrap it with `React.memo`.
