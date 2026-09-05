@@ -115,6 +115,59 @@ async def get_history(
             return []
 
 
+async def get_translation_stats(email: str, workspace_id: str | None = None) -> dict:
+    """Return total, weekly, and daily translation counts using a single conditional aggregation query.
+    BE-01: Verifies workspace ownership/membership when workspace_id is provided.
+    """
+    from datetime import timedelta
+
+    from sqlalchemy import case
+
+    async with AsyncSessionLocal() as session:
+        try:
+            if workspace_id:
+                if not await _is_workspace_member_or_owner(session, workspace_id, email):
+                    return {"total": 0, "week": 0, "today": 0}
+                import uuid as uuid_mod
+
+                try:
+                    ws_uuid = uuid_mod.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+                except (ValueError, TypeError):
+                    return {"total": 0, "week": 0, "today": 0}
+
+                base_condition = TranslationHistory.workspace_id == ws_uuid
+            else:
+                base_condition = (TranslationHistory.user_email == email) & (TranslationHistory.workspace_id.is_(None))
+
+            now_utc = datetime.now(UTC)
+            today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+            week_start_dt = (now_utc - timedelta(days=now_utc.weekday())).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+
+            # Use SQLite compatible conditional sum
+            query = (
+                select(
+                    func.count(),
+                    func.coalesce(func.sum(case((TranslationHistory.created_at >= week_start_dt, 1), else_=0)), 0),
+                    func.coalesce(func.sum(case((TranslationHistory.created_at >= today_start, 1), else_=0)), 0),
+                )
+                .select_from(TranslationHistory)
+                .where(base_condition)
+            )
+
+            result = await session.execute(query)
+            row = result.one_or_none()
+            if not row:
+                return {"total": 0, "week": 0, "today": 0}
+
+            # Cast results to int since sum might return Decimal in some dialects
+            return {"total": int(row[0] or 0), "week": int(row[1] or 0), "today": int(row[2] or 0)}
+        except Exception as e:
+            logger.error(f"translation.get_translation_stats({email}): {e}")
+            raise
+
+
 async def get_count_since(email: str, workspace_id: str | None = None, since: datetime | None = None) -> int:
     """Return the number of translations for *email* since *since* (server-side COUNT).
     If *since* is None, returns the total count.
