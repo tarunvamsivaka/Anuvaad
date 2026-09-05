@@ -1,0 +1,3 @@
+## 2023-10-27 - [Optimize Database Queries for History Stats]
+**Learning:** Found an opportunity to replace three concurrent `get_count_since()` queries (total, week, today counts) in the `app/routers/history.py` `/stats` endpoint with a single SQL query using conditional aggregation (`func.sum` with `case`). This eliminates multiple database roundtrips and minimizes network latency. The query also uses COALESCE to ensure no None values are returned.
+**Action:** Always consider using SQL aggregation functions to compute multiple statistics in a single query rather than running separate ORM queries concurrently.

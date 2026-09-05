@@ -18,10 +18,9 @@ Endpoints:
   GET    /admin/dashboard-stats          — admin-only dashboard
 """
 
-import asyncio
 import base64
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import JSONResponse
@@ -132,17 +131,8 @@ async def get_translation_stats(
         return cached
     await metrics.record_cache_miss()
 
-    now_utc = datetime.now(UTC)
-    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
-    week_start_dt = (now_utc - timedelta(days=now_utc.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+    res = await translation_repo.get_translation_stats(email, workspace_id=workspace_id)
 
-    total, week, today = await asyncio.gather(
-        translation_repo.get_count_since(email, workspace_id=workspace_id, since=None),
-        translation_repo.get_count_since(email, workspace_id=workspace_id, since=week_start_dt),
-        translation_repo.get_count_since(email, workspace_id=workspace_id, since=today_start),
-    )
-
-    res = {"total": total, "week": week, "today": today}
     await cache.put(cache_key, res, ttl=300)
     return res
 
