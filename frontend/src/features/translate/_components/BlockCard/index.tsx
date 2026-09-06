@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,9 @@ interface BlockCardProps {
   onEditBlock?: (newEnglish: string) => void;
 }
 
-export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
+// ⚡ Bolt: Wrapped in React.memo() to prevent unnecessary re-renders of all blocks
+// when the parent OutputPanel array state updates during streaming or single-block edits.
+export const BlockCard = React.memo(function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
@@ -137,4 +139,4 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
       </div>
     </motion.div>
   );
-}
+});
