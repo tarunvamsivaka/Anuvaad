@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput } from "lucide-react";
@@ -73,6 +74,15 @@ export function OutputPanel({
   tokenCount = 0,
   throughput = "0.0",
 }: OutputPanelProps) {
+  const handleEditBlock = useCallback((idx: number, newEnglish: string) => {
+    setOutputBlocks(prev => {
+      if (!prev) return null;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], english_translation: newEnglish };
+      return updated;
+    });
+  }, [setOutputBlocks]);
+
   const fullCodeText = outputBlocks
     ? outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n")
     : "";
@@ -347,11 +357,7 @@ export function OutputPanel({
                       key={block.id || idx}
                       block={block}
                       index={idx}
-                      onEditBlock={(newEnglish) => {
-                        const updated = [...outputBlocks];
-                        updated[idx] = { ...updated[idx], english_translation: newEnglish };
-                        setOutputBlocks(updated);
-                      }}
+                      onEditBlock={handleEditBlock}
                     />
                   ))}
 
