@@ -1,0 +1,3 @@
+## 2024-05-18 - [BlockCard component memoization]
+**Learning:** `BlockCard` component used to render code blocks inside `OutputPanel` is not memoized and creates noticeable lag in UI due to multiple re-renders when states change during SSE streaming. It should be wrapped with `React.memo` to improve performance. Also, the props passed to `BlockCard` shouldn't trigger re-renders if the underlying data hasn't changed.
+**Action:** Always use `React.memo` for components like `BlockCard` inside long lists. Avoid inline functions or state-dependent `useCallback` hooks that break memoization; instead, pass stable function references using functional state updates (`setState(prev => ...)`) and have child components handle their own indices.
