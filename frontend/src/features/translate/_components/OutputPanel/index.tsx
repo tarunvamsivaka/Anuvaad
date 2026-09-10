@@ -1,3 +1,4 @@
+import React, { useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput } from "lucide-react";
@@ -30,7 +31,7 @@ interface OutputPanelProps {
   handleDownloadJson: () => void;
   hasEdits: boolean;
   originalBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: (action: React.SetStateAction<TranslationBlock[] | null>) => void;
   isSyncing: boolean;
   handleSyncEnglishToCode: () => void;
   isStreaming: boolean;
@@ -78,6 +79,15 @@ export function OutputPanel({
     : "";
 
   const monacoLang = languages.find((l) => l.value === targetLanguage)?.monacoId || targetLanguage;
+
+  const handleEditBlock = useCallback((index: number, newEnglish: string) => {
+    setOutputBlocks((prev) => {
+      if (!prev) return prev;
+      const updated = [...prev];
+      updated[index] = { ...updated[index], english_translation: newEnglish };
+      return updated;
+    });
+  }, [setOutputBlocks]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
@@ -347,11 +357,7 @@ export function OutputPanel({
                       key={block.id || idx}
                       block={block}
                       index={idx}
-                      onEditBlock={(newEnglish) => {
-                        const updated = [...outputBlocks];
-                        updated[idx] = { ...updated[idx], english_translation: newEnglish };
-                        setOutputBlocks(updated);
-                      }}
+                      onEditBlock={handleEditBlock}
                     />
                   ))}
 
