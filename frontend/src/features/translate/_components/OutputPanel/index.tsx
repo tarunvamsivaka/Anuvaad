@@ -31,7 +31,7 @@ interface OutputPanelProps {
   handleDownloadJson: () => void;
   hasEdits: boolean;
   originalBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: (action: React.SetStateAction<TranslationBlock[] | null>) => void;
   isSyncing: boolean;
   handleSyncEnglishToCode: () => void;
   isStreaming: boolean;
