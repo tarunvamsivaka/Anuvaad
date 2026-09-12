@@ -13,7 +13,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { SWRConfig, mutate } from "swr";
 
 import { UsageCounterBadge } from "@/components/common/UsageCounterBadge";
-import { QuotaExceededModal, parseQuotaErrorPayload, QuotaError } from "@/components/modals/QuotaExceededModal";
+import { parseQuotaErrorPayload } from "@/components/modals/QuotaExceededModal";
 import { GuestOnboardingModal } from "@/components/modals/GuestOnboardingModal";
 
 const mockAuth = {

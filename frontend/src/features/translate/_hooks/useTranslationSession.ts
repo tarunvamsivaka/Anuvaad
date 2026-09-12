@@ -3,10 +3,11 @@ import { toast } from "sonner";
 import { mutate } from "swr";
 import { TranslationBlock } from "../_types";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
+import type { Dispatch, SetStateAction } from "react";
 
 interface UseTranslationSessionProps {
   outputBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: Dispatch<SetStateAction<TranslationBlock[] | null>>;
   originalBlocks: TranslationBlock[] | null;
   setOriginalBlocks: (blocks: TranslationBlock[] | null) => void;
   setInput: (input: string) => void;
