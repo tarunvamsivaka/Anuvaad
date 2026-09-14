@@ -2,7 +2,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCallback } from "react";
+import { useCallback, Dispatch, SetStateAction } from "react";
 import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
@@ -31,7 +31,7 @@ interface OutputPanelProps {
   handleDownloadJson: () => void;
   hasEdits: boolean;
   originalBlocks: TranslationBlock[] | null;
-  setOutputBlocks: React.Dispatch<React.SetStateAction<TranslationBlock[] | null>>;
+  setOutputBlocks: Dispatch<SetStateAction<TranslationBlock[] | null>>;
   isSyncing: boolean;
   handleSyncEnglishToCode: () => void;
   isStreaming: boolean;
