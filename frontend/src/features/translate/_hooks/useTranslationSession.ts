@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, Dispatch, SetStateAction } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { TranslationBlock } from "../_types";
@@ -6,7 +6,7 @@ import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/Quo
 
 interface UseTranslationSessionProps {
   outputBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: Dispatch<SetStateAction<TranslationBlock[] | null>>;
   originalBlocks: TranslationBlock[] | null;
   setOriginalBlocks: (blocks: TranslationBlock[] | null) => void;
   setInput: (input: string) => void;

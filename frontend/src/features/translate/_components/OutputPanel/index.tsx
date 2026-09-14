@@ -2,6 +2,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCallback, Dispatch, SetStateAction } from "react";
 import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
@@ -30,7 +31,7 @@ interface OutputPanelProps {
   handleDownloadJson: () => void;
   hasEdits: boolean;
   originalBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: Dispatch<SetStateAction<TranslationBlock[] | null>>;
   isSyncing: boolean;
   handleSyncEnglishToCode: () => void;
   isStreaming: boolean;
@@ -73,6 +74,16 @@ export function OutputPanel({
   tokenCount = 0,
   throughput = "0.0",
 }: OutputPanelProps) {
+
+  // ⚡ Bolt Optimization: Stable callback utilizing functional state updates to prevent breaking BlockCard memoization
+  const handleEditBlock = useCallback((idx: number, newEnglish: string) => {
+    setOutputBlocks((prev) => {
+      if (!prev) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], english_translation: newEnglish };
+      return updated;
+    });
+  }, [setOutputBlocks]);
   const fullCodeText = outputBlocks
     ? outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n")
     : "";
@@ -347,11 +358,7 @@ export function OutputPanel({
                       key={block.id || idx}
                       block={block}
                       index={idx}
-                      onEditBlock={(newEnglish) => {
-                        const updated = [...outputBlocks];
-                        updated[idx] = { ...updated[idx], english_translation: newEnglish };
-                        setOutputBlocks(updated);
-                      }}
+                      onEditBlock={handleEditBlock}
                     />
                   ))}
 
