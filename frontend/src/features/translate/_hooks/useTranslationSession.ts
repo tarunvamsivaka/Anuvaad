@@ -6,7 +6,7 @@ import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/Quo
 
 interface UseTranslationSessionProps {
   outputBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: React.Dispatch<React.SetStateAction<TranslationBlock[] | null>>;
   originalBlocks: TranslationBlock[] | null;
   setOriginalBlocks: (blocks: TranslationBlock[] | null) => void;
   setInput: (input: string) => void;

@@ -7,6 +7,7 @@ import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
 import { TranslationBlock } from "../../_types";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCallback } from "react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
@@ -30,7 +31,7 @@ interface OutputPanelProps {
   handleDownloadJson: () => void;
   hasEdits: boolean;
   originalBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: React.Dispatch<React.SetStateAction<TranslationBlock[] | null>>;
   isSyncing: boolean;
   handleSyncEnglishToCode: () => void;
   isStreaming: boolean;
@@ -78,6 +79,17 @@ export function OutputPanel({
     : "";
 
   const monacoLang = languages.find((l) => l.value === targetLanguage)?.monacoId || targetLanguage;
+
+  const handleEditBlock = useCallback((idx: number, newEnglish: string) => {
+    // ⚡ Bolt: Use functional state update to avoid depending on outputBlocks.
+    // This keeps the callback reference stable, preventing unnecessary re-renders of memoized BlockCard components.
+    setOutputBlocks((prev) => {
+      if (!prev) return prev;
+      const updated = [...prev];
+      updated[idx] = { ...updated[idx], english_translation: newEnglish };
+      return updated;
+    });
+  }, [setOutputBlocks]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
@@ -347,11 +359,7 @@ export function OutputPanel({
                       key={block.id || idx}
                       block={block}
                       index={idx}
-                      onEditBlock={(newEnglish) => {
-                        const updated = [...outputBlocks];
-                        updated[idx] = { ...updated[idx], english_translation: newEnglish };
-                        setOutputBlocks(updated);
-                      }}
+                      onEditBlock={handleEditBlock}
                     />
                   ))}
 

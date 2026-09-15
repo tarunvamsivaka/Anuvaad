@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,12 @@ import { TranslationBlock } from "../../_types";
 interface BlockCardProps {
   block: TranslationBlock;
   index: number;
-  onEditBlock?: (newEnglish: string) => void;
+  onEditBlock?: (index: number, newEnglish: string) => void;
 }
 
-export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
+// ⚡ Bolt: Added React.memo to prevent unnecessary re-renders during SSE streaming and state updates.
+// Combined with stable callbacks, this significantly reduces render time for long output blocks.
+export const BlockCard = memo(function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
@@ -96,7 +98,7 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
                   <EnglishEditor
                     initialText={block.english_translation}
                     onSave={(newText) => {
-                      onEditBlock?.(newText);
+                      onEditBlock?.(index, newText);
                       setIsEditing(false);
                     }}
                     onCancel={() => setIsEditing(false)}
@@ -137,4 +139,4 @@ export function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
       </div>
     </motion.div>
   );
-}
+});
