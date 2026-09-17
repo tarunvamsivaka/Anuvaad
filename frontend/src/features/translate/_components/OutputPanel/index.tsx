@@ -7,6 +7,7 @@ import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
 import { TranslationBlock } from "../../_types";
 import { motion, AnimatePresence } from "framer-motion";
+import { useCallback } from "react";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
@@ -30,7 +31,7 @@ interface OutputPanelProps {
   handleDownloadJson: () => void;
   hasEdits: boolean;
   originalBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: (action: React.SetStateAction<TranslationBlock[] | null>) => void;
   isSyncing: boolean;
   handleSyncEnglishToCode: () => void;
   isStreaming: boolean;
@@ -73,6 +74,15 @@ export function OutputPanel({
   tokenCount = 0,
   throughput = "0.0",
 }: OutputPanelProps) {
+  const handleEditBlock = useCallback((index: number, newEnglish: string) => {
+    setOutputBlocks((prev) => {
+      if (!prev) return prev;
+      const updated = [...prev];
+      updated[index] = { ...updated[index], english_translation: newEnglish };
+      return updated;
+    });
+  }, [setOutputBlocks]);
+
   const fullCodeText = outputBlocks
     ? outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n")
     : "";
@@ -347,11 +357,7 @@ export function OutputPanel({
                       key={block.id || idx}
                       block={block}
                       index={idx}
-                      onEditBlock={(newEnglish) => {
-                        const updated = [...outputBlocks];
-                        updated[idx] = { ...updated[idx], english_translation: newEnglish };
-                        setOutputBlocks(updated);
-                      }}
+                      onEditBlock={handleEditBlock}
                     />
                   ))}
 
