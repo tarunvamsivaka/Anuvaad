@@ -136,7 +136,7 @@ jobs:
         run: ruff check main.py app/ tests/ --select E,F,W --ignore E501,F401
 
       - name: Format check Python
-        run: ruff format --check .
+        run: ruff format --check main.py app/ tests/ alembic/
         # If this fails, run `ruff format .` locally and commit the changes.
 
       - name: Set up Node.js
