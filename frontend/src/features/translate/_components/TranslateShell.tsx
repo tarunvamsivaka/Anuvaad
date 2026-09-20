@@ -122,6 +122,7 @@ export function TranslateShell({
                   size="icon" 
                   className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" 
                   onClick={() => setZenMode(!zenMode)}
+                  aria-label={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
                   title={zenMode ? "Exit Zen Mode" : "Enter Zen Mode"}
                 >
                   {zenMode ? <Minimize className="h-3 w-3" /> : <Maximize className="h-3 w-3" />}

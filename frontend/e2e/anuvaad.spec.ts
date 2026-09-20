@@ -48,10 +48,9 @@ async function mockTranslateAPI(page: import('@playwright/test').Page) {
     },
   ];
   const sseBody = [
-    `data: ${JSON.stringify({ chunk: 'Processing...' })}`,
-    `data: ${JSON.stringify({ done: true, blocks, model_used: 'groq/llama3-70b' })}`,
-    '',
-  ].join('\n');
+    `data: ${JSON.stringify({ chunk: 'Processing...' })}\n\n`,
+    `data: ${JSON.stringify({ done: true, blocks, model_used: 'groq/llama3-70b' })}\n\n`,
+  ].join('');
   for (const endpoint of [
     '**/api/code-to-english*',
     '**/api/code-to-code*',

@@ -42,13 +42,12 @@ async function mockTranslateAPI(page: import('@playwright/test').Page) {
 
   // SSE stream: a chunk line + a done line
   const sseBody = [
-    `data: ${JSON.stringify({ chunk: 'Analyzing code...' })}`,
-    `data: ${JSON.stringify({ done: true, blocks: mockBlocks, model_used: 'groq/llama3' })}`,
-    '',
-  ].join('\n');
+    `data: ${JSON.stringify({ chunk: 'Analyzing code...' })}\n\n`,
+    `data: ${JSON.stringify({ done: true, blocks: mockBlocks, model_used: 'groq/llama3' })}\n\n`,
+  ].join('');
 
   // Intercept all code-to-english, code-to-code, and generate-from-english endpoints
-  for (const endpoint of ['**/api/code-to-english', '**/api/code-to-code', '**/api/generate-from-english']) {
+  for (const endpoint of ['**/api/code-to-english*', '**/api/code-to-code*', '**/api/generate-from-english*']) {
     await page.route(endpoint, async route => {
       const request = route.request();
       if (request.method() === 'OPTIONS') {
