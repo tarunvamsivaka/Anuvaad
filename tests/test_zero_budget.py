@@ -76,7 +76,10 @@ class TestTokenEstimationAndGroqLimits:
     @pytest.mark.asyncio
     async def test_groq_rpm_limit_exceeded_raises_structured_429(self):
         with patch.dict(os.environ, {"GROQ_MAX_RPM": "1"}):
-            with patch("app.core.quota.cache.incr_rate_limit", new_callable=AsyncMock, return_value=2):
+            with (
+                patch("app.core.quota.cache.incr_rate_limit", new_callable=AsyncMock, return_value=2),
+                patch("app.core.quota.cache.incr_rate_limit_atomic", new_callable=AsyncMock, return_value=(2, 10)),
+            ):
                 with pytest.raises(HTTPException) as exc_info:
                     await check_and_track_groq_limits("print('hello')", expected_output_tokens=10)
 

@@ -376,7 +376,10 @@ class TestTier1Feature06Structured429Payloads:
     @pytest.mark.asyncio
     async def test_f06_3_retry_after_header_present(self):
         with patch.dict(os.environ, {"GROQ_MAX_RPM": "1"}):
-            with patch("app.core.quota.cache.incr_rate_limit", new_callable=AsyncMock, return_value=2):
+            with (
+                patch("app.core.quota.cache.incr_rate_limit", new_callable=AsyncMock, return_value=2),
+                patch("app.core.quota.cache.incr_rate_limit_atomic", new_callable=AsyncMock, return_value=(2, 10)),
+            ):
                 with pytest.raises(HTTPException) as exc_info:
                     await check_and_track_groq_limits("code", expected_output_tokens=10)
                 assert "Retry-After" in exc_info.value.headers
@@ -715,7 +718,10 @@ class TestTier2BoundaryAndCornerCases:
     @pytest.mark.asyncio
     async def test_t2_bva_tpm_boundary_limit(self):
         with patch.dict(os.environ, {"GROQ_MAX_TPM": "100"}):
-            with patch("app.core.quota.cache.incr_rate_limit_by", new_callable=AsyncMock, return_value=101):
+            with (
+                patch("app.core.quota.cache.incr_rate_limit_by", new_callable=AsyncMock, return_value=101),
+                patch("app.core.quota.cache.incr_rate_limit_atomic", new_callable=AsyncMock, return_value=(1, 101)),
+            ):
                 with pytest.raises(HTTPException) as exc_info:
                     await check_and_track_groq_limits("a" * 800, expected_output_tokens=500)
                 assert exc_info.value.status_code == 429
@@ -724,7 +730,10 @@ class TestTier2BoundaryAndCornerCases:
     @pytest.mark.asyncio
     async def test_t2_bva_rpm_boundary_limit(self):
         with patch.dict(os.environ, {"GROQ_MAX_RPM": "5"}):
-            with patch("app.core.quota.cache.incr_rate_limit", new_callable=AsyncMock, return_value=6):
+            with (
+                patch("app.core.quota.cache.incr_rate_limit", new_callable=AsyncMock, return_value=6),
+                patch("app.core.quota.cache.incr_rate_limit_atomic", new_callable=AsyncMock, return_value=(6, 10)),
+            ):
                 with pytest.raises(HTTPException) as exc_info:
                     await check_and_track_groq_limits("code", expected_output_tokens=10)
                 assert exc_info.value.status_code == 429
