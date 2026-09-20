@@ -9,7 +9,6 @@ import {
   Check,
   FileCode2,
   HelpCircle,
-  Play,
   RotateCcw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";

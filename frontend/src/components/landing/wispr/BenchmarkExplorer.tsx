@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Zap, Search, ArrowUpDown, X, ExternalLink, SlidersHorizontal } from "lucide-react";
+import { Zap, Search, ArrowUpDown, X, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BENCHMARK_DATA, LanguageBenchmark } from "./data/benchmark-data";
 
