@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import time
+from urllib.parse import urlparse
 
 from app.core.config import logger
 
@@ -97,9 +98,13 @@ class RedisCache:
         if not self.client:
             url = os.environ.get("UPSTASH_REDIS_URL", "") or os.environ.get("UPSTASH_REDIS_REST_URL", "")
             token = os.environ.get("UPSTASH_REDIS_TOKEN", "") or os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
-            # Validate both are real values, not placeholders
-            url_valid = url.startswith("https://") and "upstash.io" in url
-            token_valid = token and not token.startswith("your_")
+            # Validate both are real values, not placeholders or arbitrary URLs
+            parsed_url = urlparse(url)
+            url_valid = parsed_url.scheme == "https" and bool(
+                parsed_url.hostname
+                and (parsed_url.hostname == "upstash.io" or parsed_url.hostname.endswith(".upstash.io"))
+            )
+            token_valid = bool(token and not token.startswith("your_"))
             if url_valid and token_valid:
                 try:
                     from upstash_redis.asyncio import Redis

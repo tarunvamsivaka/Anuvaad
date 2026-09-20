@@ -124,6 +124,7 @@ async def function_generate_from_english(
             mode="explanation",
             response_format="json_object",
             use_r1=use_r1,
+            source_language="",  # English text is the source — no AST contract
         )
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
@@ -258,6 +259,7 @@ async def function_sync_english_to_code(
             mode="translation",
             response_format="json_object",
             use_r1=use_r1,
+            source_language=payload.language,  # inject contract for the target language
         )
 
         raw = json.loads(response_text)
@@ -265,6 +267,27 @@ async def function_sync_english_to_code(
         raw_blocks = raw.get("blocks", [])
 
         normalized_blocks = normalize_blocks(raw_blocks, model_used=model_used, tier=tier)
+
+        # Sprint 1 wiring: verify structural coherence of the generated code
+        verification_meta: dict = {}
+        try:
+            from app.services.ast_parser import verify_translation as _verify
+
+            source_code = json.dumps(blocks_formatted)
+            vr = _verify(source_code, "english", updated_code, payload.language)
+            verification_meta = {
+                "structural_similarity": round(vr.structural_similarity, 3),
+                "has_parse_errors": vr.has_parse_errors_in_target,
+                "warnings": vr.warnings,
+            }
+            if vr.has_parse_errors_in_target:
+                logger.warning(
+                    "Parse errors detected in sync-english-to-code output",
+                    language=payload.language,
+                    score=vr.structural_similarity,
+                )
+        except Exception as _ve:
+            logger.debug(f"verify_translation skipped in sync: {_ve}")
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
@@ -288,6 +311,7 @@ async def function_sync_english_to_code(
             "updated_code": updated_code,
             "blocks": normalized_blocks,
             "model_used": model_used,
+            "verification": verification_meta,
         }
     except Exception as e:
         logger.error(f"Sync English to Code failed: {e!s}")

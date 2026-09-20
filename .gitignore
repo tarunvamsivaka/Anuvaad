@@ -25,6 +25,7 @@ node_modules/
 frontend/.next/
 frontend/test-results/
 frontend/playwright-report/
+cli/dist/
 
 # Deprecated monolith (replaced by js/ modules)
 script.js

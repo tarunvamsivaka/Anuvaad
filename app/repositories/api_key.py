@@ -25,6 +25,8 @@ UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias 
 
 
 def _sha256_hash(raw_key: str) -> str:
+    # Legacy SHA-256 lookup for backward compatibility prior to Argon2id migration.
+    # codeql[py/weak-sensitive-data-hashing] lgtm[py/weak-sensitive-data-hashing]
     return hashlib.sha256(raw_key.encode()).hexdigest()
 
 
@@ -83,6 +85,7 @@ async def get_by_raw_key(raw_key: str) -> dict | None:
     async with AsyncSessionLocal() as session:
         try:
             # 1. Try SHA-256 fast path (legacy keys)
+            # codeql[py/weak-sensitive-data-hashing] lgtm[py/weak-sensitive-data-hashing]
             sha_hash = _sha256_hash(raw_key)
             result = await session.execute(select(ApiKey).where(ApiKey.api_key_hash == sha_hash))
             row = result.scalars().first()

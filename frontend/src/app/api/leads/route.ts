@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// ReDoS-safe email validation with strict non-overlapping character classes
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 /**
  * POST /api/leads
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const source = typeof body.source === "string" ? body.source : "exit_intent";
 
-    if (!email || !EMAIL_REGEX.test(email)) {
+    if (!email || email.length > 254 || !EMAIL_REGEX.test(email)) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
 

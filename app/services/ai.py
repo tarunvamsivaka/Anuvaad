@@ -273,6 +273,55 @@ async def find_stale_translation(
     return None
 
 
+def _inject_symbol_contract(system_instruction: str, code: str, language: str) -> str:
+    """Augment the LLM system prompt with an AST-derived symbol contract.
+
+    Extracts function names, class names, and top-level exports from the source
+    code and appends a structured JSON block to the system prompt instructing
+    the model to preserve these exact names in its translation output.
+
+    This is the key Sprint 1 wiring: the Tree-sitter AST anchor service feeds
+    into every LLM call for supported languages (Python, Go, TypeScript/JS).
+
+    Returns the original system_instruction unchanged if:
+    - `language` is empty or unsupported (graceful degradation)
+    - `build_symbol_contract()` returns {} (no symbols extracted)
+    - Any exception occurs during AST analysis
+    """
+    if not code or not language:
+        return system_instruction
+
+    try:
+        import json as _json
+
+        from app.services.ast_parser import build_symbol_contract
+
+        contract = build_symbol_contract(code, language)
+        if not contract:
+            return system_instruction  # Unsupported language — skip silently
+
+        func_names = [f["name"] for f in contract.get("functions", []) if f.get("name")]
+        class_names = [c["name"] for c in contract.get("classes", []) if c.get("name")]
+
+        if not func_names and not class_names:
+            return system_instruction  # Nothing to constrain
+
+        contract_block = (
+            "\n\n--- SYMBOL CONTRACT (AST-ANCHORED) ---\n"
+            "The translated code MUST preserve these exact function and class names.\n"
+            "Renaming, omitting, or merging any listed symbol is a critical hallucination.\n"
+            f"{_json.dumps({'functions': func_names, 'classes': class_names}, separators=(',', ':'))}\n"
+            "--- END SYMBOL CONTRACT ---"
+        )
+        logger.debug(
+            f"Symbol contract injected for {language!r}: {len(func_names)} functions, {len(class_names)} classes"
+        )
+        return system_instruction + contract_block
+    except Exception as e:
+        logger.debug(f"_inject_symbol_contract skipped ({language!r}): {e}")
+        return system_instruction  # Never block the LLM call
+
+
 async def get_completion(
     prompt: str,
     system_instruction: str,
@@ -280,11 +329,16 @@ async def get_completion(
     response_format: str = "json_object",
     use_r1: bool = False,
     max_tokens: int = 1500,
+    source_language: str = "",
 ) -> tuple[str, str]:
     """
     Router for Groq models.
     If use_r1=True, routes to deepseek-r1-distill-llama-70b via Groq.
     Otherwise uses llama-3.3-70b-versatile with llama-3.1-8b-instant fallback.
+
+    source_language: if provided, the AST symbol contract for the source code
+        will be injected into the system prompt to constrain the LLM output.
+        Supported: python, go, typescript, javascript. Others silently skipped.
     """
     groq_api_key = os.getenv("GROQ_API_KEY")
 
@@ -318,8 +372,14 @@ async def get_completion(
             "name": "Groq Llama 3.1 8B (fallback)",
         }
 
+    # Sprint 1 wiring: inject AST symbol contract into system prompt for
+    # supported source languages. This constrains the LLM to preserve function
+    # and class names from the original code — reducing hallucinations.
+    # source_language="" → graceful skip (code-to-code w/o lang, sync paths, etc.)
+    augmented_system = _inject_symbol_contract(system_instruction, prompt, source_language)
+
     messages = [
-        {"role": "system", "content": system_instruction},
+        {"role": "system", "content": augmented_system},
         {"role": "user", "content": prompt},
     ]
 

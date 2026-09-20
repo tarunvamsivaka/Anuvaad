@@ -20,6 +20,21 @@ const SOCIAL_PROOF = [
   "\"Finally understand our legacy codebase\"",
 ];
 
+function getSafeRedirectUrl(target: string | null): string {
+  if (!target) return "/dashboard";
+  const trimmed = target.trim();
+  if (
+    trimmed.startsWith("/") &&
+    !trimmed.startsWith("//") &&
+    !trimmed.startsWith("/\\") &&
+    !trimmed.includes("://") &&
+    !/[\r\n\t]/.test(trimmed)
+  ) {
+    return trimmed;
+  }
+  return "/dashboard";
+}
+
 function SignUpPageContent() {
   const { signUpWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
   const [email, setEmail] = useState("");
@@ -38,8 +53,8 @@ function SignUpPageContent() {
     setQuoteIdx(Math.floor(Math.random() * SOCIAL_PROOF.length));
     // Read redirectTo from URL after mount — avoids useSearchParams() Suspense
     // requirement which prevents the form from appearing in the initial SSR HTML.
-    const raw = new URLSearchParams(window.location.search).get("redirectTo") || "/dashboard";
-    setRedirectTo(raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard");
+    const raw = new URLSearchParams(window.location.search).get("redirectTo");
+    setRedirectTo(getSafeRedirectUrl(raw));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -59,7 +74,9 @@ function SignUpPageContent() {
       const { supabase } = await import("@/lib/supabase");
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        setTimeout(() => { window.location.href = redirectTo; }, 500);
+        const dest = getSafeRedirectUrl(redirectTo);
+        // codeql[js/client-side-unvalidated-url-redirection] lgtm[js/client-side-unvalidated-url-redirection]
+        setTimeout(() => { window.location.href = dest; }, 500);
       } else {
         setSuccess(true);
       }

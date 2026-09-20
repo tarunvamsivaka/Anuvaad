@@ -12,11 +12,11 @@
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, fireEvent, cleanup } from "@testing-library/react";
 import * as THREE from "three";
 
-import { FAQ, FAQS } from "@/components/landing/faq";
-import { StatsBanner, STATS } from "@/components/landing/StatsBanner";
+import { FAQ } from "@/components/landing/faq";
+import { StatsBanner } from "@/components/landing/StatsBanner";
 import { Footer } from "@/components/landing/footer";
 import * as MotionModule from "@/lib/motion";
 

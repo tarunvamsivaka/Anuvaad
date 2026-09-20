@@ -156,11 +156,36 @@ async def function_translate_to_english(
             mode="explanation",
             response_format="json_object",
             use_r1=use_r1,
+            source_language=payload.language,
         )
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
 
         await cache.put(key, result, 86400 * 7)
+
+        # Sprint 1 wiring: structural verification against source AST
+        verification_meta: dict = {}
+        try:
+            from app.services.ast_parser import verify_translation as _verify
+
+            translated_text = " ".join(b.get("english_translation", "") for b in result)
+            vr = _verify(payload.raw_code, payload.language, translated_text, "english")
+            verification_meta = {
+                "structural_similarity": round(vr.structural_similarity, 3),
+                "has_parse_errors": vr.has_parse_errors_in_target,
+                "warnings": vr.warnings,
+            }
+            if vr.structural_similarity < 0.6:
+                logger.warning(
+                    "Low structural similarity in code-to-english",
+                    score=vr.structural_similarity,
+                    missing=vr.missing_exports,
+                    has_errors=vr.has_parse_errors_in_target,
+                )
+            else:
+                logger.debug(f"Code-to-English structural verification: {verification_meta}")
+        except Exception as _ve:
+            logger.debug(f"verify_translation skipped: {_ve}")
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
@@ -179,6 +204,8 @@ async def function_translate_to_english(
                 file_path=payload.file_path,
             )
 
+        # Return result list directly for backward compat; clients that don't
+        # expect 'verification' will not be affected.
         return result
     except Exception as e:
         logger.error(f"Code to English failed: {e!s}")

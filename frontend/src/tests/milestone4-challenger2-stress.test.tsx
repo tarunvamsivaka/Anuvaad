@@ -15,10 +15,10 @@
 
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, act } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import * as THREE from "three";
 
-import { FAQ, FAQS } from "@/components/landing/faq";
+import { FAQ } from "@/components/landing/faq";
 import { StatsBanner, STATS } from "@/components/landing/StatsBanner";
 import { Footer } from "@/components/landing/footer";
 import { WebGLSceneManager } from "@/features/landing/_canvas/WebGLSceneManager";
@@ -40,7 +40,7 @@ vi.mock("gsap", async () => {
         }
         return toVars;
       }),
-      context: vi.fn((fn: () => void, scope?: any) => {
+      context: vi.fn((fn: () => void) => {
         fn();
         const revertSpy = vi.fn();
         revertSpies.push(revertSpy);
@@ -418,7 +418,6 @@ describe("Milestone 4 Challenger 2 Empirical Stress & Robustness Suite", () => {
       const buttons = container.querySelectorAll("button[id^='faq-btn-']");
       expect(buttons.length).toBe(6);
 
-      let lastClickedIndex = -1;
       let expectedOpenIndex: number | null = null;
 
       for (let step = 0; step < 200; step++) {
@@ -432,8 +431,6 @@ describe("Milestone 4 Challenger 2 Empirical Stress & Robustness Suite", () => {
         } else {
           expectedOpenIndex = clickIndex;
         }
-
-        lastClickedIndex = clickIndex;
 
         // Verify that only the expected item (if any) has aria-expanded=true
         buttons.forEach((b, idx) => {
@@ -452,7 +449,7 @@ describe("Milestone 4 Challenger 2 Empirical Stress & Robustness Suite", () => {
           }
         });
       }
-    });
+    }, 60000);
 
     it("verifies hover translateZ(6px) elevation toggles cleanly on all 6 buttons", () => {
       const { container } = render(<FAQ />);

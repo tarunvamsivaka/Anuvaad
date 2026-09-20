@@ -143,11 +143,26 @@ function SignInPageContent() {
   const [honeypot, setHoneypot] = useState("");
   const [redirectTo, setRedirectTo] = useState("/dashboard");
 
+function getSafeRedirectUrl(target: string | null): string {
+  if (!target) return "/dashboard";
+  const trimmed = target.trim();
+  if (
+    trimmed.startsWith("/") &&
+    !trimmed.startsWith("//") &&
+    !trimmed.startsWith("/\\") &&
+    !trimmed.includes("://") &&
+    !/[\r\n\t]/.test(trimmed)
+  ) {
+    return trimmed;
+  }
+  return "/dashboard";
+}
+
   // Read redirectTo from the URL after mount — avoids useSearchParams() Suspense
   // requirement which prevents the form from appearing in the initial SSR HTML.
   useEffect(() => {
-    const raw = new URLSearchParams(window.location.search).get("redirectTo") || "/dashboard";
-    setRedirectTo(raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard");
+    const raw = new URLSearchParams(window.location.search).get("redirectTo");
+    setRedirectTo(getSafeRedirectUrl(raw));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -164,8 +179,10 @@ function SignInPageContent() {
     if (error) {
       setError(error);
     } else {
+      const dest = getSafeRedirectUrl(redirectTo);
+      // codeql[js/client-side-unvalidated-url-redirection] lgtm[js/client-side-unvalidated-url-redirection]
       setTimeout(() => {
-        window.location.href = redirectTo;
+        window.location.href = dest;
       }, 500);
     }
   }

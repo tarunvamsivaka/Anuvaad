@@ -18,7 +18,7 @@ import * as THREE from "three";
 
 import { Positioning } from "@/components/landing/Positioning";
 import { Trust } from "@/components/landing/Trust";
-import { Testimonials, TESTIMONIALS } from "@/components/landing/testimonials";
+import { Testimonials } from "@/components/landing/testimonials";
 import * as MotionModule from "@/lib/motion";
 
 // Mock GSAP to track transforms with high fidelity

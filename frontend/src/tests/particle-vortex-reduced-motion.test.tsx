@@ -2,7 +2,7 @@
  * EMPIRICAL CHALLENGER TEST SUITE (Milestone 2)
  * Particle Vortex Scaling, DPR Quality Tiering & Reduced Motion Safety
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import * as THREE from "three";

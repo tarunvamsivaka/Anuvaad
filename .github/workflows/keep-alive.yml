@@ -1,0 +1,53 @@
+name: Render Keep-Alive
+
+# Pings the Anuvaad API health endpoint every 14 minutes to prevent Render
+# free-tier instances from spinning down (Render hibernates after 15 minutes
+# of inactivity, causing a 50+ second cold-start on the next request).
+#
+# Architectural note (from Sprint 0 review): The landing page promises sub-3s
+# inference. A 50s cold-start destroys this guarantee on every cache miss after
+# a period of inactivity. This action eliminates that cold-start window.
+#
+# Cost: Free on public GitHub repositories (unlimited Actions minutes).
+# Set the RENDER_API_URL secret in GitHub repo Settings → Secrets.
+
+on:
+  schedule:
+    - cron: '*/14 * * * *'   # Every 14 minutes — just under Render's 15m threshold
+  workflow_dispatch:          # Allow manual trigger for testing
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Ping API health endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Ping Anuvaad API
+        run: |
+          API_URL="${{ secrets.RENDER_API_URL }}"
+          if [ -z "$API_URL" ]; then
+            echo "⚠️  RENDER_API_URL secret not set — skipping ping."
+            echo "   Set it in GitHub repo Settings → Secrets → RENDER_API_URL"
+            echo "   Example value: https://api.getanuvaad.com"
+            exit 0
+          fi
+          echo "🏓 Pinging $API_URL/api/v1/health ..."
+          STATUS=$(curl -sf --retry 3 --retry-delay 5 --max-time 30 \
+            -o /tmp/health.json \
+            -w "%{http_code}" \
+            "$API_URL/api/v1/health" \
+            || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ API is warm (HTTP $STATUS)"
+            cat /tmp/health.json || true
+          elif [ "$STATUS" = "000" ]; then
+            echo "⚠️  Ping failed (curl error) — service may be deploying or restarting."
+            exit 0   # Do not fail the workflow — downtime is expected during deploys
+          else
+            echo "⚠️  Unexpected HTTP $STATUS — service may be experiencing issues."
+            exit 0   # Do not fail the workflow — non-blocking warning only
+          fi
