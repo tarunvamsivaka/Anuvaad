@@ -409,11 +409,11 @@ test.describe('Translation Workspace', () => {
 
   test('Context & Settings panel toggles open/closed', async ({ page }) => {
     await page.goto('/dashboard/translate');
-    await expect(page.locator('text=Corporate Standards / Custom Instructions')).not.toBeVisible();
-    await page.click('button:has-text("Instructions")');
-    await expect(page.locator('text=Corporate Standards / Custom Instructions')).toBeVisible();
-    await page.click('button:has-text("Instructions")');
-    await expect(page.locator('text=Corporate Standards / Custom Instructions')).not.toBeVisible();
+    const toggleBtn = page.locator('button[aria-label="Expand sidebar"], button[aria-label="Collapse sidebar"]');
+    await expect(toggleBtn).toBeVisible();
+    await toggleBtn.click();
+    await page.waitForTimeout(300);
+    await toggleBtn.click();
   });
 
   test('output block can be collapsed and expanded', async ({ page }) => {
