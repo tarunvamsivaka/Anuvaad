@@ -13,6 +13,7 @@ export class WebGLSceneManager {
   private dpr: number;
 
   // Position buffers for the 7 States
+  private vortexScrollPos!: Float32Array;
   private chaosPos!: Float32Array;
   private discoveryPos!: Float32Array;
   private mappingPos!: Float32Array;
@@ -26,6 +27,11 @@ export class WebGLSceneManager {
   private scrollPercent = 0;
   private targetScrollPercent = 0;
   private mouse = { x: 0, y: 0, targetX: 0, targetY: 0 };
+
+  // Color palette for dynamic theme transitions (Warm Cream <-> Deep Dark Room)
+  private creamColor = new THREE.Color(0xf5f3ee);
+  private darkColor = new THREE.Color(0x0e1117);
+  private currentThemeColor = new THREE.Color(0xf5f3ee);
 
   private clock = new THREE.Clock();
   private animationId?: number;
@@ -41,7 +47,7 @@ export class WebGLSceneManager {
   private init() {
     // ── 1. INITIALIZE SCENE, CAMERA, RENDERER ──
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0xf5f3ef, 0.015);
+    this.scene.fog = new THREE.FogExp2(0xf5f3ee, 0.015);
 
     const width = this.canvas.width || 800;
     const height = this.canvas.height || 600;
@@ -65,7 +71,7 @@ export class WebGLSceneManager {
 
     this.renderer.setPixelRatio(this.dpr);
     this.renderer.setSize(width, height, false);
-    this.renderer.setClearColor(0xf5f3ef, 1);
+    this.renderer.setClearColor(0xf5f3ee, 1);
 
     // ── 2. PRE-COMPUTE PARTICLE STATES ──
     this.initParticles();
@@ -95,6 +101,7 @@ export class WebGLSceneManager {
     ];
 
     // Instantiate coordinate arrays
+    this.vortexScrollPos = new Float32Array(N * 3);
     this.chaosPos = new Float32Array(N * 3);
     this.discoveryPos = new Float32Array(N * 3);
     this.mappingPos = new Float32Array(N * 3);
@@ -135,6 +142,25 @@ export class WebGLSceneManager {
       colors[i3 + 1] = col.g;
       colors[i3 + 2] = col.b;
       sizes[i] = Math.random() * 2.2 + 0.4;
+
+      // ── STATE 0: VORTEX & FLOATING CODE SCROLL MESH ──
+      if (i % 4 === 0) {
+        // Floating code-scroll mesh plane lines
+        const lineIdx = Math.floor(i / 4);
+        const row = lineIdx % 20;
+        const col = Math.floor(lineIdx / 20);
+        this.vortexScrollPos[i3] = -14 + col * 0.8 + (Math.random() - 0.5) * 0.2;
+        this.vortexScrollPos[i3 + 1] = 8 - row * 0.8 + (Math.random() - 0.5) * 0.2;
+        this.vortexScrollPos[i3 + 2] = Math.sin(row * 0.3 + col * 0.2) * 2.5;
+      } else {
+        // Spiral code-scroll vortex helix
+        const angle = (i / N) * Math.PI * 2 * 45;
+        const radius = 5 + Math.sin(i * 0.04) * 3 + Math.cos(i * 0.1) * 1.2;
+        const zVal = -45 + (i / N) * 70;
+        this.vortexScrollPos[i3] = Math.cos(angle) * radius;
+        this.vortexScrollPos[i3 + 1] = Math.sin(angle) * radius;
+        this.vortexScrollPos[i3 + 2] = zVal;
+      }
 
       // ── STATE 1: CHAOS (High entropy scattered cloud) ──
       this.chaosPos[i3] = (Math.random() - 0.5) * 36;
@@ -234,10 +260,10 @@ export class WebGLSceneManager {
       this.clarityPos[i3 + 1] = cRad * Math.sin(cAngle);
       this.clarityPos[i3 + 2] = cZ;
 
-      // Initialize points in Discovery layout
-      positions[i3] = this.discoveryPos[i3];
-      positions[i3 + 1] = this.discoveryPos[i3 + 1];
-      positions[i3 + 2] = this.discoveryPos[i3 + 2];
+      // Initialize points in Vortex / Code Scroll layout
+      positions[i3] = this.vortexScrollPos[i3];
+      positions[i3 + 1] = this.vortexScrollPos[i3 + 1];
+      positions[i3 + 2] = this.vortexScrollPos[i3 + 2];
     }
 
     this.geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -293,11 +319,13 @@ export class WebGLSceneManager {
   }
 
   public resize(width: number, height: number, dpr: number) {
-    this.dpr = dpr;
-    this.camera.aspect = width / height;
+    this.dpr = Math.max(dpr || 1, 0.1);
+    const validWidth = Math.max(width || 1, 1);
+    const validHeight = Math.max(height || 1, 1);
+    this.camera.aspect = validWidth / validHeight;
     this.camera.updateProjectionMatrix();
-    this.renderer.setSize(width, height, false);
-    this.renderer.setPixelRatio(dpr);
+    this.renderer.setSize(validWidth, validHeight, false);
+    this.renderer.setPixelRatio(this.dpr);
   }
 
   private tick = () => {
@@ -312,9 +340,34 @@ export class WebGLSceneManager {
     this.scrollPercent += (this.targetScrollPercent - this.scrollPercent) * 0.07;
     const scrollVal = this.scrollPercent;
 
-    // Camera perspective animations
+    // Dynamic background & fog color lerping between Warm Cream (#f5f3ee) and Deep Dark Room (#0e1117)
+    let targetThemeColor = this.creamColor;
+    if (scrollVal >= 0.42 && scrollVal <= 0.72) {
+      targetThemeColor = this.darkColor;
+    }
+    this.currentThemeColor.lerp(targetThemeColor, 0.05);
+
+    if (this.renderer) {
+      this.renderer.setClearColor(this.currentThemeColor, 1);
+    }
+    if (this.scene.fog) {
+      (this.scene.fog as THREE.FogExp2).color.copy(this.currentThemeColor);
+    }
+
+    // Particle opacity easing at footer reach to maintain optimal footer readability
+    if (this.material) {
+      if (scrollVal >= 0.88) {
+        this.material.opacity = THREE.MathUtils.lerp(0.7, 0.25, Math.min(1, Math.max(0, (scrollVal - 0.88) / 0.12)));
+      } else {
+        this.material.opacity = 0.7;
+      }
+    }
+
+    // Hero section scroll progress (0.0 to 0.15) camera zoom fly-through
+    const heroProgress = Math.min(scrollVal / 0.15, 1.0);
+    this.camera.position.z = THREE.MathUtils.lerp(30, 18, heroProgress) + (this.mouse.y * 1.5);
+    this.camera.position.y = THREE.MathUtils.lerp(0, -2.5, heroProgress) + (this.mouse.y * 1.5);
     this.camera.position.x = this.mouse.x * 2.5;
-    this.camera.position.y = this.mouse.y * 2.5;
     this.camera.lookAt(0, 0, 0);
 
     // Particle global rotation updates
@@ -323,7 +376,7 @@ export class WebGLSceneManager {
 
     // Morph layout targets
     const states = [
-      { progress: 0.0, pos: this.discoveryPos },
+      { progress: 0.0, pos: this.vortexScrollPos },
       { progress: 0.138, pos: this.chaosPos },
       { progress: 0.259, pos: this.mappingPos },
       { progress: 0.379, pos: this.translationPos },

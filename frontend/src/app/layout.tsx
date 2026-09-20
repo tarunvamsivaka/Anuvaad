@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -7,13 +7,21 @@ import { PostHogProvider } from "@/components/posthog-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-// FIX-19 (P2-03): Reduced from 5 fonts to 2. Playfair, Outfit, and Garamond
-// loaded ~120kB extra on each page view. Inter covers all UI text; JetBrains
-// covers code blocks in the Monaco editor.
+// Font strategy: Inter for all body/UI text, Playfair Display for editorial
+// headlines (tech-startup flat minimalism redesign), JetBrains Mono for code.
+// Playfair is subset to latin-only and display:swap to keep LCP fast.
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",  // Prevent FOIT — show fallback font while Inter loads
+});
+
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 const jetbrains = JetBrains_Mono({
@@ -104,7 +112,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrains.variable} h-full antialiased`}
+      className={`${inter.variable} ${playfair.variable} ${jetbrains.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

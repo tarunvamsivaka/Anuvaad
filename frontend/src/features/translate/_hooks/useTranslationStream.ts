@@ -2,9 +2,11 @@ import { useState, useRef, useCallback } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
 import { track } from "@/lib/analytics";
+import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { TranslationBlock } from "../_types";
 import type { QuotaError } from "@/components/modals/QuotaExceededModal";
 import { parseQuotaErrorPayload } from "@/components/modals/QuotaExceededModal";
+import { useTranslationStore } from "../_store/useTranslationStore";
 
 // M-3: Cache the canvas-confetti dynamic import at module level.
 // Previously imported inside handleTranslate on every success call,
@@ -21,43 +23,40 @@ interface UseTranslationStreamProps {
   mode: string;
   sourceLanguage: string;
   targetLanguage: string;
-  input: string;
   customInstructions: string;
   activeWorkspace: any;
   isPro: boolean;
   session: any;
-  sessionId: string;
-  setSessionId: (id: string) => void;
   repositoryName: string;
   filePath: string;
-  setModelUsed: (model: string | null) => void;
 }
 
 export function useTranslationStream({
   mode,
   sourceLanguage,
   targetLanguage,
-  input,
   customInstructions,
   activeWorkspace,
   isPro,
   session,
-  sessionId,
-  setSessionId,
   repositoryName,
   filePath,
-  setModelUsed,
 }: UseTranslationStreamProps) {
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [streamText, setStreamText] = useState("");
-  const [rawError, setRawError] = useState("");
-  const [outputBlocks, setOutputBlocks] = useState<TranslationBlock[] | null>(null);
-  const [originalBlocks, setOriginalBlocks] = useState<TranslationBlock[] | null>(null);
+  const {
+    input,
+    isStreaming, setIsStreaming,
+    setStreamText,
+    setRawError,
+    setOutputBlocks,
+    setOriginalBlocks,
+    setModelUsed,
+    sessionId, setSessionId
+  } = useTranslationStore();
+
   // M3 Feature #7: Structured 429 quota error — consumed by QuotaExceededModal.
   const [quotaError, setQuotaError] = useState<QuotaError | null>(null);
   const dismissQuotaError = useCallback(() => setQuotaError(null), []);
   
-  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const streamBufferRef = useRef("");
   const rafIdRef = useRef<number | null>(null);
   // FIX-18 (P1-10): AbortController to cancel the in-flight fetch when streaming stops.
@@ -66,10 +65,9 @@ export function useTranslationStream({
   const handleTranslate = useCallback(async () => {
     if (!input.trim()) return;
 
-    if (isStreaming && readerRef.current) {
-      // FIX-18: Cancel both the reader AND the underlying fetch via AbortController.
-      readerRef.current.cancel();
-      abortControllerRef.current?.abort();
+    if (isStreaming && abortControllerRef.current) {
+      // FIX-18: Cancel the underlying fetch via AbortController.
+      abortControllerRef.current.abort();
       setIsStreaming(false);
       return;
     }
@@ -128,35 +126,19 @@ export function useTranslationStream({
       // FIX-18 (P1-10): Create a fresh AbortController for each streaming request.
       abortControllerRef.current = new AbortController();
 
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal: abortControllerRef.current.signal,
-      });
-      
-      if (!res.ok) {
-        // M3 Feature #7: Intercept 429 to show structured QuotaExceededModal
-        // instead of a generic toast. Parse the structured payload from the backend.
-        if (res.status === 429) {
-          const retryAfterHeader = res.headers.get("Retry-After");
-          const payload = await res.json().catch(() => null);
-          const quotaErr = parseQuotaErrorPayload(payload, retryAfterHeader);
-          setQuotaError(quotaErr);
-          setIsStreaming(false);
-          return;
+      class FatalError extends Error {}
+      class QuotaErrorObj extends Error {
+        payload: any;
+        retryAfter: string | null;
+        constructor(payload: any, retryAfter: string | null) {
+          super("QuotaExceeded");
+          this.payload = payload;
+          this.retryAfter = retryAfter;
         }
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.detail || `HTTP ${res.status}`);
       }
 
-      if (!res.body) throw new Error("No response body");
-      const reader = res.body.getReader();
-      readerRef.current = reader;
-      const decoder = new TextDecoder("utf-8");
-
-      let completeBlocks = null;
-      let streamError = null;
+      let completeBlocks = null as any;
+      let streamError = null as any;
 
       // Flush the rAF buffer to React state at display refresh cadence
       const scheduleFlush = () => {
@@ -171,64 +153,54 @@ export function useTranslationStream({
         });
       };
 
-      let streamBuffer = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-          if (streamBuffer.trim()) {
-            const line = streamBuffer.trim();
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                if (data.error) {
-                  streamError = data.error;
-                  setRawError(`Error: ${data.error}`);
-                } else if (data.chunk) {
-                  streamBufferRef.current += data.chunk;
-                  scheduleFlush();
-                } else if (data.done && data.blocks) {
-                  completeBlocks = data.blocks;
-                  if (data.model_used) {
-                    setModelUsed(data.model_used);
-                  }
-                }
-              } catch {
-                // Ignore
+      await fetchEventSource(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal: abortControllerRef.current.signal,
+        async onopen(res) {
+          if (res.ok) {
+            return;
+          }
+          if (res.status === 429) {
+            const retryAfterHeader = res.headers.get("Retry-After");
+            const payload = await res.json().catch(() => null);
+            throw new QuotaErrorObj(payload, retryAfterHeader);
+          }
+          if (res.status >= 400 && res.status < 500) {
+            const err = await res.json().catch(() => null);
+            throw new FatalError(err?.detail || `HTTP ${res.status}`);
+          }
+          throw new Error(`HTTP ${res.status}`);
+        },
+        onmessage(msg) {
+          if (!msg.data) return;
+          try {
+            const data = JSON.parse(msg.data);
+            if (data.error) {
+              streamError = data.error;
+              setRawError(`Error: ${data.error}`);
+            } else if (data.chunk) {
+              // Buffer; flush asynchronously at rAF cadence
+              streamBufferRef.current += data.chunk;
+              scheduleFlush();
+            } else if (data.done && data.blocks) {
+              completeBlocks = data.blocks;
+              if (data.model_used) {
+                setModelUsed(data.model_used);
               }
             }
+          } catch {
+            // Ignore invalid JSON chunks
           }
-          break;
-        }
-
-        streamBuffer += decoder.decode(value, { stream: true });
-        const lines = streamBuffer.split('\n');
-        streamBuffer = lines.pop() || "";
-        
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          if (trimmedLine.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(trimmedLine.slice(6));
-              
-              if (data.error) {
-                streamError = data.error;
-                setRawError(`Error: ${data.error}`);
-              } else if (data.chunk) {
-                // Buffer; flush asynchronously at rAF cadence
-                streamBufferRef.current += data.chunk;
-                scheduleFlush();
-              } else if (data.done && data.blocks) {
-                completeBlocks = data.blocks;
-                if (data.model_used) {
-                  setModelUsed(data.model_used);
-                }
-              }
-            } catch {
-              // Ignore invalid JSON chunks (might be split across packets)
-            }
+        },
+        onerror(err) {
+          if (err instanceof FatalError || err instanceof QuotaErrorObj) {
+            throw err; // Stop retrying immediately
           }
+          // Otherwise let fetchEventSource retry transient network errors
         }
-      }
+      });
 
       // Final flush
       if (rafIdRef.current !== null) {
@@ -241,13 +213,14 @@ export function useTranslationStream({
       }
 
       if (completeBlocks && !streamError) {
-        setOutputBlocks(completeBlocks);
-        setOriginalBlocks(JSON.parse(JSON.stringify(completeBlocks)));
+        const blocks = completeBlocks as TranslationBlock[];
+        setOutputBlocks(blocks);
+        setOriginalBlocks(JSON.parse(JSON.stringify(blocks)));
         const latency = Date.now() - translateStartTime;
         track("translation_completed", {
           mode,
-          block_count: completeBlocks.length,
-          model_used: completeBlocks[0]?.model_used || "unknown",
+          block_count: blocks.length,
+          model_used: blocks[0]?.model_used || "unknown",
           latency_ms: latency,
           from_cache: false,
         });
@@ -276,7 +249,13 @@ export function useTranslationStream({
       }
       
     } catch (err: unknown) {
-      const errorObj = err as Error & { name?: string; status?: number };
+      const errorObj = err as any;
+      if (errorObj?.name === "QuotaExceeded") {
+        const quotaErr = parseQuotaErrorPayload(errorObj.payload, errorObj.retryAfter);
+        setQuotaError(quotaErr);
+        setIsStreaming(false);
+        return;
+      }
       if (errorObj?.name === "AbortError" || errorObj?.message?.includes("abort")) {
         toast.info("Translation stopped");
       } else {
@@ -291,24 +270,14 @@ export function useTranslationStream({
       }
     } finally {
       setIsStreaming(false);
-      readerRef.current = null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session, sessionId, setSessionId, repositoryName, filePath]);
 
   return {
-    isStreaming,
-    streamText,
-    rawError,
-    outputBlocks,
-    originalBlocks,
     quotaError,
     setQuotaError,
     dismissQuotaError,
-    setOutputBlocks,
-    setOriginalBlocks,
-    setStreamText,
-    setRawError,
     handleTranslate
   };
 }

@@ -55,7 +55,7 @@ export function Toolbar({
   };
 
   return (
-    <div className="shrink-0 z-10 relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-slate-200/50 dark:border-white/5 bg-white/60 dark:bg-surface-charcoal/60 backdrop-blur-md">
+    <div className="shrink-0 z-10 relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-6 py-3 border-b border-border bg-background/60 backdrop-blur-md">
       {/* Mode tabs */}
       <div role="tablist" aria-label="Translation modes" className="macos-segmented-track w-fit shadow-sm">
         {modes.map((m) => {
@@ -88,7 +88,7 @@ export function Toolbar({
       <div className="flex flex-wrap items-center gap-2.5">
         <ModelSelect selectedModel={selectedModel} onModelChange={onModelChange} />
 
-        <div className="h-6 w-px bg-slate-200/50 dark:bg-white/10 hidden sm:block mx-0.5" />
+        <div className="h-6 w-px bg-border hidden sm:block mx-0.5" />
 
         {mode !== "english-to-code" && (
           <SearchableLanguageSelect
@@ -105,7 +105,7 @@ export function Toolbar({
             onClick={handleSwapLanguages}
             aria-label="Swap source and target languages"
             title="Swap source and target languages"
-            className="h-8 w-8 p-0 rounded-xl hover:bg-amber-500/10 hover:text-amber-500 text-slate-500 dark:text-slate-400 transition-colors"
+            className="h-8 w-8 p-0 rounded-xl hover:bg-primary/10 hover:text-primary text-muted-foreground transition-colors"
           >
             <ArrowLeftRight className="h-3.5 w-3.5" />
           </Button>
@@ -119,7 +119,7 @@ export function Toolbar({
           />
         )}
 
-        <div className="h-6 w-px bg-slate-200/50 dark:bg-white/10 hidden sm:block mx-0.5" />
+        <div className="h-6 w-px bg-border hidden sm:block mx-0.5" />
 
         <RepositorySelector
           repositoryName={repositoryName}

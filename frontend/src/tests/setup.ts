@@ -23,10 +23,54 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-// Mock Next.js Image component
-vi.mock("next/image", () => ({
-  default: ({ src, alt, ...props }: { src: string; alt: string }) => {
-     
-    return Object.assign(document.createElement("img"), { src, alt, ...props });
-  },
-}));
+// Mock window.matchMedia for jsdom environment
+if (typeof window !== "undefined" && !window.matchMedia) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes("prefers-reduced-motion: no-preference"),
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  });
+}
+
+// Mock ResizeObserver for jsdom environment
+if (typeof window !== "undefined" && !window.ResizeObserver) {
+  class MockResizeObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+  window.ResizeObserver = MockResizeObserver as any;
+}
+
+// Mock IntersectionObserver for jsdom environment
+if (typeof window !== "undefined" && !window.IntersectionObserver) {
+  class MockIntersectionObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
+  window.IntersectionObserver = MockIntersectionObserver as any;
+}
+
+// Mock WebGLRenderingContext stubs for jsdom environment
+if (typeof window !== "undefined") {
+  if (!window.WebGLRenderingContext) {
+    (window as any).WebGLRenderingContext = function () {};
+  }
+  if (!window.WebGLRenderingContext.prototype.getShaderPrecisionFormat) {
+    window.WebGLRenderingContext.prototype.getShaderPrecisionFormat = vi.fn().mockReturnValue({
+      rangeMin: 127,
+      rangeMax: 127,
+      precision: 23,
+    });
+  }
+}
+

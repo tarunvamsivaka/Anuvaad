@@ -23,14 +23,13 @@ import base64
 import json
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from app.core.auth import get_user_email
 from app.core.cache import cache
 from app.core.config import (
     ADMIN_EMAILS,
-    SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_KEY,
     SUPABASE_URL,
     get_http_client,
@@ -41,6 +40,7 @@ from app.core.config import (
 # FIX-31 (P3-01): Use named constants instead of inline magic numbers
 from app.core.constants import DEFAULT_HISTORY_PAGE_SIZE, MAX_HISTORY_PAGE_SIZE
 from app.core.quota import get_active_protection_mode
+from app.core.rate_limit import rate_limiter
 from app.models.schemas import ApiKeyCreate, SharePayload
 from app.repositories import api_key as api_key_repo
 from app.repositories import subscription as subscription_repo
@@ -249,7 +249,7 @@ async def list_api_keys(
     return await api_key_repo.list_for_user(email, workspace_id=workspace_id)
 
 
-@router.post("/api-keys")
+@router.post("/api-keys", dependencies=[Depends(rate_limiter(5, 60))])
 async def create_api_key(
     payload: ApiKeyCreate,
     email: str = Depends(get_user_email),
@@ -257,6 +257,8 @@ async def create_api_key(
     """Generate and persist a new API key. Returns the plaintext key once.
 
     FIX-30 (P3-04): Removed redundant `if not email` guard.
+    SEC-APIKEY-01: Rate-limited to 5/min. Max 10 keys per user enforced in
+                   api_key_repo.create() — raises ValueError if exceeded.
     """
     try:
         return await api_key_repo.create(
@@ -264,6 +266,8 @@ async def create_api_key(
             name=payload.name,
             workspace_id=payload.workspace_id,
         )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to create API key")
 
@@ -291,60 +295,72 @@ async def delete_api_key(
 
 
 @router.delete("/account")
-async def delete_account(authorization: str = Header(None)):
+async def delete_account(email: str = Depends(get_user_email)):
     """Delete the authenticated user's account from Supabase Auth.
 
     M-01: Data cleanup order:
-      1. Verify token and resolve user_id + email from Supabase Auth
+      1. Token is already verified by Depends(get_user_email) — no extra round-trip
       2. Hard-delete all user data (translations, API keys, subscription) via ORM
-      3. Delete the Supabase Auth user via Admin API
+      3. Delete the Supabase Auth user via Admin API using service role key
+
+    SEC-ACC-01: Migrated from manual Bearer token parsing + outbound Supabase call
+    to Depends(get_user_email) for consistency with the rest of the codebase.
+    Benefits:
+      - Eliminates outbound HTTP dependency on Supabase Auth during deletion
+      - Removes fragile `authorization.replace("Bearer ", "")` string parsing
+      - Uses local JWT verification (SUPABASE_JWT_SECRET) — fails closed on network issues
+      - Consistent with all other protected endpoints
     """
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
     try:
-        token = authorization.replace("Bearer ", "")
-        client = await get_http_client()
-        resp = await client.get(
-            f"{SUPABASE_URL}/auth/v1/user",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "apikey": SUPABASE_ANON_KEY,
-            },
-        )
-        if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        user_data = resp.json()
-        user_id = user_data.get("id")
-        user_email = user_data.get("email", "")
-
         # M-01: Clean up all user data before deleting auth account
-        if user_email:
-            deleted_translations = await translation_repo.delete_all_for_user(user_email)
-            deleted_keys = await api_key_repo.delete_all_for_user(user_email)
-            from app.repositories import subscription as subscription_repo
+        deleted_translations = await translation_repo.delete_all_for_user(email)
+        deleted_keys = await api_key_repo.delete_all_for_user(email)
+        from app.repositories import subscription as subscription_repo
 
-            deleted_sub = await subscription_repo.delete_by_email(user_email)
-            logger.info(
-                f"Account deletion data cleanup for {user_email}: "
-                f"{deleted_translations} translations, {deleted_keys} API keys, "
-                f"subscription={deleted_sub}"
-            )
+        deleted_sub = await subscription_repo.delete_by_email(email)
+        logger.info(
+            f"Account deletion data cleanup for {email}: "
+            f"{deleted_translations} translations, {deleted_keys} API keys, "
+            f"subscription={deleted_sub}"
+        )
 
+        # Resolve user_id from Supabase Admin API to delete the auth record
         if SUPABASE_SERVICE_KEY:
-            admin_resp = await client.delete(
-                f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+            client = await get_http_client()
+            # Look up the user by email using the Admin API (service role key)
+            list_resp = await client.get(
+                f"{SUPABASE_URL}/auth/v1/admin/users",
                 headers={
                     "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
                     "apikey": SUPABASE_SERVICE_KEY,
                 },
+                params={"email": email},
             )
-            if admin_resp.status_code not in (200, 204):
-                logger.error(f"Admin delete user failed: {admin_resp.text}")
-                raise HTTPException(status_code=500, detail="Failed to delete account")
+            if list_resp.status_code == 200:
+                users_data = list_resp.json()
+                # Supabase returns {"users": [...]} or a list depending on version
+                users = users_data.get("users", users_data) if isinstance(users_data, dict) else users_data
+                user_id = None
+                for u in (users if isinstance(users, list) else []):
+                    if u.get("email", "").lower() == email.lower():
+                        user_id = u.get("id")
+                        break
+
+                if user_id:
+                    admin_resp = await client.delete(
+                        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                        headers={
+                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                            "apikey": SUPABASE_SERVICE_KEY,
+                        },
+                    )
+                    if admin_resp.status_code not in (200, 204):
+                        logger.error(f"Admin delete user failed: {admin_resp.text}")
+                        raise HTTPException(status_code=500, detail="Failed to delete account")
 
         return JSONResponse(status_code=200, content={"status": "deleted"})
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Delete account error: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete account")

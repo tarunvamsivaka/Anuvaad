@@ -38,11 +38,11 @@ async def get_workspaces(email: str) -> list[dict]:
             return []
 
 
-async def create_workspace(owner_email: str, name: str, description: str = "") -> dict | None:
+async def create_workspace(owner_email: str, name: str) -> dict | None:
     """Create a new workspace and return the created row."""
     async with AsyncSessionLocal() as session:
         try:
-            row = Workspace(owner_email=owner_email, name=name, description=description)
+            row = Workspace(owner_email=owner_email, name=name)
             session.add(row)
             await session.commit()
             await session.refresh(row)

@@ -210,7 +210,13 @@ services:
       - POOL_MODE=transaction
       - MAX_CLIENT_CONN=500
       - DEFAULT_POOL_SIZE=20
-      - AUTH_TYPE=any
+      # SEC-PGB-01: Changed AUTH_TYPE from 'any' (no credential check) to 'md5'.
+      # AUTH_TYPE=any would allow any username/password to connect through the
+      # connection pooler without validation, defeating database authentication.
+      # 'md5' enforces PostgreSQL username+password verification for all clients.
+      # To further harden: upgrade to scram-sha-256 with PgBouncer ≥1.23 and
+      # provide /etc/pgbouncer/userlist.txt with hashed credentials.
+      - AUTH_TYPE=md5
       - IGNORE_STARTUP_PARAMETERS=extra_float_digits
     restart: unless-stopped
     healthcheck:

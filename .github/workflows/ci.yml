@@ -101,7 +101,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
           MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
-          TOKEN_ENCRYPTION_KEY: JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=
+          # SEC-CI-01: TOKEN_ENCRYPTION_KEY moved from hardcoded value to GitHub Actions secret.
+          # The previous hardcoded key (JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=) is now
+          # in git history. ACTION REQUIRED:
+          #   1. Generate a new CI-only key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+          #   2. Add it as a GitHub Actions secret named CI_TOKEN_ENCRYPTION_KEY
+          #   3. Verify the production TOKEN_ENCRYPTION_KEY is DIFFERENT from the old hardcoded value
+          #   4. If they match, rotate production immediately using the TOKEN_ENCRYPTION_KEYS rotation protocol
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.CI_TOKEN_ENCRYPTION_KEY }}
         run: pytest tests/test_migrations.py -v
 
   lint:
@@ -268,7 +275,7 @@ jobs:
           
           docker stop anuvaad-test
 
-  # L-03: VSCode extension CI — typecheck + lint (was entirely absent from CI)
+  # L-03: VSCode extension CI — typecheck + lint + test (P2-RISK-01)
   vscode-extension:
     runs-on: ubuntu-latest
     defaults:
@@ -292,3 +299,6 @@ jobs:
 
       - name: Lint
         run: npm run lint --if-present
+
+      - name: Run VS Code Extension Tests
+        run: npm test

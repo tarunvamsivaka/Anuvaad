@@ -41,7 +41,11 @@ def upgrade() -> None:
 
     from cryptography.fernet import Fernet
 
-    encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY", "JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=")
+    encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY")
+    if not encryption_key:
+        raise RuntimeError(
+            "TOKEN_ENCRYPTION_KEY environment variable is required to run token encryption migration."
+        )
 
     fernet = Fernet(encryption_key.encode())
 
@@ -79,7 +83,11 @@ def downgrade() -> None:
 
     from cryptography.fernet import Fernet
 
-    encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY", "JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=")
+    encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY")
+    if not encryption_key:
+        raise RuntimeError(
+            "TOKEN_ENCRYPTION_KEY environment variable is required to run token decryption migration."
+        )
 
     fernet = Fernet(encryption_key.encode())
 

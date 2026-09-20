@@ -12,9 +12,13 @@ export const revalidate = 60;
  */
 export async function GET() {
   try {
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      supabaseKey
     );
 
     const { data, error } = await supabase.rpc("get_total_translations_count");

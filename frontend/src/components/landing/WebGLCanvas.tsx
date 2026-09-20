@@ -16,7 +16,7 @@ export function WebGLCanvas() {
     const height = window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x030014, 0.015);
+    scene.fog = new THREE.FogExp2(0xf5f3ee, 0.015);
 
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
     camera.position.z = 30;
@@ -24,8 +24,13 @@ export function WebGLCanvas() {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
-    renderer.setClearColor(0x030014, 1);
+    renderer.setClearColor(0xf5f3ee, 1);
     containerRef.current.appendChild(renderer.domElement);
+
+    // Dynamic theme colors (Warm Cream <-> Deep Dark Room)
+    const creamColor = new THREE.Color(0xf5f3ee);
+    const darkColor = new THREE.Color(0x0e1117);
+    const currentThemeColor = new THREE.Color(0xf5f3ee);
 
     // ── 2. PARTICLES INITIALIZATION ──
     const PARTICLE_COUNT = 6000;
@@ -174,6 +179,18 @@ export function WebGLCanvas() {
       // Smooth scroll interpolations (lerping)
       scrollRef.current.percent += (scrollRef.current.targetPercent - scrollRef.current.percent) * 0.08;
       const scrollVal = scrollRef.current.percent;
+
+      // Dynamic theme color lerping (Warm Cream <-> Deep Dark Room)
+      let targetThemeColor = creamColor;
+      if (scrollVal >= 0.42 && scrollVal <= 0.72) {
+        targetThemeColor = darkColor;
+      }
+      currentThemeColor.lerp(targetThemeColor, 0.05);
+
+      renderer.setClearColor(currentThemeColor, 1);
+      if (scene.fog) {
+        (scene.fog as THREE.FogExp2).color.copy(currentThemeColor);
+      }
 
       // Update Camera positions for immersive transitions
       camera.position.x = mouseRef.current.x * 3;

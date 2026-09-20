@@ -7,6 +7,7 @@ import { ArrowRight } from "lucide-react";
 import { useGsapContext, isMotionSafe } from "@/lib/motion";
 import gsap from "gsap";
 import { LiveCounter } from "../_components/LiveCounter";
+import { useLenis } from "@/components/landing/LenisScrollProvider";
 
 // Waveform bar heights
 const WAVE_HEIGHTS = [16, 28, 42, 56, 68, 56, 44, 32, 20, 32, 48, 64, 52, 36, 24, 38, 54, 66, 50, 34];
@@ -17,6 +18,8 @@ const ARC_TEXT = "Understand Any Codebase · Read Legacy Code · Translate Insta
 export function Scene01_RepositoryDiscovery({ id }: SceneProps) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const { getContext } = useGsapContext(containerRef);
+  const { scrollProgress, isReducedMotion } = useLenis();
+  const heroProgress = Math.min(scrollProgress / 0.15, 1.0);
 
   const [codeText, setCodeText] = React.useState(`def fibonacci(n):
   if n <= 1:
@@ -126,6 +129,7 @@ export function Scene01_RepositoryDiscovery({ id }: SceneProps) {
       ref={containerRef}
       id={id}
       className="relative w-full min-h-screen overflow-hidden wispr-hero-bg flex flex-col"
+      style={{ perspective: isReducedMotion ? "none" : "1000px", transformStyle: "preserve-3d" }}
     >
       {/* ── SUBTLE NOISE TEXTURE ───────────────────────────────── */}
       <div
@@ -148,8 +152,16 @@ export function Scene01_RepositoryDiscovery({ id }: SceneProps) {
           </div>
 
           {/* Giant Serif Headline — WisprFlow style */}
-          <h1 className="wispr-headline text-neutral-900 mb-5"
-            style={{ fontSize: "clamp(44px, 7vw, 88px)" }}
+          <h1
+            className="wispr-headline text-neutral-900 mb-5"
+            style={{
+              fontSize: "clamp(44px, 7vw, 88px)",
+              transform: isReducedMotion
+                ? "none"
+                : `translate3d(0px, ${heroProgress * -40}px, ${heroProgress * -90}px) rotateX(${heroProgress * 12}deg)`,
+              opacity: isReducedMotion ? 1 : Math.max(0, 1 - heroProgress * 1.1),
+              transformStyle: "preserve-3d",
+            }}
           >
             <span className="wispr-hero-word inline-block opacity-0">Every</span>{" "}
             <span className="wispr-hero-word inline-block opacity-0">Codebase</span>{" "}
@@ -184,7 +196,16 @@ export function Scene01_RepositoryDiscovery({ id }: SceneProps) {
           {/* ── ANIMATED WAVEFORM + CIRCLE ARC ─────────────────── */}
           <div className="relative flex items-center justify-center mb-14">
             {/* Rotating Arc Text Ring */}
-            <div className="wispr-arc-ring opacity-0 absolute" style={{ width: 280, height: 280 }}>
+            <div
+              className="wispr-arc-ring opacity-0 absolute"
+              style={{
+                width: 280,
+                height: 280,
+                transform: isReducedMotion
+                  ? "none"
+                  : `perspective(1000px) rotateX(${heroProgress * 25}deg) rotateZ(${heroProgress * 45}deg) translateZ(${heroProgress * 30}px)`,
+              }}
+            >
               <svg
                 width="280"
                 height="280"
@@ -269,7 +290,14 @@ export function Scene01_RepositoryDiscovery({ id }: SceneProps) {
       {/* ── TRANSITION TO DARK SECTION — rounded top corners ───── */}
       <div
         className="wispr-hero-panel opacity-0 w-full mx-auto relative"
-        style={{ maxWidth: "calc(100% - 48px)", marginLeft: 24, marginRight: 24 }}
+        style={{
+          maxWidth: "calc(100% - 48px)",
+          marginLeft: 24,
+          marginRight: 24,
+          transform: isReducedMotion
+            ? "none"
+            : `perspective(1000px) rotateX(${heroProgress * 10}deg) translateZ(${heroProgress * -30}px)`,
+        }}
       >
         <div className="wispr-dark-section-lg px-8 pt-12 pb-0 shadow-[0_-8px_60px_rgba(0,0,0,0.18)]">
           {/* Demo strip header */}

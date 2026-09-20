@@ -9,6 +9,7 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import { asAnuvaadSession } from "@/lib/supabase-types";
 // FIX-22 (P2-10): Stable module-level fetcher — prevents per-render refetches
 import { authFetcher } from "@/lib/swr-fetcher";
+import { useTranslationStore } from "./_store/useTranslationStore";
 
 // Components
 import { TranslateShell } from "./_components/TranslateShell";
@@ -20,7 +21,6 @@ import { GuestOnboardingModal } from "@/components/modals/GuestOnboardingModal";
 
 // Hooks
 import { useTranslationStream } from "./_hooks/useTranslationStream";
-import { detectLanguage } from "./_hooks/useLanguageDetection";
 import { useFileImport } from "./_hooks/useFileImport";
 import { useTranslationSession } from "./_hooks/useTranslationSession";
 
@@ -57,11 +57,8 @@ export function TranslateFeature() {
   const [customInstructions, setCustomInstructions] = useState("");
   const [repositoryName, setRepositoryName] = useState("");
   const [filePath, setFilePath] = useState("");
-  const [input, setInput] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: number } | null>(null);
   const [gistSource, setGistSource] = useState<{ username: string; filename: string } | null>(null);
-  const [modelUsed, setModelUsed] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState("");
 
   // FIX-22 (P2-10): authFetcher is defined at module level in swr-fetcher.ts
   //   → SWR key is a stable [url, token] tuple; fetcher reference never changes.
@@ -78,22 +75,12 @@ export function TranslateFeature() {
   // M-1: monacoOptions is now the module-level MONACO_OPTIONS constant (no per-render allocation)
 
   const {
-    outputBlocks,
-    setOutputBlocks,
-    originalBlocks,
-    setOriginalBlocks,
-    isStreaming,
-    streamText,
-    rawError,
-    setRawError,
-    setStreamText,
     handleTranslate,
     // M3 Feature #7: Quota exceeded modal state
     quotaError,
     setQuotaError,
     dismissQuotaError,
   } = useTranslationStream({
-    input,
     mode,
     sourceLanguage,
     targetLanguage,
@@ -101,34 +88,17 @@ export function TranslateFeature() {
     activeWorkspace,
     isPro: isPro || false,
     session,
-    sessionId,
-    setSessionId,
     repositoryName,
     filePath,
-    setModelUsed: setModelUsed as any,
   });
 
   const handleClear = () => {
-    setInput("");
-    setOutputBlocks(null);
-    setStreamText("");
-    setRawError("");
+    const store = useTranslationStore.getState();
+    store.setInput("");
+    store.setOutputBlocks(null);
+    store.setStreamText("");
+    store.setRawError("");
   };
-
-  const [detectedLang, setDetectedLang] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isStreaming || !input) return;
-    const timeout = setTimeout(() => {
-      const detected = detectLanguage(input);
-      if (detected && detected !== sourceLanguage) {
-        setDetectedLang(detected);
-      } else {
-        setDetectedLang(null);
-      }
-    }, 1000);
-    return () => clearTimeout(timeout);
-  }, [input, isStreaming, sourceLanguage]);
 
   const [guestModalOpen, setGuestModalOpen] = useState(false);
   const [guestModalReason, setGuestModalReason] = useState<"gist" | "save" | "export">("save");
@@ -153,7 +123,6 @@ export function TranslateFeature() {
     setFileList,
   } = useFileImport({
     mode,
-    setInput,
     setUploadedFile,
     setFilePath,
     setSourceLanguage,
@@ -167,21 +136,15 @@ export function TranslateFeature() {
     hasEdits,
     handleSyncEnglishToCode,
     handleCopyMarkdown,
+    handleCopyCode,
+    handleExportCode,
     handleDownloadJson,
   } = useTranslationSession({
-    outputBlocks,
-    setOutputBlocks,
-    originalBlocks,
-    setOriginalBlocks,
-    setInput,
-    setModelUsed,
-    setRawError,
     sourceLanguage,
     targetLanguage,
     customInstructions,
     activeWorkspace,
     session,
-    sessionId,
     repositoryName,
     filePath,
     mode,
@@ -261,9 +224,6 @@ export function TranslateFeature() {
             handleClearFile={handleClearFile}
             gistSource={gistSource}
             setGistSource={setGistSource}
-            input={input}
-            setInput={setInput}
-            isStreaming={isStreaming}
             handleTranslate={handleTranslate}
             handleClear={() => {
               handleClear();
@@ -273,8 +233,6 @@ export function TranslateFeature() {
             setSourceLanguage={setSourceLanguage}
             isDark={isDark}
             monacoOptions={MONACO_OPTIONS}
-            detectedLang={detectedLang}
-            setDetectedLang={setDetectedLang}
             isTypingManually={isTypingManually}
             setIsTypingManually={setIsTypingManually}
             getRootProps={getRootProps}
@@ -286,7 +244,6 @@ export function TranslateFeature() {
             setGistUrl={setGistUrl}
             gistLoading={gistLoading}
             handleGistImport={triggerGistImportWithGuestPrompt}
-            hasOutputBlocks={!!outputBlocks && outputBlocks.length > 0}
             fileList={fileList}
             repoInfo={repoInfo}
             handleSelectFile={handleSelectFile}
@@ -296,25 +253,19 @@ export function TranslateFeature() {
         outputPanel={
           <OutputPanel
             mode={mode}
-            outputBlocks={outputBlocks}
             viewType={viewType}
             setViewType={setViewType}
             handleCopyMarkdown={handleCopyMarkdown}
+            handleCopyCode={handleCopyCode}
+            handleExportCode={handleExportCode}
             copied={copied}
             handleDownloadJson={triggerExportWithGuestPrompt}
             hasEdits={hasEdits}
-            originalBlocks={originalBlocks}
-            setOutputBlocks={setOutputBlocks}
             isSyncing={isSyncing}
             handleSyncEnglishToCode={triggerSyncWithGuestPrompt}
-            isStreaming={isStreaming}
-            streamText={streamText}
-            rawError={rawError}
-            input={input}
             targetLanguage={targetLanguage}
             isDark={isDark}
             monacoOptions={MONACO_OPTIONS}
-            modelUsed={modelUsed}
           />
         }
       />

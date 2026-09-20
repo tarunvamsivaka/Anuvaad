@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { track } from "@/lib/analytics";
 import { EXT_TO_LANGUAGE, ACCEPTED_EXTENSIONS } from "../_constants/languages";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
+import { useTranslationStore } from "../_store/useTranslationStore";
 
 interface UseFileImportProps {
   mode: string;
-  setInput: (input: string) => void;
   setUploadedFile: (file: { name: string; size: number } | null) => void;
   setFilePath: (path: string) => void;
   setSourceLanguage: (lang: string) => void;
@@ -17,13 +17,13 @@ interface UseFileImportProps {
 
 export function useFileImport({
   mode,
-  setInput,
   setUploadedFile,
   setFilePath,
   setSourceLanguage,
   setGistSource,
   onQuotaExceeded,
 }: UseFileImportProps) {
+  const { setInput } = useTranslationStore();
   const [showGistInput, setShowGistInput] = useState(false);
   const [gistUrl, setGistUrl] = useState("");
   const [gistLoading, setGistLoading] = useState(false);

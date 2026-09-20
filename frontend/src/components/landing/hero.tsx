@@ -4,11 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { ArrowRight, Play, Loader2 } from "lucide-react";
 import gsap from "gsap";
-
-// API calls use relative /api/... paths so they are routed through the
-// Next.js proxy rewrite defined in next.config.ts (source: /api/:path* →
-// destination: NEXT_PUBLIC_API_URL/api/:path*). This avoids CORS issues
-// and keeps the backend URL server-side only.
+import { useLenis } from "@/components/landing/LenisScrollProvider";
 
 // Language tabs for the interactive demo
 const LANGUAGES = [
@@ -20,7 +16,6 @@ const LANGUAGES = [
   { key: "java",       label: "Java",       ext: "java"},
 ];
 
-// Preset code snippets for each language
 const PRESETS: Record<string, string> = {
   python: `def fibonacci(n):\n  if n <= 1:\n    return n\n  return fibonacci(n-1) + fibonacci(n-2)`,
   javascript: `const debounce = (fn, delay) =>\n  (...args) => {\n    clearTimeout(timer)\n    timer = setTimeout(() =>\n      fn(...args), delay)\n  }`,
@@ -34,56 +29,112 @@ const WAVE_HEIGHTS = [14, 26, 40, 54, 66, 54, 42, 30, 18, 30, 46, 60, 48, 32, 20
 
 type DemoState = "idle" | "loading" | "success" | "rate_limited";
 
+/** Inline SVG illustration — code-scroll line art (Illustration element) */
+function CodeScrollIllustration({ style }: { style?: React.CSSProperties }) {
+  return (
+    <div
+      className="wispr-illustration wispr-illustration-float absolute right-8 top-1/4 hidden xl:block opacity-40 pointer-events-none select-none"
+      style={style}
+    >
+      <svg
+        width="180"
+        height="220"
+        viewBox="0 0 180 220"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="wispr-line-draw"
+        aria-hidden="true"
+      >
+        {/* Code scroll — hand-drawn / line-art style */}
+        {/* Scroll body */}
+        <rect x="20" y="30" width="140" height="160" rx="8" stroke="#c8860a" strokeWidth="1.5" fill="none" />
+        {/* Top curl */}
+        <path d="M20 38 Q20 20 40 20 L160 20 Q180 20 180 38 L180 30 Q180 18 160 18 L40 18 Q18 18 18 38 Z" stroke="#c8860a" strokeWidth="1" fill="none" />
+        {/* Bottom curl */}
+        <path d="M20 182 Q20 200 40 200 L160 200 Q180 200 180 182" stroke="#c8860a" strokeWidth="1" fill="none" />
+        {/* Code lines — flat minimalism horizontal rules */}
+        <line x1="40" y1="65"  x2="130" y2="65"  stroke="#034f46" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="52" y1="82"  x2="140" y2="82"  stroke="#034f46" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="52" y1="99"  x2="120" y2="99"  stroke="#1a1208" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+        <line x1="40" y1="116" x2="145" y2="116" stroke="#034f46" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1="52" y1="133" x2="110" y2="133" stroke="#1a1208" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+        <line x1="40" y1="150" x2="135" y2="150" stroke="#c8860a" strokeWidth="1.5" strokeLinecap="round" />
+        {/* Arrow — translation direction */}
+        <path d="M75 175 L105 175 M98 169 L105 175 L98 181" stroke="#c8860a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Indent dots */}
+        <circle cx="46" cy="82" r="2" fill="#034f46" />
+        <circle cx="46" cy="99" r="2" fill="#1a1208" opacity="0.4" />
+        <circle cx="46" cy="133" r="2" fill="#1a1208" opacity="0.4" />
+      </svg>
+    </div>
+  );
+}
+
+/** Organic SVG wave divider between hero and next section */
+function WaveDivider() {
+  return (
+    <div className="wispr-wave-divider absolute bottom-0 left-0 right-0 z-10 pointer-events-none" style={{ height: 80 }}>
+      <svg
+        viewBox="0 0 1440 80"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        preserveAspectRatio="none"
+        style={{ width: "100%", height: "100%" }}
+        aria-hidden="true"
+      >
+        {/* Organic wave curve — transitions from cream hero to cream features */}
+        <path
+          d="M0 40 C240 0 480 80 720 40 C960 0 1200 80 1440 40 L1440 80 L0 80 Z"
+          fill="rgba(26,18,8,0.03)"
+        />
+      </svg>
+    </div>
+  );
+}
+
 export function Hero() {
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Active language tab
+  const { scrollProgress, isReducedMotion } = useLenis();
+  const heroProgress = Math.min(scrollProgress / 0.15, 1.0);
   const [activeLang, setActiveLang] = useState(LANGUAGES[0]);
-  // The code in the textarea
   const [code, setCode] = useState(PRESETS["python"]);
-  // The english translation result
   const [englishText, setEnglishText] = useState<string>("");
   const [demoState, setDemoState] = useState<DemoState>("idle");
   const [remaining, setRemaining] = useState<number | null>(null);
 
-  // GSAP entrance
+  // Motion: GSAP entrance animations
   useEffect(() => {
     const ctx = gsap.context(() => {
-      const tl = gsap.timeline({ delay: 0.2 });
+      const tl = gsap.timeline({ delay: 0.15 });
       tl.fromTo(".v1-eyebrow", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" });
       tl.fromTo(
         ".v1-word",
-        { opacity: 0, y: 48, filter: "blur(6px)" },
-        { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.1, ease: "power4.out", stagger: 0.1 },
+        { opacity: 0, y: 44, filter: "blur(4px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 1.0, ease: "power4.out", stagger: 0.09 },
         "-=0.4"
       );
-      tl.fromTo(".v1-sub", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, "-=0.65");
-      tl.fromTo(".v1-ctas", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, "-=0.55");
-      tl.fromTo(".v1-wave-bar", { opacity: 0, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: 0.5, ease: "back.out(1.4)", stagger: 0.02 }, "-=0.4");
-      tl.fromTo(".v1-demo", { opacity: 0, y: 28, scale: 0.98 }, { opacity: 1, y: 0, scale: 1, duration: 1.0, ease: "power4.out" }, "-=0.5");
+      tl.fromTo(".v1-sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, "-=0.6");
+      tl.fromTo(".v1-ctas", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, "-=0.5");
+      tl.fromTo(".v1-wave-bar", { opacity: 0, scaleY: 0 }, { opacity: 1, scaleY: 1, duration: 0.45, ease: "back.out(1.4)", stagger: 0.02 }, "-=0.4");
+      tl.fromTo(".v1-demo", { opacity: 0, y: 24, scale: 0.99 }, { opacity: 1, y: 0, scale: 1, duration: 0.9, ease: "power4.out" }, "-=0.45");
+      tl.fromTo(".wispr-illustration", { opacity: 0, x: 20 }, { opacity: 0.4, x: 0, duration: 1.0, ease: "power3.out" }, "-=0.7");
     }, containerRef);
     return () => ctx.revert();
   }, []);
 
-  // Call the real demo API
   const runTranslation = useCallback(async (lang: string, codeInput: string) => {
     if (!codeInput.trim() || demoState === "loading") return;
     setDemoState("loading");
     setEnglishText("");
     try {
-      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
       const res = await fetch(`/api/demo/translate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language: lang, mode: "code-to-english" }),
       });
       const data = await res.json();
-      if (res.status === 429) {
-        setDemoState("rate_limited");
-        return;
-      }
+      if (res.status === 429) { setDemoState("rate_limited"); return; }
       if (!res.ok) throw new Error(data.detail || "Translation failed");
-      // Grab first block's english translation
       const translation = data.blocks?.[0]?.english_translation ?? "Translation complete.";
       setEnglishText(translation);
       setRemaining(data.remaining_demo_requests ?? null);
@@ -93,7 +144,6 @@ export function Hero() {
     }
   }, [demoState]);
 
-  // Switch language tab
   const handleLangSwitch = (lang: typeof LANGUAGES[0]) => {
     setActiveLang(lang);
     setCode(PRESETS[lang.key]);
@@ -105,44 +155,61 @@ export function Hero() {
     <section
       ref={containerRef}
       className="relative w-full min-h-screen flex flex-col overflow-hidden wispr-hero-bg"
+      style={{ perspective: isReducedMotion ? "none" : "1000px", transformStyle: "preserve-3d" }}
     >
-      {/* Noise texture */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.025]"
+      {/* Illustration element — code scroll line art */}
+      <CodeScrollIllustration
         style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
-          backgroundRepeat: "repeat",
-          backgroundSize: "256px 256px",
+          transform: isReducedMotion
+            ? "none"
+            : `perspective(1000px) rotateY(${heroProgress * -20}deg) translateZ(${heroProgress * 50}px) translateY(${heroProgress * -30}px)`,
+          transformStyle: "preserve-3d",
         }}
       />
 
-      <div className="flex-1 flex flex-col items-center justify-center pt-24 pb-10 px-6">
+      <div className="flex-1 flex flex-col items-center justify-center pt-28 pb-20 px-6">
         <div className="mx-auto max-w-4xl text-center w-full">
 
-          {/* Eyebrow */}
+          {/* Eyebrow — Modern Sans */}
           <div className="v1-eyebrow wispr-eyebrow text-neutral-500 opacity-0 mb-6 flex items-center justify-center gap-2">
             <span className="wispr-speaking-dot" />
             AI-Powered Code Comprehension
           </div>
 
-          {/* Giant serif headline */}
+          {/* Giant Editorial Serif headline — Playfair Display */}
           <h1
-            className="wispr-headline text-neutral-900 mb-7"
-            style={{ fontSize: "clamp(52px, 8vw, 96px)" }}
+            className="v1-word wispr-headline text-[#1a1208] mb-7"
+            style={{
+              fontSize: "clamp(52px, 8vw, 96px)",
+              transform: isReducedMotion
+                ? "none"
+                : `translate3d(0px, ${heroProgress * -50}px, ${heroProgress * -100}px) rotateX(${heroProgress * 15}deg)`,
+              opacity: isReducedMotion ? 1 : Math.max(0, 1 - heroProgress * 1.2),
+              transition: "transform 0.1s linear, opacity 0.1s linear",
+              transformStyle: "preserve-3d",
+            }}
           >
             <span className="v1-word inline-block opacity-0">Every</span>{" "}
             <span className="v1-word inline-block opacity-0">Codebase</span>
             <br className="hidden sm:block" />
-            <span className="v1-word inline-block opacity-0 italic" style={{ color: "#c8860a" }}>Has a Story.</span>
+            <span
+              className="v1-word inline-block opacity-0 italic"
+              style={{ color: "#c8860a" }}
+            >
+              Has a Story.
+            </span>
           </h1>
 
-          {/* Sub */}
-          <p className="v1-sub opacity-0 mx-auto mb-10 max-w-xl text-[17px] leading-relaxed text-neutral-500">
+          {/* Sub — Modern Sans */}
+          <p className="v1-sub opacity-0 mx-auto mb-10 max-w-xl text-[17px] leading-relaxed text-[#6b5e4a]"
+            style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}
+          >
             The AI code translator that turns{" "}
-            <span className="text-neutral-800 font-medium">obscure logic</span> into plain English — and back into production-ready code.
+            <span className="text-[#1a1208] font-medium">obscure logic</span>{" "}
+            into plain English — and back into production-ready code.
           </p>
 
-          {/* CTAs */}
+          {/* CTAs — Organic Curve pill buttons */}
           <div className="v1-ctas opacity-0 flex flex-col sm:flex-row items-center justify-center gap-3 mb-5">
             <Link href="/signup" id="hero-try-btn" className="wispr-btn-primary">
               Try Anuvaad Free <ArrowRight className="h-4 w-4" />
@@ -152,11 +219,13 @@ export function Hero() {
             </a>
           </div>
 
-          {/* Trust strip */}
+          {/* Trust strip — ink checkmarks */}
           <div className="v1-ctas opacity-0 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 mb-12">
             {["Free forever", "No credit card required", "10 translations / day"].map((item) => (
-              <div key={item} className="flex items-center gap-1.5 text-[12px] text-neutral-400">
-                <svg className="h-3 w-3 text-amber-500 shrink-0" viewBox="0 0 12 12" fill="none">
+              <div key={item} className="flex items-center gap-1.5 text-[12px] text-[#9e8d72]"
+                style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}
+              >
+                <svg className="h-3 w-3 text-[#c8860a] shrink-0" viewBox="0 0 12 12" fill="none">
                   <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 {item}
@@ -164,7 +233,7 @@ export function Hero() {
             ))}
           </div>
 
-          {/* Waveform visualizer */}
+          {/* Waveform visualizer — Motion element */}
           <div className="flex items-end justify-center gap-[3px] mb-12" style={{ height: 72 }}>
             {WAVE_HEIGHTS.map((h, i) => (
               <div
@@ -181,21 +250,31 @@ export function Hero() {
             ))}
           </div>
 
-          {/* ── INTERACTIVE LIVE DEMO PANEL ── */}
-          <div className="v1-demo opacity-0 mx-auto max-w-4xl">
+          {/* ── INTERACTIVE LIVE DEMO PANEL — Deep Dark Room + Ink Border ── */}
+          <div
+            className="v1-demo opacity-0 mx-auto max-w-4xl"
+            style={{
+              transform: isReducedMotion
+                ? "none"
+                : `perspective(1000px) rotateX(${heroProgress * 12}deg) translateZ(${heroProgress * -40}px)`,
+              transformStyle: "preserve-3d",
+              transition: "transform 0.1s linear",
+            }}
+          >
             <div
-              className="wispr-dark-section shadow-[0_24px_60px_rgba(0,0,0,0.25)] overflow-hidden"
-              style={{ borderRadius: 32 }}
+              className="wispr-dark-section overflow-hidden"
+              style={{ borderRadius: 28 }}
             >
               {/* Header — language tabs */}
-              <div className="flex items-center justify-between border-b border-white/5 bg-black/30 px-4 py-3">
+              <div className="flex items-center justify-between wispr-ink-border-dark px-4 py-3 bg-black/20">
+                {/* macOS dots */}
                 <div className="flex items-center gap-1.5">
                   <div className="h-2.5 w-2.5 rounded-full bg-red-400/50" />
                   <div className="h-2.5 w-2.5 rounded-full bg-yellow-400/50" />
                   <div className="h-2.5 w-2.5 rounded-full bg-green-400/50" />
                 </div>
 
-                {/* Language tab strip */}
+                {/* Language tab strip — Modern Sans */}
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-none px-1">
                   {LANGUAGES.map((lang) => (
                     <button
@@ -203,7 +282,7 @@ export function Hero() {
                       onClick={() => handleLangSwitch(lang)}
                       className={`shrink-0 rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest transition-all duration-200 ${
                         activeLang.key === lang.key
-                          ? "border border-amber-500/40 bg-amber-500/10 text-amber-400"
+                          ? "border border-[rgba(200,134,10,0.4)] bg-[rgba(200,134,10,0.10)] text-[#e8a830]"
                           : "border border-transparent text-white/25 hover:text-white/50"
                       }`}
                     >
@@ -215,9 +294,9 @@ export function Hero() {
                 {/* Status */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${demoState === "loading" ? "bg-amber-400 animate-pulse" : demoState === "success" ? "bg-green-400" : "bg-white/20"}`}
+                    className={`h-1.5 w-1.5 rounded-full ${demoState === "loading" ? "bg-[#e8a830] animate-pulse" : demoState === "success" ? "bg-green-400" : "bg-white/20"}`}
                   />
-                  <span className="font-mono text-[10px] text-amber-400/60 uppercase tracking-widest hidden sm:block">
+                  <span className="font-mono text-[10px] text-[rgba(200,134,10,0.6)] uppercase tracking-widest hidden sm:block">
                     {demoState === "loading" ? "Translating..." : demoState === "success" ? "Complete" : "Code → English"}
                   </span>
                 </div>
@@ -226,8 +305,9 @@ export function Hero() {
               {/* Content — editable textarea + result */}
               <div className="grid md:grid-cols-2 min-h-[220px]">
                 {/* Left — editable code input */}
-                <div className="border-b border-white/5 bg-black/20 p-6 md:border-b-0 md:border-r md:border-white/5 flex flex-col">
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/25">
+                <div className="bg-black/15 p-6 md:border-r md:border-white/[0.06] flex flex-col">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/25"
+                    style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}>
                     Your Code · <span className="text-white/15">.{activeLang.ext}</span>
                   </p>
                   <textarea
@@ -243,9 +323,10 @@ export function Hero() {
                   />
                 </div>
 
-                {/* Right — translation output */}
+                {/* Right — translation output — Editorial Serif result */}
                 <div className="bg-transparent p-6 flex flex-col">
-                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-500/50">
+                  <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[rgba(200,134,10,0.55)]"
+                    style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}>
                     Plain English
                   </p>
 
@@ -254,7 +335,7 @@ export function Hero() {
                       <p className="text-sm text-neutral-400">You&apos;ve used all 3 demo translations today.</p>
                       <Link
                         href="/signup"
-                        className="inline-flex items-center gap-1.5 rounded-full bg-amber-600 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-500 transition-all"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-[#c8860a] px-4 py-2 text-xs font-semibold text-white hover:bg-[#b07308] transition-all"
                       >
                         Create free account — get 10/day <ArrowRight className="h-3 w-3" />
                       </Link>
@@ -262,16 +343,18 @@ export function Hero() {
                   ) : demoState === "loading" ? (
                     <div className="flex-1 flex flex-col gap-3 justify-center py-4">
                       {[100, 85, 70, 50].map((w, i) => (
-                        <div key={i} className={`h-3 rounded-full bg-white/06 animate-pulse`} style={{ width: `${w}%`, animationDelay: `${i * 0.15}s` }} />
+                        <div key={i} className="h-3 rounded-full bg-white/[0.06] animate-pulse" style={{ width: `${w}%`, animationDelay: `${i * 0.15}s` }} />
                       ))}
                     </div>
                   ) : (
+                    /* Editorial Serif for translation output */
                     <p
                       className="flex-1 text-[15px] leading-relaxed text-slate-300 min-h-[150px] italic"
-                      style={{ fontFamily: "var(--font-garamond, Georgia, serif)" }}
+                      style={{ fontFamily: "var(--font-playfair, var(--font-serif, Georgia, serif))" }}
                     >
                       {englishText || (
-                        <span className="text-white/20 not-italic text-[13px]">
+                        <span className="text-white/20 not-italic text-[13px]"
+                          style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}>
                           Translation will appear here. Hit the button or press Ctrl+Enter.
                         </span>
                       )}
@@ -280,13 +363,14 @@ export function Hero() {
                 </div>
               </div>
 
-              {/* Footer — translate button + remaining count */}
-              <div className="border-t border-white/5 bg-black/30 px-6 py-3 flex items-center justify-between gap-4">
+              {/* Footer — translate button */}
+              <div className="wispr-ink-border-dark bg-black/20 px-6 py-3 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => runTranslation(activeLang.key, code)}
                     disabled={demoState === "loading" || demoState === "rate_limited"}
-                    className="flex items-center gap-2 rounded-full bg-amber-600 px-4 py-1.5 text-[11px] font-bold text-white hover:bg-amber-500 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 rounded-full bg-[#c8860a] px-4 py-1.5 text-[11px] font-bold text-white hover:bg-[#b07308] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}
                   >
                     {demoState === "loading" ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -294,7 +378,7 @@ export function Hero() {
                       <Play className="h-3 w-3" />
                     )}
                     Translate{" "}
-                    <span className="hidden sm:inline text-amber-200/60 font-normal">· Ctrl+Enter</span>
+                    <span className="hidden sm:inline text-[rgba(255,220,160,0.6)] font-normal">· Ctrl+Enter</span>
                   </button>
                   {remaining !== null && demoState === "success" && (
                     <span className="text-[10px] font-mono text-white/20">
@@ -313,10 +397,13 @@ export function Hero() {
       </div>
 
       {/* Scroll cue */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-50">
-        <span className="wispr-eyebrow text-neutral-400">Scroll</span>
-        <div className="h-10 w-px bg-gradient-to-b from-neutral-400/60 to-transparent" />
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 opacity-50">
+        <span className="wispr-eyebrow text-[#9e8d72]">Scroll</span>
+        <div className="h-10 w-px bg-gradient-to-b from-[rgba(26,18,8,0.35)] to-transparent" />
       </div>
+
+      {/* Organic wave divider — section transition */}
+      <WaveDivider />
     </section>
   );
 }

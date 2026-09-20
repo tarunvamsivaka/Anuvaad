@@ -1,23 +1,15 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
-import { TranslationBlock } from "../_types";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
+import { useTranslationStore } from "../_store/useTranslationStore";
 
 interface UseTranslationSessionProps {
-  outputBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
-  originalBlocks: TranslationBlock[] | null;
-  setOriginalBlocks: (blocks: TranslationBlock[] | null) => void;
-  setInput: (input: string) => void;
-  setModelUsed: (model: string | null) => void;
-  setRawError: (err: string) => void;
   sourceLanguage: string;
   targetLanguage: string;
   customInstructions: string;
   activeWorkspace: any;
   session: any;
-  sessionId: string;
   repositoryName: string;
   filePath: string;
   mode: string;
@@ -25,24 +17,27 @@ interface UseTranslationSessionProps {
 }
 
 export function useTranslationSession({
-  outputBlocks,
-  setOutputBlocks,
-  originalBlocks,
-  setOriginalBlocks,
-  setInput,
-  setModelUsed,
-  setRawError,
   sourceLanguage,
   targetLanguage,
   customInstructions,
   activeWorkspace,
   session,
-  sessionId,
   repositoryName,
   filePath,
   mode,
   onQuotaExceeded,
 }: UseTranslationSessionProps) {
+  const {
+    outputBlocks,
+    setOutputBlocks,
+    originalBlocks,
+    setOriginalBlocks,
+    setInput,
+    setModelUsed,
+    setRawError,
+    sessionId
+  } = useTranslationStore();
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -141,6 +136,60 @@ export function useTranslationSession({
     setTimeout(() => setCopied(false), 2000);
   }, [outputBlocks, mode, sourceLanguage, targetLanguage]);
 
+  const handleCopyCode = useCallback(() => {
+    if (!outputBlocks || !outputBlocks.length) return;
+    const pureCode = outputBlocks.map((b) => b.code_snippet).join("\n\n");
+    navigator.clipboard.writeText(pureCode);
+    toast.success("Copied code to clipboard");
+  }, [outputBlocks]);
+
+  const handleExportCode = useCallback(() => {
+    if (!outputBlocks || !outputBlocks.length) return;
+    const pureCode = outputBlocks.map((b) => b.code_snippet).join("\n\n");
+    const extMap: Record<string, string> = {
+      python: "py",
+      typescript: "ts",
+      javascript: "js",
+      cpp: "cpp",
+      c: "c",
+      csharp: "cs",
+      go: "go",
+      rust: "rs",
+      java: "java",
+      ruby: "rb",
+      php: "php",
+      swift: "swift",
+      kotlin: "kt",
+      dart: "dart",
+      sql: "sql",
+      html: "html",
+      css: "css",
+      json: "json",
+      yaml: "yaml",
+      bash: "sh",
+      powershell: "ps1",
+      lua: "lua",
+      r: "r",
+      scala: "scala",
+      haskell: "hs",
+      elixir: "ex",
+      clojure: "clj",
+      markdown: "md",
+    };
+    const ext = extMap[targetLanguage?.toLowerCase()] || "txt";
+    const filename = `translated_code.${ext}`;
+    const blob = new Blob([pureCode], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filename}`);
+  }, [outputBlocks, targetLanguage]);
+
   const handleDownloadJson = useCallback(() => {
     if (!outputBlocks) return;
     const blob = new Blob([JSON.stringify(outputBlocks, null, 2)], { type: "application/json" });
@@ -162,6 +211,8 @@ export function useTranslationSession({
     hasEdits,
     handleSyncEnglishToCode,
     handleCopyMarkdown,
+    handleCopyCode,
+    handleExportCode,
     handleDownloadJson,
   };
 }

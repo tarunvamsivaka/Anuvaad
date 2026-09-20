@@ -31,8 +31,29 @@ def test_verify_npm_build():
 def test_verify_vitest_run():
     if not shutil.which("npx") or not (frontend_dir / "node_modules" / "vitest").exists():
         pytest.skip("frontend dependencies not installed (run npm ci first)")
-    res = subprocess.run("npx vitest run", cwd=frontend_dir, capture_output=True, text=True, shell=True)
-    print("\n[VITEST STDOUT]\n" + res.stdout)
-    if res.stderr:
-        print("\n[VITEST STDERR]\n" + res.stderr)
-    assert res.returncode == 0, f"npx vitest run failed with returncode {res.returncode}:\n{res.stdout}\n{res.stderr}"
+    import re
+
+    res = subprocess.run(
+        "npx vitest run --reporter=verbose",
+        cwd=frontend_dir,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        shell=True,
+    )
+    # Strip ANSI escape sequences before printing — colorama can't encode
+    # unicode characters like ✓ (U+2713) through the Windows cp1252 console.
+    _ansi_re = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
+    stdout_clean = _ansi_re.sub("", res.stdout or "")
+    stderr_clean = _ansi_re.sub("", res.stderr or "")
+    # Further replace any remaining non-ascii chars that can't be printed safely
+    stdout_clean = stdout_clean.encode("ascii", errors="replace").decode("ascii")
+    stderr_clean = stderr_clean.encode("ascii", errors="replace").decode("ascii")
+    print("\n[VITEST STDOUT]\n" + stdout_clean)
+    if stderr_clean:
+        print("\n[VITEST STDERR]\n" + stderr_clean)
+    assert res.returncode == 0, (
+        f"npx vitest run failed with returncode {res.returncode}:\n"
+        f"{stdout_clean}\n{stderr_clean}"
+    )

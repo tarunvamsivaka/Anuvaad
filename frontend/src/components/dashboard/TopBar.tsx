@@ -28,6 +28,9 @@ export function WorkspaceSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Select workspace"
         className="flex items-center gap-2 rounded-lg border border-border-subtle bg-surface-card px-3 py-1.5 text-xs font-medium text-text-primary hover:border-border-active transition-all"
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -40,8 +43,14 @@ export function WorkspaceSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 w-48 rounded-lg border border-border-subtle bg-surface-overlay shadow-xl overflow-hidden z-50">
+        <div
+          role="listbox"
+          aria-label="Workspaces"
+          className="absolute top-full left-0 mt-1.5 w-48 rounded-lg border border-border-subtle bg-surface-overlay shadow-xl overflow-hidden z-50"
+        >
           <div
+            role="option"
+            aria-selected={!activeWorkspace}
             onClick={() => { setActiveWorkspace(null); setOpen(false); }}
             className={cn(
               "flex items-center gap-2.5 px-3 py-2 text-xs cursor-pointer transition-colors",
@@ -56,6 +65,8 @@ export function WorkspaceSwitcher() {
           {workspaces.map(ws => (
             <div
               key={ws.id}
+              role="option"
+              aria-selected={activeWorkspace?.id === ws.id}
               onClick={() => { setActiveWorkspace(ws); setOpen(false); }}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 text-xs cursor-pointer transition-colors",

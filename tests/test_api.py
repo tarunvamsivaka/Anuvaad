@@ -22,13 +22,43 @@ class TestHealthEndpoint:
         assert "llm_configured" in data
         assert "razorpay_configured" in data
 
-    def test_system_telemetry_returns_200(self, client):
+    def test_system_telemetry_requires_auth(self, client):
+        """SEC-TEL-01: /system/telemetry must return 401 without Basic Auth credentials."""
         res = client.get("/api/v1/system/telemetry")
-        assert res.status_code == 200
-        data = res.json()
-        assert data["status"] == "healthy"
-        assert "ai_providers" in data
-        assert "telemetry" in data
+        assert res.status_code == 401
+        assert "WWW-Authenticate" in res.headers
+
+    def test_system_telemetry_with_valid_auth(self, client):
+        """SEC-TEL-01: /system/telemetry returns 200 with valid Basic Auth credentials."""
+        import base64
+
+        test_user = "testadmin"
+        test_pass = "testpassword123"
+        token = base64.b64encode(f"{test_user}:{test_pass}".encode()).decode()
+        with patch.dict(
+            "os.environ",
+            {"METRICS_USERNAME": test_user, "METRICS_PASSWORD": test_pass},
+        ):
+            import app.routers.utility as utility_mod
+
+            # Re-bind the module-level constants for this test
+            orig_user = utility_mod.METRICS_USERNAME
+            orig_pass = utility_mod.METRICS_PASSWORD
+            utility_mod.METRICS_USERNAME = test_user
+            utility_mod.METRICS_PASSWORD = test_pass
+            try:
+                res = client.get(
+                    "/api/v1/system/telemetry",
+                    headers={"Authorization": f"Basic {token}"},
+                )
+                assert res.status_code == 200
+                data = res.json()
+                assert data["status"] == "healthy"
+                assert "ai_providers" in data
+                assert "telemetry" in data
+            finally:
+                utility_mod.METRICS_USERNAME = orig_user
+                utility_mod.METRICS_PASSWORD = orig_pass
 
 
 class TestCodeToEnglish:

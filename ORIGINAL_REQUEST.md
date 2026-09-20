@@ -66,3 +66,55 @@ Produce the following output artefacts in the project root:
 
 ### Production Readiness
 - [ ] `PROJECT.md` milestone table is updated to reflect the actual completion state of M7 and M8.
+
+## Follow-up — 2026-08-15T17:37:53Z
+
+Execute the end-to-end product fix and remediation plan for the Anuvaad web application strictly based on the findings from `COMPREHENSIVE_AUDIT_REPORT.md`, iterating across all architectural layers until all tests pass and deployment is error-free.
+
+Working directory: c:\Users\tarun\Anuvaad\Anuvaad
+Integrity mode: development
+
+## Requirements
+
+### R1. P0 & P1 Critical and High Severity Defect Remediation
+Fix all critical blockers and high-severity defects identified in the audit report:
+- **P0-DB-01 (Database Schema Drift)**: Reconcile `TranslationHistory` ORM model in `app/models/db_models.py` with PostgreSQL schema (replace `char_count` with `character_count`).
+- **P0-INF-01 (Nginx IP Spoofing)**: Restrict `set_real_ip_from` in `nginx.conf` to trusted private subnets instead of wildcard `0.0.0.0/0`.
+- **P1-DOC-01 (Container Libc Compatibility)**: Update `Dockerfile` Stage 2 base image to `node:20-slim` for Debian glibc binary compatibility.
+- **P1-BUG-01 (GitHub Token Bug)**: Fix `AttributeError` in `app/repositories/github_token.py` by replacing `datetime.datetime.now(UTC)` with `datetime.now(UTC)`.
+- **P1-BUG-02 (Workspace Creation Bug)**: Resolve `TypeError` in `app/repositories/workspace.py` by aligning with the `Workspace` model columns.
+- **P1-QA-01 (Frontend Build Failure)**: Fix `vitest.config.ts` type checking during Next.js production build (`tsconfig.json` exclude and pool config update).
+- **P1-FE-01 (Frontend Unwired Props)**: Wire `handleCopyCode` and `handleExportCode` click handlers in `frontend/src/features/translate/TranslateFeature.tsx`.
+- **P1-FE-02 (OAuth Open Redirect)**: Add path validation to `searchParams.get("next")` in `frontend/src/app/api/auth/callback/route.ts`.
+
+### R2. P2 & P3 Hardening and Quality Polish
+Address remaining medium and low severity findings:
+- **P2-SEC-01**: Remove hardcoded fallback encryption secret in migration `001_encrypt_github_tokens.py`.
+- **P2-DB-02**: Add database migration with composite and foreign key indexes on high-traffic tables.
+- **P2-RISK-01**: Add `npm test` step to the `vscode-extension` CI workflow in `.github/workflows/ci.yml`.
+- **P3-INF-02 / P3-INF-03**: Add `limit_req_status 429;` and `client_max_body_size 25m;` in `nginx.conf`.
+- **P3-FE-03 / P3-FE-04**: Enhance modal focus trapping and accessibility attributes in `frontend/`.
+
+### R3. Automated Multi-Layer Verification & Zero-Error Deployment Readiness
+Execute rigorous verification across all test suites to validate zero regressions:
+- Backend: `pytest` (100% passing including `test_m1_verification_suite.py`).
+- Frontend: `npm run build` (`next build` clean exit 0) and `npx vitest run` (316/316 passing).
+- Linting: `ruff check .` (0 errors) and `npm run lint`.
+- Extension: `npm test` in `vscode-extension/` (16/16 passing).
+- Alembic: `alembic heads` (clean single linear migration chain).
+
+## Acceptance Criteria
+
+### Defect Elimination
+- [ ] 100% of P0 and P1 audit findings are resolved and verified in code.
+- [ ] No new features outside the audit report scope are added.
+
+### Test & Build Health
+- [ ] `pytest tests/` runs with 0 failures (358/358 passing or expected skips).
+- [ ] `npm run build` inside `frontend/` succeeds with exit code 0.
+- [ ] `npx vitest run` inside `frontend/` passes with 0 failures (316 passing).
+- [ ] `ruff check .` passes with 0 violations.
+- [ ] `npm test` in `vscode-extension/` passes with 16/16 passing.
+
+### Deployment & Config Integrity
+- [ ] Dockerfiles, Nginx configurations, and `render.yaml` manifests are validated for production deployment readiness.

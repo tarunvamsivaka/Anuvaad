@@ -70,6 +70,7 @@ async def search_repo_embeddings(
     query_embedding: list[float],
     top_k: int = 5,
     provider: str = "hf",
+    user_email: str | None = None,
 ) -> list[Any]:
     """Search for similar code chunks using cosine distance.
 
@@ -78,12 +79,19 @@ async def search_repo_embeddings(
     the same provider string that was used during indexing so the WHERE filter
     matches the correct embedding rows.
 
+    SEC-REPO-03: `user_email` optionally scopes results to repos indexed by
+    that user. When provided, only embeddings whose `indexed_by` column matches
+    the requesting user are returned, preventing cross-user data access for
+    private repositories. If the RepoEmbedding model does not yet have an
+    `indexed_by` column (pre-migration), the filter is skipped gracefully.
+
     Args:
         db: Async SQLAlchemy session.
         repository_name: "owner/repo" identifier.
         query_embedding: Vector to search against.
         top_k: Maximum number of results to return.
         provider: "openai" | "hf" — must match what was used at index time.
+        user_email: If provided, scope results to this user's indexed repos.
     """
     import json
 
@@ -106,9 +114,15 @@ async def search_repo_embeddings(
             )
             .where(RepoEmbedding.repository_name == repository_name)
             .where(RepoEmbedding.provider == provider)
-            .order_by(dist_expr.asc())
-            .limit(top_k)
         )
+
+        # SEC-REPO-03: Apply user_email scoping if the column exists on the model.
+        # This is a graceful forward-compat check: if indexed_by was added in a
+        # later migration, the filter is applied; on older schemas it is skipped.
+        if user_email and hasattr(RepoEmbedding, "indexed_by"):
+            stmt = stmt.where(RepoEmbedding.indexed_by == user_email)
+
+        stmt = stmt.order_by(dist_expr.asc()).limit(top_k)
 
         result = await db.execute(stmt)
         return result.all()

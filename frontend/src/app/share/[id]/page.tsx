@@ -32,9 +32,10 @@ async function fetchSharedItem(id: string): Promise<Record<string, unknown> | nu
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const item = await fetchSharedItem(params.id);
+  const { id } = await params;
+  const item = await fetchSharedItem(id);
 
   if (!item) {
     return {
@@ -53,7 +54,7 @@ export async function generateMetadata({
     openGraph: {
       title: `Code Translation: ${src} → ${tgt}`,
       description: `Translated with Anuvaad AI — ${preview}`,
-      url: `${process.env.NEXT_PUBLIC_FRONTEND_URL ?? "https://anuvaad.dev"}/share/${params.id}`,
+      url: `${process.env.NEXT_PUBLIC_FRONTEND_URL ?? "https://anuvaad.dev"}/share/${id}`,
       siteName: "Anuvaad",
       type: "article",
     },
@@ -65,6 +66,11 @@ export async function generateMetadata({
   };
 }
 
-export default function SharedTranslationPage({ params }: { params: { id: string } }) {
-  return <SharedTranslationClient id={params.id} />;
+export default async function SharedTranslationPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <SharedTranslationClient id={id} />;
 }

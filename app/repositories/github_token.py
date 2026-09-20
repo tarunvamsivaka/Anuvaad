@@ -22,12 +22,12 @@ async def save_github_token(email: str, access_token: str) -> bool:
             existing = result.scalars().first()
             if existing:
                 existing.access_token = encrypted
-                existing.updated_at = datetime.datetime.now(UTC)
+                existing.updated_at = datetime.now(UTC)
             else:
                 new_token = UserGithubToken(
                     user_email=email,
                     access_token=encrypted,
-                    updated_at=datetime.datetime.now(UTC),
+                    updated_at=datetime.now(UTC),
                 )
                 session.add(new_token)
             await session.commit()

@@ -7,19 +7,27 @@ export async function proxy(request: NextRequest) {
     request: { headers: request.headers },
   });
 
-  const isTesting = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co" ||
-                    request.cookies.getAll().some(c => {
-                      if (c.value.includes("fake_access_token_for_ci_testing_purposes")) return true;
-                      if (c.value.startsWith("base64-")) {
-                        try {
-                          const decoded = Buffer.from(c.value.substring(7), "base64").toString("utf-8");
-                          return decoded.includes("fake_access_token_for_ci_testing_purposes");
-                        } catch {
-                          return false;
-                        }
-                      }
-                      return false;
-                    });
+  // SEC-PROXY-01: CI/testing bypass is explicitly disabled in production.
+  // The NEXT_PUBLIC_SUPABASE_URL check already prevents activation when real
+  // credentials are set, but adding a NODE_ENV guard provides defense-in-depth:
+  // even if a future code change accidentally sets SUPABASE_URL to a placeholder,
+  // the bypass cannot activate in a production Node process.
+  const isProduction = process.env.NODE_ENV === "production";
+  const isTesting = !isProduction && (
+    process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co" ||
+    request.cookies.getAll().some(c => {
+      if (c.value.includes("fake_access_token_for_ci_testing_purposes")) return true;
+      if (c.value.startsWith("base64-")) {
+        try {
+          const decoded = Buffer.from(c.value.substring(7), "base64").toString("utf-8");
+          return decoded.includes("fake_access_token_for_ci_testing_purposes");
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    })
+  );
   let user = null;
 
   if (isTesting) {

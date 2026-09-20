@@ -164,16 +164,31 @@ async def create(
     email: str,
     name: str,
     workspace_id: str | None = None,
+    max_keys_per_user: int = 10,
 ) -> dict:
     """Generate a new API key, persist its Argon2id hash, return the row + one-time plaintext key.
 
     FIX-27 (P2-06): New keys are hashed with Argon2id instead of SHA-256.
+    SEC-APIKEY-01: Enforces a per-user maximum of max_keys_per_user (default 10)
+    to prevent unbounded key creation and resource exhaustion.
     """
     raw_key = f"ak_{secrets.token_urlsafe(24)}"
     key_hash = _argon2_hash(raw_key)  # FIX-27: Argon2id for new keys
 
     async with AsyncSessionLocal() as session:
         try:
+            # SEC-APIKEY-01: Check current key count before creating a new one
+            from sqlalchemy import func, select
+
+            count_stmt = select(func.count(ApiKey.id)).where(ApiKey.user_email == email)
+            count_result = await session.execute(count_stmt)
+            current_count = count_result.scalar() or 0
+            if current_count >= max_keys_per_user:
+                raise ValueError(
+                    f"Maximum of {max_keys_per_user} API keys per user reached. "
+                    "Please revoke an existing key before creating a new one."
+                )
+
             row = ApiKey(
                 user_email=email,
                 name=name,
@@ -188,6 +203,8 @@ async def create(
             await session.refresh(row)
             data = {c.key: getattr(row, c.key) for c in row.__mapper__.columns}
             return {**data, "raw_key": raw_key}
+        except ValueError:
+            raise
         except Exception as e:
             logger.error(f"api_key.create({email}): {e}")
             await session.rollback()

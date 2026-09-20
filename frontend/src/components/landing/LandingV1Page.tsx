@@ -48,7 +48,7 @@ export default function LandingV1Page() {
       {/* The full landing page */}
       <div
         className="relative z-10 flex min-h-screen flex-col selection:bg-amber-500/30"
-        style={{ background: "#f5f3ef" }}
+        style={{ background: "#f5f3ee" }}  /* Warm Cream Canvas */
       >
         <Navbar />
 

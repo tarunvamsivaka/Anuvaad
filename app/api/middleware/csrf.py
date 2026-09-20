@@ -48,8 +48,12 @@ _allowed_origins_set: frozenset[str] = frozenset(allowed_origins)
 
 
 async def csrf_origin_middleware(request: Request, call_next):
-    """Reject state-mutating requests from unknown origins in production."""
-    if IS_PRODUCTION and request.method in ("POST", "PATCH", "DELETE"):
+    """Reject state-mutating requests from unknown origins in production.
+
+    SEC-CSRF-01: Covers all non-safe HTTP methods (POST, PUT, PATCH, DELETE).
+    PUT was previously omitted, leaving any PUT endpoint unprotected.
+    """
+    if IS_PRODUCTION and request.method in ("POST", "PUT", "PATCH", "DELETE"):
         if not request.url.path.startswith("/api/webhook/"):
             origin = request.headers.get("Origin")
             referer = request.headers.get("Referer")

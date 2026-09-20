@@ -539,9 +539,14 @@ def _check_metrics_auth(request: Request) -> bool:
         return False
 
 
-@router.get("/metrics")
+@router.get("/metrics", dependencies=[Depends(rate_limiter(20, 60))])
 async def get_metrics_json(request: Request):
-    """Return all metrics as JSON. Protected by HTTP Basic Auth."""
+    """Return all metrics as JSON. Protected by HTTP Basic Auth.
+
+    SEC-MET-01: Rate-limited to 20 req/min per IP to prevent brute-force of
+    Basic Auth credentials. The global per-IP limit (50/min) is too permissive
+    for an authentication-gated endpoint.
+    """
     if not _check_metrics_auth(request):
         return JSONResponse(
             status_code=401,
@@ -551,9 +556,14 @@ async def get_metrics_json(request: Request):
     return await metrics.snapshot()
 
 
-@router.get("/metrics/prometheus")
+@router.get("/metrics/prometheus", dependencies=[Depends(rate_limiter(20, 60))])
 async def get_metrics_prometheus(request: Request):
-    """Return metrics in Prometheus text exposition format."""
+    """Return metrics in Prometheus text exposition format.
+
+    SEC-MET-01: Rate-limited to 20 req/min per IP.
+    SEC-PROM-01: Endpoint and model names are sanitized before inclusion in
+    Prometheus text output to prevent label injection attacks.
+    """
     if not _check_metrics_auth(request):
         return PlainTextResponse(
             "Unauthorized",
@@ -563,6 +573,10 @@ async def get_metrics_prometheus(request: Request):
     snap = await metrics.snapshot()
     lines: list[str] = []
 
+    def _safe_label(value: str) -> str:
+        """SEC-PROM-01: Remove characters that break Prometheus text format."""
+        return str(value).replace('"', "").replace("\n", "").replace("\r", "").replace("\\", "")
+
     lines.append("# HELP anuvaad_uptime_seconds Seconds since process start")
     lines.append("# TYPE anuvaad_uptime_seconds gauge")
     lines.append(f"anuvaad_uptime_seconds {snap['uptime_seconds']}")
@@ -570,22 +584,22 @@ async def get_metrics_prometheus(request: Request):
     lines.append("# HELP anuvaad_requests_total Total requests per endpoint")
     lines.append("# TYPE anuvaad_requests_total counter")
     for ep, count in snap["total_requests"].items():
-        lines.append(f'anuvaad_requests_total{{endpoint="{ep}"}} {count}')
+        lines.append(f'anuvaad_requests_total{{endpoint="{_safe_label(ep)}"}} {count}')
 
     lines.append("# HELP anuvaad_errors_total Total errors per endpoint")
     lines.append("# TYPE anuvaad_errors_total counter")
     for ep, count in snap["total_errors"].items():
-        lines.append(f'anuvaad_errors_total{{endpoint="{ep}"}} {count}')
+        lines.append(f'anuvaad_errors_total{{endpoint="{_safe_label(ep)}"}} {count}')
 
     lines.append("# HELP anuvaad_model_calls_total Total calls per model")
     lines.append("# TYPE anuvaad_model_calls_total counter")
     for model, count in snap["model_calls"].items():
-        lines.append(f'anuvaad_model_calls_total{{model="{model}"}} {count}')
+        lines.append(f'anuvaad_model_calls_total{{model="{_safe_label(model)}"}} {count}')
 
     lines.append("# HELP anuvaad_model_errors_total Total errors per model")
     lines.append("# TYPE anuvaad_model_errors_total counter")
     for model, count in snap["model_errors"].items():
-        lines.append(f'anuvaad_model_errors_total{{model="{model}"}} {count}')
+        lines.append(f'anuvaad_model_errors_total{{model="{_safe_label(model)}"}} {count}')
 
     lines.append("# HELP anuvaad_cache_hits_total Total cache hits")
     lines.append("# TYPE anuvaad_cache_hits_total counter")
@@ -597,19 +611,20 @@ async def get_metrics_prometheus(request: Request):
     lines.append("# HELP anuvaad_avg_latency_ms Rolling average latency per endpoint")
     lines.append("# TYPE anuvaad_avg_latency_ms gauge")
     for ep, lat in snap["average_latency_ms"].items():
-        lines.append(f'anuvaad_avg_latency_ms{{endpoint="{ep}"}} {lat}')
+        lines.append(f'anuvaad_avg_latency_ms{{endpoint="{_safe_label(ep)}"}} {lat}')
 
     lines.append("")
     return PlainTextResponse("\n".join(lines), media_type="text/plain; version=0.0.4; charset=utf-8")
 
 
-@router.get("/cache-stats")
+@router.get("/cache-stats", dependencies=[Depends(rate_limiter(20, 60))])
 async def get_cache_stats(request: Request):
     """Return stats for the cache.
 
     FIX-07 (P1-05): Now protected by the same HTTP Basic Auth as /metrics.
     Previously this endpoint was unauthenticated and exposed internal cache
     information to any caller.
+    SEC-MET-01: Rate-limited to 20 req/min per IP.
     """
     if not _check_metrics_auth(request):
         return JSONResponse(
@@ -646,8 +661,20 @@ async def sentry_test():
 
 
 @router.get("/system/telemetry")
-async def get_system_telemetry():
-    """Return real-time telemetry metrics for platform monitoring."""
+async def get_system_telemetry(request: Request):
+    """Return real-time telemetry metrics for platform monitoring.
+
+    SEC-TEL-01: Protected by HTTP Basic Auth (same credentials as /metrics).
+    Previously this endpoint was unauthenticated and exposed operational
+    intelligence (AI provider config, Redis state, per-endpoint error rates)
+    to any anonymous caller.
+    """
+    if not _check_metrics_auth(request):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized"},
+            headers={"WWW-Authenticate": 'Basic realm="metrics"'},
+        )
     from datetime import datetime
 
     snap = await metrics.snapshot()

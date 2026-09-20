@@ -22,6 +22,26 @@
   --amber-800: #92400e;
   --amber-900: #78350f;
 
+  /* Ink scale — for flat minimalism ink borders & text */
+  --ink-50:  #faf8f4;
+  --ink-100: #f0ebe0;
+  --ink-200: #ddd5c5;
+  --ink-300: #c4b89e;
+  --ink-400: #9e8d72;
+  --ink-500: #6b5e4a;
+  --ink-600: #4a3e2e;
+  --ink-700: #2e2218;
+  --ink-800: #1a1208;
+  --ink-900: #0e0a04;
+
+  /* Cream scale — Warm Cream Canvas */
+  --cream-50:  #fffef8;
+  --cream-100: #faf7ef;
+  --cream-200: #f5f3ee;
+  --cream-300: #ede8e0;
+  --cream-400: #e2dbd0;
+  --cream-500: #d4cfc5;
+
   /* Void (deep space dark) scale */
   --void-50:  #f0f1f3;
   --void-100: #d4d8de;
@@ -46,33 +66,34 @@
   --neutral-800: #1e293b;
   --neutral-900: #0f172a;
 
-  /* ── TIER 2: SURFACE TOKENS — LIGHT MODE (default) ─────── */
-  --surface-base:     #f8fafc;   /* page root background */
-  --surface-low:      #f1f5f9;   /* main page background */
-  --surface-mid:      #e8edf4;   /* sidebar, panels */
-  --surface-high:     #ffffff;   /* cards */
-  --surface-overlay:  #ffffff;   /* modals, dropdowns */
-  --surface-card:     #f8fafc;   /* inner card surfaces */
+  /* ── TIER 2: SURFACE TOKENS — LIGHT MODE (default) ─────────── */
+  --surface-base:     #ffffff;   /* Pure white page background */
+  --surface-low:      #f8fafc;   /* Slate-50: secondary panel / container */
+  --surface-mid:      #f1f5f9;   /* Slate-100: gutters, pill badges, active tabs */
+  --surface-high:     #ffffff;   /* Pure white cards with subtle shadow */
+  --surface-overlay:  #ffffff;   /* Modals & dropdowns */
+  --surface-card:     #ffffff;   /* Inner card surfaces */
 
   /* Landing/special surfaces */
-  --surface-landing:  #020204;   /* keeps landing dark — intentional cinematic look */
-  --surface-charcoal: #ffffff;   /* used in workspace — white in light mode */
-  --surface-panel:    rgba(248, 250, 252, 0.90);
+  --surface-landing:  #ffffff;   /* Pure white landing bg */
+  --surface-charcoal: #0f172a;   /* Dark charcoal contrast surfaces */
+  --surface-panel:    rgba(255, 255, 255, 0.95);
 
-  /* ── TIER 3: BORDER TOKENS — LIGHT MODE ────────────────── */
-  --border-faint:   rgba(15, 23, 42, 0.05);   /* barely visible */
-  --border-subtle:  rgba(15, 23, 42, 0.09);   /* default subtle */
-  --border-default: rgba(15, 23, 42, 0.14);   /* standard */
-  --border-medium:  rgba(15, 23, 42, 0.22);   /* visible */
-  --border-active:  rgba(217, 119, 6, 0.45);  /* hover/active — amber-600 tinted */
-  --border-focus:   rgba(217, 119, 6, 0.80);  /* focus state */
+  /* ── TIER 3: BORDER TOKENS — LIGHT MODE ────────────────────── */
+  --border-faint:   rgba(15, 23, 42, 0.04);   /* barely visible */
+  --border-subtle:  rgba(15, 23, 42, 0.08);   /* default subtle 1px border */
+  --border-default: #e2e8f0;                  /* Slate-200 standard border */
+  --border-medium:  #cbd5e1;                  /* Slate-300 medium border */
+  --border-active:  #0f172a;                  /* active / dark stroke */
+  --border-focus:   #0f172a;                  /* focus stroke */
 
-  /* ── TIER 4: TEXT TOKENS — LIGHT MODE ──────────────────── */
-  --text-primary:   #0f172a;   /* deep slate — strong contrast */
-  --text-secondary: #475569;   /* slate-600 */
-  --text-muted:     #94a3b8;   /* slate-400 */
-  --text-amber:     #d97706;   /* amber-600 — WCAG AA on white */
-  --text-on-brand:  #ffffff;   /* text on amber buttons */
+  /* ── TIER 4: TEXT TOKENS — LIGHT MODE ───────────────── */
+  --text-primary:   #0f172a;   /* Slate-900: high contrast typography */
+  --text-secondary: #475569;   /* Slate-600: body and subheadings */
+  --text-muted:     #94a3b8;   /* Slate-400: captions & timestamps */
+  --text-amber:     #f59e0b;   /* Amber accent */
+  --text-teal:      #0284c7;   /* Sky/teal accent */
+  --text-on-brand:  #ffffff;   /* Text on primary buttons */
 
   /* ── TIER 5: GLOW TOKENS ────────────────────────────────── */
   /* Lighter, more subtle glows for light mode */
@@ -86,7 +107,7 @@
   --glow-amber-md: var(--glow-md);
   --glow-amber-lg: var(--glow-lg);
 
-  /* Landing aurora overlays (always rich — landing is always dark) */
+  /* Landing overlays */
   --amber-glow: rgba(245, 158, 11, 0.60);
   --amber-mid:  rgba(217, 119, 6, 0.40);
   --amber-soft: rgba(252, 211, 77, 0.15);
@@ -104,38 +125,39 @@
 
 /* ── DARK MODE OVERRIDES ─────────────────────────────────────── */
 .dark {
-  /* TIER 2: SURFACE TOKENS — DARK MODE */
-  --surface-base:     #030014;
-  --surface-low:      #080c14;
-  --surface-mid:      #0c0f1a;
-  --surface-high:     #111520;
-  --surface-overlay:  #161b28;
-  --surface-card:     #0e1219;
-  --surface-charcoal: #0c0c0f;
-  --surface-panel:    rgba(18, 18, 24, 0.85);
+  /* Dark mode surfaces — Slate-950 and Slate-900 */
+  --surface-base:     #020617;   /* Slate-950: deep page root */
+  --surface-low:      #0f172a;   /* Slate-900: dark section background */
+  --surface-mid:      #1e293b;   /* Slate-800: pill badges, active tabs */
+  --surface-high:     #0f172a;   /* Slate-900: card surfaces */
+  --surface-overlay:  #1e293b;   /* Modals & dropdowns */
+  --surface-card:     #0f172a;   /* Inner card surfaces */
+  --surface-charcoal: #020617;   /* Deep charcoal surfaces */
+  --surface-panel:    rgba(15, 23, 42, 0.90);
 
-  /* TIER 3: BORDER TOKENS — DARK MODE */
-  --border-faint:   rgba(245, 158, 11, 0.06);
-  --border-subtle:  rgba(245, 158, 11, 0.08);
-  --border-default: rgba(245, 158, 11, 0.12);
-  --border-medium:  rgba(245, 158, 11, 0.20);
-  --border-active:  rgba(245, 158, 11, 0.35);
-  --border-focus:   rgba(245, 158, 11, 0.70);
+  /* Dark mode borders */
+  --border-faint:   rgba(255, 255, 255, 0.04);
+  --border-subtle:  rgba(255, 255, 255, 0.08); /* 1px subtle dark border */
+  --border-default: #1e293b;                    /* Slate-800 */
+  --border-medium:  #334155;                    /* Slate-700 */
+  --border-active:  #f8fafc;
+  --border-focus:   #f8fafc;
 
-  /* TIER 4: TEXT TOKENS — DARK MODE */
-  --text-primary:   #e8ecf0;
-  --text-secondary: #8899aa;
-  --text-muted:     #5a6a7a;
-  --text-amber:     #f59e0b;
-  --text-on-brand:  #020204;
+  /* Dark mode text */
+  --text-primary:   #f8fafc;   /* Slate-50: crisp primary text */
+  --text-secondary: #cbd5e1;   /* Slate-300: secondary text */
+  --text-muted:     #64748b;   /* Slate-500: muted text */
+  --text-amber:     #fbbf24;   /* Amber text */
+  --text-teal:      #38bdf8;   /* Sky/teal text */
+  --text-on-brand:  #020617;
 
-  /* TIER 5: GLOW TOKENS — DARK MODE (richer, more vibrant) */
+  /* TIER 5: GLOW TOKENS — DARK MODE */
   --glow-xs: 0 0 8px  rgba(245, 158, 11, 0.20);
   --glow-sm: 0 0 12px rgba(245, 158, 11, 0.25);
   --glow-md: 0 0 24px rgba(245, 158, 11, 0.35);
   --glow-lg: 0 0 48px rgba(245, 158, 11, 0.25), 0 0 100px rgba(245, 158, 11, 0.10);
 
-  /* TIER 6: STATUS (slightly stronger glow in dark) */
+  /* TIER 6: STATUS */
   --status-success-glow: rgba(16, 185, 129, 0.40);
   --status-warning-glow: rgba(245, 158, 11, 0.40);
   --status-danger-glow:  rgba(239, 68, 68, 0.40);

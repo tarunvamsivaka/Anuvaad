@@ -29,7 +29,7 @@ export function FinalCTA() {
     <section
       ref={sectionRef}
       className="relative overflow-hidden"
-      style={{ background: "#f5f3ef" }}
+      style={{ background: "#f5f3ee" }}   /* Warm Cream Canvas */
     >
       {/* Top divider */}
       <div className="wispr-divider-light" />
@@ -62,14 +62,15 @@ export function FinalCTA() {
 
         {/* Giant headline — WisprFlow style */}
         <h2
-          className="final-cta-reveal opacity-0 wispr-headline text-neutral-900 mb-6"
+          className="final-cta-reveal opacity-0 wispr-headline text-[#1a1208] mb-6"
           style={{ fontSize: "clamp(52px, 8vw, 96px)" }}
         >
           Start Reading.<br />
           <span style={{ color: "#c8860a", fontStyle: "italic" }}>Any Codebase.</span>
         </h2>
 
-        <p className="final-cta-reveal opacity-0 mx-auto mb-10 max-w-xl text-[18px] leading-relaxed text-neutral-500">
+        <p className="final-cta-reveal opacity-0 mx-auto mb-10 max-w-xl text-[18px] leading-relaxed text-[#6b5e4a]"
+          style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}>
           Join thousands of developers turning cryptic repositories into readable documentation. Connect in under a minute.
         </p>
 
@@ -81,8 +82,9 @@ export function FinalCTA() {
             "No credit card required",
             "Native Git integration",
           ].map((item) => (
-            <div key={item} className="flex items-center gap-2 text-[13px] text-neutral-500">
-              <Check className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+            <div key={item} className="flex items-center gap-2 text-[13px] text-[#6b5e4a]"
+              style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}>
+              <Check className="h-3.5 w-3.5 text-[#c8860a] shrink-0" />
               <span>{item}</span>
             </div>
           ))}
@@ -107,7 +109,8 @@ export function FinalCTA() {
         </div>
 
         {/* Trust micro-copy */}
-        <p className="final-cta-reveal opacity-0 text-xs font-semibold uppercase tracking-[0.25em] text-neutral-400">
+        <p className="final-cta-reveal opacity-0 text-xs font-semibold uppercase tracking-[0.25em] text-[#9e8d72]"
+          style={{ fontFamily: "var(--font-sans, Inter, sans-serif)" }}>
           10 free translations per day · No code stored · Cancel anytime
         </p>
 
@@ -115,8 +118,8 @@ export function FinalCTA() {
         <div className="final-cta-reveal opacity-0 mt-24 flex items-center gap-6">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent to-amber-300/30" />
           <span
-            className="text-[11px] font-bold uppercase tracking-[0.3em] text-neutral-300"
-            style={{ fontFamily: "var(--font-garamond, Georgia, serif)" }}
+            className="text-[11px] font-bold uppercase tracking-[0.3em] text-[#9e8d72]"
+            style={{ fontFamily: "var(--font-playfair, var(--font-serif, Georgia, serif))" }}
           >
             Anuvaad
           </span>

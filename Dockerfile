@@ -21,7 +21,8 @@ RUN npm run build
 
 # ── Stage 2: Extract Node.js runtime from official image ──
 # Copies only the Node binary and its supporting libraries — no npm, no shell.
-FROM node:20-alpine AS node-runtime
+# P1-DOC-01: Use node:20-slim (Debian glibc) to match python:3.11-slim glibc environment.
+FROM node:20-slim AS node-runtime
 
 # ── Stage 3: Production image ──
 FROM python:3.11-slim

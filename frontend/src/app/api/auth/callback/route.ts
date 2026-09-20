@@ -6,8 +6,11 @@ export const runtime = 'edge';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  // if "next" is in param, use it as redirect, else /dashboard
-  const next = searchParams.get("next") ?? "/dashboard";
+  // SEC: Sanitize redirect destination to prevent open redirect vulnerabilities
+  let next = searchParams.get("next") ?? "/dashboard";
+  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) {
+    next = "/dashboard";
+  }
 
   if (code) {
     const cookieStore: {

@@ -24,6 +24,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizeCss: true,
+    optimizePackageImports: ["lucide-react", "framer-motion", "@monaco-editor/react"],
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,

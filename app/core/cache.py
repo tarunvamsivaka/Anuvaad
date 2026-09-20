@@ -70,6 +70,18 @@ class RedisCache:
             try:
                 import redis.asyncio as aioredis
 
+                # SEC-REDIS-01: Warn in production when Redis URL has no password.
+                # Redis without AUTH is accessible to all processes on the same network.
+                _is_prod = os.getenv("ENV", "development").lower() == "production"
+                _url_has_auth = ("@" in redis_url) or ("://:@" not in redis_url and "password" in redis_url.lower())
+                if _is_prod and not _url_has_auth:
+                    logger.warning(
+                        "⚠ SECURITY: REDIS_URL has no password (no '@' in URL). "
+                        "In production, Redis should require AUTH to prevent unauthorized access. "
+                        "Include the password in the URL: redis://:password@host:port or "
+                        "use Upstash (UPSTASH_REDIS_URL/UPSTASH_REDIS_TOKEN) which is TLS-secured."
+                    )
+
                 self.client = aioredis.from_url(
                     redis_url,
                     decode_responses=True,

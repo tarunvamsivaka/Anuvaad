@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, RotateCcw, Sparkles, X, FileCode, ArrowRight } from "lucide-react";
@@ -7,6 +8,8 @@ import { FileDropZone } from "./FileDropZone";
 import { languages } from "../../_constants/languages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useTranslationStore } from "../../_store/useTranslationStore";
+import { detectLanguage } from "../../_hooks/useLanguageDetection";
 
 const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
@@ -37,17 +40,12 @@ interface InputPanelProps {
   handleClearFile: () => void;
   gistSource: { username: string; filename: string } | null;
   setGistSource: (source: { username: string; filename: string } | null) => void;
-  input: string;
-  setInput: (val: string) => void;
-  isStreaming: boolean;
   handleTranslate: () => void;
   handleClear: () => void;
   sourceLanguage: string;
   setSourceLanguage: (lang: string) => void;
   isDark: boolean;
   monacoOptions: any;
-  detectedLang: string | null;
-  setDetectedLang: (lang: string | null) => void;
   isTypingManually: boolean;
   setIsTypingManually: (val: boolean) => void;
   getRootProps: any;
@@ -59,7 +57,6 @@ interface InputPanelProps {
   setGistUrl: (val: string) => void;
   gistLoading: boolean;
   handleGistImport: () => void;
-  hasOutputBlocks: boolean;
   fileList: {name: string; path: string; type: string}[] | null;
   repoInfo: {username: string; repo: string} | null;
   handleSelectFile: (path: string) => void;
@@ -72,17 +69,12 @@ export function InputPanel({
   handleClearFile,
   gistSource,
   setGistSource,
-  input,
-  setInput,
-  isStreaming,
   handleTranslate,
   handleClear,
   sourceLanguage,
   setSourceLanguage,
   isDark,
   monacoOptions,
-  detectedLang,
-  setDetectedLang,
   isTypingManually,
   setIsTypingManually,
   getRootProps,
@@ -94,17 +86,32 @@ export function InputPanel({
   setGistUrl,
   gistLoading,
   handleGistImport,
-  hasOutputBlocks,
   fileList,
   repoInfo,
   handleSelectFile,
   setFileList,
 }: InputPanelProps) {
+  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks } = useTranslationStore();
+  const hasOutputBlocks = !!outputBlocks && outputBlocks.length > 0;
+
+  useEffect(() => {
+    if (isStreaming || !input) return;
+    const timeout = setTimeout(() => {
+      const detected = detectLanguage(input);
+      if (detected && detected !== sourceLanguage) {
+        setDetectedLang(detected);
+      } else {
+        setDetectedLang(null);
+      }
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [input, isStreaming, sourceLanguage, setDetectedLang]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
-      <div className="flex items-center justify-between border-b border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border bg-transparent px-4 py-3">
         <div className="flex items-center gap-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-[#8494b0]">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
             {mode === "english-to-code" ? "Requirements (English)" : "Source Code"}
           </p>
           {uploadedFile && (
@@ -310,7 +317,7 @@ export function InputPanel({
         </div>
       )}
       
-      <div className="border-t border-slate-200/50 dark:border-white/10 bg-transparent px-4 py-2.5 flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+      <div className="border-t border-border bg-transparent px-4 py-2.5 flex justify-between items-center text-[10px] text-muted-foreground font-medium">
         <div className="flex gap-4">
           <span><kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Alt</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">C</kbd> Clear</span>
           {hasOutputBlocks && (

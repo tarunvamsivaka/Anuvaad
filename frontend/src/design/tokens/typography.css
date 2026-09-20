@@ -5,10 +5,14 @@
 
 :root {
   /* ── FONT FAMILIES ─────────────────────────────────────────── */
-  --font-display:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-body:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono:     'JetBrains Mono', 'Geist Mono', 'Fira Code', 'Cascadia Code', monospace;
-  --font-prose:    'Lora', 'Georgia', 'Times New Roman', serif;  /* English translation output */
+  /* Editorial Serif (tech-startup flat minimalism) */
+  --font-display:  var(--font-playfair), 'Playfair Display', 'Georgia', serif;
+  --font-serif:    var(--font-playfair), 'Playfair Display', 'Georgia', serif;
+  /* Modern Sans */
+  --font-body:     var(--font-sans), 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:     var(--font-mono), 'JetBrains Mono', 'Fira Code', monospace;
+  /* Prose / translation output uses Editorial Serif */
+  --font-prose:    var(--font-playfair), 'Playfair Display', 'Georgia', serif;
 
   /* ── TYPE SCALE (Major Third / 1.25 ratio) ─────────────────── */
   --text-2xs: 0.512rem;   /*  8.2px — micro labels */

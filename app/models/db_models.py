@@ -35,8 +35,7 @@ class UserSubscription(Base):
     credits = Column(Integer, default=0)
     current_period_end = Column(DateTime(timezone=True), nullable=True)
     onboarded = Column(Boolean, default=False)
-    stripe_customer_id = Column(Text, nullable=True)
-    razorpay_subscription_id = Column(Text, nullable=True)
+    razorpay_subscription_id = Column(Text, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
@@ -62,10 +61,10 @@ class ApiKey(Base):
     __tablename__ = "api_keys"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     workspace_id = Column(UUID(as_uuid=True), nullable=True)
-    user_email = Column(Text, nullable=False)
+    user_email = Column(Text, nullable=False, index=True)
     name = Column(Text, nullable=False)
     api_key_hash = Column(Text, nullable=False)
-    key_prefix = Column(Text, nullable=False)
+    key_prefix = Column(Text, nullable=False, index=True)
     # FIX-27 (P2-06): Track hash algorithm for rolling upgrade from sha256 → argon2id.
     # New keys use argon2id; existing sha256 keys are upgraded on first use.
     key_hash_algo = Column(Text, nullable=False, default="sha256", server_default="sha256")
@@ -80,7 +79,7 @@ class TranslationHistory(Base):
     workspace_id = Column(UUID(as_uuid=True), nullable=True)
     user_email = Column(Text, nullable=True)
     is_public = Column(Boolean, default=False)
-    char_count = Column(Integer, default=0)
+    character_count = Column(Integer, default=0)
     block_count = Column(Integer, default=0)
     blocks = Column(JSONB, nullable=True)
     target_language = Column(Text, nullable=True)
@@ -95,13 +94,13 @@ class TranslationHistory(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     @property
-    def character_count(self) -> int:
-        """Legacy property alias for char_count (BE-06 reconciliation)."""
-        return self.char_count or 0
+    def char_count(self) -> int:
+        """Legacy property alias for character_count."""
+        return self.character_count or 0
 
-    @character_count.setter
-    def character_count(self, value: int) -> None:
-        self.char_count = value
+    @char_count.setter
+    def char_count(self, value: int) -> None:
+        self.character_count = value
 
     # FIX-03 (P0-05): Composite index for the primary history listing query.
     __table_args__ = (
@@ -149,6 +148,9 @@ class RepoEmbedding(Base):
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536))  # 1536 dim for openai text-embedding-3-small (was 384)
     provider = Column(Text, default="hf", nullable=False)
+    # SEC-REPO-03: Track which user indexed this repository so searches can be
+    # scoped to prevent cross-user leakage of private repository content.
+    indexed_by = Column(Text, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
@@ -197,8 +199,8 @@ class DesiredIndexState(Base):
     __tablename__ = "desired_index_states"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
-    source_state_id = Column(UUID(as_uuid=True), ForeignKey("source_states.id"), nullable=False)
-    index_configuration_id = Column(UUID(as_uuid=True), ForeignKey("index_configurations.id"), nullable=False)
+    source_state_id = Column(UUID(as_uuid=True), ForeignKey("source_states.id"), nullable=False, index=True)
+    index_configuration_id = Column(UUID(as_uuid=True), ForeignKey("index_configurations.id"), nullable=False, index=True)
     incarnation_id = Column(UUID(as_uuid=True), default=uuid.uuid4, nullable=False, unique=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 

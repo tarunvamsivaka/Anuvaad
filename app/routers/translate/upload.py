@@ -3,7 +3,7 @@ import os
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-from app.core.auth import get_user_email, get_user_pro_status, is_token_pro
+from app.core.auth import get_user_email, get_user_pro_status
 from app.core.cache import cache, cache_key
 from app.core.config import (
     ALLOWED_EXTENSIONS,
@@ -37,7 +37,10 @@ async def upload_file_translate(
     mode: str = Form("code-to-english"),
     language: str = Form(""),
     target_language: str = Form(""),
-    access_token: str = Form(""),
+    # SEC-UPL-01: access_token removed — authentication is exclusively via the
+    # Authorization header (Depends(get_user_email)). Accepting JWTs in
+    # multipart form bodies allows them to be logged by APM tools and creates
+    # a secondary, harder-to-audit authentication path.
     session_id: str | None = Form(None),
     repository_name: str | None = Form(None),
     file_path: str | None = Form(None),
@@ -54,8 +57,8 @@ async def upload_file_translate(
     is_pro = False
     if email:
         is_pro = await get_user_pro_status(email)
-    if not is_pro and access_token:
-        is_pro = await is_token_pro(access_token)
+    # SEC-UPL-01: Removed access_token form-body fallback. Pro status is now
+    # determined exclusively from the authenticated user's subscription record.
 
     contents = await file.read()
     try:
@@ -73,6 +76,7 @@ async def upload_file_translate(
     max_size = PRO_MAX_FILE_SIZE if is_pro else FREE_MAX_FILE_SIZE
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
+
 
     if len(contents) > max_size:
         limit_kb = max_size // 1024

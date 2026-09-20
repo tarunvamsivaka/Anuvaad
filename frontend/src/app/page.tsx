@@ -1,6 +1,16 @@
 import { Metadata } from "next";
-import LandingWrapper from "@/components/landing/LandingWrapper";
 import Script from "next/script";
+import {
+  WisprNavbar,
+  HeroControlBar,
+  LivePlayground,
+  GitPrWorkflowDemo,
+  BenchmarkExplorer,
+  EnterpriseSecurity,
+  CustomerProof,
+  ActionDeck,
+  WisprFooter,
+} from "@/components/landing/wispr";
 
 export const metadata: Metadata = {
   title: "Anuvaad — The AI Code Translator for Modern Teams",
@@ -36,9 +46,6 @@ const jsonLd = {
 };
 
 export default function Home() {
-  // Default to true unless explicitly disabled via environment variable
-  const showLandingV2 = process.env.NEXT_PUBLIC_LANDING_V2 !== "false";
-
   return (
     <>
       <Script
@@ -46,8 +53,40 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <LandingWrapper showLandingV2={showLandingV2} />
+      <div className="relative min-h-screen w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-slate-900 selection:text-white dark:selection:bg-slate-100 dark:selection:text-slate-900 flex flex-col overflow-x-hidden">
+        {/* Floating Pill Navigation */}
+        <WisprNavbar />
+
+        <main id="main-content" className="flex-1 w-full flex flex-col items-center">
+          {/* Hero & Quick-Action Prompt Bar */}
+          <HeroControlBar />
+
+          {/* Core Product Modules */}
+          <section id="playground" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+            <LivePlayground />
+          </section>
+
+          <section id="workflow" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+            <GitPrWorkflowDemo />
+          </section>
+
+          <section id="benchmarks" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+            <BenchmarkExplorer />
+          </section>
+
+          {/* Enterprise Security & Governance */}
+          <EnterpriseSecurity />
+
+          {/* Customer Social Proof & Adoption */}
+          <CustomerProof />
+
+          {/* High-Conversion Action Deck */}
+          <ActionDeck />
+        </main>
+
+        {/* Semantic Sitemap Footer */}
+        <WisprFooter />
+      </div>
     </>
   );
 }
-
