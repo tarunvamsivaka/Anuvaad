@@ -55,6 +55,15 @@ class TestMetricsObservability:
 
     @pytest.mark.asyncio
     async def test_cache_hit_ratio_calculation(self):
+        from app.core.cache import cache
+
+        # Clean residual metrics in shared test Redis instance to guarantee test isolation
+        if cache.client:
+            try:
+                await cache.client.delete("metrics:cache_hits", "metrics:cache_misses")
+            except Exception:
+                pass
+
         collector = MetricsCollector()
         assert collector.cache_hit_ratio == 0.0
 
@@ -62,6 +71,9 @@ class TestMetricsObservability:
         await collector.record_cache_hit()
         await collector.record_cache_hit()
         await collector.record_cache_miss()
+
+        # Brief yield to ensure asynchronous fire-and-forget Redis tasks settle
+        await asyncio.sleep(0.02)
 
         assert collector.cache_hits == 3
         assert collector.cache_misses == 1
