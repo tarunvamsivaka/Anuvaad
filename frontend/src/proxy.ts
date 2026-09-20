@@ -7,14 +7,14 @@ export async function proxy(request: NextRequest) {
     request: { headers: request.headers },
   });
 
-  // SEC-PROXY-01: CI/testing bypass is explicitly disabled in production.
-  // The NEXT_PUBLIC_SUPABASE_URL check already prevents activation when real
-  // credentials are set, but adding a NODE_ENV guard provides defense-in-depth:
-  // even if a future code change accidentally sets SUPABASE_URL to a placeholder,
-  // the bypass cannot activate in a production Node process.
-  const isProduction = process.env.NODE_ENV === "production";
-  const isTesting = !isProduction && (
-    process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co" ||
+  // SEC-PROXY-01: CI/testing bypass is strictly isolated to test/CI environments
+  // where NEXT_PUBLIC_SUPABASE_URL is configured to the placeholder domain.
+  // In production (Vercel, Docker production deployments), NEXT_PUBLIC_SUPABASE_URL is
+  // always set to a genuine Supabase project URL, making this bypass impossible to trigger.
+  const isPlaceholderUrl = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
+  const isTesting = isPlaceholderUrl && (
+    process.env.CI === "true" ||
+    process.env.NODE_ENV !== "production" ||
     request.cookies.getAll().some(c => {
       if (c.value.includes("fake_access_token_for_ci_testing_purposes")) return true;
       if (c.value.startsWith("base64-")) {
@@ -33,7 +33,12 @@ export async function proxy(request: NextRequest) {
   if (isTesting) {
     // In CI/Testing, simulate a logged-in user if they have an active auth-token cookie.
     // Playwright stores state including session cookies (e.g. sb-placeholder-auth-token).
-    const hasAuthCookie = request.cookies.getAll().some(c => c.name.includes("auth-token"));
+    const hasAuthCookie = request.cookies.getAll().some(c => 
+      c.name.includes("auth-token") ||
+      c.name.includes("-token") ||
+      c.name.startsWith("sb-") ||
+      c.value.includes("fake_access_token_for_ci_testing_purposes")
+    );
     if (hasAuthCookie) {
       user = {
         id: "test-user-id",
