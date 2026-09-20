@@ -152,16 +152,17 @@ function AnimatedHeadline({ children }: { children: string }) {
   return (
     <>
       {words.map((word, i) => (
-        <span
-          key={i}
-          className="hero-word-reveal inline-block"
-          style={{
-            animation: `word-reveal 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 90}ms both`,
-          }}
-        >
-          {word}
-          {i < words.length - 1 ? "\u00a0" : ""}
-        </span>
+        <React.Fragment key={i}>
+          <span
+            className="hero-word-reveal inline-block"
+            style={{
+              animation: `word-reveal 0.6s cubic-bezier(0.16,1,0.3,1) ${i * 90}ms both`,
+            }}
+          >
+            {word}
+          </span>
+          {i < words.length - 1 ? " " : ""}
+        </React.Fragment>
       ))}
     </>
   );
@@ -322,7 +323,7 @@ export function HeroControlBar({
     setSelectedPresetIndex(index);
     setCustomPrompt(preset.prompt);
     setTransitionKey(`preset-${preset.id}`);
-    setTimeout(() => setActivePreview(preset), 200);
+    setActivePreview(preset);
     onSelectPrompt?.(preset.prompt, preset.language);
   };
 
@@ -338,7 +339,7 @@ export function HeroControlBar({
       explanation: `Analyzed query: "${trimmed}". Anuvaad translates complex computational intent into deterministic execution logic and plain English architecture notes.`,
     };
     setTransitionKey(`custom-${Date.now()}`);
-    setTimeout(() => setActivePreview(customPreset), 200);
+    setActivePreview(customPreset);
     onSelectPrompt?.(trimmed, "auto");
   };
 

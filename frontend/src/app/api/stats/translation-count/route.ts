@@ -29,7 +29,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ count: data ?? 0 });
-  } catch (_err) {
+  } catch {
     return NextResponse.json({ count: 0, fallback: true });
   }
 }

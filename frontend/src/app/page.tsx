@@ -70,15 +70,15 @@ export default function Home() {
           <HeroControlBar />
 
           {/* Core Product Modules */}
-          <section className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+          <section id="playground" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
             <LivePlayground />
           </section>
 
-          <section className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+          <section id="workflow" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
             <GitPrWorkflowDemo />
           </section>
 
-          <section className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+          <section id="benchmarks" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
             <BenchmarkExplorer />
           </section>
 
