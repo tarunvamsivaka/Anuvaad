@@ -34,19 +34,19 @@ export function FileDropZone({
       })}
       className={cn(
         "absolute inset-0 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all duration-200 z-10",
-        "bg-white/95 dark:bg-surface-charcoal/95 backdrop-blur-sm",
+        "bg-white/95 dark:bg-slate-950/95 backdrop-blur-sm",
         isDragActive && "bg-amber-500/5 ring-2 ring-inset ring-amber-500/40"
       )}
     >
       <input {...getInputProps({ "aria-label": "Upload code file" })} />
       <div className={cn(
         "flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed transition-colors",
-        isDragActive ? "border-amber-500 bg-amber-500/10" : "border-slate-200 dark:border-amber-500/10 bg-slate-50 dark:bg-white/5"
+        isDragActive ? "border-amber-500 bg-amber-500/10" : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50"
       )}>
-        <Upload className={cn("h-6 w-6", isDragActive ? "text-amber-500" : "text-slate-400 dark:text-slate-600")} />
+        <Upload className={cn("h-6 w-6", isDragActive ? "text-amber-500" : "text-slate-400 dark:text-slate-500")} />
       </div>
       <div className="text-center px-4">
-        <p className="text-sm font-bold">{isDragActive ? "Drop your file here" : "Drag & drop a code file"}</p>
+        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{isDragActive ? "Drop your file here" : "Drag & drop a code file"}</p>
         <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">or click to browse · .py .js .ts .java .cpp .go .rs .c .cs</p>
       </div>
       <div className="mt-2">

@@ -15,37 +15,70 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { useCountUp } from "@/lib/use-scroll-reveal";
 
-// Mini bar chart component using pure SVG
-function ActivityBar({ value, max, label, index }: { value: number; max: number; label: string; index: number }) {
+// Animated activity bar — correct scaleY animation from bottom
+function ActivityBar({ value, max, label, index, mounted }: {
+  value: number;
+  max: number;
+  label: string;
+  index: number;
+  mounted: boolean;
+}) {
   const height = max > 0 ? Math.max((value / max) * 48, value > 0 ? 4 : 0) : 0;
   const isToday = label === "Today";
+
   return (
     <div className="flex flex-col items-center gap-1.5">
       <span className="text-[9px] font-bold text-text-muted">{value > 0 ? value : ""}</span>
       <div className="flex items-end h-12 w-6 justify-center">
         <div
           className={cn(
-            "activity-bar w-full rounded-t",
+            "w-full rounded-t transition-all duration-700",
             isToday
               ? "bg-amber-500 shadow-[var(--glow-xs)]"
               : "bg-surface-mid hover:bg-surface-high"
           )}
-          style={{ height: `${height}px`, "--delay": `${index * 50}ms` } as React.CSSProperties}
+          style={{
+            height: `${height}px`,
+            // Use scaleY animation from bottom correctly
+            transformOrigin: "bottom",
+            transform: mounted ? "scaleY(1)" : "scaleY(0)",
+            transition: `transform 0.6s cubic-bezier(0.16,1,0.3,1) ${index * 60}ms`,
+          }}
         />
       </div>
-      <span className={cn("text-[9px] font-medium", isToday ? "text-text-amber" : "text-text-muted")}>{label}</span>
+      <span className={cn(
+        "text-[9px] font-medium",
+        isToday ? "text-text-amber" : "text-text-muted"
+      )}>
+        {label}
+      </span>
     </div>
   );
 }
 
-// Radial progress ring
-function QuotaRing({ used, total, isPro }: { used: number; total: number; isPro: boolean }) {
+// Animated SVG quota ring — draws in on mount
+function QuotaRing({ used, total, isPro, animated }: {
+  used: number;
+  total: number;
+  isPro: boolean;
+  animated: boolean;
+}) {
   const pct = isPro ? 100 : Math.min((used / total) * 100, 100);
   const r = 28;
   const circ = 2 * Math.PI * r;
-  const offset = circ - (pct / 100) * circ;
+  const targetOffset = circ - (pct / 100) * circ;
   const status = isPro ? "success" : pct >= 90 ? "danger" : pct >= 70 ? "warning" : "success";
+
+  // Animate from full offset → target offset
+  const [currentOffset, setCurrentOffset] = useState(circ);
+  useEffect(() => {
+    if (animated) {
+      const t = setTimeout(() => setCurrentOffset(targetOffset), 100);
+      return () => clearTimeout(t);
+    }
+  }, [animated, targetOffset]);
 
   return (
     <div className="relative flex items-center justify-center">
@@ -58,12 +91,16 @@ function QuotaRing({ used, total, isPro }: { used: number; total: number; isPro:
       >
         <circle cx="36" cy="36" r={r} fill="none" strokeWidth="5" className="quota-ring-track" />
         <circle
-          cx="36" cy="36" r={r} fill="none"
+          cx="36"
+          cy="36"
+          r={r}
+          fill="none"
           strokeWidth="5"
           strokeDasharray={circ}
-          strokeDashoffset={offset}
+          strokeDashoffset={currentOffset}
           strokeLinecap="round"
           className={`quota-ring-fill ${status}`}
+          style={{ transition: "stroke-dashoffset 1.2s cubic-bezier(0.16,1,0.3,1) 0.2s" }}
         />
       </svg>
       <div className="absolute flex flex-col items-center">
@@ -76,14 +113,45 @@ function QuotaRing({ used, total, isPro }: { used: number; total: number; isPro:
   );
 }
 
+// Stat value with count-up animation
+function AnimatedStatValue({
+  value,
+  isLoading,
+  isTriggered,
+  delay = 0,
+}: {
+  value: string;
+  isLoading: boolean;
+  isTriggered: boolean;
+  delay?: number;
+}) {
+  const numericValue = parseInt(value.replace(/\D/g, ""), 10);
+  const isNumeric = !isNaN(numericValue) && value !== "∞" && value !== "Free" && value !== "Pro";
+  const counted = useCountUp(isNumeric ? numericValue : 0, isTriggered && isNumeric, 1000 + delay);
+
+  if (isLoading) return <Skeleton className="h-8 w-16 skeleton-pulse" />;
+
+  return (
+    <span className="text-3xl font-black tracking-tight text-text-primary tabular-nums">
+      {isNumeric ? counted.toString() : value}
+    </span>
+  );
+}
+
 export default function DashboardPage() {
   const { user, session, isPro } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const { stats, recentTranslations, isLoading } = useTranslationStats(user?.email, session?.access_token);
 
   const [mounted, setMounted] = useState(false);
+  const [statsTriggered, setStatsTriggered] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    // Trigger count-up animations after mount with small delay
+    const t = setTimeout(() => setStatsTriggered(true), 300);
+    return () => clearTimeout(t);
+  }, []);
 
   // 7-day activity data
   const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Today"];
@@ -130,7 +198,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen dashboard-bg">
-      <TopBar 
+      <TopBar
         breadcrumb={
           <div className="flex flex-col">
             <h1 className="text-sm font-bold tracking-tight text-text-primary">
@@ -143,18 +211,18 @@ export default function DashboardPage() {
             href="/dashboard/translate"
             className={cn(
               buttonVariants({ size: "sm" }),
-              "gap-2 bg-amber-500 hover:bg-amber-400 text-surface-base font-bold transition-all shadow-[var(--glow-xs)] rounded-lg"
+              "gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all shadow-[var(--glow-xs)] rounded-xl px-4 py-2 hover:scale-105 active:scale-95"
             )}
           >
-            <Code2 className="h-3.5 w-3.5" />
+            <Code2 className="h-4 w-4" />
             New Translation
           </Link>
         }
       />
 
       <div className="p-5 lg:p-6 space-y-6 max-w-[1400px] mx-auto">
-        
-        {/* Primary Widget: Recent Work (Moved to top per redesign) */}
+
+        {/* Recent Work */}
         <Card className="dashboard-card border-border-subtle overflow-hidden">
           <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-border-faint">
             <div className="flex items-center gap-2">
@@ -163,9 +231,10 @@ export default function DashboardPage() {
             </div>
             <Link
               href="/dashboard/history"
-              className="text-[11px] font-semibold text-text-muted hover:text-text-amber transition-colors flex items-center gap-1"
+              className="text-[11px] font-semibold text-text-muted hover:text-text-amber transition-colors flex items-center gap-1 group"
             >
-              View All <ArrowRight className="h-3 w-3" />
+              View All
+              <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
@@ -183,7 +252,7 @@ export default function DashboardPage() {
                 <Link
                   key={tx.id}
                   href={`/dashboard/translate?historyId=${tx.id}`}
-                  className="animate-block-in flex flex-col justify-between rounded-xl border border-border-subtle bg-surface-card p-4 hover:border-border-active hover:bg-surface-mid transition-all group"
+                  className="animate-block-in flex flex-col justify-between rounded-xl border border-border-subtle bg-surface-card p-4 hover:border-border-active hover:bg-surface-mid transition-all group hover:-translate-y-0.5 hover:shadow-sm"
                   style={{ "--delay": `${idx * 100}ms` } as React.CSSProperties}
                 >
                   <div>
@@ -201,7 +270,7 @@ export default function DashboardPage() {
                     <span className="text-[10px] font-medium text-text-muted">
                       {tx.source_language} → {tx.target_language}
                     </span>
-                    <ArrowRight className="h-3 w-3 text-text-muted group-hover:text-amber-400 transition-colors" />
+                    <ArrowRight className="h-3 w-3 text-text-muted group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </Link>
               ))
@@ -209,25 +278,25 @@ export default function DashboardPage() {
           </div>
         </Card>
 
-        {/* Secondary Grid: Stats & Quick Actions */}
+        {/* Stat cards + Quick Actions + Activity */}
         <div className="grid gap-6 xl:grid-cols-12">
-          
+
           <div className="xl:col-span-8 space-y-6">
-            {/* Stat cards */}
+            {/* Stat cards — with group class to enable bottom glow */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {statCards.map((stat, i) => {
                 const Icon = stat.icon;
                 return (
                   <Card
                     key={stat.label}
-                    className="dashboard-card relative overflow-hidden p-5 stat-card-enter"
+                    className="group dashboard-card relative overflow-hidden p-5 stat-card-enter hover:-translate-y-0.5 hover:shadow-md transition-all duration-200"
                     style={{ "--delay": `${i * 100}ms` } as React.CSSProperties}
                   >
                     <div className="flex items-start justify-between">
                       <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-text-secondary">
                         {stat.label}
                       </p>
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-mid">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-subtle bg-surface-mid group-hover:border-amber-500/30 group-hover:bg-amber-500/5 transition-all duration-200">
                         <Icon className={cn("h-4 w-4", stat.accent)} />
                       </div>
                     </div>
@@ -236,20 +305,23 @@ export default function DashboardPage() {
                       aria-live="polite"
                       aria-atomic="true"
                     >
-                      {isLoading ? (
-                        <Skeleton className="h-8 w-16 skeleton-pulse" />
-                      ) : (
-                        <>
-                          <span className="text-3xl font-black tracking-tight text-text-primary">{stat.value}</span>
-                          {stat.limit && (
-                            <span className="text-sm font-semibold text-text-muted">{stat.limit}</span>
-                          )}
-                        </>
+                      <AnimatedStatValue
+                        value={stat.value}
+                        isLoading={isLoading}
+                        isTriggered={statsTriggered}
+                        delay={i * 150}
+                      />
+                      {stat.limit && (
+                        <span className="text-sm font-semibold text-text-muted">{stat.limit}</span>
                       )}
                     </div>
                     <p className="mt-1.5 text-[11px] text-text-muted">{stat.detail}</p>
-                    {/* Bottom glow bar on hover */}
-                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500" />
+
+                    {/* Bottom glow bar — now correctly uses group-hover */}
+                    <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-500/60 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 ease-out" />
+
+                    {/* Subtle shimmer sweep on hover */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/5 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-out" />
                   </Card>
                 );
               })}
@@ -257,12 +329,11 @@ export default function DashboardPage() {
 
             {/* Quick Actions Component */}
             <QuickActions />
-            
           </div>
 
-          {/* Tertiary Column: Activity & Quota */}
+          {/* Activity + Quota */}
           <div className="xl:col-span-4 space-y-6">
-            
+
             {/* Weekly Activity Chart */}
             <Card className="dashboard-card p-5 border-border-subtle">
               <div className="flex items-center justify-between mb-6">
@@ -275,7 +346,14 @@ export default function DashboardPage() {
               {mounted && (
                 <div className="flex items-end justify-between gap-1">
                   {weekDays.map((day, i) => (
-                    <ActivityBar key={day} value={weekActivity[i]} max={maxActivity} label={day} index={i} />
+                    <ActivityBar
+                      key={day}
+                      value={weekActivity[i]}
+                      max={maxActivity}
+                      label={day}
+                      index={i}
+                      mounted={mounted}
+                    />
                   ))}
                 </div>
               )}
@@ -289,7 +367,7 @@ export default function DashboardPage() {
                   <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-text-secondary">Daily Quota</h2>
                 </div>
                 <div className="flex items-center gap-5">
-                  <QuotaRing used={stats.today} total={25} isPro={isPro} />
+                  <QuotaRing used={stats.today} total={25} isPro={isPro} animated={mounted} />
                   <div>
                     <p className="text-sm font-bold text-text-primary">
                       {stats.today >= 25 ? "Limit reached" : `${25 - stats.today} remaining`}
@@ -297,7 +375,7 @@ export default function DashboardPage() {
                     <p className="text-[11px] text-text-muted mt-1">Resets at midnight UTC</p>
                     <Link
                       href="/dashboard/billing"
-                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-500 hover:text-amber-400 transition-colors bg-amber-500/10 px-2 py-1 rounded-md"
+                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-500 hover:text-amber-400 transition-colors bg-amber-500/10 hover:bg-amber-500/15 px-2 py-1 rounded-md"
                     >
                       <Sparkles className="h-3 w-3" /> Get unlimited
                     </Link>
@@ -310,7 +388,7 @@ export default function DashboardPage() {
 
         {/* Upgrade banner */}
         {!isPro && (
-          <Card className="overflow-hidden border border-border-medium bg-surface-high relative group mt-6">
+          <Card className="overflow-hidden border border-border-medium bg-surface-high relative group mt-6 hover:-translate-y-0.5 transition-transform duration-300">
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 via-amber-600/10 to-orange-500/5" />
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6">
               <div>
@@ -326,14 +404,14 @@ export default function DashboardPage() {
                 href="/dashboard/billing"
                 className={cn(
                   buttonVariants({ size: "sm" }),
-                  "shrink-0 gap-2 bg-amber-500 hover:bg-amber-400 text-surface-base font-bold shadow-[var(--glow-xs)] rounded-lg px-6 py-5"
+                  "shrink-0 gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-[var(--glow-xs)] rounded-xl px-6 py-5 uppercase tracking-wider text-xs hover:scale-105 transition-transform active:scale-95"
                 )}
               >
                 <Zap className="h-4 w-4" />
                 Upgrade Now
               </Link>
             </div>
-            {/* Shimmer sweep */}
+            {/* Shimmer sweep on hover — now with group properly on Card */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out" />
           </Card>
         )}

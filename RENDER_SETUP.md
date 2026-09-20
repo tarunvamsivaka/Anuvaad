@@ -174,4 +174,7 @@ Copy this checklist into your Render Dashboard:
 ✅ REQUIRED FOR GITHUB FEATURES:
    GITHUB_CLIENT_ID          = Ov23...
    GITHUB_CLIENT_SECRET      = <from GitHub OAuth App settings>
+
+✅ OPTIONAL FOR AUTOMATED NIGHTLY DB PRUNING:
+   CRON_SECRET               = <random string for POST /api/v1/cron/prune>
 ```

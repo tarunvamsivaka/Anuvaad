@@ -163,62 +163,65 @@ export default function WorkspacePage() {
   // No workspace — creation UI
   if (!activeWorkspace) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-800 dark:text-slate-100">
-        <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-500/8 bg-white/80 dark:bg-surface-low/90 backdrop-blur-md">
-          <div className="flex h-14 items-center pl-14 pr-6 md:px-6">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-amber-500" />
-              <h1 className="text-sm font-bold text-slate-800 dark:text-slate-200">Workspace</h1>
+      <div className="min-h-screen bg-slate-50 dark:bg-[#060a14] text-slate-900 dark:text-slate-100">
+        <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-[#0a0f1d]/90 backdrop-blur-md">
+          <div className="flex h-16 items-center pl-14 pr-6 md:px-8 max-w-7xl mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                <Building2 className="h-4 w-4" />
+              </div>
+              <h1 className="text-base font-bold uppercase tracking-wider text-slate-900 dark:text-white">Workspace Management</h1>
             </div>
           </div>
         </header>
 
-        <div className="flex items-center justify-center min-h-[calc(100vh-56px)] p-6 md:p-12">
-          <div className="w-full max-w-5xl bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-2xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-12">
+        <div className="flex items-center justify-center min-h-[calc(100vh-64px)] p-6 md:p-12">
+          <div className="w-full max-w-5xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl overflow-hidden grid grid-cols-1 md:grid-cols-12">
             
             {/* Left side: Create form and features */}
-            <div className="md:col-span-7 p-6 sm:p-10 flex flex-col justify-center space-y-6">
+            <div className="md:col-span-7 p-8 sm:p-10 flex flex-col justify-center space-y-6">
               <div>
-                <h2 className="text-2xl font-black tracking-tight text-slate-800 dark:text-white">Create your workspace</h2>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed max-w-md">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-md border border-amber-500/20">Team Architecture</span>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white mt-2.5">Create your workspace</h2>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed max-w-md">
                   Collaborate with your team, share translation history logs, manage role access control layers, and generate unified developer API credentials.
                 </p>
               </div>
 
-              <form onSubmit={handleCreateWorkspace} className="space-y-3.5 max-w-md">
+              <form onSubmit={handleCreateWorkspace} className="space-y-4 max-w-md">
                 <div className="space-y-1.5">
-                  <label htmlFor="creation-workspace-name" className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Workspace Name</label>
+                  <label htmlFor="creation-workspace-name" className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Workspace Name</label>
                   <Input
                     id="creation-workspace-name"
                     placeholder="e.g. Acme Engineering, Delta Core"
                     value={newWorkspaceName}
                     onChange={e => setNewWorkspaceName(e.target.value)}
-                    className="h-11 rounded-xl bg-white dark:bg-surface-low/50 border border-slate-200 dark:border-amber-600/10 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-amber-500/40"
+                    className="h-11 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                     required
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={creating}
-                  className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-lg shadow-amber-500/25"
+                  className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 shadow-md shadow-amber-500/20 text-xs uppercase tracking-wider"
                 >
                   {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                   Deploy Workspace Core
                 </Button>
               </form>
 
-              <div className="border-t border-slate-100 dark:border-amber-600/10 pt-6">
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-550 dark:text-slate-500 mb-4">Included Features</h3>
+              <div className="border-t border-slate-200 dark:border-slate-800/80 pt-6">
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-4">Included Features</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { icon: Users, label: "Team Access", desc: "Co-author translations" },
                     { icon: Sparkles, label: "Shared History", desc: "Unified query logs" },
                     { icon: Shield, label: "Role Controls", desc: "Fine-grained permissions" },
                   ].map(({ icon: Icon, label, desc }) => (
-                    <div key={label} className="flex flex-col gap-1 rounded-xl border border-slate-100 dark:border-amber-600/5 bg-slate-50/50 dark:bg-amber-500/3 p-3">
-                      <Icon className="h-4 w-4 text-amber-500 shrink-0" />
-                      <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 leading-none">{label}</span>
-                      <span className="text-[9px] text-slate-400 dark:text-slate-550 leading-tight">{desc}</span>
+                    <div key={label} className="flex flex-col gap-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/40 p-3.5">
+                      <Icon className="h-4 w-4 text-amber-500 shrink-0 mb-1" />
+                      <span className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-none">{label}</span>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">{desc}</span>
                     </div>
                   ))}
                 </div>
@@ -226,7 +229,7 @@ export default function WorkspacePage() {
             </div>
 
             {/* Right side: Large Showcase Banner */}
-            <div className="md:col-span-5 bg-slate-50/50 dark:bg-slate-950/20 border-l border-slate-200 dark:border-amber-600/10 relative flex items-center justify-center p-6 sm:p-8 min-h-[300px] md:min-h-full">
+            <div className="md:col-span-5 bg-gradient-to-br from-slate-100 to-amber-500/5 dark:from-slate-950 dark:to-[#0c1222] border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 relative flex items-center justify-center p-6 sm:p-8 min-h-[300px] md:min-h-full">
               {/* Grid overlay for a tech style background */}
               <div
                 className="pointer-events-none absolute inset-0 opacity-20 dark:opacity-30"
@@ -264,104 +267,102 @@ export default function WorkspacePage() {
   const memberCount = members.length;
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-surface-low">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#060a14] text-slate-900 dark:text-slate-100">
       {/* Header */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-500/8 bg-white/80 dark:bg-surface-low/90 backdrop-blur-md">
-        <div className="flex h-14 items-center justify-between pl-14 pr-6 md:px-6">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-[#0a0f1d]/90 backdrop-blur-md">
+        <div className="flex h-16 items-center justify-between pl-14 pr-6 md:px-8 max-w-5xl mx-auto">
           <div className="flex items-center gap-3">
-            <Building2 className="h-4 w-4 text-amber-500" />
-            <h1 className="text-sm font-bold text-slate-800 dark:text-slate-200">{activeWorkspace.name}</h1>
-            <Badge className="text-[9px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2">
-              Active
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+              <Building2 className="h-4 w-4" />
+            </div>
+            <h1 className="text-base font-bold text-slate-900 dark:text-white uppercase tracking-wider">{activeWorkspace.name}</h1>
+            <Badge className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-2.5 py-0.5">
+              Active Pod
             </Badge>
           </div>
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-600">
-              <Users className="h-3.5 w-3.5" />
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <Users className="h-4 w-4" />
               {memberCount} {memberCount === 1 ? "member" : "members"}
             </div>
           </div>
         </div>
       </header>
 
-      <div className="p-5 lg:p-6 max-w-4xl mx-auto space-y-5">
-
+      <div className="p-6 lg:p-8 max-w-5xl mx-auto space-y-6">
 
         {/* Invite form */}
-        <Card className="dark:bg-surface-mid border border-slate-100 dark:border-amber-500/8 overflow-hidden">
-          <div className="relative p-5">
-            <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/4 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 border border-amber-500/15">
-                  <Mail className="h-3.5 w-3.5 text-amber-500" />
-                </div>
-                <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">Invite Team Member</h2>
+        <Card className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden p-6 sm:p-8">
+          <div className="relative">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                <Mail className="h-4 w-4" />
               </div>
-              <p className="text-xs text-slate-400 dark:text-slate-600 mb-5 ml-9">
-                Invite colleagues to collaborate in <strong className="text-slate-600 dark:text-slate-400">{activeWorkspace.name}</strong>.
-              </p>
-
-              <form onSubmit={handleInviteMember} className="flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                  <label htmlFor="invite-email" className="sr-only">Email address</label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    placeholder="colleague@company.com"
-                    value={inviteEmail}
-                    onChange={e => setInviteEmail(e.target.value)}
-                    required
-                    className="h-10 rounded-xl bg-white dark:bg-white/4 border-slate-200 dark:border-amber-500/10 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-amber-500/40"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  disabled={inviting}
-                  className="h-10 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 px-5 shadow-md shadow-amber-500/15"
-                >
-                  {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                  Send Invite
-                </Button>
-              </form>
+              <h2 className="text-base font-bold text-slate-900 dark:text-white">Invite Team Member</h2>
             </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 max-w-lg">
+              Invite engineering colleagues to co-author and execute translations in <strong className="text-slate-900 dark:text-slate-200">{activeWorkspace.name}</strong>.
+            </p>
+
+            <form onSubmit={handleInviteMember} className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1">
+                <label htmlFor="invite-email" className="sr-only">Email address</label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="colleague@company.com"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  required
+                  className="h-11 rounded-xl bg-slate-50 dark:bg-slate-950/60 border-slate-300 dark:border-slate-800 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={inviting}
+                className="h-11 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl gap-2 px-6 shadow-md shadow-amber-500/20 text-xs uppercase tracking-wider shrink-0"
+              >
+                {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                Send Invite
+              </Button>
+            </form>
           </div>
         </Card>
 
         {/* Members list */}
-        <Card className="dark:bg-surface-mid border border-slate-100 dark:border-amber-500/8 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-amber-500/8">
-            <div className="flex items-center gap-2">
+        <Card className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50">
+            <div className="flex items-center gap-2.5">
               <Users className="h-4 w-4 text-amber-500" />
-              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">Members</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Team Directory</h2>
             </div>
-            <Badge className="text-[10px] font-bold bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-500 border-0 px-2">
+            <Badge className="text-[10px] font-bold bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-0 px-2.5 py-0.5">
               {memberCount} total
             </Badge>
           </div>
 
-          <div className="divide-y divide-slate-50 dark:divide-amber-500/5">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {loadingMembers ? (
               <div className="flex justify-center p-10">
                 <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
               </div>
             ) : members.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-12 text-center">
-                <Users className="h-8 w-8 text-slate-300 dark:text-slate-700 mb-3" />
-                <p className="text-sm font-medium text-slate-400 dark:text-slate-600">No members yet</p>
-                <p className="text-xs text-slate-300 dark:text-slate-700 mt-1">Invite someone above to get started.</p>
+                <Users className="h-8 w-8 text-slate-400 dark:text-slate-600 mb-3" />
+                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No members registered</p>
+                <p className="text-xs text-slate-400 mt-1">Invite team members above to start collaborating.</p>
               </div>
             ) : (
               members.map((member, idx) => (
                 <div
                   key={`${member.user_email}-${idx}`}
-                  className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-white/2 transition-colors"
+                  className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3.5">
                     <MemberAvatar email={member.user_email} role={member.role} />
                     <div>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 font-mono">{member.user_email}</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 font-mono">{member.user_email}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                         Joined {new Date(member.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </p>
                     </div>

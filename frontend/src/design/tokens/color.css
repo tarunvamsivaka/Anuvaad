@@ -89,10 +89,10 @@
 
   /* ── TIER 4: TEXT TOKENS — LIGHT MODE ───────────────── */
   --text-primary:   #0f172a;   /* Slate-900: high contrast typography */
-  --text-secondary: #475569;   /* Slate-600: body and subheadings */
-  --text-muted:     #94a3b8;   /* Slate-400: captions & timestamps */
-  --text-amber:     #f59e0b;   /* Amber accent */
-  --text-teal:      #0284c7;   /* Sky/teal accent */
+  --text-secondary: #334155;   /* Slate-700: body and subheadings */
+  --text-muted:     #64748b;   /* Slate-500: captions & timestamps */
+  --text-amber:     #b45309;   /* Amber-700: 4.8:1 contrast on white (WCAG AA compliant) */
+  --text-teal:      #0369a1;   /* Sky-700 accent */
   --text-on-brand:  #ffffff;   /* Text on primary buttons */
 
   /* ── TIER 5: GLOW TOKENS ────────────────────────────────── */

@@ -118,9 +118,9 @@ export default function TeamPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-800 dark:text-slate-100 pb-20">
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
-        <div className="flex h-16 items-center pl-14 pr-8 md:px-8 max-w-4xl mx-auto">
-          <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+      <header className="topbar sticky top-0 z-20 flex h-[60px] items-center border-b border-border bg-surface-low/80 px-6 backdrop-blur-md">
+        <div className="flex h-full items-center pl-8 md:pl-0 max-w-4xl mx-auto w-full">
+          <h1 className="text-base font-bold uppercase tracking-wider text-text-primary">
             Team Workspaces Hub
           </h1>
         </div>

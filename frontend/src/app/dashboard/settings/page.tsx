@@ -219,17 +219,18 @@ export default function SettingsPage() {
 
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-800 dark:text-slate-100 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#060a14] text-slate-900 dark:text-slate-100 pb-20">
       
       {/* Premium Header */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-[#0a0f1d]/90 backdrop-blur-md">
         <div className="flex h-16 items-center justify-between pl-14 pr-8 md:px-8 max-w-7xl mx-auto">
           <div className="flex items-center gap-3">
-            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-            <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <h1 className="text-base font-bold uppercase tracking-wider text-slate-900 dark:text-white">
               System Settings
             </h1>
           </div>
+          <span className="text-xs font-mono text-slate-400">Node ID: ANV-PROD-EAST-01</span>
         </div>
       </header>
 
@@ -244,12 +245,14 @@ export default function SettingsPage() {
 
 
             {/* Developer API Keys */}
-            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 sm:p-8 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <Key className="h-5 w-5 text-amber-500" />
+                  <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                    <Key className="h-5 w-5" />
+                  </div>
                   <div>
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                       Developer Credentials
                     </h2>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -298,7 +301,7 @@ export default function SettingsPage() {
 
               <div className="flex flex-col md:flex-row items-end gap-3 mb-6">
                 <div className="flex-1 w-full">
-                  <label htmlFor="settings-key-name" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <label htmlFor="settings-key-name" className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Key Name / Scope
                   </label>
                   <Input 
@@ -306,32 +309,32 @@ export default function SettingsPage() {
                     placeholder="e.g. CI Deployment, Local Dev Client" 
                     value={newKeyName}
                     onChange={(e) => setNewKeyName(e.target.value)}
-                    className="mt-1.5 text-sm bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600" 
+                    className="mt-1.5 text-sm bg-slate-50 dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500" 
                   />
                 </div>
                 <Button 
                   size="sm" 
                   onClick={handleCreateApiKey} 
                   disabled={loading || !newKeyName.trim()} 
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 h-10 px-5 font-bold uppercase tracking-wider text-xs gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] shrink-0 w-full md:w-auto"
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 h-10 px-5 font-bold uppercase tracking-wider text-xs gap-1.5 shadow-md shadow-amber-500/20 shrink-0 w-full md:w-auto"
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                   Generate Key
                 </Button>
               </div>
 
-              <div className="border border-slate-200 dark:border-amber-600/10 rounded-lg overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-slate-50/50 dark:bg-slate-950/20">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-100 dark:bg-surface-charcoal border-b border-slate-200 dark:border-amber-600/10">
+                    <thead className="bg-slate-100 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300">
                       <tr>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Name</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Scope Prefix</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Created At</th>
-                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Actions</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider">Name</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider">Scope Prefix</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider">Created At</th>
+                        <th className="px-4 py-3 font-bold uppercase tracking-wider text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-amber-600/10 text-slate-700 dark:text-slate-300">
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                       {apiKeys.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-4 py-8 text-center text-xs text-slate-500 italic">
@@ -340,9 +343,9 @@ export default function SettingsPage() {
                         </tr>
                       ) : (
                         apiKeys.map(key => (
-                          <tr key={key.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/20">
-                            <td className="px-4 py-3.5 font-bold text-slate-800 dark:text-slate-200">{key.name}</td>
-                            <td className="px-4 py-3.5 font-mono text-[11px] text-amber-600 dark:text-amber-500/80">{key.key_prefix}</td>
+                          <tr key={key.id} className="hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors">
+                            <td className="px-4 py-3.5 font-bold text-slate-900 dark:text-slate-100">{key.name}</td>
+                            <td className="px-4 py-3.5 font-mono text-[11px] text-amber-600 dark:text-amber-400">{key.key_prefix}</td>
                             <td className="px-4 py-3.5 text-slate-500 dark:text-slate-400">
                               {new Date(key.created_at).toLocaleDateString()}
                             </td>
@@ -351,7 +354,7 @@ export default function SettingsPage() {
                                 variant="ghost" 
                                 size="sm" 
                                 onClick={() => revokeApiKey(key.id)} 
-                                className="h-7 px-2.5 text-red-500 hover:text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/30 text-xs font-bold uppercase tracking-wider"
+                                className="h-7 px-2.5 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/30 text-xs font-bold uppercase tracking-wider"
                               >
                                 Revoke
                               </Button>
@@ -366,11 +369,13 @@ export default function SettingsPage() {
             </Card>
 
             {/* Profile Credentials */}
-            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 sm:p-8 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden">
               <div className="flex items-center gap-3 mb-6">
-                <User className="h-5 w-5 text-amber-500" />
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  <User className="h-5 w-5" />
+                </div>
                 <div>
-                  <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                     User Profile Settings
                   </h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -380,19 +385,19 @@ export default function SettingsPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
-                <div className="space-y-1">
-                  <label htmlFor="settings-email" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <div className="space-y-1.5">
+                  <label htmlFor="settings-email" className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Primary Email
                   </label>
                   <Input 
                     id="settings-email" 
                     value={user?.email || ""} 
                     disabled 
-                    className="mt-1.5 text-sm bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-amber-600/5 text-slate-500 dark:text-slate-400 cursor-not-allowed select-all" 
+                    className="mt-1.5 text-sm bg-slate-100 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 cursor-not-allowed select-all" 
                   />
                 </div>
-                <div className="space-y-1">
-                  <label htmlFor="settings-display-name" className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <div className="space-y-1.5">
+                  <label htmlFor="settings-display-name" className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
                     Display Title / Name
                   </label>
                   <Input
@@ -400,14 +405,14 @@ export default function SettingsPage() {
                     placeholder="Your Full Name"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    className="mt-1.5 text-sm bg-white dark:bg-slate-950/40 border border-slate-200 dark:border-amber-600/10 focus:border-amber-500/40 focus:ring-0 focus:ring-offset-0 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                    className="mt-1.5 text-sm bg-slate-50 dark:bg-slate-950/60 border border-slate-300 dark:border-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
               </div>
 
               <Button
                 size="sm"
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-1.5 h-9"
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-1.5 h-10 px-5 shadow-md shadow-amber-500/20"
                 onClick={handleSaveProfile}
                 disabled={saving}
               >
@@ -421,10 +426,8 @@ export default function SettingsPage() {
           {/* RIGHT COLUMN: Settings Sidebar (4 cols) */}
           <div className="lg:col-span-4 space-y-8">
             
-
-
             {/* Visual Identity Selection (Appearance) */}
-            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden">
               <div className="flex items-center gap-3 mb-4">
                 <Palette className="h-5 w-5 text-amber-500" />
                 <div>
@@ -440,28 +443,28 @@ export default function SettingsPage() {
                 <select
                   value={theme || "system"}
                   onChange={(e) => setTheme(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-amber-600/10 rounded-lg text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500/40 focus:ring-0 text-slate-800 dark:text-slate-200 cursor-pointer appearance-none"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl text-xs font-medium py-2.5 px-3 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 text-slate-900 dark:text-slate-100 cursor-pointer appearance-none"
                 >
-                  <option value="system" className="bg-surface-charcoal text-slate-200">System Adaptive</option>
-                  <option value="light" className="bg-white text-slate-800 dark:bg-surface-charcoal dark:text-slate-200">High Contrast Light</option>
-                  <option value="dark" className="bg-surface-charcoal text-slate-200">Cinematic Dark Void</option>
+                  <option value="system">System Adaptive</option>
+                  <option value="light">Studio Clean Light</option>
+                  <option value="dark">Cinematic Dark Void</option>
                 </select>
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-450 dark:text-slate-400 text-xs">▼</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-xs">▼</span>
               </div>
             </Card>
 
             {/* Subscription status */}
-            <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+            <Card className="p-6 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
                     Active License
                   </h3>
                   <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
                     {isPro ? "Pro Subscription Pack · Unlimited weight runs" : "Developer Sandbox Tier · 10 runs/day"}
                   </p>
                 </div>
-                <Badge className={cn("text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 shrink-0 ml-3", isPro ? "bg-amber-500 text-slate-950" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300")}>
+                <Badge className={cn("text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 shrink-0 ml-3", isPro ? "bg-amber-500 text-slate-950" : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200")}>
                   {isPro ? "✦ Pro Level" : "Sandbox"}
                 </Badge>
               </div>

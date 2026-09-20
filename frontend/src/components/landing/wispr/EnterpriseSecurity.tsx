@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 import {
   Lock,
@@ -10,6 +12,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useScrollReveal } from "@/lib/use-scroll-reveal";
 
 export interface EnterpriseSecurityProps {
   className?: string;
@@ -68,6 +71,10 @@ export const ENTERPRISE_SECURITY_PILLARS: SecurityPillar[] = [
 ];
 
 export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
+  const [headerRef, headerVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.2 });
+  const [gridRef, gridVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.05 });
+  const [stripRef, stripVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.3 });
+
   return (
     <section
       id="security"
@@ -77,15 +84,32 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
       )}
       aria-labelledby="security-heading"
     >
-      {/* Ambient Gradient Glow */}
+      {/* Ambient Gradient Glow — breathes */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_60%_40%_at_50%_0%,rgba(56,189,248,0.12),transparent_70%)]"
+        className="radial-breathe pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_45%_at_50%_0%,rgba(56,189,248,0.10),transparent_70%)]"
+        style={{ animation: "radial-glow-breathe 6s ease-in-out infinite" }}
+        aria-hidden="true"
+      />
+
+      {/* Subtle grid pattern overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "repeating-linear-gradient(0deg,rgba(255,255,255,0.5) 0px,rgba(255,255,255,0.5) 1px,transparent 1px,transparent 48px),repeating-linear-gradient(90deg,rgba(255,255,255,0.5) 0px,rgba(255,255,255,0.5) 1px,transparent 1px,transparent 48px)",
+        }}
         aria-hidden="true"
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        {/* Section Header */}
-        <div className="max-w-3xl mx-auto text-center mb-16">
+        {/* Section Header — scroll reveal */}
+        <div
+          ref={headerRef}
+          className={cn(
+            "max-w-3xl mx-auto text-center mb-16 sr-fade-up",
+            headerVisible && "is-visible"
+          )}
+        >
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4">
             <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Enterprise-Grade Security & Governance</span>
@@ -103,26 +127,45 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
           </p>
         </div>
 
-        {/* 6 Pillars Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-          {ENTERPRISE_SECURITY_PILLARS.map((pillar) => (
+        {/* 6 Pillars Grid — staggered scroll reveal */}
+        <div
+          ref={gridRef}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16"
+        >
+          {ENTERPRISE_SECURITY_PILLARS.map((pillar, idx) => (
             <div
               key={pillar.title}
-              className="rounded-2xl border border-slate-800 bg-slate-900/60 p-7 hover:border-slate-700 transition-all hover:bg-slate-900/90 flex flex-col justify-between"
+              className={cn(
+                "group rounded-2xl border border-slate-800 bg-slate-900/60 p-7 flex flex-col justify-between cursor-default",
+                "hover:border-amber-500/40 hover:bg-slate-900/90",
+                "hover:-translate-y-1 hover:shadow-[0_8px_32px_-8px_rgba(245,158,11,0.18)]",
+                "transition-all duration-300",
+                // Scroll reveal
+                "sr-fade-up",
+                gridVisible && "is-visible"
+              )}
+              style={{
+                "--sr-delay": `${idx * 90}ms`,
+              } as React.CSSProperties}
             >
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  {/* Icon with hover glow */}
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 group-hover:bg-amber-500/20 group-hover:border-amber-500/40 group-hover:scale-110 transition-all duration-300">
                     <pillar.icon className="h-5 w-5" aria-hidden="true" />
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 group-hover:border-slate-600 transition-colors">
                     {pillar.badge}
                   </span>
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">
+
+                {/* Animated top accent line on hover */}
+                <div className="h-px w-full bg-gradient-to-r from-amber-500/0 via-amber-500/60 to-amber-500/0 mb-4 opacity-0 group-hover:opacity-100 transition-opacity duration-400" />
+
+                <h3 className="text-lg font-bold text-white mb-2 group-hover:text-amber-100 transition-colors">
                   {pillar.title}
                 </h3>
-                <p className="text-sm text-slate-400 leading-relaxed">
+                <p className="text-sm text-slate-400 leading-relaxed group-hover:text-slate-300 transition-colors">
                   {pillar.description}
                 </p>
               </div>
@@ -131,9 +174,15 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
         </div>
 
         {/* Architectural Verification Strip */}
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 sm:p-8 flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div
+          ref={stripRef}
+          className={cn(
+            "rounded-2xl border border-slate-800 bg-slate-900/40 p-6 sm:p-8 flex flex-col lg:flex-row items-center justify-between gap-6 hover:border-slate-700 transition-all duration-300 sr-fade-up",
+            stripVisible && "is-visible"
+          )}
+        >
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0 hover:scale-110 transition-transform">
               <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
             </div>
             <div>
@@ -148,10 +197,10 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
           </div>
           <a
             href="#enterprise-contact"
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white text-slate-950 hover:bg-slate-100 transition-all shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white text-slate-950 hover:bg-amber-400 hover:text-slate-950 transition-all duration-200 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 hover:scale-105"
           >
             <span>Request Security Package</span>
-            <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+            <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
           </a>
         </div>
       </div>

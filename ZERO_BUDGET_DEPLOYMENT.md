@@ -16,9 +16,9 @@ This guide outlines how to deploy and operate the complete Anuvaad platform with
 | **Relational & Vector DB** | **Supabase PostgreSQL** | **500 MB** storage, 2 active projects, pgvector | Async pool `pool_size=5`, `pool_recycle=300`, nightly DB pruning of anonymous data |
 | **Cache & Rate Limiting** | **Upstash Redis** | **10,000 commands/day** | In-memory LRU fallback (100 items), client IP & account sliding window rate limits |
 | **Web Frontend** | **Vercel** / **Render** | **100 GB bandwidth / mo**, Serverless Edge runtime | Static generation for landing/auth, SWR client caching, proxy rewrites |
-| **FastAPI Backend** | **Render Free Web Service** | **750 hours/month** (1 Web Service) | Asynchronous non-blocking I/O, 4 Uvicorn workers for concurrent SSE streaming |
-| **Background Workers** | **Render Free Background Worker** | **750 hours/month** | Celery + Redis for async history saving, email dispatch, and DB pruning |
-| **Transactional Email** | **Resend** | **3,000 emails/month** (100/day) | Asynchronous Celery background dispatch with retry backoff |
+| **FastAPI Backend** | **Render Free Web Service** | **750 hours/month** (1 Web Service) | Asynchronous non-blocking I/O, 2 Uvicorn workers for safe memory footprint (<300 MB) |
+| **Background Execution**| **In-Process Async (FastAPI)** | **Included in Web Service** | Native `asyncio.create_task` saves ~7,500 Upstash commands/day; no separate worker needed |
+| **Transactional Email** | **Resend** | **3,000 emails/month** (100/day) | Asynchronous background dispatch with retry backoff |
 
 ---
 
@@ -70,22 +70,24 @@ This guide outlines how to deploy and operate the complete Anuvaad platform with
    - `DB_POOL_SIZE=5`
    - `DB_POOL_RECYCLE=300`
 
-### Step 5: Deploy Background Workers (Render) — **Required**
+### Step 5: Background Task Dispatch & Database Pruning (Zero-Budget Optimized)
+ 
+By default (`USE_CELERY=false`), Anuvaad uses **Native In-Process Background Execution** via `asyncio.create_task`. History saving, quota tracking, and transactional emails run automatically inside the FastAPI web service:
+- **No separate background worker container required** (saving 120 MB RAM).
+- **No Celery polling overhead** (saving ~7,500 daily Upstash Redis commands).
 
-Background workers handle async history saving, transactional emails, and scheduled database pruning. Without them, translation history will not be saved and the Supabase 500 MB storage limit will eventually be exhausted.
+#### Scheduled Database Footprint Pruning
+To keep your Supabase database well within the 500 MB limit, trigger the automated pruning endpoint nightly:
+1. Set a secret token in your Render environment: `CRON_SECRET=<your-random-token>`.
+2. Configure a free cron trigger using **Render Cron**, **GitHub Actions**, or **cron-job.org**:
+   - **Target URL**: `POST https://<your-render-backend-url>.onrender.com/api/v1/cron/prune`
+   - **Header**: `Authorization: Bearer <your-random-token>`
+   - **Schedule**: `0 3 * * *` (Daily at 03:00 UTC)
 
-1. In Render, click **New + ➔ Background Worker**.
-2. Connect the same GitHub repository.
-3. Configure **Celery worker** (handles async tasks):
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `celery -A app.queue.celery_config.celery_app worker --loglevel=info --concurrency=2`
-4. Configure **Celery beat** (handles scheduled tasks like DB pruning):
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `celery -A app.queue.celery_config.celery_app beat --loglevel=info`
-5. Both services must share the same environment variables as the web service, plus:
-   - `REDIS_URL=<your-upstash-or-redis-url>` — Celery uses this as its broker
-
-> **Free Tier Note**: Render's free Background Worker tier provides 750 hours/month, which is sufficient for continuous operation of one worker service. You may need to combine the worker and beat into a single process: `celery -A app.queue.celery_config.celery_app worker --beat --loglevel=info` (not recommended for production, but works on free tier).
+#### Optional: External Celery Worker (Enterprise/High Volume)
+If you require a distributed task queue with dedicated broker storage, set `USE_CELERY=true` and provision a Celery worker on Render:
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `celery -A app.queue.celery_config.celery_app worker --beat --loglevel=info`
 
 ### Step 6: Deploy Next.js Frontend (Vercel)
 1. Sign up at [vercel.com](https://vercel.com) and import the `/frontend` subfolder.

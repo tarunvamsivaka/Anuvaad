@@ -64,7 +64,7 @@ def test_alembic_single_head_and_no_branches():
 
     heads = script.get_heads()
     assert len(heads) == 1, f"Expected exactly 1 head, found {len(heads)}: {heads}"
-    assert heads[0] == "012_grant_anon_translation_count"
+    assert heads[0] == "013_halfvec_and_ivfflat"
 
     bases = script.get_bases()
     assert len(bases) == 1, f"Expected exactly 1 base, found {len(bases)}: {bases}"
@@ -77,6 +77,7 @@ def test_alembic_linear_dag_traversal():
     script = ScriptDirectory.from_config(config)
 
     expected_chain = [
+        "013_halfvec_and_ivfflat",
         "012_grant_anon_translation_count",
         "011_add_indexed_by_to_repo_embeddings",
         "010_add_performance_and_fk_indexes",

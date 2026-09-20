@@ -143,44 +143,51 @@ function BillingPageContent() {
   const usagePercentage = Math.min((usageCount / limit) * 100, 100);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-surface-low text-slate-900 dark:text-slate-100 pb-20">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#060a14] text-slate-900 dark:text-slate-100 pb-20">
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       
       {/* Page Header */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-amber-600/10 bg-white/80 dark:bg-surface-low/80 backdrop-blur-md">
+      <header className="sticky top-0 z-20 border-b border-slate-200 dark:border-slate-800/80 bg-white/90 dark:bg-[#0a0f1d]/90 backdrop-blur-md">
         <div className="flex h-16 items-center pl-14 pr-8 md:px-8 max-w-4xl mx-auto">
-          <h1 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-            Billing & Licenses
-          </h1>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+              <CreditCard className="h-4 w-4" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                Billing & Licenses
+              </h1>
+            </div>
+          </div>
         </div>
       </header>
 
       {/* Payment status banner */}
       {paymentStatus && (
         <div className="mx-auto max-w-4xl px-8 pt-6">
-          <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-xs uppercase tracking-wider font-bold animate-in fade-in slide-in-from-top-2 ${
+          <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-xs uppercase tracking-wider font-bold animate-in fade-in slide-in-from-top-2 ${
             paymentStatus === "success"
-              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
-              : "border-amber-500/30 bg-amber-500/5 text-amber-400"
+              ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400"
+              : "border-amber-500/30 bg-amber-500/5 text-amber-600 dark:text-amber-400"
           }`}>
             {paymentStatus === "success" ? (
               <>
-                <PartyPopper className="h-5 w-5 shrink-0 text-emerald-400" />
+                <PartyPopper className="h-5 w-5 shrink-0 text-emerald-500" />
                 <div className="flex-1">
-                  <p className="font-extrabold text-emerald-400">Payment Verified!</p>
-                  <p className="text-[10px] text-slate-400 lowercase mt-0.5">Welcome to Pro. Unlimited translations unlocked.</p>
+                  <p className="font-extrabold text-emerald-600 dark:text-emerald-400">Payment Verified!</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 lowercase mt-0.5">Welcome to Pro. Unlimited translations unlocked.</p>
                 </div>
               </>
             ) : (
               <>
                 <X className="h-5 w-5 shrink-0 text-amber-500" />
                 <div className="flex-1">
-                  <p className="font-extrabold text-amber-400">Transaction Terminated</p>
-                  <p className="text-[10px] text-slate-400 lowercase mt-0.5">No changes were applied. You may retry when ready.</p>
+                  <p className="font-extrabold text-amber-600 dark:text-amber-400">Transaction Terminated</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 lowercase mt-0.5">No changes were applied. You may retry when ready.</p>
                 </div>
               </>
             )}
-            <button onClick={() => setPaymentStatus(null)} className="shrink-0 rounded p-1 hover:bg-white/5">
+            <button onClick={() => setPaymentStatus(null)} className="shrink-0 rounded p-1 hover:bg-slate-200 dark:hover:bg-slate-800">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -190,27 +197,25 @@ function BillingPageContent() {
       <div className="mx-auto max-w-4xl px-8 py-8 space-y-8">
         
         {/* Current plan card */}
-        <Card className="p-6 bg-white dark:bg-surface-charcoal/80 border border-slate-200 dark:border-amber-600/10 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
-          
+        <Card className="p-6 sm:p-8 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm relative overflow-hidden">
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-base font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                <h2 className="text-base font-bold uppercase tracking-wider text-slate-900 dark:text-white">
                   {isActuallyPro ? "Pro Subscription" : "Sandbox Level Plan"}
                 </h2>
-                <Badge className="text-[9px] uppercase tracking-widest bg-amber-500 text-slate-950 font-bold px-2 py-0.5">
+                <Badge className="text-[9px] uppercase tracking-widest bg-amber-500 text-slate-950 font-bold px-2.5 py-0.5 rounded-md">
                   {subscription?.status === "active" ? "Active" : "Current"}
                 </Badge>
               </div>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-lg">
+              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg">
                 {isActuallyPro 
                   ? "Infinite code compilations, prioritized CPU routing, 50,000 character buffer capacity, and early release features." 
                   : "Standard sandbox plan loaded with 10 translations daily, full programming dictionary access, and 3 code translation modes."
                 }
               </p>
               {subscription?.current_period_end && (
-                <p className="mt-3 text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                <p className="mt-3 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                   • System auto-renews on {new Date(subscription.current_period_end).toLocaleDateString()}
                 </p>
               )}
@@ -225,18 +230,18 @@ function BillingPageContent() {
 
           {!isActuallyPro && (
             <>
-              <Separator className="my-6 bg-slate-200 dark:bg-slate-800/50" />
+              <Separator className="my-6 bg-slate-200 dark:bg-slate-800" />
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sandbox Daily Counter</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">Sandbox Daily Counter</p>
                   <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">Limits reset daily at midnight (UTC +0)</p>
                 </div>
                 {statsLoading ? (
-                  <Skeleton className="h-2 w-36 bg-slate-200 dark:bg-slate-900 rounded-full" />
+                  <Skeleton className="h-2 w-36 bg-slate-200 dark:bg-slate-800 rounded-full" />
                 ) : (
                   <div className="flex flex-col items-end gap-1.5 w-full sm:w-auto">
-                    <span className="text-[11px] font-bold text-amber-500">{usageCount} / {limit} queries</span>
-                    <div className="h-2 w-full sm:w-36 bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-200 dark:border-slate-900">
+                    <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400">{usageCount} / {limit} queries</span>
+                    <div className="h-2 w-full sm:w-48 bg-slate-100 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800">
                       <div className="h-full bg-amber-500 rounded-full transition-all duration-500 shadow-[0_0_6px_rgba(245,158,11,0.3)]" style={{ width: `${usagePercentage}%` }} />
                     </div>
                   </div>
@@ -248,19 +253,19 @@ function BillingPageContent() {
 
         {/* Upgrade section — only show for free users */}
         {!isActuallyPro && (
-          <Card className="border border-slate-200 dark:border-amber-600/20 bg-white dark:bg-gradient-to-r dark:from-amber-950/15 dark:via-[#0c0c0f] dark:to-amber-950/5 p-6 rounded-xl shadow-md dark:shadow-lg relative overflow-hidden">
+          <Card className="border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-white dark:via-slate-900 to-amber-500/10 p-6 sm:p-8 rounded-2xl shadow-md relative overflow-hidden">
             <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
             
-            <div className="flex items-center gap-2.5 mb-3">
-              <Zap className="h-5 w-5 text-amber-500 animate-pulse" />
-              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-500">Redeem Pro Access</h2>
+            <div className="flex items-center gap-2.5 mb-2">
+              <Zap className="h-5 w-5 text-amber-500" />
+              <h2 className="text-sm font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Redeem Pro Access</h2>
             </div>
             
-            <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
               Break past limits. Deploy a continuous translation harness using on-demand remote pipelines.
             </p>
             
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {[
                 "Unlimited compiler pipelines",
                 "Prioritized pipeline routing (<3s)",
@@ -269,16 +274,16 @@ function BillingPageContent() {
                 "Advanced AI models selection",
                 "Direct continuous support"
               ].map((f) => (
-                <div key={f} className="flex items-center gap-2.5 text-xs text-slate-600 dark:text-slate-400 font-medium">
+                <div key={f} className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
                   <Check className="h-4 w-4 text-amber-500 shrink-0" />
                   <span>{f}</span>
                 </div>
               ))}
             </div>
             
-            <div className="mt-6 space-y-3">
+            <div className="mt-8 space-y-3">
               <Button 
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-2 h-10 px-5 shadow-[0_0_12px_rgba(245,158,11,0.2)]" 
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-2 h-11 px-6 shadow-md shadow-amber-500/20 rounded-xl" 
                 onClick={handleUpgrade} 
                 disabled={loading || !enableBilling}
               >
@@ -286,7 +291,7 @@ function BillingPageContent() {
                 {loading ? "Allocating Gateway..." : enableBilling ? "Activate Pro — ₹499/Month" : "Subscriptions Paused"}
               </Button>
               {!enableBilling && (
-                <p className="text-[10px] text-amber-500/70 italic font-medium leading-relaxed max-w-md">
+                <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 italic font-medium leading-relaxed max-w-md">
                   * Live subscription checkout is offline. All pro functions are enabled natively for testing cycles.
                 </p>
               )}

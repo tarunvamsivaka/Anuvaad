@@ -104,7 +104,7 @@ const STEPS = [
         <div className="mt-6 flex justify-center">
           <Link
             href="/dashboard/translate"
-            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-400 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400 hover:text-slate-950 transition-colors"
           >
             Try it now <ChevronRight className="h-4 w-4" />
           </Link>
@@ -149,7 +149,7 @@ const STEPS = [
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
           <Link
             href="/dashboard/translate"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-amber-400 transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400 hover:text-slate-950 transition-colors"
           >
             Start Translating <Code2 className="h-4 w-4" />
           </Link>
@@ -247,7 +247,7 @@ export default function OnboardingPage() {
             <button
               onClick={handleNext}
               disabled={completing}
-              className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-semibold text-white hover:bg-amber-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-5 py-2 text-sm font-bold text-slate-950 hover:bg-amber-400 hover:text-slate-950 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {completing ? "Setting up…" : isLast ? "Go to Dashboard" : "Next"}
               {!completing && <ChevronRight className="h-4 w-4" />}

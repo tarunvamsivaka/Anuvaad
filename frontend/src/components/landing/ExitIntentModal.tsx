@@ -143,10 +143,10 @@ export function ExitIntentModal() {
                 <button
                   type="submit"
                   disabled={status === "loading"}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-500 transition-all duration-200 disabled:opacity-60"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 px-5 py-3 text-sm font-bold text-slate-950 transition-all duration-200 disabled:opacity-60 shadow-md shadow-amber-500/20"
                 >
                   {status === "loading" ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
                   ) : (
                     <>
                       Claim my bonus <ArrowRight className="h-4 w-4" />
@@ -180,7 +180,7 @@ export function ExitIntentModal() {
               </p>
               <a
                 href="/signup"
-                className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-6 py-3 text-sm font-semibold text-white hover:bg-amber-500 transition-all"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 px-6 py-3 text-sm font-bold text-slate-950 transition-all shadow-md shadow-amber-500/20"
               >
                 Try Anuvaad Free <ArrowRight className="h-4 w-4" />
               </a>

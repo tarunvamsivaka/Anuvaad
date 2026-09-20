@@ -96,6 +96,10 @@ async def lifespan(app: FastAPI):
     ai_service.init_clients(GROQ_API_KEY or "dummy_key_to_allow_startup")
     async with _base_lifespan(app):
         yield
+        # Phase 1: Gracefully drain in-process background tasks before HTTP client pool teardown
+        from app.queue.tasks import drain_background_tasks
+
+        await drain_background_tasks(timeout=10.0)
     # BACK-02: Graceful client shutdown
     await ai_service.close_clients()
 
@@ -208,5 +212,14 @@ app.include_router(workspace_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")
 app.include_router(utility_router, prefix="/api")
 app.include_router(demo_router, prefix="/api")
+
+
+# Root health probe fallback for platform load balancers (Render, K8s, Keep-Alive)
+@app.api_route("/health", methods=["GET", "HEAD"], include_in_schema=False)
+async def root_health_probe(request: Request):
+    from app.routers.utility import health_check
+
+    return await health_check(request)
+
 
 logger.info("Anuvaad API Initialized")

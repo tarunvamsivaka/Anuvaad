@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import HALFVEC
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
@@ -132,7 +132,7 @@ class LLMSemanticCache(Base):
     __tablename__ = "llm_semantic_cache"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     prompt_hash = Column(Text, unique=True, nullable=False, index=True)
-    embedding = Column(Vector(1536))  # Assuming 1536 dim embeddings (e.g. text-embedding-3-small)
+    embedding = Column(HALFVEC(1536))  # 1536 dim half-precision embeddings (Phase 2 Vector Optimization)
     response = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     last_accessed = Column(DateTime(timezone=True), nullable=True, default=lambda: datetime.now(UTC))
@@ -146,7 +146,7 @@ class RepoEmbedding(Base):
     file_path = Column(Text, nullable=False)
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(1536))  # 1536 dim for openai text-embedding-3-small (was 384)
+    embedding = Column(HALFVEC(1536))  # 1536 dim half-precision for text-embedding-3-small (Phase 2)
     provider = Column(Text, default="hf", nullable=False)
     # SEC-REPO-03: Track which user indexed this repository so searches can be
     # scoped to prevent cross-user leakage of private repository content.
@@ -257,7 +257,7 @@ class SemanticArtifact(Base):
     chunk_index = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     content_hash = Column(Text, nullable=False)
-    embedding = Column(Vector(1536), nullable=False)
+    embedding = Column(HALFVEC(1536), nullable=False)
     embedding_model = Column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
 

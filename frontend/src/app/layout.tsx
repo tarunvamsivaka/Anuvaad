@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PostHogProvider } from "@/components/posthog-provider";
+import { EdgeWarmup } from "@/components/EdgeWarmup";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -130,6 +131,7 @@ export default function RootLayout({
               </AuthProvider>
             </TooltipProvider>
           </PostHogProvider>
+          <EdgeWarmup />
           <Toaster
             position="bottom-right"
             toastOptions={{

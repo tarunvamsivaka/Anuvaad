@@ -35,6 +35,115 @@ def run_async(coro):
         loop.close()
 
 
+_active_in_process_tasks: set[asyncio.Task] = set()
+
+
+def get_active_tasks_count() -> int:
+    """Return the number of currently executing in-process background tasks."""
+    return len(_active_in_process_tasks)
+
+
+def _register_active_task(task: asyncio.Task, name: str = "task") -> None:
+    """Register an active task with tracking and exception logging callbacks."""
+    task._task_name = name
+    _active_in_process_tasks.add(task)
+
+    def _done_callback(t: asyncio.Task) -> None:
+        _active_in_process_tasks.discard(t)
+        if not t.cancelled():
+            exc = t.exception()
+            if exc:
+                task_name = getattr(t, "_task_name", name)
+                logger.error(
+                    f"In-process background task '{task_name}' raised an unhandled error: {exc}",
+                    exc_info=exc,
+                )
+
+    task.add_done_callback(_done_callback)
+
+
+async def drain_background_tasks(timeout: float = 10.0) -> dict[str, int]:
+    """Wait for all in-flight in-process background tasks to complete before process shutdown.
+
+    Ensures that background jobs (e.g. translation history persistence, webhooks)
+    are not abruptly killed during rolling deployments or container restarts.
+    If tasks remain unfinished when `timeout` is reached, logs an audit warning and
+    allows shutdown to proceed without deadlock.
+    """
+    if not _active_in_process_tasks:
+        return {"drained": 0, "timed_out": 0}
+
+    pending = set(_active_in_process_tasks)
+    total = len(pending)
+    logger.info(f"Draining {total} active in-process background task(s) before shutdown (timeout={timeout}s)...")
+
+    done, still_pending = await asyncio.wait(pending, timeout=timeout)
+
+    if still_pending:
+        unfinished_names = [getattr(t, "_task_name", t.get_name()) for t in still_pending]
+        logger.warning(
+            f"[SHUTDOWN TIMEOUT] {len(still_pending)} background task(s) did not complete "
+            f"within {timeout}s: {unfinished_names}"
+        )
+    else:
+        logger.info(f"Successfully drained {len(done)} in-process background task(s).")
+
+    return {"drained": len(done), "timed_out": len(still_pending)}
+
+
+class HybridTask:
+    """Wrapper around a Celery task that supports in-process background execution
+
+    when USE_CELERY=False (the default zero-budget mode), while preserving standard
+    Celery broker dispatch when USE_CELERY=True. Preserves .delay() and .apply_async()
+    signatures so existing caller code and test fixtures (e.g. mock_celery_tasks)
+    continue to work with zero regressions.
+    """
+
+    def __init__(self, celery_task, async_fn=None):
+        self._celery_task = celery_task
+        self._async_fn = async_fn
+        self.__name__ = getattr(celery_task, "__name__", "task")
+        self.__doc__ = getattr(celery_task, "__doc__", "")
+        self.__module__ = getattr(celery_task, "__module__", __name__)
+        self.name = getattr(celery_task, "name", self.__name__)
+
+    def __call__(self, *args, **kwargs):
+        return self._celery_task(*args, **kwargs)
+
+    def delay(self, *args, **kwargs):
+        from app.core.config import USE_CELERY
+
+        if USE_CELERY:
+            return self._celery_task.delay(*args, **kwargs)
+        return self._dispatch_in_process(*args, **kwargs)
+
+    def apply_async(self, args=None, kwargs=None, **options):
+        from app.core.config import USE_CELERY
+
+        if USE_CELERY:
+            return self._celery_task.apply_async(args=args, kwargs=kwargs, **options)
+        args = args or ()
+        kwargs = kwargs or {}
+        return self._dispatch_in_process(*args, **kwargs)
+
+    def _dispatch_in_process(self, *args, **kwargs):
+        try:
+            loop = asyncio.get_running_loop()
+            if loop.is_running():
+                if self._async_fn:
+                    task = loop.create_task(self._async_fn(*args, **kwargs))
+                else:
+                    task = loop.create_task(asyncio.to_thread(self._celery_task, *args, **kwargs))
+                _register_active_task(task, name=self.name)
+                return task
+        except RuntimeError:
+            pass
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            return executor.submit(lambda: self._celery_task(*args, **kwargs))
+
+
 @celery_app.task(
     name="tasks.save_translation_history",
     autoretry_for=(Exception,),
@@ -75,6 +184,12 @@ def save_translation_history_task(
     )
 
 
+save_translation_history_task = HybridTask(
+    save_translation_history_task,
+    async_fn=save_translation_background,
+)
+
+
 @celery_app.task(
     name="tasks.send_transactional_email",
     autoretry_for=(Exception,),
@@ -92,6 +207,9 @@ def send_transactional_email_task(email_type: str, user_email: str, **kwargs):
         email_service.send_translation_milestone(user_email, kwargs.get("count", 0))
     elif email_type == "subscription_upgrade":
         email_service.send_subscription_upgrade(user_email, kwargs.get("plan_name", "Pro"))
+
+
+send_transactional_email_task = HybridTask(send_transactional_email_task)
 
 
 @celery_app.task(
@@ -185,6 +303,9 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     run_async(_process())
 
 
+process_billing_webhook_task = HybridTask(process_billing_webhook_task)
+
+
 @celery_app.task(
     name="tasks.prune_translation_history",
     autoretry_for=(Exception,),
@@ -226,6 +347,9 @@ def prune_translation_history_task(user_email: str):
                 logger.info(f"Pruned {len(ids_to_delete)} old translation history items for {user_email}")
 
     run_async(_process())
+
+
+prune_translation_history_task = HybridTask(prune_translation_history_task)
 
 
 @celery_app.task(
@@ -275,6 +399,9 @@ def process_large_file_task(
             raise  # re-raise so autoretry_for can catch it
 
     run_async(_process())
+
+
+process_large_file_task = HybridTask(process_large_file_task)
 
 
 @celery_app.task(
@@ -346,13 +473,12 @@ def process_github_repo_task(repo_name: str, installation_id: str = None, user_e
                     embeddings = await generate_embeddings_hf(texts)
 
                 for j, emb in enumerate(embeddings):
-                    if j < len(batch) and isinstance(emb, list):
+                    if j < len(batch) and emb is not None:
                         batch[j]["embedding"] = pad_embedding_to_1536(emb)
                         batch[j]["provider"] = provider
                     elif j < len(batch):
                         # Fallback if the embedding is somehow malformed
                         batch[j]["embedding"] = [0.0] * embedding_dim
-                        batch[j]["provider"] = provider
 
                 # Insert into DB
                 async with AsyncSessionLocal() as session:
@@ -361,6 +487,9 @@ def process_github_repo_task(repo_name: str, installation_id: str = None, user_e
                 logger.error(f"Error processing batch {i} for {repo_name}: {e}")
 
     run_async(_process())
+
+
+process_github_repo_task = HybridTask(process_github_repo_task)
 
 
 @celery_app.task(
@@ -504,6 +633,48 @@ def prune_old_translation_history_scheduled():
     run_async(_prune())
 
 
+async def prune_database_footprint_async():
+    """Daily database footprint cleanup: prune anonymous history (7d) and stale vectors (30d)."""
+    from app.core.database_session import AsyncSessionLocal
+    from app.repositories.translation import prune_anonymous_history
+    from app.repositories.vectors import prune_stale_vectors
+
+    async with AsyncSessionLocal() as session:
+        deleted_history = await prune_anonymous_history(session, 7)
+        deleted_vectors = await prune_stale_vectors(session, 30)
+
+        # Defragment and optimize IVFFlat centroid indexes on PostgreSQL
+        bind = getattr(session, "bind", None)
+        if bind is None and hasattr(session, "get_bind"):
+            bind_res = session.get_bind()
+            if not hasattr(bind_res, "__await__"):
+                bind = bind_res
+
+        if bind is not None and getattr(getattr(bind, "dialect", None), "name", None) == "postgresql":
+            from sqlalchemy import text as sa_text
+
+            try:
+                await session.execute(sa_text("REINDEX INDEX CONCURRENTLY ix_semantic_artifacts_embedding_ivfflat;"))
+                await session.execute(sa_text("REINDEX INDEX CONCURRENTLY ix_repo_embeddings_embedding_ivfflat;"))
+                await session.execute(sa_text("REINDEX INDEX CONCURRENTLY ix_llm_semantic_cache_embedding_ivfflat;"))
+                logger.info("Successfully reindexed IVFFlat vector centroid indexes.")
+            except Exception as reindex_err:
+                logger.warning(f"IVFFlat reindexing skipped or deferred: {reindex_err}")
+
+        # Capture persistent telemetry checkpoint across scheduled maintenance cycles
+        try:
+            from app.core.metrics import metrics
+
+            await metrics.record_telemetry_checkpoint()
+        except Exception as tel_err:
+            logger.warning(f"Failed to record telemetry checkpoint: {tel_err}")
+
+        logger.info(
+            f"Database footprint cleanup complete. Deleted {deleted_history} anonymous history records and {deleted_vectors} stale vector cache records."
+        )
+        return {"deleted_history": deleted_history, "deleted_vectors": deleted_vectors}
+
+
 @celery_app.task(name="prune_database_footprint")
 def prune_database_footprint():
     """Daily database footprint cleanup task.
@@ -511,19 +682,11 @@ def prune_database_footprint():
     Executes prune_anonymous_history(7) and prune_stale_vectors(30).
     Scheduled by Celery Beat to run daily at 3am UTC.
     """
-    logger.info("Celery Beat: Running daily database footprint cleanup")
+    logger.info("Running daily database footprint cleanup")
+    return run_async(prune_database_footprint_async())
 
-    from app.core.database_session import AsyncSessionLocal
-    from app.repositories.translation import prune_anonymous_history
-    from app.repositories.vectors import prune_stale_vectors
 
-    async def _prune():
-        async with AsyncSessionLocal() as session:
-            deleted_history = await prune_anonymous_history(session, 7)
-            deleted_vectors = await prune_stale_vectors(session, 30)
-            logger.info(
-                f"Celery Beat: Database footprint cleanup complete. Deleted {deleted_history} anonymous history records and {deleted_vectors} stale vector cache records."
-            )
-            return {"deleted_history": deleted_history, "deleted_vectors": deleted_vectors}
-
-    return run_async(_prune())
+prune_database_footprint = HybridTask(
+    prune_database_footprint,
+    async_fn=prune_database_footprint_async,
+)

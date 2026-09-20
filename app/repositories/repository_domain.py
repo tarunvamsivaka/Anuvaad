@@ -336,6 +336,17 @@ class RepositoryDomainRepository:
         statement = statement.order_by(
             similarity.desc(), SemanticArtifact.file_path, SemanticArtifact.chunk_index
         ).limit(request.top_k)
+
+        if not _is_sqlite_session(self._session):
+            from sqlalchemy import text as sa_text
+
+            from app.core.config import IVFFLAT_PROBES
+
+            try:
+                await self._session.execute(sa_text(f"SET LOCAL ivfflat.probes = {IVFFLAT_PROBES};"))
+            except Exception:
+                pass
+
         result = await self._session.execute(statement)
         return [
             SemanticArtifactMatch(

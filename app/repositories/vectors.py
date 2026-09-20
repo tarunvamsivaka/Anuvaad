@@ -131,6 +131,16 @@ async def search_repo_embeddings(
 
         stmt = stmt.order_by(dist_expr.asc()).limit(top_k)
 
+        if not _is_sqlite_session(db):
+            from sqlalchemy import text as sa_text
+
+            from app.core.config import IVFFLAT_PROBES
+
+            try:
+                await db.execute(sa_text(f"SET LOCAL ivfflat.probes = {IVFFLAT_PROBES};"))
+            except Exception:
+                pass
+
         result = await db.execute(stmt)
         return result.all()
     except Exception as e:

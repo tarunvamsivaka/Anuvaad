@@ -141,6 +141,17 @@ TRUSTED_EMAILS: frozenset[str] = frozenset(
 )
 
 
+# ── BACKGROUND EXECUTION & CELERY (Phase 1 Rightsizing) ──
+USE_CELERY: bool = os.getenv("USE_CELERY", "false").lower() in ("true", "1", "yes")
+CRON_SECRET: str = os.getenv("CRON_SECRET", "")
+WEB_CONCURRENCY: int = int(os.getenv("WEB_CONCURRENCY", "2"))
+MAX_CONCURRENT_STREAMS: int = int(os.getenv("MAX_CONCURRENT_STREAMS", "16"))
+# Partition concurrency across Uvicorn workers so total container streams strictly stay within MAX_CONCURRENT_STREAMS
+WORKER_CONCURRENT_STREAMS: int = max(1, MAX_CONCURRENT_STREAMS // max(1, WEB_CONCURRENCY))
+STREAM_ACQUIRE_TIMEOUT: float = float(os.getenv("STREAM_ACQUIRE_TIMEOUT", "5.0"))
+IVFFLAT_PROBES: int = int(os.getenv("IVFFLAT_PROBES", "10"))
+
+
 # ── LIFESPAN (HTTP client teardown — delegates to http_client module) ──
 
 

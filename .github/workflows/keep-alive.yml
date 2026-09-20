@@ -1,20 +1,18 @@
 name: Render Keep-Alive
 
-# Pings the Anuvaad API health endpoint every 14 minutes to prevent Render
-# free-tier instances from spinning down (Render hibernates after 15 minutes
-# of inactivity, causing a 50+ second cold-start on the next request).
-#
-# Architectural note (from Sprint 0 review): The landing page promises sub-3s
-# inference. A 50s cold-start destroys this guarantee on every cache miss after
-# a period of inactivity. This action eliminates that cold-start window.
-#
-# Cost: Free on public GitHub repositories (unlimited Actions minutes).
-# Set the RENDER_API_URL secret in GitHub repo Settings → Secrets.
+# Hybrid Edge Keep-Alive Strategy:
+# 1. Proactive Keep-Alive: Pings /api/v1/health every 13 minutes between 05:00 and 23:00 UTC
+#    (19 hours/day = 589 hours/month), strictly preserving 161 hours of cushion below Render's
+#    750 free monthly compute hours limit.
+# 2. Nighttime Conservation: 00:00–04:00 UTC sleeping window suspends compute hour consumption.
+# 3. Client-Side Edge Pre-Warm: The web app's EdgeWarmup component dispatches a zero-overhead
+#    HTTP HEAD request on initial page mount, pre-warming the backend on-demand for any off-peak
+#    traffic without requiring 24/7 continuous cron compute burn.
 
 on:
   schedule:
-    - cron: '*/14 * * * *'   # Every 14 minutes — just under Render's 15m threshold
-  workflow_dispatch:          # Allow manual trigger for testing
+    - cron: '*/13 5-23 * * *'   # Every 13 min between 05:00 and 23:00 UTC (589h/mo, < 750h limit)
+  workflow_dispatch:            # Allow manual trigger for testing
 
 permissions:
   contents: read
@@ -35,11 +33,14 @@ jobs:
             echo "   Example value: https://api.getanuvaad.com"
             exit 0
           fi
-          echo "🏓 Pinging $API_URL/api/v1/health ..."
-          STATUS=$(curl -sf --retry 3 --retry-delay 5 --max-time 30 \
-            -o /tmp/health.json \
+          echo "🏓 Pinging $API_URL/api/v1/health with lightweight HEAD probe ..."
+          STATUS=$(curl -sf -I --retry 3 --retry-delay 5 --max-time 30 \
             -w "%{http_code}" \
             "$API_URL/api/v1/health" \
+            || curl -sf --retry 3 --retry-delay 5 --max-time 30 \
+              -o /dev/null \
+              -w "%{http_code}" \
+              "$API_URL/api/v1/health" \
             || echo "000")
           if [ "$STATUS" = "200" ]; then
             echo "✅ API is warm (HTTP $STATUS)"

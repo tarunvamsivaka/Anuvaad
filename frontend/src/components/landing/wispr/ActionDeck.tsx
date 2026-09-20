@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Zap, ArrowRight, Check, Copy, CheckCheck } from "lucide-react";
+import { Zap, ArrowRight, Copy, CheckCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useScrollReveal } from "@/lib/use-scroll-reveal";
 
 export interface ActionDeckProps {
   onGetStarted?: () => void;
@@ -17,7 +18,18 @@ export function ActionDeck({
   className,
 }: ActionDeckProps) {
   const [copied, setCopied] = useState(false);
+  const [checkmarks, setCheckmarks] = useState(false);
   const cliCommand = "npx anuvaad-cli init";
+
+  const [sectionRef, isVisible] = useScrollReveal<HTMLElement>({ threshold: 0.2 });
+
+  // Trigger checkmark stagger when section becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      const t = setTimeout(() => setCheckmarks(true), 600);
+      return () => clearTimeout(t);
+    }
+  }, [isVisible]);
 
   const handleCopy = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -27,45 +39,71 @@ export function ActionDeck({
     }
   };
 
+  const TRUST_ITEMS = [
+    "10 Free Translations / Day",
+    "No Credit Card Required",
+    "Zero Code Storage Guarantee",
+    "SOC2 Type II Certified",
+  ];
+
   return (
     <section
+      ref={sectionRef}
       id="cta"
       className={cn("py-16 px-4 sm:px-6 lg:px-8 w-full", className)}
       aria-label="Get Started Call to Action"
     >
       <div className="max-w-6xl mx-auto rounded-3xl bg-slate-950 text-white p-10 sm:p-16 border border-slate-800 shadow-2xl relative overflow-hidden text-center">
-        {/* Radial Accent Glow */}
+
+        {/* Pulsing radial glow background */}
         <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(245,158,11,0.15),transparent_60%)]"
+          className="radial-breathe pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(245,158,11,0.18),transparent_60%)]"
+          style={{ animation: "radial-glow-breathe 4s ease-in-out infinite" }}
           aria-hidden="true"
         />
 
+        {/* Subtle corner glows */}
+        <div className="pointer-events-none absolute top-0 left-0 w-64 h-64 bg-[radial-gradient(ellipse,rgba(245,158,11,0.05),transparent_70%)]" aria-hidden="true" />
+        <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 bg-[radial-gradient(ellipse,rgba(56,189,248,0.04),transparent_70%)]" aria-hidden="true" />
+
         <div className="relative z-10 max-w-3xl mx-auto">
           {/* Eyebrow */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-6">
+          <div
+            className={cn("inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-6 sr-fade-up", isVisible && "is-visible")}
+          >
             <Zap className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Ready for Instant Code Comprehension?</span>
           </div>
 
           {/* Headline */}
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-6">
+          <h2
+            className={cn("text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-6 sr-fade-up", isVisible && "is-visible")}
+            style={{ "--sr-delay": "100ms" } as React.CSSProperties}
+          >
             Transform How Your Engineering Team Reads Code.
           </h2>
 
           {/* Subtitle */}
-          <p className="text-base sm:text-lg text-slate-400 leading-relaxed mb-10">
+          <p
+            className={cn("text-base sm:text-lg text-slate-400 leading-relaxed mb-10 sr-fade-up", isVisible && "is-visible")}
+            style={{ "--sr-delay": "200ms" } as React.CSSProperties}
+          >
             Join thousands of developers turning cryptographic legacy
             repositories into clean, readable documentation. Start in under 60
             seconds.
           </p>
 
           {/* Dual CTA Triggers */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+          <div
+            className={cn("flex flex-col sm:flex-row items-center justify-center gap-4 mb-8 sr-fade-up", isVisible && "is-visible")}
+            style={{ "--sr-delay": "300ms" } as React.CSSProperties}
+          >
             {onGetStarted ? (
               <button
                 onClick={onGetStarted}
                 type="button"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                className="cta-btn-glow w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-lg hover:scale-105 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                style={{ animation: "cta-glow-breathe 3.5s ease-in-out 1s infinite" }}
               >
                 <span>Get Started Free</span>
                 <ArrowRight className="h-4 w-4" />
@@ -73,7 +111,8 @@ export function ActionDeck({
             ) : (
               <Link
                 href="/signup"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-lg hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                className="cta-btn-glow w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-lg hover:scale-105 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+                style={{ animation: "cta-glow-breathe 3.5s ease-in-out 1s infinite" }}
               >
                 <span>Get Started Free</span>
                 <ArrowRight className="h-4 w-4" />
@@ -84,24 +123,33 @@ export function ActionDeck({
               <button
                 onClick={onBookDemo}
                 type="button"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-semibold border border-slate-700 bg-slate-900/80 hover:bg-slate-800 text-slate-200 hover:text-white transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-semibold border border-slate-700 bg-slate-900/80 hover:bg-slate-800 hover:border-slate-600 text-slate-200 hover:text-white transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               >
                 <span>Book Enterprise Demo</span>
               </button>
             ) : (
               <a
                 href="#enterprise-contact"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-semibold border border-slate-700 bg-slate-900/80 hover:bg-slate-800 text-slate-200 hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-semibold border border-slate-700 bg-slate-900/80 hover:bg-slate-800 hover:border-slate-600 text-slate-200 hover:text-white transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
               >
                 <span>Book Enterprise Demo</span>
               </a>
             )}
           </div>
 
-          {/* CLI Quick Action Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 mb-8 font-mono text-xs text-slate-300">
+          {/* CLI Quick Action Pill — with blinking cursor */}
+          <div
+            className={cn("inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 mb-8 font-mono text-xs text-slate-300 transition-colors group sr-fade-up", isVisible && "is-visible")}
+            style={{ "--sr-delay": "400ms" } as React.CSSProperties}
+          >
             <span className="text-slate-500">$</span>
             <span className="select-all">{cliCommand}</span>
+            {/* Blinking cursor */}
+            <span
+              className="inline-block w-[6px] h-[13px] bg-amber-500/70 rounded-sm"
+              style={{ animation: "cursor-blink 1.1s step-end infinite" }}
+              aria-hidden="true"
+            />
             <button
               onClick={handleCopy}
               type="button"
@@ -121,16 +169,38 @@ export function ActionDeck({
             )}
           </div>
 
-          {/* Trust Checklist */}
+          {/* Trust Checklist — staggered entrance */}
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-400">
-            {[
-              "10 Free Translations / Day",
-              "No Credit Card Required",
-              "Zero Code Storage Guarantee",
-              "SOC2 Type II Certified",
-            ].map((item) => (
-              <div key={item} className="flex items-center gap-1.5">
-                <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
+            {TRUST_ITEMS.map((item, idx) => (
+              <div
+                key={item}
+                className={cn(
+                  "flex items-center gap-1.5 transition-all duration-500",
+                  checkmarks ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                )}
+                style={{ transitionDelay: `${idx * 100}ms` }}
+              >
+                {/* Animated SVG check */}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  className="shrink-0"
+                  aria-hidden="true"
+                >
+                  <circle cx="7" cy="7" r="6.5" stroke="rgba(52,211,153,0.3)" strokeWidth="1" />
+                  <path
+                    d="M4 7l2 2 4-4"
+                    stroke="#34d399"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="10"
+                    strokeDashoffset={checkmarks ? 0 : 10}
+                    style={{ transition: `stroke-dashoffset 0.4s ease ${idx * 100 + 200}ms` }}
+                  />
+                </svg>
                 <span>{item}</span>
               </div>
             ))}

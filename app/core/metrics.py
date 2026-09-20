@@ -16,6 +16,75 @@ import time
 from collections import deque
 
 
+def get_memory_watermark_mb() -> float:
+    """Return process high-water mark memory usage in MB.
+
+    Uses /proc/self/status (VmHWM/VmRSS) on Linux containers,
+    resource.getrusage on Unix, ctypes Win32 API on Windows, or 0.0 fallback.
+    """
+    # 1. Linux /proc/self/status (most accurate for Linux / Docker / Render containers)
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmHWM:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return round(float(parts[1]) / 1024.0, 2)
+                elif line.startswith("VmRSS:"):
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        return round(float(parts[1]) / 1024.0, 2)
+    except (FileNotFoundError, PermissionError, ValueError, OSError):
+        pass
+
+    # 2. Unix resource module
+    try:
+        import resource
+
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        max_rss = rusage.ru_maxrss
+        if sys.platform == "darwin":
+            return round(max_rss / (1024.0 * 1024.0), 2)
+        return round(max_rss / 1024.0, 2)
+    except (ImportError, AttributeError, ValueError, OSError):
+        pass
+
+    # 3. Windows ctypes
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+            _fields_ = [
+                ("cb", wintypes.DWORD),
+                ("PageFaultCount", wintypes.DWORD),
+                ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t),
+            ]
+
+        psapi = ctypes.WinDLL("psapi")
+        kernel32 = ctypes.WinDLL("kernel32")
+        get_proc_mem = psapi.GetProcessMemoryInfo
+        get_proc_mem.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+        get_proc_mem.restype = wintypes.BOOL
+
+        counters = PROCESS_MEMORY_COUNTERS()
+        counters.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+        handle = kernel32.GetCurrentProcess()
+        if get_proc_mem(handle, ctypes.byref(counters), counters.cb):
+            return round(counters.PeakWorkingSetSize / (1024.0 * 1024.0), 2)
+    except Exception:
+        pass
+
+    return 0.0
+
+
 def _fire_and_forget(coro) -> None:
     """Schedule a coroutine as a background task, ignoring all exceptions.
     H-5: Prevents Redis write latency from adding to p50/p95 response time.
@@ -44,6 +113,7 @@ class MetricsCollector:
         self.cache_hits: int = 0
         self.cache_misses: int = 0
         self._latencies: dict[str, deque] = {}
+        self._peak_memory_watermark: float = 0.0
 
     # ---- Internal Redis helpers (always fire-and-forget) ----------------
 
@@ -64,6 +134,46 @@ class MetricsCollector:
         if cache.client:
             try:
                 await cache.client.incr(key)
+            except Exception:
+                pass
+
+    @staticmethod
+    async def _redis_set_max_memory(val: float) -> None:
+        """Persist peak memory watermark to Redis across process restarts."""
+        from app.core.cache import cache
+
+        if cache.client:
+            try:
+                current = await cache.client.get("metrics:peak_memory_watermark_mb")
+                if current is None or val > float(current):
+                    await cache.client.set("metrics:peak_memory_watermark_mb", str(val))
+            except Exception:
+                pass
+
+    @staticmethod
+    async def _redis_push_snapshot(snap: dict) -> None:
+        """Persist a capped history of telemetry checkpoints in Redis."""
+        import json
+
+        from app.core.cache import cache
+
+        if cache.client:
+            try:
+                entry = json.dumps(
+                    {
+                        "timestamp": int(time.time()),
+                        "uptime_seconds": snap.get("uptime_seconds", 0),
+                        "memory_watermark_mb": snap.get("memory_watermark_mb", 0.0),
+                        "historical_peak_memory_watermark_mb": snap.get(
+                            "historical_peak_memory_watermark_mb", 0.0
+                        ),
+                        "cache_hit_ratio": snap.get("cache_hit_ratio", 0.0),
+                        "total_requests": sum(snap.get("total_requests", {}).values()),
+                        "total_errors": sum(snap.get("total_errors", {}).values()),
+                    }
+                )
+                await cache.client.lpush("metrics:history", entry)
+                await cache.client.ltrim("metrics:history", 0, 49)
             except Exception:
                 pass
 
@@ -98,7 +208,10 @@ class MetricsCollector:
         _fire_and_forget(self._redis_incr("metrics:cache_misses"))
         self.cache_misses += 1
 
-    # ---- Properties -----------------------------------------------------
+    @property
+    def cache_hit_ratio(self) -> float:
+        total = self.cache_hits + self.cache_misses
+        return round(self.cache_hits / total, 4) if total > 0 else 0.0
 
     @property
     def average_latency_ms(self) -> dict[str, float]:
@@ -116,14 +229,28 @@ class MetricsCollector:
         """
         from app.core.cache import cache  # lazy import
 
+        mem_watermark = get_memory_watermark_mb()
+        self._peak_memory_watermark = max(self._peak_memory_watermark, mem_watermark)
+        _fire_and_forget(self._redis_set_max_memory(self._peak_memory_watermark))
+
+        historical_peak = self._peak_memory_watermark
+
         if cache.client:
             try:
+                stored_peak = await cache.client.get("metrics:peak_memory_watermark_mb")
+                if stored_peak:
+                    historical_peak = max(historical_peak, float(stored_peak))
+
                 redis_requests = await cache.client.hgetall("metrics:total_requests")
                 redis_errors = await cache.client.hgetall("metrics:total_errors")
                 redis_model_calls = await cache.client.hgetall("metrics:model_calls")
                 redis_model_errors = await cache.client.hgetall("metrics:model_errors")
-                redis_cache_hits = await cache.client.get("metrics:cache_hits") or 0
-                redis_cache_misses = await cache.client.get("metrics:cache_misses") or 0
+                raw_hits = await cache.client.get("metrics:cache_hits")
+                raw_misses = await cache.client.get("metrics:cache_misses")
+                hits = int(raw_hits) if raw_hits else self.cache_hits
+                misses = int(raw_misses) if raw_misses else self.cache_misses
+                total_cache = hits + misses
+                hit_ratio = round(hits / total_cache, 4) if total_cache > 0 else 0.0
                 return {
                     "uptime_seconds": self.uptime_seconds,
                     "python_version": sys.version,
@@ -131,8 +258,11 @@ class MetricsCollector:
                     "total_errors": {k: int(v) for k, v in redis_errors.items()} or dict(self.total_errors),
                     "model_calls": {k: int(v) for k, v in redis_model_calls.items()} or dict(self.model_calls),
                     "model_errors": {k: int(v) for k, v in redis_model_errors.items()} or dict(self.model_errors),
-                    "cache_hits": int(redis_cache_hits) or self.cache_hits,
-                    "cache_misses": int(redis_cache_misses) or self.cache_misses,
+                    "cache_hits": hits,
+                    "cache_misses": misses,
+                    "cache_hit_ratio": hit_ratio,
+                    "memory_watermark_mb": mem_watermark,
+                    "historical_peak_memory_watermark_mb": historical_peak,
                     "average_latency_ms": self.average_latency_ms,
                 }
             except Exception as e:
@@ -150,8 +280,35 @@ class MetricsCollector:
             "model_errors": dict(self.model_errors),
             "cache_hits": self.cache_hits,
             "cache_misses": self.cache_misses,
+            "cache_hit_ratio": self.cache_hit_ratio,
+            "memory_watermark_mb": mem_watermark,
+            "historical_peak_memory_watermark_mb": historical_peak,
             "average_latency_ms": self.average_latency_ms,
         }
+
+    async def get_telemetry_history(self, limit: int = 10) -> list[dict]:
+        """Fetch historical telemetry checkpoints from Redis if available."""
+        import json
+
+        from app.core.cache import cache
+
+        history: list[dict] = []
+        if cache.client:
+            try:
+                entries = await cache.client.lrange("metrics:history", 0, limit - 1)
+                for item in entries:
+                    if isinstance(item, bytes):
+                        item = item.decode("utf-8")
+                    history.append(json.loads(item))
+            except Exception:
+                pass
+        return history
+
+    async def record_telemetry_checkpoint(self) -> dict:
+        """Capture and persist a telemetry checkpoint into historical ring buffer."""
+        snap = await self.snapshot()
+        _fire_and_forget(self._redis_push_snapshot(snap))
+        return snap
 
 
 # Module-level singleton — imported by config.py and all callers via `from app.core.metrics import metrics`

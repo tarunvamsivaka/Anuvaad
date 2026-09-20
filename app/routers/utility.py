@@ -6,7 +6,7 @@ from datetime import timezone
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
 from app.core.auth import (
     get_optional_user_email_from_request,
@@ -182,21 +182,20 @@ async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
     return resp.text
 
 
-@router.get("/health")
-async def health_check():
+@router.api_route("/health", methods=["GET", "HEAD"])
+async def health_check(request: Request = None):
     """
-    Health check endpoint for load-balancer probes (Render, Kubernetes).
+    Health check endpoint for load-balancer probes (Render, Kubernetes, Keep-Alive).
 
     N-MED-04: Returns only minimal public-safe fields to prevent information
     disclosure. Internal diagnostic details are available at /health/detailed
     (requires metrics HTTP Basic Auth).
 
+    Supports HEAD for zero-overhead edge keep-alive pings.
     Returns 200 when the service is operational.
     Returns 503 when critical configuration is missing in production.
     """
     import os
-
-    from fastapi.responses import JSONResponse
 
     redis_ok = False
     if cache.client:
@@ -227,6 +226,9 @@ async def health_check():
     else:
         status_str = "healthy"
         http_status = 200
+
+    if request and request.method == "HEAD":
+        return Response(status_code=http_status, media_type="application/json")
 
     # N-MED-04: Public response — boolean status flags are safe (no credential values).
     # 'critical_missing' (which names specific env vars) is only in /health/detailed.
@@ -617,8 +619,40 @@ async def get_metrics_prometheus(request: Request):
     for ep, lat in snap["average_latency_ms"].items():
         lines.append(f'anuvaad_avg_latency_ms{{endpoint="{_safe_label(ep)}"}} {lat}')
 
+    if "memory_watermark_mb" in snap:
+        lines.append("# HELP anuvaad_memory_watermark_mb Process memory high water mark in MB")
+        lines.append("# TYPE anuvaad_memory_watermark_mb gauge")
+        lines.append(f"anuvaad_memory_watermark_mb {snap['memory_watermark_mb']}")
+
+    if "cache_hit_ratio" in snap:
+        lines.append("# HELP anuvaad_cache_hit_ratio Cache hit ratio")
+        lines.append("# TYPE anuvaad_cache_hit_ratio gauge")
+        lines.append(f"anuvaad_cache_hit_ratio {snap['cache_hit_ratio']}")
+
+    if "historical_peak_memory_watermark_mb" in snap:
+        lines.append("# HELP anuvaad_historical_peak_memory_watermark_mb All-time peak process memory watermark in MB")
+        lines.append("# TYPE anuvaad_historical_peak_memory_watermark_mb gauge")
+        lines.append(f"anuvaad_historical_peak_memory_watermark_mb {snap['historical_peak_memory_watermark_mb']}")
+
     lines.append("")
     return PlainTextResponse("\n".join(lines), media_type="text/plain; version=0.0.4; charset=utf-8")
+
+
+@router.get("/metrics/history", dependencies=[Depends(rate_limiter(20, 60))])
+async def get_metrics_history(request: Request, limit: int = 20):
+    """Return historical telemetry checkpoints. Protected by HTTP Basic Auth.
+
+    SEC-MET-01: Rate-limited to 20 req/min per IP.
+    """
+    if not _check_metrics_auth(request):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Unauthorized"},
+            headers={"WWW-Authenticate": 'Basic realm="metrics"'},
+        )
+    clamped_limit = max(1, min(limit, 50))
+    history = await metrics.get_telemetry_history(limit=clamped_limit)
+    return {"checkpoints": history, "count": len(history)}
 
 
 @router.get("/cache-stats", dependencies=[Depends(rate_limiter(20, 60))])
@@ -682,6 +716,7 @@ async def get_system_telemetry(request: Request):
     from datetime import datetime
 
     snap = await metrics.snapshot()
+    history = await metrics.get_telemetry_history(limit=5)
     return {
         "status": "healthy",
         "timestamp": datetime.now(UTC).isoformat(),
@@ -694,4 +729,38 @@ async def get_system_telemetry(request: Request):
             "redis_connected": bool(cache.client),
         },
         "telemetry": snap,
+        "history": history,
     }
+
+
+@router.post("/cron/prune", dependencies=[Depends(rate_limiter(5, 60))])
+async def cron_prune_database(request: Request):
+    """Scheduled database footprint cleanup endpoint.
+
+    Invoked by Render Cron, GitHub Actions, or Vercel Cron.
+    Secured by CRON_SECRET header, bearer token, or query param.
+    """
+    from app.core.config import CRON_SECRET, IS_PRODUCTION
+    from app.queue.tasks import prune_database_footprint_async
+
+    auth_header = request.headers.get("Authorization", "")
+    cron_header = request.headers.get("X-Cron-Secret", "")
+    query_secret = request.query_params.get("secret", "")
+
+    token = ""
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    elif cron_header:
+        token = cron_header
+    elif query_secret:
+        token = query_secret
+
+    if CRON_SECRET:
+        if not token or not secrets.compare_digest(token, CRON_SECRET):
+            raise HTTPException(status_code=401, detail="Invalid or missing cron secret")
+    elif IS_PRODUCTION:
+        raise HTTPException(status_code=403, detail="CRON_SECRET must be configured in production")
+
+    result = await prune_database_footprint_async()
+    return JSONResponse(content={"success": True, "details": result})
+

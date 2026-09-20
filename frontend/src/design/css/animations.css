@@ -1,11 +1,84 @@
 /* ============================================================
-   ANUVAAD — ANIMATIONS LIBRARY
-   All @keyframes in one named library.
-   Wrapped in prefers-reduced-motion: no-preference.
+   ANUVAAD — ANIMATIONS LIBRARY v2
+   All @keyframes + scroll-reveal classes in one place.
 
-   Usage: import in components that need specific keyframes,
-   or import in route-scoped css files.
+   Usage: imported globally via globals.css
    ============================================================ */
+
+/* ══════════════════════════════════════════════════════════════
+   SCROLL-REVEAL BASE CLASSES
+   All .sr-* elements start hidden. The .is-visible class
+   (applied by IntersectionObserver) triggers the CSS transition.
+   Delay is customizable via --sr-delay CSS custom property.
+   ══════════════════════════════════════════════════════════════ */
+
+.sr-fade-up {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms);
+}
+
+.sr-fade-down {
+  opacity: 0;
+  transform: translateY(-24px);
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms);
+}
+
+.sr-fade-left {
+  opacity: 0;
+  transform: translateX(24px);
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms);
+}
+
+.sr-fade-right {
+  opacity: 0;
+  transform: translateX(-24px);
+  transition:
+    opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms),
+    transform 0.55s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms);
+}
+
+.sr-scale-in {
+  opacity: 0;
+  transform: scale(0.92);
+  transition:
+    opacity 0.50s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms),
+    transform 0.50s cubic-bezier(0.16, 1, 0.3, 1) var(--sr-delay, 0ms);
+}
+
+.sr-fade {
+  opacity: 0;
+  transition: opacity 0.55s ease var(--sr-delay, 0ms);
+}
+
+/* Visible state — applied by JS when IntersectionObserver fires */
+.is-visible.sr-fade-up,
+.is-visible.sr-fade-down,
+.is-visible.sr-fade-left,
+.is-visible.sr-fade-right {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.is-visible.sr-scale-in {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.is-visible.sr-fade {
+  opacity: 1;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KEYFRAMES
+   Wrapped in prefers-reduced-motion: no-preference
+   ══════════════════════════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: no-preference) {
 
@@ -46,6 +119,12 @@
     to   { opacity: 1; transform: translateX(0); }
   }
 
+  /* Card lift in with slight scale */
+  @keyframes card-lift-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
   /* ── BLOCK ENTRANCE (replaces Framer Motion) ──────────────── */
   @keyframes block-enter {
     to { opacity: 1; transform: translateY(0); }
@@ -57,9 +136,29 @@
     to   { opacity: 1; transform: scale(1); }
   }
 
+  /* Correct bar chart entrance: grows from bottom */
+  @keyframes scale-y-in {
+    from { transform: scaleY(0); }
+    to   { transform: scaleY(1); }
+  }
+
   @keyframes number-count {
     from { opacity: 0; transform: translateY(8px) scale(0.9); }
     to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ── WORD/CHAR REVEAL ─────────────────────────────────────── */
+
+  /* Per-word staggered headline entrance */
+  @keyframes word-reveal {
+    from { opacity: 0; transform: translateY(14px); filter: blur(4px); }
+    to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+
+  /* Clip-path text wipe */
+  @keyframes text-wipe-up {
+    from { clip-path: inset(100% 0 0 0); }
+    to   { clip-path: inset(0% 0 0 0); }
   }
 
   /* ── FLOAT ────────────────────────────────────────────────── */
@@ -72,6 +171,14 @@
     0%, 100% { transform: translateY(0px) translateX(0px); opacity: 0.4; }
     33%      { transform: translateY(-18px) translateX(8px); opacity: 0.7; }
     66%      { transform: translateY(-8px) translateX(-12px); opacity: 0.5; }
+  }
+
+  /* Ambient hero particle (uses --dx --dy CSS vars for direction) */
+  @keyframes hero-particle-drift {
+    0%   { transform: translate(0, 0); opacity: 0; }
+    10%  { opacity: 0.7; }
+    80%  { opacity: 0.5; }
+    100% { transform: translate(var(--dx, 30px), var(--dy, -50px)); opacity: 0; }
   }
 
   /* ── ROTATION ─────────────────────────────────────────────── */
@@ -114,6 +221,22 @@
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
   }
 
+  /* CTA button ambient glow that breathes to draw attention */
+  @keyframes cta-glow-breathe {
+    0%, 100% {
+      box-shadow: 0 4px 20px rgba(245, 158, 11, 0.25), 0 0 50px rgba(245, 158, 11, 0.08);
+    }
+    50% {
+      box-shadow: 0 4px 32px rgba(245, 158, 11, 0.50), 0 0 80px rgba(245, 158, 11, 0.20);
+    }
+  }
+
+  /* Background radial glow breathing */
+  @keyframes radial-glow-breathe {
+    0%, 100% { opacity: 0.10; }
+    50%      { opacity: 0.22; }
+  }
+
   @keyframes border-glow {
     0%, 100% { border-color: rgba(245, 158, 11, 0.15); }
     50%      { border-color: rgba(245, 158, 11, 0.45); }
@@ -136,14 +259,32 @@
     50%      { opacity: 0; }
   }
 
+  /* CLI / terminal cursor — square blink */
+  @keyframes cursor-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+  }
+
   /* ── PROGRESS / FILL ──────────────────────────────────────── */
   @keyframes progress-fill {
     from { width: 0%; }
     to   { width: var(--progress-width, 0%); }
   }
 
+  /* SVG ring draw — for quota ring / radial charts */
+  @keyframes draw-ring {
+    from { stroke-dashoffset: var(--ring-circumference, 176); }
+    to   { stroke-dashoffset: var(--ring-offset, 0); }
+  }
+
   @keyframes draw-circle {
     from { stroke-dashoffset: 283; }
+    to   { stroke-dashoffset: 0; }
+  }
+
+  /* Check mark SVG draw */
+  @keyframes check-draw {
+    from { stroke-dashoffset: 20; }
     to   { stroke-dashoffset: 0; }
   }
 
@@ -152,6 +293,12 @@
     0%, 20% { opacity: 0; }
     50%     { opacity: 1; }
     100%    { opacity: 0; }
+  }
+
+  /* Per-line terminal text entrance */
+  @keyframes terminal-line-in {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
 
   /* ── LANDING AURORA ───────────────────────────────────────── */
@@ -185,4 +332,52 @@
     100% { left: 105%; opacity: 0; }
   }
 
+  /* ── WAVEFORM ─────────────────────────────────────────────── */
+  @keyframes wispr-wave {
+    0%   { transform: scaleY(0.25); opacity: 0.40; }
+    40%  { transform: scaleY(0.80); opacity: 0.80; }
+    70%  { transform: scaleY(0.55); opacity: 0.65; }
+    100% { transform: scaleY(1.0);  opacity: 1.0;  }
+  }
+
+  /* ── GLITCH (legacy) ──────────────────────────────────────── */
+  @keyframes glitch-jitter {
+    0%   { transform: translate(0, 0) skewX(0deg); }
+    25%  { transform: translate(-1px, 1.5px) skewX(-1.5deg); }
+    50%  { transform: translate(1.5px, -1px) skewX(1deg); }
+    75%  { transform: translate(-1.5px, -1.5px) skewX(-1deg); }
+    100% { transform: translate(1px, 1px) skewX(0deg); }
+  }
+
 } /* end @media prefers-reduced-motion: no-preference */
+
+/* ══════════════════════════════════════════════════════════════
+   REDUCED MOTION FALLBACKS
+   ══════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Scroll reveal: always visible, no motion */
+  .sr-fade-up, .sr-fade-down, .sr-fade-left, .sr-fade-right,
+  .sr-scale-in, .sr-fade {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  /* All other animated elements */
+  .aurora-orb-1, .aurora-orb-2, .scroll-cue { animation: none; }
+  .wispr-marquee-track  { animation: none; }
+  .wispr-circle-text, .wispr-arc-text, .wispr-wave-bar,
+  .wispr-speaking-dot, .wispr-illustration-float { animation: none; }
+  .wispr-line-draw path, .wispr-line-draw line,
+  .wispr-line-draw polyline, .wispr-line-draw circle, .wispr-line-draw rect {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+
+  /* Hero + CTA animated classes */
+  .hero-word-reveal  { opacity: 1 !important; transform: none !important; animation: none !important; }
+  .particle-amber    { animation: none !important; opacity: 0 !important; }
+  .cta-btn-glow      { animation: none !important; }
+  .radial-breathe    { animation: none !important; opacity: 0.15 !important; }
+}

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Zap, Search, ArrowUpDown, X, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BENCHMARK_DATA, LanguageBenchmark } from "./data/benchmark-data";
+import { useScrollReveal } from "@/lib/use-scroll-reveal";
 
 export { BENCHMARK_DATA };
 export type { LanguageBenchmark };
@@ -115,28 +116,44 @@ export function BenchmarkExplorer({
     onFilterLanguage?.(term);
   };
 
+  const [headerRef, headerVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.15 });
+  const [tableRef, tableVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.08 });
+
   return (
     <div
       id="benchmarks"
       className={cn("w-full flex flex-col items-center", className)}
       aria-label="Multi-Language Benchmark & Latency Explorer"
     >
-      {/* Module Eyebrow */}
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-4">
-        <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>Sub-3s Inference Benchmarks</span>
+      {/* Module Header */}
+      <div
+        ref={headerRef}
+        className={cn("flex flex-col items-center sr-fade-up", headerVisible && "is-visible")}
+      >
+        {/* Module Eyebrow */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-4">
+          <Zap className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Sub-3s Inference Benchmarks</span>
+        </div>
+
+        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 text-center">
+          Multi-Language Latency & Accuracy Matrix
+        </h2>
+        <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">
+          Rigorous empirical benchmarks across {BENCHMARK_DATA.length}+ programming languages. Measure
+          live inference speed, syntactic accuracy, and token throughput.
+        </p>
       </div>
 
-      <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 text-center">
-        Multi-Language Latency & Accuracy Matrix
-      </h2>
-      <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">
-        Rigorous empirical benchmarks across {BENCHMARK_DATA.length}+ programming languages. Measure
-        live inference speed, syntactic accuracy, and token throughput.
-      </p>
-
       {/* Explorer Container */}
-      <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+      <div
+        ref={tableRef}
+        className={cn(
+          "w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden sr-fade-up",
+          tableVisible && "is-visible"
+        )}
+        style={{ "--sr-delay": "100ms" } as React.CSSProperties}
+      >
         {/* Search & Filter Toolbar */}
         <div className="p-4 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex flex-col lg:flex-row items-center justify-between gap-3">
           {/* Search Input */}

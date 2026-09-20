@@ -1,0 +1,131 @@
+{
+  "$schema": "https://tr.designtokens.org/format/drafts/2023/tokens.json",
+  "name": "Anuvaad Design System Tokens",
+  "version": "2.0.0",
+  "global": {
+    "color": {
+      "amber": {
+        "50": { "$value": "#fffbeb", "$type": "color" },
+        "100": { "$value": "#fef3c7", "$type": "color" },
+        "200": { "$value": "#fde68a", "$type": "color" },
+        "300": { "$value": "#fcd34d", "$type": "color" },
+        "400": { "$value": "#fbbf24", "$type": "color" },
+        "500": { "$value": "#f59e0b", "$type": "color" },
+        "600": { "$value": "#d97706", "$type": "color" },
+        "700": { "$value": "#b45309", "$type": "color" },
+        "800": { "$value": "#92400e", "$type": "color" },
+        "900": { "$value": "#78350f", "$type": "color" }
+      },
+      "slate": {
+        "50": { "$value": "#f8fafc", "$type": "color" },
+        "100": { "$value": "#f1f5f9", "$type": "color" },
+        "200": { "$value": "#e2e8f0", "$type": "color" },
+        "300": { "$value": "#cbd5e1", "$type": "color" },
+        "400": { "$value": "#94a3b8", "$type": "color" },
+        "500": { "$value": "#64748b", "$type": "color" },
+        "600": { "$value": "#475569", "$type": "color" },
+        "700": { "$value": "#334155", "$type": "color" },
+        "800": { "$value": "#1e293b", "$type": "color" },
+        "900": { "$value": "#0f172a", "$type": "color" },
+        "950": { "$value": "#020617", "$type": "color" }
+      },
+      "obsidian": {
+        "base": { "$value": "#060a14", "$type": "color" },
+        "card": { "$value": "#0a0f1d", "$type": "color" },
+        "panel": { "$value": "#111827", "$type": "color" }
+      },
+      "status": {
+        "success": { "$value": "#10b981", "$type": "color" },
+        "warning": { "$value": "#f59e0b", "$type": "color" },
+        "danger": { "$value": "#ef4444", "$type": "color" },
+        "info": { "$value": "#06b6d4", "$type": "color" }
+      }
+    },
+    "fontFamilies": {
+      "sans": { "$value": "Inter, system-ui, -apple-system, sans-serif", "$type": "fontFamily" },
+      "mono": { "$value": "Geist Mono, JetBrains Mono, monospace", "$type": "fontFamily" }
+    },
+    "fontSizes": {
+      "display-2xl": { "$value": "28px", "$type": "dimension" },
+      "display-xl": { "$value": "24px", "$type": "dimension" },
+      "heading-lg": { "$value": "20px", "$type": "dimension" },
+      "heading-md": { "$value": "16px", "$type": "dimension" },
+      "body-sm": { "$value": "14px", "$type": "dimension" },
+      "body-xs": { "$value": "12px", "$type": "dimension" },
+      "label-xs": { "$value": "10px", "$type": "dimension" }
+    },
+    "fontWeights": {
+      "regular": { "$value": "400", "$type": "fontWeight" },
+      "medium": { "$value": "500", "$type": "fontWeight" },
+      "semibold": { "$value": "600", "$type": "fontWeight" },
+      "bold": { "$value": "700", "$type": "fontWeight" },
+      "black": { "$value": "900", "$type": "fontWeight" }
+    },
+    "lineHeights": {
+      "display-2xl": { "$value": "34px", "$type": "dimension" },
+      "heading-md": { "$value": "24px", "$type": "dimension" },
+      "body-sm": { "$value": "20px", "$type": "dimension" },
+      "body-xs": { "$value": "18px", "$type": "dimension" }
+    },
+    "spacing": {
+      "0": { "$value": "0px", "$type": "dimension" },
+      "1": { "$value": "4px", "$type": "dimension" },
+      "2": { "$value": "8px", "$type": "dimension" },
+      "3": { "$value": "12px", "$type": "dimension" },
+      "4": { "$value": "16px", "$type": "dimension" },
+      "5": { "$value": "20px", "$type": "dimension" },
+      "6": { "$value": "24px", "$type": "dimension" },
+      "8": { "$value": "32px", "$type": "dimension" },
+      "10": { "$value": "40px", "$type": "dimension" },
+      "12": { "$value": "48px", "$type": "dimension" },
+      "16": { "$value": "64px", "$type": "dimension" }
+    },
+    "borderRadius": {
+      "none": { "$value": "0px", "$type": "dimension" },
+      "sm": { "$value": "4px", "$type": "dimension" },
+      "md": { "$value": "8px", "$type": "dimension" },
+      "lg": { "$value": "12px", "$type": "dimension" },
+      "xl": { "$value": "16px", "$type": "dimension" },
+      "2xl": { "$value": "24px", "$type": "dimension" },
+      "full": { "$value": "9999px", "$type": "dimension" }
+    }
+  },
+  "light": {
+    "surface": {
+      "base": { "$value": "{color.slate.50}", "$type": "color" },
+      "card": { "$value": "#ffffff", "$type": "color" },
+      "panel": { "$value": "{color.slate.100}", "$type": "color" },
+      "input": { "$value": "{color.slate.50}", "$type": "color" }
+    },
+    "text": {
+      "primary": { "$value": "{color.slate.900}", "$type": "color" },
+      "secondary": { "$value": "{color.slate.700}", "$type": "color" },
+      "muted": { "$value": "{color.slate.500}", "$type": "color" },
+      "amber": { "$value": "{color.amber.700}", "$type": "color" }
+    },
+    "border": {
+      "subtle": { "$value": "{color.slate.200}", "$type": "color" },
+      "default": { "$value": "{color.slate.300}", "$type": "color" },
+      "active": { "$value": "{color.amber.500}", "$type": "color" }
+    }
+  },
+  "dark": {
+    "surface": {
+      "base": { "$value": "{color.obsidian.base}", "$type": "color" },
+      "card": { "$value": "{color.obsidian.card}", "$type": "color" },
+      "panel": { "$value": "{color.slate.900}", "$type": "color" },
+      "input": { "$value": "{color.slate.950}", "$type": "color" }
+    },
+    "text": {
+      "primary": { "$value": "{color.slate.50}", "$type": "color" },
+      "secondary": { "$value": "{color.slate.300}", "$type": "color" },
+      "muted": { "$value": "{color.slate.400}", "$type": "color" },
+      "amber": { "$value": "{color.amber.400}", "$type": "color" }
+    },
+    "border": {
+      "subtle": { "$value": "rgba(255, 255, 255, 0.08)", "$type": "color" },
+      "default": { "$value": "{color.slate.800}", "$type": "color" },
+      "active": { "$value": "{color.amber.500}", "$type": "color" }
+    }
+  }
+}

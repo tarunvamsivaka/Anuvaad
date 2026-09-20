@@ -97,7 +97,7 @@ function SidebarContent({
               <p className="text-xs font-bold text-amber-400 mb-1">Upgrade to Pro</p>
               <Link
                 href="/dashboard/billing"
-                className="block w-full text-center text-[10px] font-bold text-surface-base bg-amber-400 hover:bg-amber-300 rounded-lg py-1 transition-colors"
+                className="block w-full text-center text-[10px] font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg py-1 transition-colors"
               >
                 Upgrade Now
               </Link>

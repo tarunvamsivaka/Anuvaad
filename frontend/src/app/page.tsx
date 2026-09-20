@@ -54,6 +54,14 @@ export default function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <div className="relative min-h-screen w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-slate-900 selection:text-white dark:selection:bg-slate-100 dark:selection:text-slate-900 flex flex-col overflow-x-hidden">
+        {/* Skip to Main Content Link for Keyboard & Screen Reader Accessibility */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-white dark:focus:bg-slate-900 focus:text-slate-900 dark:focus:text-white focus:border focus:border-slate-300 dark:focus:border-slate-700 focus:rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 shadow-xl font-semibold text-xs"
+        >
+          Skip to main content
+        </a>
+
         {/* Floating Pill Navigation */}
         <WisprNavbar />
 
@@ -62,15 +70,15 @@ export default function Home() {
           <HeroControlBar />
 
           {/* Core Product Modules */}
-          <section id="playground" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+          <section className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
             <LivePlayground />
           </section>
 
-          <section id="workflow" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+          <section className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
             <GitPrWorkflowDemo />
           </section>
 
-          <section id="benchmarks" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
+          <section className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
             <BenchmarkExplorer />
           </section>
 

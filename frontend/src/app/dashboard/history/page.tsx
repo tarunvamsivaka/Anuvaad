@@ -271,7 +271,7 @@ export default function HistoryPage() {
                   className={cn(
                     "px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap",
                     activeMode === mode
-                      ? "bg-amber-500 text-surface-base shadow-sm"
+                      ? "bg-amber-500 text-slate-950 font-bold shadow-sm"
                       : "bg-transparent text-text-muted hover:text-text-primary hover:bg-surface-mid"
                   )}
                 >

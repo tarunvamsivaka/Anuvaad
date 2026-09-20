@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PR_FILES, PrFileEntry } from "./data/pr-demo-data";
+import { useScrollReveal } from "@/lib/use-scroll-reveal";
 
 export { PR_FILES };
 export type { PrFileEntry };
@@ -76,29 +77,45 @@ export function GitPrWorkflowDemo({
     setPrStatus("Open");
   };
 
+  const [headerRef, headerVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.15 });
+  const [cardRef, cardVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.08 });
+
   return (
     <div
       id="git-pr"
       className={cn("w-full flex flex-col items-center", className)}
       aria-label="Interactive Git PR Workflow Demo"
     >
-      {/* Module Eyebrow */}
-      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 mb-4">
-        <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>Automated Pull Request Code Reviews</span>
+      {/* Module Header */}
+      <div
+        ref={headerRef}
+        className={cn("flex flex-col items-center sr-fade-up", headerVisible && "is-visible")}
+      >
+        {/* Module Eyebrow */}
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 mb-4">
+          <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Automated Pull Request Code Reviews</span>
+        </div>
+
+        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 text-center">
+          Automate Architectural PR Reviews in Seconds
+        </h2>
+        <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">
+          Anuvaad analyzes code diffs, detects subtle architectural breaking
+          changes, and publishes executive summaries directly to your GitHub &
+          GitLab pipelines.
+        </p>
       </div>
 
-      <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 text-center">
-        Automate Architectural PR Reviews in Seconds
-      </h2>
-      <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">
-        Anuvaad analyzes code diffs, detects subtle architectural breaking
-        changes, and publishes executive summaries directly to your GitHub &
-        GitLab pipelines.
-      </p>
-
       {/* PR Workflow Card */}
-      <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+      <div
+        ref={cardRef}
+        className={cn(
+          "w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden sr-fade-up",
+          cardVisible && "is-visible"
+        )}
+        style={{ "--sr-delay": "100ms" } as React.CSSProperties}
+      >
         {/* PR Header Bar */}
         <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">

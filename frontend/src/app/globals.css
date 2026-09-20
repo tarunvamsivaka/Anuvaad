@@ -19,7 +19,7 @@
 @import "../design/css/components.css";
 
 /* ── TAILWIND CUSTOM VARIANT ──────────────────────────────── */
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark, .dark *));
 
 /* ── TAILWIND THEME BRIDGE ─────────────────────────────────── */
 /* Maps shadcn semantic tokens → Tailwind v4 color utilities   */
@@ -71,7 +71,34 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
+  /* Anuvaad Surfaces */
+  --color-surface-base:     var(--surface-base);
+  --color-surface-low:      var(--surface-low);
+  --color-surface-mid:      var(--surface-mid);
+  --color-surface-high:     var(--surface-high);
+  --color-surface-overlay:  var(--surface-overlay);
+  --color-surface-card:     var(--surface-card);
+  --color-surface-charcoal: var(--surface-charcoal);
+  --color-surface-panel:    var(--surface-panel);
+
+  /* Anuvaad Borders */
+  --color-border-faint:   var(--border-faint);
+  --color-border-subtle:  var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-medium:  var(--border-medium);
+  --color-border-active:  var(--border-active);
+  --color-border-focus:   var(--border-focus);
+
+  /* Anuvaad Text */
+  --color-text-primary:   var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted:     var(--text-muted);
+  --color-text-amber:     var(--text-amber);
+  --color-text-teal:      var(--text-teal);
+  --color-text-on-brand:  var(--text-on-brand);
+
   /* Anuvaad design token aliases in Tailwind color space */
+  --color-amber-400: #fbbf24;
   --color-amber-500: var(--amber-500);
   --color-amber-600: var(--amber-600);
   --color-amber-700: var(--amber-700);

@@ -44,30 +44,34 @@
 
 /* ── ACTIVITY BAR ─────────────────────────────────────────── */
 
+/* Activity bar is now animated via inline CSS transition in the
+   component (scaleY 0→1 using mount state), not via keyframe.
+   This class only sets base layout properties. */
 .activity-bar {
   transform-origin: bottom;
-  transform: scaleY(0);
-  animation: scale-in var(--dur-slower) var(--ease-out-expo) var(--delay, 0ms) forwards;
+  /* Smooth color + border-radius */
+  transition: background-color var(--dur-normal) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .activity-bar { animation: none; transform: scaleY(1); }
+  .activity-bar { transition: none; }
 }
 
 /* ── TOPBAR ───────────────────────────────────────────────── */
 
 .topbar {
-  height: 48px;
+  height: 60px;
   position: sticky;
   top: 0;
   z-index: var(--z-sticky);
-  background: rgba(248, 250, 252, 0.85);
+  background: rgba(255, 255, 255, 0.90);
   backdrop-filter: blur(var(--blur-lg));
-  border-bottom: 1px solid var(--border-faint);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .dark .topbar {
-  background: rgba(8, 12, 20, 0.80);
+  background: rgba(10, 15, 29, 0.90);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* ── SKELETON PULSE ───────────────────────────────────────── */
