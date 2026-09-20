@@ -210,15 +210,15 @@ export function WisprNavbar({
         </button>
       </div>
 
-      {/* Mobile Drawer — uses CSS grid trick for smooth height animation */}
+      {/* Mobile Drawer — uses CSS grid trick for smooth height animation when open, hidden when closed */}
       <div
         id="wispr-mobile-menu"
         className={cn(
-          "md:hidden mt-2 mx-auto max-w-5xl rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-xl pointer-events-auto overflow-hidden transition-all duration-300 ease-out",
-          mobileOpen ? "opacity-100" : "opacity-0 pointer-events-none"
+          "md:hidden mt-2 mx-auto max-w-5xl rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden transition-all duration-300 ease-out",
+          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none hidden"
         )}
         style={{
-          display: "grid",
+          display: mobileOpen ? "grid" : "none",
           gridTemplateRows: mobileOpen ? "1fr" : "0fr",
           transition: "grid-template-rows 0.3s ease-out, opacity 0.25s ease",
         }}
@@ -233,6 +233,7 @@ export function WisprNavbar({
                 <a
                   key={item.label}
                   href={item.href}
+                  tabIndex={mobileOpen ? 0 : -1}
                   onClick={() => setMobileOpen(false)}
                   className={cn(
                     "text-sm font-medium py-2 px-3 rounded-lg transition-all",
@@ -249,6 +250,7 @@ export function WisprNavbar({
               {onSignIn ? (
                 <button
                   type="button"
+                  tabIndex={mobileOpen ? 0 : -1}
                   onClick={() => { setMobileOpen(false); onSignIn(); }}
                   className="flex-1 text-center text-xs font-medium py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
@@ -257,6 +259,7 @@ export function WisprNavbar({
               ) : (
                 <Link
                   href="/signin"
+                  tabIndex={mobileOpen ? 0 : -1}
                   onClick={() => setMobileOpen(false)}
                   className="flex-1 text-center text-xs font-medium py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
@@ -267,6 +270,7 @@ export function WisprNavbar({
               {onGetStarted ? (
                 <button
                   type="button"
+                  tabIndex={mobileOpen ? 0 : -1}
                   onClick={() => { setMobileOpen(false); onGetStarted(); }}
                   className="flex-1 text-center text-xs font-bold py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors"
                 >
@@ -275,6 +279,7 @@ export function WisprNavbar({
               ) : (
                 <Link
                   href="/signup"
+                  tabIndex={mobileOpen ? 0 : -1}
                   onClick={() => setMobileOpen(false)}
                   className="flex-1 text-center text-xs font-bold py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors"
                 >
