@@ -10,22 +10,28 @@ from app.models.db_models import RepoEmbedding
 logger = structlog.get_logger(__name__)
 
 
-async def insert_repo_embeddings(db: AsyncSession, repository_name: str, chunks: list[dict[str, Any]]) -> int:
-    """
-    Inserts a list of repository chunks with their embeddings into the database.
+async def insert_repo_embeddings(
+    db: AsyncSession,
+    repository_name: str,
+    chunks: list[dict[str, Any]],
+    indexed_by: str | None = None,
+) -> int:
+    """Inserts a list of repository chunks with their embeddings into the database.
+
     chunks should be a list of dictionaries containing:
     - file_path: str
     - chunk_index: int
     - content: str
     - embedding: List[float]
     - provider: str (optional)
+    - indexed_by: str (optional)
     """
     if not chunks:
         return 0
 
+    from app.services.embedding import pad_embedding_to_1536
+
     try:
-        # In a massive production system, we'd use `bulk_insert_mappings`.
-        # For simplicity and given typical repo sizes, adding objects works fine.
         records = [
             RepoEmbedding(
                 id=uuid.uuid4(),
@@ -33,8 +39,9 @@ async def insert_repo_embeddings(db: AsyncSession, repository_name: str, chunks:
                 file_path=chunk["file_path"],
                 chunk_index=chunk["chunk_index"],
                 content=chunk["content"],
-                embedding=chunk["embedding"],
+                embedding=pad_embedding_to_1536(chunk["embedding"]) if isinstance(chunk.get("embedding"), list) else chunk.get("embedding"),
                 provider=chunk.get("provider", "hf"),
+                indexed_by=indexed_by or chunk.get("indexed_by"),
             )
             for chunk in chunks
         ]

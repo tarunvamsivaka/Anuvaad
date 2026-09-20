@@ -20,6 +20,7 @@ FIX-ECC (2026-07): Supabase migrated project JWT signing from HS256 to ECC
 This keeps near-zero-outbound-call performance while supporting the new keys.
 """
 
+import asyncio
 import os
 import threading
 import time
@@ -50,6 +51,14 @@ _jwks_cache: dict[str, Any] = {}  # kid → public key object
 _jwks_fetched_at: float = 0.0
 _JWKS_TTL = 3600.0  # re-fetch at most once per hour
 _jwks_lock = threading.Lock()
+_jwks_async_lock: asyncio.Lock | None = None
+
+
+def _get_jwks_lock() -> asyncio.Lock:
+    global _jwks_async_lock
+    if _jwks_async_lock is None:
+        _jwks_async_lock = asyncio.Lock()
+    return _jwks_async_lock
 
 
 async def _get_jwks_public_key(kid: str | None) -> Any | None:
@@ -58,7 +67,7 @@ async def _get_jwks_public_key(kid: str | None) -> Any | None:
 
     now = time.monotonic()
     if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
-        with _jwks_lock:
+        async with _get_jwks_lock():
             if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
                 if not SUPABASE_URL:
                     return None
@@ -88,12 +97,11 @@ async def _get_jwks_public_key(kid: str | None) -> Any | None:
                 _jwks_cache.update(new_cache)
                 _jwks_fetched_at = time.monotonic()
 
-    with _jwks_lock:
-        if kid and kid in _jwks_cache:
-            return _jwks_cache[kid]
-        if _jwks_cache:
-            return next(iter(_jwks_cache.values()))
-        return None
+    if kid and kid in _jwks_cache:
+        return _jwks_cache[kid]
+    if _jwks_cache:
+        return next(iter(_jwks_cache.values()))
+    return None
 
 
 def _peek_header(token: str) -> dict[str, str]:
@@ -277,6 +285,61 @@ async def get_user_email_from_request(
                 return await override()
             return override()
     return await get_user_email(request, credentials=credentials)
+
+
+async def get_optional_user_email(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> str | None:
+    """Authenticate a request and return the caller's email, or None if unauthenticated.
+
+    Guest requests or requests with missing credentials return None without raising 401.
+    """
+    # 1. API key (machine-to-machine, e.g. VSCode extension)
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        try:
+            return await _authenticate_api_key(api_key)
+        except HTTPException:
+            return None
+
+    # 2. Bearer JWT (browser sessions)
+    if credentials and isinstance(credentials, HTTPAuthorizationCredentials) and credentials.credentials:
+        try:
+            return await _authenticate_jwt(credentials.credentials)
+        except HTTPException:
+            return None
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.removeprefix("Bearer ").strip()
+        try:
+            return await _authenticate_jwt(token)
+        except HTTPException:
+            return None
+
+    return None
+
+
+async def get_optional_user_email_from_request(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+) -> str | None:
+    """Full optional auth function checking X-API-Key and Bearer JWT with dependency override support."""
+    if hasattr(request, "app") and hasattr(request.app, "dependency_overrides"):
+        override = (
+            request.app.dependency_overrides.get(get_optional_user_email_from_request)
+            or request.app.dependency_overrides.get(get_optional_user_email)
+            or request.app.dependency_overrides.get(get_user_email_from_request)
+            or request.app.dependency_overrides.get(get_user_email)
+        )
+        if override:
+            import inspect
+
+            if inspect.iscoroutinefunction(override):
+                return await override()
+            return override()
+    return await get_optional_user_email(request, credentials=credentials)
 
 
 async def get_user_pro_status(email: str) -> bool:

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
-from app.core.auth import get_user_email
+from app.core.auth import get_optional_user_email_from_request
 from app.core.quota import enforce_quotas_and_protection
 from app.core.rate_limit import rate_limiter
 from app.models.schemas import CodeToCodePayload
@@ -16,7 +16,7 @@ router = APIRouter()
 async def function_code_to_code(
     request: Request,
     payload: CodeToCodePayload,
-    email: str | None = Depends(get_user_email),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     validate_code_input(payload.raw_code)
     payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-code", email=email)

@@ -10,6 +10,20 @@ import ipaddress
 import re
 import sys
 
+import pytest
+
+
+@pytest.fixture
+def trusted_networks():
+    with open("nginx.conf", encoding="utf-8") as f:
+        content = f.read()
+    real_ip_lines = re.findall(r"set_real_ip_from\s+([^;]+);", content)
+    networks = []
+    for subnet_str in real_ip_lines:
+        net = ipaddress.ip_network(subnet_str.strip())
+        networks.append(net)
+    return networks
+
 
 def test_nginx_syntax_and_structure():
     print("\n--- [TEST 1] NGINX Syntax & Structural Directive Validation ---")
@@ -41,10 +55,8 @@ def test_nginx_syntax_and_structure():
     real_ip_lines = re.findall(r"set_real_ip_from\s+([^;]+);", content)
     assert len(real_ip_lines) >= 4, f"Expected at least 4 trusted subnets, found {len(real_ip_lines)}: {real_ip_lines}"
 
-    trusted_networks = []
     for subnet_str in real_ip_lines:
         net = ipaddress.ip_network(subnet_str.strip())
-        trusted_networks.append(net)
         print(f"  [PASS] Validated trusted CIDR: {net} (is_private={net.is_private}, is_loopback={net.is_loopback})")
 
     # 5. P3-INF-02: Check limit_req_status 429
@@ -61,8 +73,6 @@ def test_nginx_syntax_and_structure():
     assert re.search(r"real_ip_header\s+X-Forwarded-For\s*;", content), "real_ip_header X-Forwarded-For missing"
     assert re.search(r"real_ip_recursive\s+on\s*;", content), "real_ip_recursive on missing"
     print("  [PASS] real_ip_header and real_ip_recursive directives verified.")
-
-    return trusted_networks
 
 
 def simulate_nginx_real_ip_resolution(client_socket_ip, x_forwarded_for_header, trusted_networks, recursive=True):

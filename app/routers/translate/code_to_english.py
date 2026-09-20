@@ -3,8 +3,12 @@ import json
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from app.core.auth import get_user_email as get_current_user
-from app.core.auth import get_user_email_from_request
+from app.core.auth import (
+    get_optional_user_email_from_request,
+)
+from app.core.auth import (
+    get_user_email as get_current_user,
+)
 from app.core.cache import cache, cache_key
 from app.core.config import logger, metrics
 from app.core.quota import (
@@ -86,7 +90,7 @@ async def import_gist_code_to_english(
 async def function_translate_to_english_stream(
     request: Request,
     payload: CodePayload,
-    email: str | None = Depends(get_user_email_from_request),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     validate_code_input(payload.raw_code)
     payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english", email=email)
@@ -109,7 +113,7 @@ async def function_translate_to_english(
     request: Request,
     payload: CodePayload,
     background_tasks: BackgroundTasks,
-    email: str | None = Depends(get_user_email_from_request),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     validate_code_input(payload.raw_code)
     payload.raw_code = sanitise_input(payload.raw_code, mode="code-to-english/sync", email=email)
@@ -163,29 +167,14 @@ async def function_translate_to_english(
 
         await cache.put(key, result, 86400 * 7)
 
-        # Sprint 1 wiring: structural verification against source AST
-        verification_meta: dict = {}
+        # Extract source symbols for diagnostics and structured inspection
         try:
-            from app.services.ast_parser import verify_translation as _verify
+            from app.services.ast_parser import extract_symbols as _extract
 
-            translated_text = " ".join(b.get("english_translation", "") for b in result)
-            vr = _verify(payload.raw_code, payload.language, translated_text, "english")
-            verification_meta = {
-                "structural_similarity": round(vr.structural_similarity, 3),
-                "has_parse_errors": vr.has_parse_errors_in_target,
-                "warnings": vr.warnings,
-            }
-            if vr.structural_similarity < 0.6:
-                logger.warning(
-                    "Low structural similarity in code-to-english",
-                    score=vr.structural_similarity,
-                    missing=vr.missing_exports,
-                    has_errors=vr.has_parse_errors_in_target,
-                )
-            else:
-                logger.debug(f"Code-to-English structural verification: {verification_meta}")
+            source_symbols = _extract(payload.raw_code, payload.language)
+            logger.debug(f"Code-to-English source symbols extracted: {len(source_symbols)}")
         except Exception as _ve:
-            logger.debug(f"verify_translation skipped: {_ve}")
+            logger.debug(f"Source AST symbol extraction skipped: {_ve}")
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)

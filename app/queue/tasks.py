@@ -284,12 +284,13 @@ def process_large_file_task(
     default_retry_delay=300,
     retry_backoff=True,
 )
-def process_github_repo_task(repo_name: str, installation_id: str = None):
+def process_github_repo_task(repo_name: str, installation_id: str = None, user_email: str = None):
     """Background pipeline for GitHub repo embeddings.
 
     Arch#2.7: Implemented real GitHub API integration.
+    SEC-REPO-03: Tracks user_email to populate indexed_by column.
     """
-    logger.info(f"Celery: process_github_repo_task called for {repo_name}")
+    logger.info(f"Celery: process_github_repo_task called for {repo_name} (user: {user_email})")
     import os
 
     from app.core.database_session import AsyncSessionLocal
@@ -298,6 +299,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
         chunk_text,
         generate_embeddings_hf,
         generate_embeddings_openai,
+        pad_embedding_to_1536,
     )
     from app.services.github import fetch_repository_files
 
@@ -329,7 +331,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
 
         openai_key = os.environ.get("OPENAI_API_KEY")
         provider = "openai" if openai_key else "hf"
-        embedding_dim = 1536 if openai_key else 384
+        embedding_dim = 1536
 
         # We should chunk the embeddings request in case there are thousands of chunks
         BATCH_SIZE = 100
@@ -345,7 +347,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
 
                 for j, emb in enumerate(embeddings):
                     if j < len(batch) and isinstance(emb, list):
-                        batch[j]["embedding"] = emb
+                        batch[j]["embedding"] = pad_embedding_to_1536(emb)
                         batch[j]["provider"] = provider
                     elif j < len(batch):
                         # Fallback if the embedding is somehow malformed
@@ -354,7 +356,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None):
 
                 # Insert into DB
                 async with AsyncSessionLocal() as session:
-                    await insert_repo_embeddings(session, repo_name, batch)
+                    await insert_repo_embeddings(session, repo_name, batch, indexed_by=user_email)
             except Exception as e:
                 logger.error(f"Error processing batch {i} for {repo_name}: {e}")
 

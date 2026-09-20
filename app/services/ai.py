@@ -291,12 +291,26 @@ def _inject_symbol_contract(system_instruction: str, code: str, language: str) -
     if not code or not language:
         return system_instruction
 
+    # Extract actual code snippet if prompt was passed instead of raw code
+    actual_code = code
+    if "Code to Analyze/Translate:\n" in actual_code:
+        actual_code = actual_code.split("Code to Analyze/Translate:\n", 1)[1]
+    elif "```" in actual_code:
+        parts = actual_code.split("```")
+        if len(parts) >= 3:
+            first_block = parts[1]
+            lines = first_block.splitlines()
+            if lines and lines[0].strip().isalpha():
+                actual_code = "\n".join(lines[1:])
+            else:
+                actual_code = first_block
+
     try:
         import json as _json
 
         from app.services.ast_parser import build_symbol_contract
 
-        contract = build_symbol_contract(code, language)
+        contract = build_symbol_contract(actual_code, language)
         if not contract:
             return system_instruction  # Unsupported language — skip silently
 

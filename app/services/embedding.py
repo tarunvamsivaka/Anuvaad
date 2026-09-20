@@ -30,10 +30,23 @@ async def generate_embeddings_openai(texts: list[str]) -> list[list[float]]:
         return []
 
 
-async def generate_embeddings_hf(texts: list[str]) -> list[list[float]]:
+def pad_embedding_to_1536(vector: list[float]) -> list[float]:
+    """Pad or truncate embedding to 1536 dimensions for pgvector Vector(1536) compatibility.
+
+    Zero-padding preserves cosine similarity and cosine distance between vectors
+    while preventing pgvector dimension mismatch errors on Hugging Face (384 dim) fallback.
     """
-    Generate embeddings using Hugging Face inference API.
-    Returns a list of vectors of dimension 384.
+    if len(vector) == 1536:
+        return vector
+    if len(vector) < 1536:
+        return vector + [0.0] * (1536 - len(vector))
+    return vector[:1536]
+
+
+async def generate_embeddings_hf(texts: list[str]) -> list[list[float]]:
+    """Generate embeddings using Hugging Face inference API.
+
+    Returns a list of vectors padded to dimension 1536 for pgvector compatibility.
     """
     if not texts:
         return []
@@ -56,13 +69,13 @@ async def generate_embeddings_hf(texts: list[str]) -> list[list[float]]:
             result = response.json()
             if isinstance(result, list):
                 if len(result) > 0 and isinstance(result[0], float):
-                    return [result]  # Single text case
-                return result
+                    return [pad_embedding_to_1536(result)]  # Single text case
+                return [pad_embedding_to_1536(v) for v in result]
             return []
     except Exception as e:
         logger.error(f"Failed to generate embeddings via HF API: {e}")
         # Return dummy embeddings so the pipeline doesn't completely crash for free users
-        return [[0.0] * 384 for _ in texts]
+        return [[0.0] * 1536 for _ in texts]
 
 
 def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> list[str]:

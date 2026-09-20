@@ -41,6 +41,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+    networks:
+      default:
+        aliases:
+          - backend
     ports:
       - "8000:8000"
     env_file:

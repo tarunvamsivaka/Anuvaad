@@ -100,10 +100,10 @@ export default function DashboardPage() {
     {
       label: "Today's Translations",
       value: isPro ? "∞" : stats.today.toString(),
-      limit: isPro ? undefined : " / 10",
+      limit: isPro ? undefined : " / 25",
       icon: Code2,
       accent: "text-amber-500",
-      detail: isPro ? "Unlimited" : `${10 - stats.today} remaining`,
+      detail: isPro ? "Unlimited" : `${Math.max(0, 25 - stats.today)} remaining`,
     },
     {
       label: "This Week",
@@ -124,7 +124,7 @@ export default function DashboardPage() {
       value: isPro ? "Pro" : "Free",
       icon: Zap,
       accent: isPro ? "text-amber-500" : "text-text-muted",
-      detail: isPro ? "Unlimited access" : "10 / day",
+      detail: isPro ? "Unlimited access" : "25 / day",
     },
   ];
 
@@ -289,10 +289,10 @@ export default function DashboardPage() {
                   <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-text-secondary">Daily Quota</h2>
                 </div>
                 <div className="flex items-center gap-5">
-                  <QuotaRing used={stats.today} total={10} isPro={isPro} />
+                  <QuotaRing used={stats.today} total={25} isPro={isPro} />
                   <div>
                     <p className="text-sm font-bold text-text-primary">
-                      {stats.today >= 10 ? "Limit reached" : `${10 - stats.today} remaining`}
+                      {stats.today >= 25 ? "Limit reached" : `${25 - stats.today} remaining`}
                     </p>
                     <p className="text-[11px] text-text-muted mt-1">Resets at midnight UTC</p>
                     <Link

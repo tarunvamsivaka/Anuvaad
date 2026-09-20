@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from app.core.auth import get_user_email
+from app.core.auth import get_optional_user_email_from_request
 from app.core.cache import cache, cache_key
 from app.core.config import logger, metrics
 from app.core.quota import (
@@ -77,7 +77,7 @@ async def function_generate_from_english(
     request: Request,
     payload: GeneratePayload,
     background_tasks: BackgroundTasks,
-    email: str | None = Depends(get_user_email),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     validate_code_input(payload.prompt)
     payload.prompt = sanitise_input(payload.prompt, mode="generate-from-english", email=email)
@@ -186,7 +186,7 @@ async def function_generate_from_english(
 async def function_update_to_code(
     request: Request,
     payload: EnglishUpdatePayload,
-    email: str | None = Depends(get_user_email),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     # SEC-06: Sanitise all free-text fields before sending to LLM
     payload.modified_english = sanitise_input(payload.modified_english, mode="english-to-code", email=email)
@@ -223,7 +223,7 @@ async def function_sync_english_to_code(
     request: Request,
     payload: SyncEnglishToCodePayload,
     background_tasks: BackgroundTasks,
-    email: str | None = Depends(get_user_email),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     # SEC-07: Sanitise every block's english_translation before sending to LLM
     for block in payload.blocks:

@@ -3,7 +3,7 @@ import os
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
-from app.core.auth import get_user_email, get_user_pro_status
+from app.core.auth import get_optional_user_email_from_request, get_user_pro_status
 from app.core.cache import cache, cache_key
 from app.core.config import (
     ALLOWED_EXTENSIONS,
@@ -44,7 +44,7 @@ async def upload_file_translate(
     session_id: str | None = Form(None),
     repository_name: str | None = Form(None),
     file_path: str | None = Form(None),
-    email: str | None = Depends(get_user_email),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     filename = file.filename or ""
     ext = os.path.splitext(filename)[1].lower()

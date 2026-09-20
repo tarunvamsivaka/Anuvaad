@@ -28,7 +28,11 @@ from app.core.rate_limit import rate_limiter
 from app.models.db_models import RepoEmbedding
 from app.queue.tasks import process_github_repo_task
 from app.repositories.vectors import search_repo_embeddings
-from app.services.embedding import generate_embeddings_hf, generate_embeddings_openai
+from app.services.embedding import (
+    generate_embeddings_hf,
+    generate_embeddings_openai,
+    pad_embedding_to_1536,
+)
 
 logger = logging.getLogger("anuvaad")
 
@@ -106,7 +110,7 @@ async def index_repo(
         )
 
     # Enqueue background task
-    process_github_repo_task.delay(payload.repo_name)
+    process_github_repo_task.delay(payload.repo_name, user_email=user_email)
     return {"message": f"Started indexing {payload.repo_name}", "status": "accepted"}
 
 
@@ -157,7 +161,7 @@ async def search_repo(
         if not embeddings or not embeddings[0]:
             raise ValueError("Embedding generation returned an empty result")
 
-        query_embedding = embeddings[0]
+        query_embedding = pad_embedding_to_1536(embeddings[0])
     except Exception as e:
         logger.error(f"Embedding error for query '{payload.query[:50]}': {e}")
         raise HTTPException(status_code=500, detail="Failed to generate query embedding")

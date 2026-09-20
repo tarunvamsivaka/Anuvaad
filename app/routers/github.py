@@ -181,7 +181,7 @@ async def process_github_repo(
     # Verify the user has a connected GitHub token before enqueuing
     await _get_github_token(user_email)
 
-    process_github_repo_task.delay(repo_name)
+    process_github_repo_task.delay(repo_name, user_email=user_email)
     return {"message": f"Repository processing started for {repo_name}"}
 
 

@@ -8,7 +8,11 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from app.core.auth import get_user_email, get_user_pro_status
+from app.core.auth import (
+    get_optional_user_email_from_request,
+    get_user_email,
+    get_user_pro_status,
+)
 from app.core.cache import cache
 from app.core.config import (
     DEEPSEEK_API_KEY,
@@ -639,7 +643,7 @@ async def get_cache_stats(request: Request):
 
 
 @router.get("/usage")
-async def get_usage(email: str | None = Depends(get_user_email)):
+async def get_usage(email: str | None = Depends(get_optional_user_email_from_request)):
     """Return today's translation count and limit for the authenticated user."""
     if not email:
         raise HTTPException(status_code=401, detail="Unauthorized")

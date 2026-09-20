@@ -8,6 +8,7 @@ Business logic (signature verification, DB writes, email dispatch) lives in:
   app/domain/billing/service.py
 """
 
+import asyncio
 import json
 import os
 from datetime import datetime, timezone
@@ -17,7 +18,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 import app.compat  # noqa: F401
-from app.core.auth import get_client_ip, get_user_email, get_user_pro_status
+from app.core.auth import (
+    get_client_ip,
+    get_optional_user_email_from_request,
+    get_user_email,
+    get_user_pro_status,
+)
 from app.core.cache import cache
 from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
 from app.core.quota import get_today_usage_count
@@ -78,14 +84,15 @@ async def create_checkout_session(
         raise HTTPException(status_code=403, detail="Email mismatch: token does not belong to this user.")
 
     try:
-        subscription = razorpay_client.subscription.create(
+        subscription = await asyncio.to_thread(
+            razorpay_client.subscription.create,
             {
                 "plan_id": RAZORPAY_PRO_PLAN_ID,
                 "total_count": 12,
                 "quantity": 1,
                 "customer_notify": 1,
                 "notes": {"user_email": user_email},
-            }
+            },
         )
         return {
             "subscription_id": subscription["id"],
@@ -131,12 +138,13 @@ async def create_credit_checkout(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     try:
-        order = razorpay_client.order.create(
+        order = await asyncio.to_thread(
+            razorpay_client.order.create,
             {
                 "amount": 10000,
                 "currency": "INR",
                 "notes": {"type": "credits", "amount": 100, "user_email": user_email},
-            }
+            },
         )
         return {
             "order_id": order["id"],
@@ -214,7 +222,7 @@ async def get_subscription_status(
 @router.get("/check-credits")
 async def get_check_credits(
     request: Request,
-    email: str | None = Depends(get_user_email),
+    email: str | None = Depends(get_optional_user_email_from_request),
 ):
     """Return the user's current translation credit balance and remaining daily quota."""
     if not email:
