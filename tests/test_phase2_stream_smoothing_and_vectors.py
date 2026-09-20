@@ -18,6 +18,7 @@ from app.services.ai import (
 
 class MockChunk:
     """Helper to mock OpenAI/Groq streaming chunk deltas."""
+
     def __init__(self, content):
         self.choices = [MagicMock(delta=MagicMock(content=content))]
 
@@ -26,6 +27,7 @@ class TestStreamSmoothingBuffer:
     @pytest.mark.asyncio
     async def test_token_threshold_aggregation(self):
         """Verify rapid individual tokens are aggregated up to the token threshold (5)."""
+
         async def token_generator():
             for i in range(12):
                 yield MockChunk(f"t{i}")
@@ -46,6 +48,7 @@ class TestStreamSmoothingBuffer:
     @pytest.mark.asyncio
     async def test_time_window_flush_on_pause(self):
         """Verify tokens are flushed if a temporal window (25ms) passes even if below threshold."""
+
         async def slow_generator():
             yield MockChunk("first")
             yield MockChunk("second")
@@ -64,6 +67,7 @@ class TestStreamSmoothingBuffer:
     @pytest.mark.asyncio
     async def test_tail_flush_preserves_all_content(self):
         """Verify stream termination immediately flushes all trailing tokens."""
+
         async def short_generator():
             yield MockChunk("a")
             yield MockChunk("b")
@@ -197,8 +201,12 @@ class TestSmoothStreamEndToEnd:
         """Verify stream_code_to_english emits valid smoothed SSE packets and done event."""
         # Simulated JSON tokens emitted by LLM
         tokens = [
-            '{"id":', ' "block_1",', ' "code_snippet":', ' "print(1)",',
-            ' "english_translation":', ' "Prints one"}',
+            '{"id":',
+            ' "block_1",',
+            ' "code_snippet":',
+            ' "print(1)",',
+            ' "english_translation":',
+            ' "Prints one"}',
         ]
 
         async def mock_stream():

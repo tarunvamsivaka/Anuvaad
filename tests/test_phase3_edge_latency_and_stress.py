@@ -173,6 +173,7 @@ class TestStreamingStressAndBackpressure:
             patch("app.core.config.STREAM_ACQUIRE_TIMEOUT", 0.02),
             patch("app.services.ai.cache.get", new_callable=AsyncMock, return_value=None),
         ):
+
             async def consume_stream(idx: int):
                 collected = []
                 async for line in stream_code_to_english(
@@ -203,9 +204,7 @@ class TestStreamingStressAndBackpressure:
         assert success_count + busy_count == 25
 
         # CRITICAL: Verify semaphore was completely returned to initial capacity
-        assert sem._value == initial_slots, (
-            f"Semaphore leaked! Expected {initial_slots}, got {sem._value}"
-        )
+        assert sem._value == initial_slots, f"Semaphore leaked! Expected {initial_slots}, got {sem._value}"
 
     def test_memory_watermark_stability_under_load(self):
         """Verify memory watermark is bounded and queryable."""

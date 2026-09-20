@@ -763,4 +763,3 @@ async def cron_prune_database(request: Request):
 
     result = await prune_database_footprint_async()
     return JSONResponse(content={"success": True, "details": result})
-

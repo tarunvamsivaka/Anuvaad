@@ -39,6 +39,7 @@ class TestHybridTaskExecution:
 
     def test_hybrid_task_attributes_preserved(self):
         """Verify task attributes are preserved for Celery / inspect compatibility."""
+
         def sample_task():
             """Sample docstring."""
             pass
@@ -70,10 +71,7 @@ class TestCronPruneEndpoint:
         mock_prune.return_value = {"deleted_history": 12, "deleted_vectors": 5}
 
         with patch("app.core.config.CRON_SECRET", "valid-secret-123"):
-            res = client.post(
-                "/api/v1/cron/prune",
-                headers={"Authorization": "Bearer valid-secret-123"}
-            )
+            res = client.post("/api/v1/cron/prune", headers={"Authorization": "Bearer valid-secret-123"})
             assert res.status_code == 200
             data = res.json()
             assert data["success"] is True
@@ -87,10 +85,7 @@ class TestCronPruneEndpoint:
         mock_prune.return_value = {"deleted_history": 0, "deleted_vectors": 0}
 
         with patch("app.core.config.CRON_SECRET", "valid-secret-123"):
-            res = client.post(
-                "/api/v1/cron/prune",
-                headers={"X-Cron-Secret": "valid-secret-123"}
-            )
+            res = client.post("/api/v1/cron/prune", headers={"X-Cron-Secret": "valid-secret-123"})
             assert res.status_code == 200
             assert res.json()["success"] is True
             mock_prune.assert_awaited_once()
@@ -177,4 +172,3 @@ class TestBackgroundTaskDrainAndTracking:
                 await asyncio.sleep(0.01)
                 assert t not in _active_in_process_tasks
                 assert any("Intentional background failure" in record.message for record in caplog.records)
-

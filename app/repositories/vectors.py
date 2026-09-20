@@ -39,7 +39,9 @@ async def insert_repo_embeddings(
                 file_path=chunk["file_path"],
                 chunk_index=chunk["chunk_index"],
                 content=chunk["content"],
-                embedding=pad_embedding_to_1536(chunk["embedding"]) if isinstance(chunk.get("embedding"), list) else chunk.get("embedding"),
+                embedding=pad_embedding_to_1536(chunk["embedding"])
+                if isinstance(chunk.get("embedding"), list)
+                else chunk.get("embedding"),
                 provider=chunk.get("provider", "hf"),
                 indexed_by=indexed_by or chunk.get("indexed_by"),
             )

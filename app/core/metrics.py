@@ -164,9 +164,7 @@ class MetricsCollector:
                         "timestamp": int(time.time()),
                         "uptime_seconds": snap.get("uptime_seconds", 0),
                         "memory_watermark_mb": snap.get("memory_watermark_mb", 0.0),
-                        "historical_peak_memory_watermark_mb": snap.get(
-                            "historical_peak_memory_watermark_mb", 0.0
-                        ),
+                        "historical_peak_memory_watermark_mb": snap.get("historical_peak_memory_watermark_mb", 0.0),
                         "cache_hit_ratio": snap.get("cache_hit_ratio", 0.0),
                         "total_requests": sum(snap.get("total_requests", {}).values()),
                         "total_errors": sum(snap.get("total_errors", {}).values()),
