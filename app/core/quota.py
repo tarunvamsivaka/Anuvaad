@@ -49,7 +49,11 @@ def estimate_tokens(text: str) -> int:
 
 
 async def check_and_track_groq_limits(prompt_text: str, expected_output_tokens: int = 1500) -> None:
-    """Track and enforce Groq Free Tier TPM (100k) and RPM (6k) sliding window limits."""
+    """Track and enforce Groq Free Tier TPM (100k) and RPM (6k) sliding window limits.
+
+    Uses a single atomic Lua EVAL to increment both rpm and tpm counters in one
+    Redis round-trip, cutting Upstash command consumption by 50% at this hot-path.
+    """
     now = datetime.now(UTC)
     minute_str = now.strftime("%Y%m%d%H%M")
 
@@ -59,8 +63,8 @@ async def check_and_track_groq_limits(prompt_text: str, expected_output_tokens: 
     estimated_input = estimate_tokens(prompt_text)
     total_estimated = estimated_input + expected_output_tokens
 
-    current_rpm = await cache.incr_rate_limit(rpm_key, window=120)
-    current_tpm = await cache.incr_rate_limit_by(tpm_key, amount=total_estimated, window=120)
+    # Single atomic round-trip: INCRBY rpm_key by 1, INCRBY tpm_key by total_estimated
+    current_rpm, current_tpm = await cache.incr_rate_limit_atomic(rpm_key, tpm_key, amount2=total_estimated, window=120)
 
     max_rpm = int(os.getenv("GROQ_MAX_RPM", "6000"))
     max_tpm = int(os.getenv("GROQ_MAX_TPM", "100000"))

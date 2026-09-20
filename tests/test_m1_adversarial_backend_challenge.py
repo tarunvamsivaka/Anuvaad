@@ -49,6 +49,7 @@ from app.repositories.workspace import (  # noqa: E402
 # Vector 1: TranslationHistory and UserSubscription Model Stress Tests
 # ==============================================================================
 
+
 class TestTranslationHistoryAdversarial:
     """Stress-test TranslationHistory column definitions, properties, and SQL compilation."""
 
@@ -59,26 +60,32 @@ class TestTranslationHistoryAdversarial:
         assert cols["character_count"].type.python_type is int
         assert "char_count" not in cols
 
-    @pytest.mark.parametrize("input_val,expected_out", [
-        (0, 0),
-        (1, 1),
-        (-100, -100),
-        (2147483647, 2147483647),  # Max 32-bit signed int
-        (10**9, 10**9),
-        (None, 0),  # char_count property returns 0 when character_count is None
-    ])
+    @pytest.mark.parametrize(
+        "input_val,expected_out",
+        [
+            (0, 0),
+            (1, 1),
+            (-100, -100),
+            (2147483647, 2147483647),  # Max 32-bit signed int
+            (10**9, 10**9),
+            (None, 0),  # char_count property returns 0 when character_count is None
+        ],
+    )
     def test_instantiation_with_character_count(self, input_val, expected_out):
         h = TranslationHistory(character_count=input_val)
         assert h.character_count == input_val
         assert h.char_count == expected_out
 
-    @pytest.mark.parametrize("input_val,expected_out", [
-        (0, 0),
-        (42, 42),
-        (-500, -500),
-        (2147483647, 2147483647),
-        (None, 0),
-    ])
+    @pytest.mark.parametrize(
+        "input_val,expected_out",
+        [
+            (0, 0),
+            (42, 42),
+            (-500, -500),
+            (2147483647, 2147483647),
+            (None, 0),
+        ],
+    )
     def test_instantiation_with_legacy_char_count_alias(self, input_val, expected_out):
         h = TranslationHistory(char_count=input_val)
         assert h.character_count == input_val
@@ -141,17 +148,21 @@ class TestUserSubscriptionAdversarial:
 # Vector 2: github_token Repository Robustness and Datetime Tests
 # ==============================================================================
 
+
 class TestGithubTokenRepositoryAdversarial:
     """Stress-test save_github_token, get_github_token, and delete_github_token."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("token_payload", [
-        "ghp_standardToken1234567890abcdef",
-        "github_pat_11AAAAAAA_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-        "token_with_utf8_🚀_unicode_ñ_বাংলা_漢字",
-        "X" * 4096,  # 4KB token stress
-        "",  # Empty token string
-    ])
+    @pytest.mark.parametrize(
+        "token_payload",
+        [
+            "ghp_standardToken1234567890abcdef",
+            "github_pat_11AAAAAAA_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "token_with_utf8_🚀_unicode_ñ_বাংলা_漢字",
+            "X" * 4096,  # 4KB token stress
+            "",  # Empty token string
+        ],
+    )
     async def test_save_github_token_various_payloads(self, token_payload):
         """Verify save_github_token works across various token lengths, formats, and charsets."""
         with patch("app.repositories.github_token.AsyncSessionLocal") as mock_session_cls:
@@ -224,17 +235,21 @@ class TestGithubTokenRepositoryAdversarial:
 # Vector 3: workspace Repository Robustness
 # ==============================================================================
 
+
 class TestWorkspaceRepositoryAdversarial:
     """Stress-test create_workspace and workspace member operations."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("ws_name", [
-        "Engineering",
-        "🚀 Team Alpha 2026",
-        "W" * 500,  # Long name
-        "   Whitespace Padded   ",
-        "Workspace-with-symbols-!@#$%^&*()_+=<>?",
-    ])
+    @pytest.mark.parametrize(
+        "ws_name",
+        [
+            "Engineering",
+            "🚀 Team Alpha 2026",
+            "W" * 500,  # Long name
+            "   Whitespace Padded   ",
+            "Workspace-with-symbols-!@#$%^&*()_+=<>?",
+        ],
+    )
     async def test_create_workspace_names(self, ws_name):
         """Verify create_workspace works with various workspace names."""
         with patch("app.repositories.workspace.AsyncSessionLocal") as mock_session_cls:
@@ -292,12 +307,14 @@ class TestWorkspaceRepositoryAdversarial:
 # Vector 4: Migration 001 Security and Logic Adversarial Tests
 # ==============================================================================
 
+
 class TestMigration001Adversarial:
     """Stress-test migration 001 token encryption logic under adversarial conditions."""
 
     def _load_migration_001(self):
         import importlib.util
         from pathlib import Path
+
         mig_path = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "001_encrypt_github_tokens.py"
         spec = importlib.util.spec_from_file_location("mig_001_adv", mig_path)
         module = importlib.util.module_from_spec(spec)
@@ -309,7 +326,9 @@ class TestMigration001Adversarial:
         mig_001 = self._load_migration_001()
 
         for invalid_key in [None, ""]:
-            with patch.dict(os.environ, {"TOKEN_ENCRYPTION_KEY": invalid_key} if invalid_key is not None else {}, clear=True):
+            with patch.dict(
+                os.environ, {"TOKEN_ENCRYPTION_KEY": invalid_key} if invalid_key is not None else {}, clear=True
+            ):
                 if "TOKEN_ENCRYPTION_KEY" in os.environ and invalid_key is None:
                     del os.environ["TOKEN_ENCRYPTION_KEY"]
 
@@ -348,7 +367,8 @@ class TestMigration001Adversarial:
 
                     # Check updates executed
                     update_calls = [
-                        call for call in mock_session.execute.call_args_list
+                        call
+                        for call in mock_session.execute.call_args_list
                         if len(call[0]) > 1 and "token" in call[0][1]
                     ]
                     # Exactly 1 row should be updated (user1)
@@ -365,13 +385,17 @@ class TestMigration001Adversarial:
 # Vector 5: Migration 010 Index Lineage and Model Consistency
 # ==============================================================================
 
+
 class TestMigration010Adversarial:
     """Stress-test migration 010 index declarations and model sync."""
 
     def _load_migration_010(self):
         import importlib.util
         from pathlib import Path
-        mig_path = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "010_add_performance_and_fk_indexes.py"
+
+        mig_path = (
+            Path(__file__).resolve().parent.parent / "alembic" / "versions" / "010_add_performance_and_fk_indexes.py"
+        )
         spec = importlib.util.spec_from_file_location("mig_010_adv", mig_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)

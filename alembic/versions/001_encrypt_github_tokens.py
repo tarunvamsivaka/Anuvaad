@@ -43,9 +43,7 @@ def upgrade() -> None:
 
     encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY")
     if not encryption_key:
-        raise RuntimeError(
-            "TOKEN_ENCRYPTION_KEY environment variable is required to run token encryption migration."
-        )
+        raise RuntimeError("TOKEN_ENCRYPTION_KEY environment variable is required to run token encryption migration.")
 
     fernet = Fernet(encryption_key.encode())
 
@@ -85,9 +83,7 @@ def downgrade() -> None:
 
     encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY")
     if not encryption_key:
-        raise RuntimeError(
-            "TOKEN_ENCRYPTION_KEY environment variable is required to run token decryption migration."
-        )
+        raise RuntimeError("TOKEN_ENCRYPTION_KEY environment variable is required to run token decryption migration.")
 
     fernet = Fernet(encryption_key.encode())
 

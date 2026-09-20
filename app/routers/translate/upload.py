@@ -77,7 +77,6 @@ async def upload_file_translate(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
 
-
     if len(contents) > max_size:
         limit_kb = max_size // 1024
         raise HTTPException(

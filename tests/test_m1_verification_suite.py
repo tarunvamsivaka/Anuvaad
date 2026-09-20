@@ -54,6 +54,5 @@ def test_verify_vitest_run():
     if stderr_clean:
         print("\n[VITEST STDERR]\n" + stderr_clean)
     assert res.returncode == 0, (
-        f"npx vitest run failed with returncode {res.returncode}:\n"
-        f"{stdout_clean}\n{stderr_clean}"
+        f"npx vitest run failed with returncode {res.returncode}:\n{stdout_clean}\n{stderr_clean}"
     )

@@ -341,7 +341,7 @@ async def delete_account(email: str = Depends(get_user_email)):
                 # Supabase returns {"users": [...]} or a list depending on version
                 users = users_data.get("users", users_data) if isinstance(users_data, dict) else users_data
                 user_id = None
-                for u in (users if isinstance(users, list) else []):
+                for u in users if isinstance(users, list) else []:
                     if u.get("email", "").lower() == email.lower():
                         user_id = u.get("id")
                         break

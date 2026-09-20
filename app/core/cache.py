@@ -219,6 +219,59 @@ class RedisCache:
         self.fallback.set(key, val, window)
         return val
 
+    # Lua script: atomically INCRBY key1 by 1 and INCRBY key2 by amount2,
+    # setting EXPIRE on each only when the key is newly created (TTL == -1).
+    # Returns {new_count_key1, new_count_key2}.
+    # Using KEYS[] + ARGV[] follows Redis cluster slot safety rules.
+    _DUAL_INCR_LUA = """
+local c1 = redis.call('INCRBY', KEYS[1], 1)
+if redis.call('TTL', KEYS[1]) == -1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+local c2 = redis.call('INCRBY', KEYS[2], ARGV[2])
+if redis.call('TTL', KEYS[2]) == -1 then
+    redis.call('EXPIRE', KEYS[2], ARGV[1])
+end
+return {c1, c2}
+"""
+
+    async def incr_rate_limit_atomic(
+        self,
+        key1: str,
+        key2: str,
+        amount2: int,
+        window: int,
+    ) -> tuple[int, int]:
+        """Increment two rate-limit counters atomically in a single Redis round-trip.
+
+        Uses a Lua script executed via EVAL so both INCRBYs and conditional EXPIREs
+        are sent in one command, saving one Redis round-trip per translation request.
+        This halves Upstash command consumption compared to calling incr_rate_limit()
+        + incr_rate_limit_by() sequentially.
+
+        Returns (new_count_key1, new_count_key2).
+        On Redis error falls back to sequential in-memory updates.
+        """
+        if self.client:
+            try:
+                results = await self.client.eval(
+                    self._DUAL_INCR_LUA,
+                    2,  # numkeys
+                    key1,
+                    key2,
+                    window,
+                    amount2,
+                )
+                return int(results[0]), int(results[1])
+            except Exception as e:
+                logger.error(f"Redis incr_rate_limit_atomic error: {e}")
+        # In-memory fallback: replicate the Lua logic
+        v1 = (self.fallback.get(key1) or 0) + 1
+        self.fallback.set(key1, v1, window)
+        v2 = (self.fallback.get(key2) or 0) + amount2
+        self.fallback.set(key2, v2, window)
+        return v1, v2
+
     async def ping(self):
         if self.client:
             if self._backend == "redis":

@@ -56,6 +56,7 @@ from app.models.db_models import (
 # 1. ALEMBIC MIGRATION GRAPH LINEARITY & HEAD INTEGRITY
 # ============================================================================
 
+
 def test_alembic_single_head_and_no_branches():
     """Verify that Alembic has exactly one head and zero branches/forks."""
     config = Config("alembic.ini")
@@ -63,7 +64,7 @@ def test_alembic_single_head_and_no_branches():
 
     heads = script.get_heads()
     assert len(heads) == 1, f"Expected exactly 1 head, found {len(heads)}: {heads}"
-    assert heads[0] == "011_add_indexed_by_to_repo_embeddings"
+    assert heads[0] == "012_grant_anon_translation_count"
 
     bases = script.get_bases()
     assert len(bases) == 1, f"Expected exactly 1 base, found {len(bases)}: {bases}"
@@ -76,6 +77,7 @@ def test_alembic_linear_dag_traversal():
     script = ScriptDirectory.from_config(config)
 
     expected_chain = [
+        "012_grant_anon_translation_count",
         "011_add_indexed_by_to_repo_embeddings",
         "010_add_performance_and_fk_indexes",
         "009_phase_2a",
@@ -108,6 +110,7 @@ def test_alembic_linear_dag_traversal():
 # ============================================================================
 # 2. MIGRATION 010 UPGRADE / DOWNGRADE FUNCTIONAL TESTS
 # ============================================================================
+
 
 def test_migration_010_upgrade_and_downgrade_mock_operations():
     """Verify op.create_index and op.drop_index calls in 010_add_performance_and_fk_indexes."""
@@ -216,7 +219,9 @@ def test_migration_010_real_sqlite_upgrade_downgrade_cycle():
         inspector = inspect(conn)
         sub_indexes_after = {idx["name"]: idx["column_names"] for idx in inspector.get_indexes("user_subscriptions")}
         api_indexes_after = {idx["name"]: idx["column_names"] for idx in inspector.get_indexes("api_keys")}
-        desired_indexes_after = {idx["name"]: idx["column_names"] for idx in inspector.get_indexes("desired_index_states")}
+        desired_indexes_after = {
+            idx["name"]: idx["column_names"] for idx in inspector.get_indexes("desired_index_states")
+        }
 
         assert "ix_user_subscriptions_razorpay_sub" not in sub_indexes_after
         assert "ix_api_keys_key_prefix" not in api_indexes_after
@@ -229,12 +234,15 @@ def test_migration_010_real_sqlite_upgrade_downgrade_cycle():
         conn.commit()
 
         inspector = inspect(conn)
-        assert "ix_user_subscriptions_razorpay_sub" in {idx["name"] for idx in inspector.get_indexes("user_subscriptions")}
+        assert "ix_user_subscriptions_razorpay_sub" in {
+            idx["name"] for idx in inspector.get_indexes("user_subscriptions")
+        }
 
 
 # ============================================================================
 # 3. COMPOSITE INDEX & QUERY PLAN VERIFICATION (002 & MODELS)
 # ============================================================================
+
 
 def test_translation_history_composite_index_definition_and_query_plan():
     """Verify ix_translation_history_user_created composite index and query plan."""
@@ -269,7 +277,9 @@ def test_translation_history_composite_index_definition_and_query_plan():
         # Check EXPLAIN QUERY PLAN for primary history listing query:
         # SELECT * FROM translation_history WHERE user_email = 'user_1@example.com' ORDER BY created_at DESC
         plan = conn.execute(
-            text("EXPLAIN QUERY PLAN SELECT * FROM translation_history WHERE user_email = 'user_1@example.com' ORDER BY created_at DESC")
+            text(
+                "EXPLAIN QUERY PLAN SELECT * FROM translation_history WHERE user_email = 'user_1@example.com' ORDER BY created_at DESC"
+            )
         ).fetchall()
 
         plan_str = " ".join(str(row) for row in plan)
@@ -280,6 +290,7 @@ def test_translation_history_composite_index_definition_and_query_plan():
 # ============================================================================
 # 4. ORM MODEL SCHEMA INDEX CONFORMANCE
 # ============================================================================
+
 
 def test_model_indexes_match_migrations():
     """Verify that all index=True or explicit Index declarations on ORM models match migration definitions."""
@@ -316,6 +327,7 @@ def test_model_indexes_match_migrations():
 # ============================================================================
 # 5. TRANSLATIONHISTORY MODEL COMPATIBILITY & ALIAS BEHAVIOR
 # ============================================================================
+
 
 def test_translation_history_orm_persistence_with_char_count_alias():
     """Verify TranslationHistory persistence, querying, and updating with char_count alias."""
@@ -373,6 +385,7 @@ def test_translation_history_orm_persistence_with_char_count_alias():
 # 6. GLOBAL INDEX UNIQUENESS & COLLISION AUDIT ACROSS ALL MIGRATIONS
 # ============================================================================
 
+
 def test_global_index_names_are_unique_across_migrations():
     """Verify that no two migrations define conflicting or duplicate index names."""
     versions_dir = Path("alembic/versions")
@@ -396,6 +409,7 @@ def test_global_index_names_are_unique_across_migrations():
 # ============================================================================
 # 7. FOREIGN KEY SUPPORTING INDEX COVERAGE AUDIT
 # ============================================================================
+
 
 def test_all_foreign_key_columns_have_supporting_indexes():
     """Verify that all Foreign Key relationships on SQLAlchemy models have index=True or explicit Indexes.
@@ -442,6 +456,7 @@ def test_all_foreign_key_columns_have_supporting_indexes():
 # 8. QUERY PLAN UTILIZATION FOR ALL 010 INDEXES
 # ============================================================================
 
+
 def test_all_010_indexes_query_plans():
     """Verify that SQLite/Postgres query optimizer actively selects all 5 indexes created in 010."""
     engine = create_engine("sqlite:///:memory:")
@@ -480,7 +495,10 @@ def test_all_010_indexes_query_plans():
         # Populate dummy rows
         conn.execute(
             user_subscriptions.insert(),
-            [{"id": f"sub_{i}", "user_email": f"u{i}@test.com", "razorpay_subscription_id": f"sub_rzp_{i}"} for i in range(100)],
+            [
+                {"id": f"sub_{i}", "user_email": f"u{i}@test.com", "razorpay_subscription_id": f"sub_rzp_{i}"}
+                for i in range(100)
+            ],
         )
         conn.execute(
             api_keys.insert(),
@@ -493,21 +511,48 @@ def test_all_010_indexes_query_plans():
         conn.commit()
 
         # 1. user_subscriptions query plan
-        p1 = " ".join(str(r) for r in conn.execute(text("EXPLAIN QUERY PLAN SELECT * FROM user_subscriptions WHERE razorpay_subscription_id = 'sub_rzp_10'")).fetchall())
+        p1 = " ".join(
+            str(r)
+            for r in conn.execute(
+                text(
+                    "EXPLAIN QUERY PLAN SELECT * FROM user_subscriptions WHERE razorpay_subscription_id = 'sub_rzp_10'"
+                )
+            ).fetchall()
+        )
         assert "ix_user_subscriptions_razorpay_sub" in p1
 
         # 2. api_keys key_prefix query plan
-        p2 = " ".join(str(r) for r in conn.execute(text("EXPLAIN QUERY PLAN SELECT * FROM api_keys WHERE key_prefix = 'prefix_10'")).fetchall())
+        p2 = " ".join(
+            str(r)
+            for r in conn.execute(
+                text("EXPLAIN QUERY PLAN SELECT * FROM api_keys WHERE key_prefix = 'prefix_10'")
+            ).fetchall()
+        )
         assert "ix_api_keys_key_prefix" in p2
 
         # 3. api_keys user_email query plan
-        p3 = " ".join(str(r) for r in conn.execute(text("EXPLAIN QUERY PLAN SELECT * FROM api_keys WHERE user_email = 'u10@test.com'")).fetchall())
+        p3 = " ".join(
+            str(r)
+            for r in conn.execute(
+                text("EXPLAIN QUERY PLAN SELECT * FROM api_keys WHERE user_email = 'u10@test.com'")
+            ).fetchall()
+        )
         assert "ix_api_keys_user_email" in p3
 
         # 4. desired_index_states source_state_id query plan
-        p4 = " ".join(str(r) for r in conn.execute(text("EXPLAIN QUERY PLAN SELECT * FROM desired_index_states WHERE source_state_id = 'ss_10'")).fetchall())
+        p4 = " ".join(
+            str(r)
+            for r in conn.execute(
+                text("EXPLAIN QUERY PLAN SELECT * FROM desired_index_states WHERE source_state_id = 'ss_10'")
+            ).fetchall()
+        )
         assert "ix_desired_index_states_source_state" in p4
 
         # 5. desired_index_states index_configuration_id query plan
-        p5 = " ".join(str(r) for r in conn.execute(text("EXPLAIN QUERY PLAN SELECT * FROM desired_index_states WHERE index_configuration_id = 'ic_10'")).fetchall())
+        p5 = " ".join(
+            str(r)
+            for r in conn.execute(
+                text("EXPLAIN QUERY PLAN SELECT * FROM desired_index_states WHERE index_configuration_id = 'ic_10'")
+            ).fetchall()
+        )
         assert "ix_desired_index_states_index_config" in p5

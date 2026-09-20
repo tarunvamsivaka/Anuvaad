@@ -63,3 +63,14 @@ vscode-extension/out/
 vscode-extension/*.vsix
 vscode-extension/.vscode-test/
 .agents/
+
+# Certificates, private keys, and credential stores
+*.pem
+*.key
+*.cert
+*.pfx
+*.p12
+id_rsa*
+id_ed25519*
+secrets.tar*
+

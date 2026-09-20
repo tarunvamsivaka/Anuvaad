@@ -9,7 +9,7 @@ import sys
 
 
 def parse_yaml_with_node(filepath):
-    cmd = f"""node -e "const fs = require('fs'); const yaml = require('js-yaml'); console.log(JSON.stringify(yaml.load(fs.readFileSync('{filepath.replace(chr(92), '/')}', 'utf8'))));" """
+    cmd = f"""node -e "const fs = require('fs'); const yaml = require('js-yaml'); console.log(JSON.stringify(yaml.load(fs.readFileSync('{filepath.replace(chr(92), "/")}', 'utf8'))));" """
     res = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd="frontend")
     if res.returncode != 0:
         raise RuntimeError(f"Failed to parse YAML {filepath}: {res.stderr}")
@@ -44,7 +44,9 @@ def test_docker_compose_files():
     compose = parse_yaml_with_node("../docker-compose.yml")
     services = compose.get("services", {})
     assert "api" in services and "frontend" in services and "nginx" in services and "redis" in services
-    print("  [PASS] docker-compose.yml: All core services (api, frontend, nginx, redis, worker, worker-heavy, beat) declared.")
+    print(
+        "  [PASS] docker-compose.yml: All core services (api, frontend, nginx, redis, worker, worker-heavy, beat) declared."
+    )
 
     prod_compose = parse_yaml_with_node("../docker-compose.prod.yml")
     prod_services = prod_compose.get("services", {})
@@ -64,6 +66,7 @@ if __name__ == "__main__":
             test_nginx_syntax_and_structure,
             test_render_and_ci_configurations,
         )
+
         trusted = test_nginx_syntax_and_structure()
         test_nginx_spoofing_adversarial_scenarios(trusted)
         test_dockerfile_ast_and_compatibility()

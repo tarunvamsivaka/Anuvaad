@@ -12,7 +12,7 @@ interface TranslationState {
   setIsStreaming: (isStreaming: boolean) => void;
 
   outputBlocks: TranslationBlock[] | null;
-  setOutputBlocks: (blocks: TranslationBlock[] | null) => void;
+  setOutputBlocks: (blocks: TranslationBlock[] | null | ((prev: TranslationBlock[] | null) => TranslationBlock[] | null)) => void;
 
   originalBlocks: TranslationBlock[] | null;
   setOriginalBlocks: (blocks: TranslationBlock[] | null) => void;
@@ -43,7 +43,9 @@ export const useTranslationStore = create<TranslationState>((set) => ({
   setIsStreaming: (isStreaming) => set({ isStreaming }),
 
   outputBlocks: null,
-  setOutputBlocks: (outputBlocks) => set({ outputBlocks }),
+  setOutputBlocks: (outputBlocks) => set((state) => ({ 
+    outputBlocks: typeof outputBlocks === 'function' ? outputBlocks(state.outputBlocks) : outputBlocks 
+  })),
 
   originalBlocks: null,
   setOriginalBlocks: (originalBlocks) => set({ originalBlocks }),

@@ -52,7 +52,9 @@ def test_nginx_syntax_and_structure():
     print("  [PASS] limit_req_status 429 verified.")
 
     # 6. P3-INF-03: Check client_max_body_size 25m
-    assert re.search(r"client_max_body_size\s+25m\s*;", content, re.IGNORECASE), "P3-INF-03: client_max_body_size 25m; missing or malformed"
+    assert re.search(r"client_max_body_size\s+25m\s*;", content, re.IGNORECASE), (
+        "P3-INF-03: client_max_body_size 25m; missing or malformed"
+    )
     print("  [PASS] client_max_body_size 25m verified.")
 
     # 7. Check real_ip_recursive on; and real_ip_header X-Forwarded-For;
@@ -114,43 +116,43 @@ def test_nginx_spoofing_adversarial_scenarios(trusted_networks):
             "socket_ip": "203.0.113.195",
             "xff": "127.0.0.1",
             "expected": "203.0.113.195",
-            "desc": "Attacker tries to bypass rate limit by claiming to be localhost."
+            "desc": "Attacker tries to bypass rate limit by claiming to be localhost.",
         },
         {
             "name": "Direct Attacker from Public Internet (Spoofed XFF: 10.0.0.1, 8.8.8.8)",
             "socket_ip": "198.51.100.44",
             "xff": "10.0.0.1, 8.8.8.8",
             "expected": "198.51.100.44",
-            "desc": "Attacker tries to spoof an internal network IP and a victim IP."
+            "desc": "Attacker tries to spoof an internal network IP and a victim IP.",
         },
         {
             "name": "Legitimate Traffic via Docker Gateway / Internal Reverse Proxy (172.18.0.1)",
             "socket_ip": "172.18.0.1",
             "xff": "198.51.100.50",
             "expected": "198.51.100.50",
-            "desc": "Proxy in Docker 172.16.0.0/12 subnet forwards single client IP."
+            "desc": "Proxy in Docker 172.16.0.0/12 subnet forwards single client IP.",
         },
         {
             "name": "Multi-Hop Internal Proxy Chain (VPC Load Balancer + Docker Bridge)",
             "socket_ip": "172.18.0.2",
             "xff": "198.51.100.50, 10.0.1.5",
             "expected": "198.51.100.50",
-            "desc": "Client connects to VPC NLB (10.0.1.5) which forwards to Docker Proxy (172.18.0.2)."
+            "desc": "Client connects to VPC NLB (10.0.1.5) which forwards to Docker Proxy (172.18.0.2).",
         },
         {
             "name": "Attacker Prepending Fake IP to X-Forwarded-For through Internal Proxy Chain",
             "socket_ip": "172.18.0.2",
             "xff": "1.1.1.1, 203.0.113.88, 10.0.1.5",
             "expected": "203.0.113.88",
-            "desc": "Attacker at 203.0.113.88 injected '1.1.1.1'; recursive traversal stops at last untrusted hop."
+            "desc": "Attacker at 203.0.113.88 injected '1.1.1.1'; recursive traversal stops at last untrusted hop.",
         },
         {
             "name": "Localhost Reverse Proxy (127.0.0.1)",
             "socket_ip": "127.0.0.1",
             "xff": "203.0.113.99",
             "expected": "203.0.113.99",
-            "desc": "Local proxy on same machine forwarding remote client."
-        }
+            "desc": "Local proxy on same machine forwarding remote client.",
+        },
     ]
 
     all_passed = True
@@ -235,15 +237,17 @@ def test_render_and_ci_configurations():
     with open("render.yaml", encoding="utf-8") as f:
         render_yaml = f.read()
 
-    assert "startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${WEB_CONCURRENCY:-2}" in render_yaml, \
-        "render.yaml startCommand not properly parameterized with WEB_CONCURRENCY:-2"
+    assert (
+        "startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${WEB_CONCURRENCY:-2}" in render_yaml
+    ), "render.yaml startCommand not properly parameterized with WEB_CONCURRENCY:-2"
     print("  [PASS] render.yaml startCommand properly parameterized with ${WEB_CONCURRENCY:-2}.")
 
     with open(".github/workflows/ci.yml", encoding="utf-8") as f:
         ci_yml = f.read()
 
-    assert "Run VS Code Extension Tests" in ci_yml or "run: npm test" in ci_yml, \
+    assert "Run VS Code Extension Tests" in ci_yml or "run: npm test" in ci_yml, (
         "ci.yml vscode-extension job does not run npm test"
+    )
     print("  [PASS] ci.yml vscode-extension job executes npm test.")
 
 

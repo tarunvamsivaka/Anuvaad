@@ -1,11 +1,15 @@
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from app.core.auth import get_user_email
 from app.core.cache import cache, cache_key
 from app.core.config import logger, metrics
-from app.core.quota import enforce_quotas_and_protection, record_successful_completion
+from app.core.quota import (
+    enforce_quotas_and_protection,
+    record_successful_completion,
+    save_translation_background,
+)
 from app.core.rate_limit import rate_limiter
 from app.models.schemas import (
     EnglishUpdatePayload,
@@ -26,10 +30,53 @@ from .dependencies import sanitise_input, validate_code_input
 router = APIRouter()
 
 
+def _dispatch_history(
+    background_tasks: BackgroundTasks,
+    *,
+    user_email: str,
+    mode: str,
+    source_language: str,
+    target_language: str,
+    input_text: str,
+    blocks: list,
+    model_used: str,
+    workspace_id: str | None = None,
+    session_id: str | None = None,
+    repository_name: str | None = None,
+    file_path: str | None = None,
+) -> None:
+    """Dispatch translation history persistence with Celery → BackgroundTasks fallback.
+
+    Tries to enqueue the task in Celery (zero extra latency via broker).
+    If the Celery broker is unreachable (e.g. Render free-tier deployment without
+    a worker service), falls back gracefully to FastAPI BackgroundTasks so the HTTP
+    response is never blocked and no history is silently lost.
+    """
+    kwargs = dict(
+        user_email=user_email,
+        mode=mode,
+        source_language=source_language,
+        target_language=target_language,
+        input_text=input_text,
+        blocks=blocks,
+        model_used=model_used,
+        workspace_id=workspace_id,
+        session_id=session_id,
+        repository_name=repository_name,
+        file_path=file_path,
+    )
+    try:
+        save_translation_history_task.delay(**kwargs)
+    except Exception as celery_err:
+        logger.warning(f"Celery unavailable ({celery_err!s}); falling back to BackgroundTasks for history save.")
+        background_tasks.add_task(save_translation_background, **kwargs)
+
+
 @router.post("/generate-from-english")
 async def function_generate_from_english(
     request: Request,
     payload: GeneratePayload,
+    background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
     validate_code_input(payload.prompt)
@@ -50,7 +97,8 @@ async def function_generate_from_english(
         await metrics.record_cache_hit()
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
+            _dispatch_history(
+                background_tasks,
                 user_email=email,
                 mode="English → Code",
                 source_language="english",
@@ -84,7 +132,8 @@ async def function_generate_from_english(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
+            _dispatch_history(
+                background_tasks,
                 user_email=email,
                 mode="English → Code",
                 source_language="english",
@@ -111,7 +160,8 @@ async def function_generate_from_english(
         if stale_result:
             if email:
                 await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                save_translation_history_task.delay(
+                _dispatch_history(
+                    background_tasks,
                     user_email=email,
                     mode="English → Code",
                     source_language="english",
@@ -171,6 +221,7 @@ async def function_update_to_code(
 async def function_sync_english_to_code(
     request: Request,
     payload: SyncEnglishToCodePayload,
+    background_tasks: BackgroundTasks,
     email: str | None = Depends(get_user_email),
 ):
     # SEC-07: Sanitise every block's english_translation before sending to LLM
@@ -217,7 +268,8 @@ async def function_sync_english_to_code(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
+            _dispatch_history(
+                background_tasks,
                 user_email=email,
                 mode="Two-Way Sync",
                 source_language=payload.language,

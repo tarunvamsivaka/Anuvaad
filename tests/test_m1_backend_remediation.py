@@ -148,7 +148,9 @@ def test_p2_db_02_migration_010_structure():
     import importlib.util
     from pathlib import Path
 
-    migration_path = Path(__file__).resolve().parent.parent / "alembic" / "versions" / "010_add_performance_and_fk_indexes.py"
+    migration_path = (
+        Path(__file__).resolve().parent.parent / "alembic" / "versions" / "010_add_performance_and_fk_indexes.py"
+    )
     spec = importlib.util.spec_from_file_location("migration_010", migration_path)
     mig_010 = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mig_010)

@@ -296,6 +296,20 @@ class MockRedisCache:
         self._rate_limits[key] = val
         return val
 
+    async def incr_rate_limit_atomic(
+        self,
+        key1: str,
+        key2: str,
+        amount2: int,
+        window: int,
+    ) -> tuple[int, int]:
+        """Mock of RedisCache.incr_rate_limit_atomic for unit tests."""
+        v1 = self._rate_limits.get(key1, 0) + 1
+        self._rate_limits[key1] = v1
+        v2 = self._rate_limits.get(key2, 0) + amount2
+        self._rate_limits[key2] = v2
+        return v1, v2
+
     async def ping(self):
         return True
 

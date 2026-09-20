@@ -200,7 +200,9 @@ class DesiredIndexState(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     import_id = Column(UUID(as_uuid=True), ForeignKey("repository_imports.id"), nullable=False, index=True)
     source_state_id = Column(UUID(as_uuid=True), ForeignKey("source_states.id"), nullable=False, index=True)
-    index_configuration_id = Column(UUID(as_uuid=True), ForeignKey("index_configurations.id"), nullable=False, index=True)
+    index_configuration_id = Column(
+        UUID(as_uuid=True), ForeignKey("index_configurations.id"), nullable=False, index=True
+    )
     incarnation_id = Column(UUID(as_uuid=True), default=uuid.uuid4, nullable=False, unique=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 

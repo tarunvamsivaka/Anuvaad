@@ -26,3 +26,9 @@ PyGithub>=2.3.0
 cryptography>=42.0.0
 PyJWT>=2.8.0
 argon2-cffi>=25.1.0
+
+# Sprint 1: Tree-sitter AST parser (Semantic Verification Harness)
+tree-sitter>=0.23.0
+tree-sitter-python>=0.23.0
+tree-sitter-go>=0.23.0
+tree-sitter-typescript>=0.23.0
