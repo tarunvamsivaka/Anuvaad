@@ -1,0 +1,3 @@
+## 2024-05-24 - [React.memo & Functional State Updates]
+**Learning:** In list rendering (like `OutputPanel` mapping over blocks), wrapping list items (`BlockCard`) in `React.memo` is completely broken if the parent passes an inline function (e.g. `(val) => handle(idx, val)`). Even when using `useCallback`, it's easy to break memoization by capturing volatile state.
+**Action:** When memoizing list items, always use `useCallback` coupled with **functional state updates** (`setState(prev => ...)`). Ensure the child component's props are modified to accept the item's index, so it can pass it back to the stable callback.
