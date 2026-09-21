@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput } from "lucide-react";
@@ -69,9 +69,18 @@ export function OutputPanel({
     setOutputBlocks,
   } = useTranslationStore();
 
-  const fullCodeText = outputBlocks
-    ? outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n")
-    : "";
+  const fullCodeText = useMemo(() => {
+    return outputBlocks
+      ? outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n")
+      : "";
+  }, [outputBlocks]);
+
+  // Also memoize the English fallback text to avoid mapping on every render
+  const fullEnglishText = useMemo(() => {
+    return outputBlocks
+      ? outputBlocks.map((b) => b.english_translation).filter(Boolean).join("\n\n")
+      : "";
+  }, [outputBlocks]);
 
   const monacoLang = languages.find((l) => l.value === targetLanguage)?.monacoId || targetLanguage;
 
@@ -365,7 +374,7 @@ export function OutputPanel({
                     height="100%"
                     language={monacoLang}
                     theme={isDark ? "vs-dark" : "light"}
-                    value={fullCodeText || outputBlocks.map((b) => b.english_translation).join("\n\n")}
+                    value={fullCodeText || fullEnglishText}
                     options={{
                       ...monacoOptions,
                       readOnly: true,
@@ -387,7 +396,7 @@ export function OutputPanel({
                   <DiffEditor
                     height="100%"
                     original={input}
-                    modified={fullCodeText || (outputBlocks ? outputBlocks.map((b) => b.english_translation).join("\n\n") : "")}
+                    modified={fullCodeText || fullEnglishText}
                     language={monacoLang}
                     theme={isDark ? "vs-dark" : "light"}
                     options={{
