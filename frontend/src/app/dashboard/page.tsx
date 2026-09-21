@@ -239,16 +239,23 @@ export default function DashboardPage() {
           </div>
 
           <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {isLoading ? (
-              [1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl skeleton-pulse" />)
-            ) : recentTranslations.length === 0 ? (
-              <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed border-border-subtle p-8 text-center bg-surface-card">
-                <FileText className="h-6 w-6 text-text-muted mb-2" />
-                <p className="text-sm font-semibold text-text-primary">No recent work</p>
-                <p className="text-xs text-text-muted mt-1 max-w-[260px]">Start your first translation to see it here.</p>
-              </div>
-            ) : (
-              recentTranslations.slice(0, 3).map((tx, idx) => (
+            {(() => {
+              const recentList = Array.isArray(recentTranslations)
+                ? recentTranslations
+                : ((recentTranslations as unknown as { items?: typeof recentTranslations })?.items ?? []);
+              if (isLoading) {
+                return [1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-xl skeleton-pulse" />);
+              }
+              if (recentList.length === 0) {
+                return (
+                  <div className="col-span-full flex flex-col items-center justify-center rounded-xl border border-dashed border-border-subtle p-8 text-center bg-surface-card">
+                    <FileText className="h-6 w-6 text-text-muted mb-2" />
+                    <p className="text-sm font-semibold text-text-primary">No recent work</p>
+                    <p className="text-xs text-text-muted mt-1 max-w-[260px]">Start your first translation to see it here.</p>
+                  </div>
+                );
+              }
+              return recentList.slice(0, 3).map((tx, idx) => (
                 <Link
                   key={tx.id}
                   href={`/dashboard/translate?historyId=${tx.id}`}
@@ -273,8 +280,8 @@ export default function DashboardPage() {
                     <ArrowRight className="h-3 w-3 text-text-muted group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </Link>
-              ))
-            )}
+              ));
+            })()}
           </div>
         </Card>
 

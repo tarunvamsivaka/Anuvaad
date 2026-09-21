@@ -559,6 +559,58 @@ async def smooth_stream_chunks(
         yield "".join(buffer)
 
 
+def _build_streaming_providers(
+    requested_model: str | None,
+    use_r1: bool,
+) -> list[tuple[AsyncOpenAI, str, str]]:
+    """Build prioritised list of (client, model_name, display_name) for streaming requests."""
+    providers: list[tuple[AsyncOpenAI, str, str]] = []
+    groq_client = _get_groq_client()
+    openrouter_client = _get_openrouter_client()
+
+    req = (requested_model or "").lower().strip()
+
+    if req in ("groq-llama-3.1-8b", "llama-3.1-8b", "8b"):
+        if groq_client:
+            providers.append((groq_client, "llama-3.1-8b-instant", "Groq Llama 3.1 8B"))
+            providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Llama 3.3 70B Backup"))
+    elif req in ("groq-llama-3.3-70b", "llama-3.3-70b", "70b"):
+        if groq_client:
+            providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Llama 3.3 70B"))
+            providers.append((groq_client, "llama-3.1-8b-instant", "Groq Llama 3.1 8B Backup"))
+    elif "claude" in req:
+        if openrouter_client:
+            providers.append((openrouter_client, "anthropic/claude-3.5-sonnet", "OpenRouter Claude 3.5 Sonnet"))
+        if groq_client:
+            providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Fallback"))
+            providers.append((groq_client, "llama-3.1-8b-instant", "Groq 8B Fallback"))
+    elif "gpt" in req:
+        if openrouter_client:
+            providers.append((openrouter_client, "openai/gpt-4o", "OpenRouter GPT-4o"))
+        if groq_client:
+            providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Fallback"))
+            providers.append((groq_client, "llama-3.1-8b-instant", "Groq 8B Fallback"))
+    elif "deepseek" in req:
+        if groq_client:
+            providers.append((groq_client, "deepseek-r1-distill-llama-70b", "Groq DeepSeek R1"))
+        if openrouter_client:
+            providers.append((openrouter_client, "deepseek/deepseek-r1", "OpenRouter DeepSeek R1"))
+        if groq_client:
+            providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Llama Fallback"))
+    else:
+        # Default / Auto (Optimal): try primary then fast fallback
+        if groq_client:
+            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
+            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
+            providers.append((groq_client, primary_model, "Groq Primary"))
+            providers.append((groq_client, fallback_model, "Groq Backup"))
+        if openrouter_client:
+            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
+            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+
+    return providers
+
+
 async def stream_code_to_english(
     payload: CodePayload,
     email: str | None,
@@ -569,11 +621,14 @@ async def stream_code_to_english(
     cooldown: int = 0,
 ):
     try:
-        # Intelligent LLM Routing (Groq Only)
+        # Intelligent LLM Routing
+        requested_model = getattr(payload, "model", None)
         model_name = "deepseek-r1" if use_r1 else "standard"
         model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
 
-        key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
+        key = cache_key(
+            payload.raw_code, payload.language, "code-to-english", f"{model_name}:{requested_model or 'auto'}"
+        )
 
         # Check Cache
         cached = await cache.get(key)
@@ -603,18 +658,7 @@ async def stream_code_to_english(
         await metrics.record_cache_miss()
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
-        providers = []
-        groq_client = _get_groq_client()
-        if groq_client:
-            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
-            providers.append((groq_client, primary_model, "Groq Primary"))
-            providers.append((groq_client, fallback_model, "Groq Backup"))
-
-        openrouter_client = _get_openrouter_client()
-        if openrouter_client:
-            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
-            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+        providers = _build_streaming_providers(requested_model, use_r1)
 
         messages = [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
@@ -665,8 +709,7 @@ async def stream_code_to_english(
                 except Exception as stream_err:
                     await metrics.record_model_call(p_model, is_error=True)
                     logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
-                    if full_content:
-                        break
+                    full_content = ""
                     continue
         finally:
             if acquired:
@@ -745,7 +788,8 @@ async def stream_code_to_code(
     cooldown: int = 0,
 ):
     try:
-        # Intelligent LLM Routing (Groq Only)
+        # Intelligent LLM Routing
+        requested_model = getattr(payload, "model", None)
         model_name = "deepseek-r1" if use_r1 else "standard"
         model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
 
@@ -753,7 +797,7 @@ async def stream_code_to_code(
             payload.raw_code,
             f"{payload.source_language}->{payload.target_language}",
             "code-to-code",
-            model_name,
+            f"{model_name}:{requested_model or 'auto'}",
         )
 
         # Check Cache
@@ -784,18 +828,7 @@ async def stream_code_to_code(
         await metrics.record_cache_miss()
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
-        providers = []
-        groq_client = _get_groq_client()
-        if groq_client:
-            primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
-            fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
-            providers.append((groq_client, primary_model, "Groq Primary"))
-            providers.append((groq_client, fallback_model, "Groq Backup"))
-
-        openrouter_client = _get_openrouter_client()
-        if openrouter_client:
-            or_model = "deepseek/deepseek-r1" if use_r1 else "meta-llama/llama-3.3-70b-instruct"
-            providers.append((openrouter_client, or_model, "OpenRouter Backup"))
+        providers = _build_streaming_providers(requested_model, use_r1)
 
         system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
@@ -849,8 +882,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 except Exception as stream_err:
                     await metrics.record_model_call(p_model, is_error=True)
                     logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
-                    if full_content:
-                        break
+                    full_content = ""
                     continue
         finally:
             if acquired:

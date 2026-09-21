@@ -13,6 +13,7 @@ interface UseFileImportProps {
   setSourceLanguage: (lang: string) => void;
   setGistSource: (source: { username: string; filename: string } | null) => void;
   onQuotaExceeded?: (error: QuotaError) => void;
+  accessToken?: string;
 }
 
 export function useFileImport({
@@ -22,6 +23,7 @@ export function useFileImport({
   setSourceLanguage,
   setGistSource,
   onQuotaExceeded,
+  accessToken,
 }: UseFileImportProps) {
   const { setInput } = useTranslationStore();
   const [showGistInput, setShowGistInput] = useState(false);
@@ -66,7 +68,13 @@ export function useFileImport({
     setGistLoading(true);
     try {
       // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
-      const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}`);
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+      const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}`, {
+        headers,
+      });
       if (!res.ok) {
         if (res.status === 429) {
           const retryAfterHeader = res.headers.get("Retry-After");
@@ -105,7 +113,13 @@ export function useFileImport({
     setGistLoading(true);
     try {
       // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
-      const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(path)}`);
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
+      const res = await fetch(`/api/import-gist?url=${encodeURIComponent(gistUrl.trim())}&file_path=${encodeURIComponent(path)}`, {
+        headers,
+      });
       if (!res.ok) {
         if (res.status === 429) {
           const retryAfterHeader = res.headers.get("Retry-After");

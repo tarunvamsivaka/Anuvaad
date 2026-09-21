@@ -11,6 +11,7 @@ class CodePayload(BaseModel):
     session_id: str | None = None
     repository_name: str | None = None
     file_path: str | None = None
+    model: str | None = None
 
     @field_validator("raw_code")
     @classmethod
@@ -41,6 +42,7 @@ class GeneratePayload(BaseModel):
     session_id: str | None = None
     repository_name: str | None = None
     file_path: str | None = None
+    model: str | None = None
 
     @field_validator("prompt")
     @classmethod
@@ -66,6 +68,7 @@ class CodeToCodePayload(BaseModel):
     session_id: str | None = None
     repository_name: str | None = None
     file_path: str | None = None
+    model: str | None = None
 
     @field_validator("raw_code")
     @classmethod

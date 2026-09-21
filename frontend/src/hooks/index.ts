@@ -52,7 +52,9 @@ export function useTranslationStats(_userEmail: string | undefined, accessToken:
     total: statsData.total || 0,
   } : { today: 0, week: 0, total: 0 };
 
-  const recentTranslations: TranslationHistoryItem[] = historyData || [];
+  const recentTranslations: TranslationHistoryItem[] = Array.isArray(historyData)
+    ? historyData
+    : (historyData?.items && Array.isArray(historyData.items) ? historyData.items : []);
   const isLoading = !!accessToken && (statsLoading || historyLoading);
 
   return { stats, recentTranslations, isLoading };

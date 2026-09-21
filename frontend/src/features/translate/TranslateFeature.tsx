@@ -59,6 +59,7 @@ export function TranslateFeature() {
   const [filePath, setFilePath] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: number } | null>(null);
   const [gistSource, setGistSource] = useState<{ username: string; filename: string } | null>(null);
+  const [selectedModel, setSelectedModel] = useState("auto");
 
   // FIX-22 (P2-10): authFetcher is defined at module level in swr-fetcher.ts
   //   → SWR key is a stable [url, token] tuple; fetcher reference never changes.
@@ -90,6 +91,7 @@ export function TranslateFeature() {
     session,
     repositoryName,
     filePath,
+    selectedModel,
   });
 
   const handleClear = () => {
@@ -128,6 +130,7 @@ export function TranslateFeature() {
     setSourceLanguage,
     setGistSource,
     onQuotaExceeded: setQuotaError,
+    accessToken: session?.access_token,
   });
 
   const {
@@ -215,6 +218,8 @@ export function TranslateFeature() {
             setRepositoryName={setRepositoryName}
             filePath={filePath}
             setFilePath={setFilePath}
+            selectedModel={selectedModel}
+            onModelChange={setSelectedModel}
           />
         }
         inputPanel={

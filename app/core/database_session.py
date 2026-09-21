@@ -88,6 +88,11 @@ if not _is_sqlite:
         _engine_kwargs["max_overflow"] = 0
         _engine_kwargs["pool_timeout"] = 30.0
         _engine_kwargs["pool_recycle"] = int(os.getenv("DB_POOL_RECYCLE", "300"))
+        # Disable prepared statement caching for PgBouncer transaction pooler
+        _engine_kwargs["connect_args"] = {
+            "statement_cache_size": 0,
+            "prepared_statement_cache_size": 0,
+        }
     else:
         # Direct connection: let SQLAlchemy manage the pool
         _engine_kwargs["pool_size"] = int(os.getenv("DB_POOL_SIZE", "5"))

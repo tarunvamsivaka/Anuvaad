@@ -62,6 +62,42 @@ describe("useTranslationStats data shape", () => {
     expect(stats.week).toBe(0);
     expect(stats.total).toBe(0);
   });
+
+  it("extracts recentTranslations safely when historyData is an object with items", () => {
+    const historyData = {
+      items: [{ id: "tx-1", mode: "Code → English", created_at: "2026-09-21" }],
+      next_cursor: "cursor-abc",
+      has_more: true,
+    };
+    const recentTranslations = Array.isArray(historyData)
+      ? historyData
+      : (historyData?.items && Array.isArray(historyData.items) ? historyData.items : []);
+
+    expect(Array.isArray(recentTranslations)).toBe(true);
+    expect(recentTranslations).toHaveLength(1);
+    expect(recentTranslations[0].id).toBe("tx-1");
+  });
+
+  it("extracts recentTranslations safely when historyData is already a raw array", () => {
+    const historyData = [{ id: "tx-2", mode: "English → Code", created_at: "2026-09-21" }];
+    const recentTranslations = Array.isArray(historyData)
+      ? historyData
+      : (historyData as any)?.items ?? [];
+
+    expect(Array.isArray(recentTranslations)).toBe(true);
+    expect(recentTranslations).toHaveLength(1);
+    expect(recentTranslations[0].id).toBe("tx-2");
+  });
+
+  it("extracts empty array when historyData is null or undefined", () => {
+    const historyData = undefined;
+    const recentTranslations = Array.isArray(historyData)
+      ? historyData
+      : ((historyData as any)?.items && Array.isArray((historyData as any).items) ? (historyData as any).items : []);
+
+    expect(Array.isArray(recentTranslations)).toBe(true);
+    expect(recentTranslations).toHaveLength(0);
+  });
 });
 
 // ── useSubscriptionStatus data shape ─────────────────────────────────────────

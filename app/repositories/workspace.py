@@ -7,6 +7,8 @@ Phase 5 (Arch#2.1).
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import delete, select
 
 from app.core.config import logger
@@ -99,16 +101,17 @@ async def get_member(workspace_id: str, email: str) -> dict | None:
 
 
 async def add_member(
-    workspace_id: str,
+    workspace_id: str | uuid.UUID,
     email: str,
     role: str = "member",
 ) -> bool:
     """Add a member to a workspace. Returns True on success."""
     async with AsyncSessionLocal() as session:
         try:
+            ws_id = uuid.UUID(str(workspace_id)) if isinstance(workspace_id, str) else workspace_id
             session.add(
                 WorkspaceMember(
-                    workspace_id=workspace_id,
+                    workspace_id=ws_id,
                     user_email=email,
                     role=role,
                 )

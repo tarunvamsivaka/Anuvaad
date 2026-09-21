@@ -113,7 +113,10 @@ export default function WorkspacePage() {
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ name: newWorkspaceName.trim() }),
       });
-      if (!res.ok) throw new Error("Failed to create workspace");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        throw new Error(errData?.detail || `Failed to create workspace (${res.status})`);
+      }
       toast.success("Workspace created successfully");
       setNewWorkspaceName("");
       await refreshWorkspaces();

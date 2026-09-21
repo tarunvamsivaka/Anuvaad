@@ -29,6 +29,7 @@ interface UseTranslationStreamProps {
   session: any;
   repositoryName: string;
   filePath: string;
+  selectedModel?: string;
 }
 
 export function useTranslationStream({
@@ -41,6 +42,7 @@ export function useTranslationStream({
   session,
   repositoryName,
   filePath,
+  selectedModel,
 }: UseTranslationStreamProps) {
   const {
     input,
@@ -115,6 +117,7 @@ export function useTranslationStream({
         setSessionId(currentSessionId);
       }
       body.session_id = currentSessionId;
+      if (selectedModel) body.model = selectedModel;
       if (repositoryName) body.repository_name = repositoryName;
       if (filePath) body.file_path = filePath;
       
