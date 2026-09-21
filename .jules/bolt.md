@@ -1,0 +1,3 @@
+## 2024-05-17 - [OutputPanel BlockCard Rendering Performance]
+**Learning:** `OutputPanel` renders a list of `BlockCard`s using `outputBlocks.map()`. The `BlockCard` component is memoized using `React.memo`, but `OutputPanel` recreates `fullCodeText` (which maps over `outputBlocks`) on every render. More importantly, we can memoize the `fullCodeText` variable using `useMemo` so that we don't unnecessarily map and filter the `outputBlocks` array on every render, which is expensive as the array gets larger. Additionally, `handleEditBlock` could be memoized better.
+**Action:** Use `useMemo` for `fullCodeText` in `OutputPanel` to prevent redundant array operations during re-renders, fulfilling the performance optimization mission.
