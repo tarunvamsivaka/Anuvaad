@@ -70,6 +70,38 @@ export function BenchmarkExplorer({
   const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [sortBy, setSortBy] = useState<"latency" | "accuracy" | "name">(initialSort);
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
+  const [benchmarkSource, setBenchmarkSource] = useState<LanguageBenchmark[]>(BENCHMARK_DATA);
+  const [verifiedTimestamp, setVerifiedTimestamp] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadLatestBenchmarks() {
+      try {
+        const res = await fetch("/data/benchmarks-latest.json");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.benchmarks?.length && isMounted) {
+            const updated = BENCHMARK_DATA.map((item) => {
+              const fresh = data.benchmarks.find(
+                (b: any) => b.language.toLowerCase() === item.language.toLowerCase()
+              );
+              return fresh ? { ...item, ...fresh } : item;
+            });
+            setBenchmarkSource(updated);
+            if (data.metadata?.evaluated_at) {
+              setVerifiedTimestamp(new Date(data.metadata.evaluated_at).toLocaleDateString());
+            }
+          }
+        }
+      } catch {
+        // Fallback to static BENCHMARK_DATA during SSR or testing
+      }
+    }
+    loadLatestBenchmarks();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const categories = [
     "All",
@@ -93,7 +125,7 @@ export function BenchmarkExplorer({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [deepDiveOpen]);
 
-  const filteredData = BENCHMARK_DATA.filter((item) => {
+  const filteredData = benchmarkSource.filter((item) => {
     const matchesSearch = item.language
       .toLowerCase()
       .includes(searchTerm.toLowerCase());

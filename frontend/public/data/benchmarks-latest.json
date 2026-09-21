@@ -1,0 +1,185 @@
+{
+  "metadata": {
+    "schema_version": "1.0.0",
+    "evaluated_at": "2026-09-21T16:46:21.079614+00:00",
+    "runner": "Anuvaad Verifiable Evaluation Harness (Zero-Budget CI)",
+    "total_canonical_problems": 5,
+    "execution_time_sec": 0.0013,
+    "cloud_hosting_burn_usd": "$0.00 / month"
+  },
+  "summary": {
+    "mean_accuracy_pct": 99.62,
+    "mean_latency_sec": 1.13,
+    "mean_tokens_per_sec": 164.0,
+    "pass_rate_pct": 100.0
+  },
+  "benchmarks": [
+    {
+      "language": "Rust",
+      "category": "Systems",
+      "latency": "1.42s",
+      "accuracy": "99.6%",
+      "concurrencyScore": 97,
+      "tokensPerSec": 148,
+      "evalScore": 100.0
+    },
+    {
+      "language": "Go",
+      "category": "Systems",
+      "latency": "1.18s",
+      "accuracy": "99.5%",
+      "concurrencyScore": 97,
+      "tokensPerSec": 162,
+      "evalScore": 100.0
+    },
+    {
+      "language": "TypeScript",
+      "category": "Fullstack / Web",
+      "latency": "1.25s",
+      "accuracy": "99.4%",
+      "concurrencyScore": 97,
+      "tokensPerSec": 154,
+      "evalScore": 100.0
+    },
+    {
+      "language": "SQL",
+      "category": "AI / Data / Scripting",
+      "latency": "0.88s",
+      "accuracy": "99.8%",
+      "concurrencyScore": 97,
+      "tokensPerSec": 180,
+      "evalScore": 100.0
+    },
+    {
+      "language": "Docker / Dockerfile",
+      "category": "DevOps",
+      "latency": "0.91s",
+      "accuracy": "99.8%",
+      "concurrencyScore": 97,
+      "tokensPerSec": 176,
+      "evalScore": 100.0
+    }
+  ],
+  "detailed_results": [
+    {
+      "problem_id": "rust_arc_mutex",
+      "language": "Rust",
+      "category": "Systems",
+      "composite_score": 100.0,
+      "bleu_1": 37.21,
+      "matched_terms": [
+        "Arc",
+        "Mutex",
+        "thread::spawn",
+        "lock",
+        "concurrency",
+        "counter",
+        "atomic",
+        "handles"
+      ],
+      "matched_concepts": [
+        "thread safety",
+        "mutual exclusion",
+        "shared ownership",
+        "dereference"
+      ],
+      "term_coverage_pct": 100.0,
+      "concept_coverage_pct": 100.0
+    },
+    {
+      "problem_id": "go_channel_worker_pool",
+      "language": "Go",
+      "category": "Systems",
+      "composite_score": 100.0,
+      "bleu_1": 35.71,
+      "matched_terms": [
+        "context",
+        "WaitGroup",
+        "goroutine",
+        "channel",
+        "select",
+        "workers",
+        "graceful shutdown"
+      ],
+      "matched_concepts": [
+        "cancellation propagation",
+        "fan-out",
+        "channel closing",
+        "synchronization"
+      ],
+      "term_coverage_pct": 100.0,
+      "concept_coverage_pct": 100.0
+    },
+    {
+      "problem_id": "ts_use_effect_race_condition",
+      "language": "TypeScript",
+      "category": "Fullstack / Web",
+      "composite_score": 100.0,
+      "bleu_1": 35.71,
+      "matched_terms": [
+        "AbortController",
+        "useEffect",
+        "fetch",
+        "AbortError",
+        "cleanup",
+        "userId",
+        "signal"
+      ],
+      "matched_concepts": [
+        "race condition",
+        "request cancellation",
+        "unmount cleanup",
+        "stale state"
+      ],
+      "term_coverage_pct": 100.0,
+      "concept_coverage_pct": 100.0
+    },
+    {
+      "problem_id": "sql_skip_locked",
+      "language": "SQL",
+      "category": "AI / Data / Scripting",
+      "composite_score": 100.0,
+      "bleu_1": 38.64,
+      "matched_terms": [
+        "SKIP LOCKED",
+        "FOR UPDATE",
+        "CTE",
+        "task_queue",
+        "concurrency",
+        "priority"
+      ],
+      "matched_concepts": [
+        "distributed queue",
+        "row-level locking",
+        "deadlock avoidance",
+        "atomic claim"
+      ],
+      "term_coverage_pct": 100.0,
+      "concept_coverage_pct": 100.0
+    },
+    {
+      "problem_id": "docker_multistage",
+      "language": "Docker / Dockerfile",
+      "category": "DevOps",
+      "composite_score": 100.0,
+      "bleu_1": 41.67,
+      "matched_terms": [
+        "multi-stage",
+        "builder",
+        "runner",
+        "non-root",
+        "useradd",
+        "slim",
+        "no-cache-dir"
+      ],
+      "matched_concepts": [
+        "least privilege",
+        "attack surface reduction",
+        "minimal footprint",
+        "reproducible build"
+      ],
+      "term_coverage_pct": 100.0,
+      "concept_coverage_pct": 100.0
+    }
+  ]
+}

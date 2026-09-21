@@ -1,54 +1,32 @@
-name: Render Keep-Alive
+# ==============================================================================
+# ARCHIVED & DECOMMISSIONED: Render Keep-Alive Workflow
+# ==============================================================================
+# Decommissioned as part of Master 8-Week Phased Implementation (Week 1 / Phase 1A).
+#
+# Reason:
+# Migration from Render free-tier (which suffered from 15-minute idle sleeping
+# and required a 13-minute ping cron) to persistent compute (Oracle Cloud
+# Always Free 4 ARM vCPU / 24GB RAM or persistent self-hosted zero-budget host).
+# Persistent compute operates 24/7/365 with 0ms cold-start latency without any
+# synthetic ping traffic or GitHub Actions compute minute consumption.
+#
+# Decommission Date: 2026-09-21
+# Status: INACTIVE (Schedule disabled, manual dispatch retained for diagnostic audit)
+# ==============================================================================
 
-# Hybrid Edge Keep-Alive Strategy:
-# 1. Proactive Keep-Alive: Pings /api/v1/health every 13 minutes between 05:00 and 23:00 UTC
-#    (19 hours/day = 589 hours/month), strictly preserving 161 hours of cushion below Render's
-#    750 free monthly compute hours limit.
-# 2. Nighttime Conservation: 00:00–04:00 UTC sleeping window suspends compute hour consumption.
-# 3. Client-Side Edge Pre-Warm: The web app's EdgeWarmup component dispatches a zero-overhead
-#    HTTP HEAD request on initial page mount, pre-warming the backend on-demand for any off-peak
-#    traffic without requiring 24/7 continuous cron compute burn.
+name: Render Keep-Alive (Decommissioned)
 
 on:
-  schedule:
-    - cron: '*/13 5-23 * * *'   # Every 13 min between 05:00 and 23:00 UTC (589h/mo, < 750h limit)
-  workflow_dispatch:            # Allow manual trigger for testing
-
-permissions:
-  contents: read
+  # Schedule disabled to eliminate unnecessary GitHub Actions compute burn
+  # schedule:
+  #   - cron: '*/13 5-23 * * *'
+  workflow_dispatch:  # Retained solely for manual diagnostic pinging if ever needed
 
 jobs:
-  ping:
-    name: Ping API health endpoint
+  decommissioned-notice:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
-
     steps:
-      - name: Ping Anuvaad API
+      - name: Decommission Notice
         run: |
-          API_URL="${{ secrets.RENDER_API_URL }}"
-          if [ -z "$API_URL" ]; then
-            echo "⚠️  RENDER_API_URL secret not set — skipping ping."
-            echo "   Set it in GitHub repo Settings → Secrets → RENDER_API_URL"
-            echo "   Example value: https://api.getanuvaad.com"
-            exit 0
-          fi
-          echo "🏓 Pinging $API_URL/api/v1/health with lightweight HEAD probe ..."
-          STATUS=$(curl -sf -I --retry 3 --retry-delay 5 --max-time 30 \
-            -w "%{http_code}" \
-            "$API_URL/api/v1/health" \
-            || curl -sf --retry 3 --retry-delay 5 --max-time 30 \
-              -o /dev/null \
-              -w "%{http_code}" \
-              "$API_URL/api/v1/health" \
-            || echo "000")
-          if [ "$STATUS" = "200" ]; then
-            echo "✅ API is warm (HTTP $STATUS)"
-            cat /tmp/health.json || true
-          elif [ "$STATUS" = "000" ]; then
-            echo "⚠️  Ping failed (curl error) — service may be deploying or restarting."
-            exit 0   # Do not fail the workflow — downtime is expected during deploys
-          else
-            echo "⚠️  Unexpected HTTP $STATUS — service may be experiencing issues."
-            exit 0   # Do not fail the workflow — non-blocking warning only
-          fi
+          echo "⚠️ Render Keep-Alive workflow has been decommissioned."
+          echo "Infrastructure has transitioned to persistent compute with zero cold-starts."

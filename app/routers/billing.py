@@ -14,6 +14,7 @@ import os
 from datetime import datetime, timezone
 
 import razorpay
+import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
@@ -25,7 +26,15 @@ from app.core.auth import (
     get_user_pro_status,
 )
 from app.core.cache import cache
-from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
+from app.core.config import (
+    FRONTEND_URL,
+    RAZORPAY_KEY_ID,
+    RAZORPAY_KEY_SECRET,
+    STRIPE_PRICE_ID_PRO,
+    STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET,
+    logger,
+)
 from app.core.quota import get_active_protection_mode, get_today_usage_count
 from app.domain.billing.service import BillingService
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
@@ -38,6 +47,12 @@ router = APIRouter(prefix="", tags=["billing"])
 
 RAZORPAY_PRO_PLAN_ID = os.getenv("RAZORPAY_PRO_PLAN_ID", "")
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+
+if STRIPE_SECRET_KEY:
+    stripe.api_key = STRIPE_SECRET_KEY
+    logger.info("Stripe configured as primary billing provider")
+else:
+    logger.info("Stripe secret key not set")
 
 if RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your"):
     razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
@@ -67,21 +82,51 @@ def enforce_billing_enabled():
 # ── Checkout ──
 
 
+@router.post("/billing/create-checkout-session")
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     payload: CheckoutPayload,
     user_email: str | None = Depends(get_user_email),
 ):
-    """Create a Razorpay subscription checkout.
-    BACK-06: Auth via Authorization header (Depends), not request body access_token.
-    """
+    """Create a subscription checkout session (Stripe primary, Razorpay fallback)."""
     enforce_billing_enabled()
-    if not razorpay_client:
-        raise HTTPException(status_code=503, detail="Payment service not configured.")
     if not user_email:
         raise HTTPException(status_code=401, detail="Authentication required.")
     if user_email.lower() != payload.user_email.lower():
         raise HTTPException(status_code=403, detail="Email mismatch: token does not belong to this user.")
+
+    # 1. Primary Global Gateway: Stripe
+    if STRIPE_SECRET_KEY:
+        try:
+            session = await asyncio.to_thread(
+                stripe.checkout.Session.create,
+                payment_method_types=["card"],
+                mode="subscription",
+                customer_email=user_email,
+                line_items=[{
+                    "price": STRIPE_PRICE_ID_PRO,
+                    "quantity": 1,
+                }],
+                automatic_tax={"enabled": True},
+                success_url=f"{FRONTEND_URL}/dashboard/billing?session_id={{CHECKOUT_SESSION_ID}}&success=true",
+                cancel_url=f"{FRONTEND_URL}/dashboard/billing?canceled=true",
+                metadata={"user_email": user_email},
+                subscription_data={"metadata": {"user_email": user_email}},
+            )
+            return {
+                "checkout_url": session.url,
+                "session_id": session.id,
+                "provider": "stripe",
+                "name": "Anuvaad Pro",
+                "description": "Unlimited translations · DeepSeek R1 · Priority processing",
+            }
+        except Exception as e:
+            logger.error(f"Stripe checkout session creation error: {e}")
+            raise HTTPException(status_code=500, detail="Payment session creation failed.")
+
+    # 2. Domestic / Legacy Fallback: Razorpay
+    if not razorpay_client:
+        raise HTTPException(status_code=503, detail="Payment service not configured.")
 
     try:
         subscription = await asyncio.to_thread(
@@ -105,11 +150,12 @@ async def create_checkout_session(
         raise HTTPException(status_code=500, detail="Payment session creation failed.")
 
 
+@router.post("/billing/create-portal-session")
 @router.post("/create-portal-session")
 async def create_portal_session(
     user_email: str | None = Depends(get_user_email),
 ):
-    """Return the user's active Razorpay subscription details for self-service management."""
+    """Generate a self-service customer portal session for subscription management."""
     enforce_billing_enabled()
     if not user_email:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -118,11 +164,38 @@ async def create_portal_session(
     if not sub or not sub.get("is_pro"):
         raise HTTPException(status_code=404, detail="No active Pro subscription found.")
 
+    # Primary Stripe Customer Portal
+    if STRIPE_SECRET_KEY:
+        try:
+            customers = await asyncio.to_thread(stripe.Customer.list, email=user_email, limit=1)
+            if customers and customers.data:
+                customer_id = customers.data[0].id
+            else:
+                new_cust = await asyncio.to_thread(
+                    stripe.Customer.create,
+                    email=user_email,
+                    metadata={"source": "anuvaad"},
+                )
+                customer_id = new_cust.id
+
+            portal_session = await asyncio.to_thread(
+                stripe.billing_portal.Session.create,
+                customer=customer_id,
+                return_url=f"{FRONTEND_URL}/dashboard/billing",
+            )
+            return {
+                "portal_url": portal_session.url,
+                "provider": "stripe",
+                "status": "active",
+            }
+        except Exception as e:
+            logger.error(f"Stripe portal session creation error: {e}")
+
     return {
-        "subscription_id": sub.get("razorpay_subscription_id", ""),
+        "subscription_id": sub.get("razorpay_subscription_id") or sub.get("stripe_subscription_id", ""),
         "plan": "pro",
         "status": "active",
-        "message": "To cancel your subscription, email support@anuvaad.dev with your subscription ID.",
+        "message": "Self-service billing management portal available for active subscriptions.",
     }
 
 
@@ -347,3 +420,82 @@ async def razorpay_webhook(request: Request):
 
     process_billing_webhook_task.delay(event_id=event_id, payload=event)
     return {"received": True}
+
+
+@router.post("/billing/webhook/stripe")
+@router.post("/billing/webhook")
+@router.post("/webhook/stripe")
+@router.post("/webhook")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events — validates HMAC signature, updates subscription."""
+    webhook_secret = STRIPE_WEBHOOK_SECRET or os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    if not webhook_secret:
+        logger.error("STRIPE_WEBHOOK_SECRET is not set — rejecting webhook request.")
+        return JSONResponse(status_code=503, content={"error": "Stripe webhook endpoint not configured"})
+
+    payload_body = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload=payload_body,
+            sig_header=sig_header,
+            secret=webhook_secret,
+        )
+    except Exception as e:
+        logger.error(f"Stripe webhook signature error: {e}")
+        raise HTTPException(status_code=400, detail="Invalid Stripe webhook signature")
+
+    event_id = event.get("id", "")
+    event_type = event.get("type", "")
+
+    # Fast cache layer idempotency
+    if event_id:
+        idempotency_key = f"webhook:stripe:idempotency:{event_id}"
+        if await cache.get(idempotency_key):
+            logger.info(f"Stripe webhook: duplicate event {event_id} (cache hit) — skipping")
+            return {"status": "duplicate", "message": "Event already processed"}
+
+    # Process event
+    event_data = event.get("data", {}).get("object", {})
+    user_email = (
+        event_data.get("customer_email")
+        or event_data.get("metadata", {}).get("user_email")
+        or event_data.get("subscription_data", {}).get("metadata", {}).get("user_email")
+    )
+
+    if not user_email and "customer" in event_data:
+        try:
+            cust = await asyncio.to_thread(stripe.Customer.retrieve, event_data["customer"])
+            user_email = cust.get("email")
+        except Exception:
+            pass
+
+    if event_type in ("checkout.session.completed", "customer.subscription.created"):
+        if user_email:
+            sub_id = event_data.get("subscription") or event_data.get("id")
+            await subscription_repo.upsert_subscription(
+                email=user_email,
+                data={"is_pro": True, "stripe_subscription_id": sub_id},
+            )
+            logger.info(f"Activated Pro tier for {user_email} via Stripe event {event_type}")
+
+    elif event_type in ("customer.subscription.deleted", "customer.subscription.paused"):
+        if user_email:
+            await subscription_repo.upsert_subscription(
+                email=user_email,
+                data={"is_pro": False},
+            )
+            logger.info(f"Deactivated Pro tier for {user_email} via Stripe event {event_type}")
+
+    elif event_type == "invoice.payment_succeeded":
+        logger.info(f"Invoice payment succeeded for customer {event_data.get('customer')}")
+
+    elif event_type == "invoice.payment_failed":
+        logger.warning(f"Invoice payment failed for customer {event_data.get('customer')}")
+
+    if event_id:
+        await cache.put(f"webhook:stripe:idempotency:{event_id}", "1", ttl=86400)
+
+    return {"received": True, "type": event_type}
+

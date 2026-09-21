@@ -36,6 +36,10 @@ Options:
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
+  if (args.includes("--version") || args.includes("-v")) {
+    console.log("1.0.0");
+    return;
+  }
   if (args.length === 0 || args.includes("--help") || args.includes("-h") || args[0] === "help") {
     printHelp();
     return;

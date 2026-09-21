@@ -102,33 +102,56 @@ export function LivePlayground({
     const sample = SAMPLE_SNIPPETS[activeLang];
     const isPreset = sample && code.trim() === sample.code.trim();
 
-    // If custom code is entered, attempt demo API translation (skip in test environment with fake timers)
+    // If custom code is entered, stream real inference from demo API (skip in test environment with fake timers)
     if (!isPreset && code.trim().length > 0 && typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
       try {
-        const res = await fetch("/api/demo/translate", {
+        const res = await fetch("/api/v1/demo/translate-stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            raw_code: code.slice(0, 1000),
             language: activeLang,
-            mode: mode === "code-to-code" ? "code-to-code" : "code-to-english",
+            mode: mode,
             target_language: activeLang,
           }),
         });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.blocks && Array.isArray(data.blocks) && data.blocks.length > 0) {
-            const explanation = data.blocks
-              .map((b: { english_translation?: string; code_snippet?: string }) =>
-                mode === "code-to-english" ? b.english_translation : b.code_snippet
-              )
-              .filter(Boolean)
-              .join("\n\n");
-            setOutput(explanation || sample?.english || "Comprehension complete.");
-            setIsTranslating(false);
-            setLatencyProgress(100);
-            setLatencyMs(targetMs);
-            return;
+        if (res.ok && res.body) {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let streamText = "";
+          let doneReading = false;
+          setOutput("");
+
+          while (!doneReading) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const parsed = JSON.parse(line.slice(6));
+                  if (parsed.chunk) {
+                    streamText += parsed.chunk;
+                    setOutput(streamText);
+                  }
+                  if (parsed.done) {
+                    doneReading = true;
+                    if (parsed.blocks && parsed.blocks.length > 0 && !streamText) {
+                      setOutput(parsed.blocks[0].english_translation || parsed.blocks[0].code_snippet || "");
+                    }
+                  }
+                } catch {
+                  // ignore non-JSON or partial chunk fragments
+                }
+              }
+            }
           }
+
+          setIsTranslating(false);
+          setLatencyProgress(100);
+          setLatencyMs(targetMs);
+          return;
         }
       } catch {
         // Fallback gracefully on network error or offline

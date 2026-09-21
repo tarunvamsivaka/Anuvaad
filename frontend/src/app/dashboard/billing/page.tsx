@@ -19,8 +19,7 @@ function BillingPageContent() {
   const router = useRouter();
   const { isPro, session } = useAuth();
   const [loading, setLoading] = useState(false);
-  // const [portalLoading, setPortalLoading] = useState(false);
-  // const [creditLoading, setCreditLoading] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
 
@@ -29,10 +28,10 @@ function BillingPageContent() {
   // const { credits, isLoading: creditsLoading } = useCredits(session?.access_token);
 
   useEffect(() => {
-    const payment = searchParams.get("payment");
+    const payment = searchParams.get("payment") || (searchParams.get("success") === "true" ? "success" : searchParams.get("canceled") === "true" ? "cancel" : null);
     if (payment === "success" || payment === "cancel") {
       requestAnimationFrame(() => {
-        setPaymentStatus(payment);
+        setPaymentStatus(payment as "success" | "cancel");
       });
       // Clear the query param from URL without reload
       window.history.replaceState({}, "", "/dashboard/billing");
@@ -72,60 +71,70 @@ function BillingPageContent() {
       if (res.ok) {
         const data = await res.json();
         
-        // Open Razorpay Checkout modal
-        const options = {
-          key: data.key_id,
-          subscription_id: data.subscription_id,
-          name: data.name,
-          description: data.description,
-          prefill: {
-            email: session.user.email,
-          },
-          theme: {
-            color: "#f5a623", // bright amber-glow
-          },
-          handler: async function (response: any) {
-            setLoading(true);
-            try {
-              const verifyRes = await fetch(`/api/verify-payment`, {
-                method: "POST",
-                // BACK-06: auth via Authorization header, not request body
-                headers: {
-                  "Content-Type": "application/json",
-                  "Authorization": `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_subscription_id: response.razorpay_subscription_id || data.subscription_id,
-                  razorpay_signature: response.razorpay_signature,
-                  payment_type: "subscription",
-                }),
-              });
-              if (verifyRes.ok) {
-                toast.success("Payment verified! Welcome to Pro.");
-                // FRONT-05: Use router.push instead of window.location.href
-                // This preserves SPA navigation and allows SWR to revalidate.
-                router.push("/dashboard/billing?payment=success");
-                mutate(["/api/subscription-status", session.access_token]);
-                mutate(["/api/check-credits", session.access_token]);
-              } else {
-                const err = await verifyRes.json().catch(() => null);
-                toast.error(err?.detail || "Payment verification failed. Please contact support.");
+        // 1. Primary Global Gateway: Stripe Hosted Checkout Redirect
+        if (data.checkout_url) {
+          window.location.href = data.checkout_url;
+          return;
+        }
+
+        // 2. Domestic Gateway: Razorpay Checkout Modal
+        if (data.key_id && data.subscription_id) {
+          const options = {
+            key: data.key_id,
+            subscription_id: data.subscription_id,
+            name: data.name,
+            description: data.description,
+            prefill: {
+              email: session.user.email,
+            },
+            theme: {
+              color: "#f5a623", // bright amber-glow
+            },
+            handler: async function (response: any) {
+              setLoading(true);
+              try {
+                const verifyRes = await fetch(`/api/verify-payment`, {
+                  method: "POST",
+                  // BACK-06: auth via Authorization header, not request body
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_subscription_id: response.razorpay_subscription_id || data.subscription_id,
+                    razorpay_signature: response.razorpay_signature,
+                    payment_type: "subscription",
+                  }),
+                });
+                if (verifyRes.ok) {
+                  toast.success("Payment verified! Welcome to Pro.");
+                  router.push("/dashboard/billing?payment=success");
+                  mutate(["/api/subscription-status", session.access_token]);
+                  mutate(["/api/check-credits", session.access_token]);
+                } else {
+                  const err = await verifyRes.json().catch(() => null);
+                  toast.error(err?.detail || "Payment verification failed. Please contact support.");
+                }
+              } catch {
+                toast.error("Could not connect to payment verification service.");
+              } finally {
+                setLoading(false);
               }
-            } catch {
-              toast.error("Could not connect to payment verification service.");
-            } finally {
-              setLoading(false);
+            },
+            modal: {
+              ondismiss: function () {
+                setLoading(false);
+              }
             }
-          },
-          modal: {
-            ondismiss: function () {
-              setLoading(false);
-            }
-          }
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
+          };
+          const rzp = new (window as any).Razorpay(options);
+          rzp.open();
+          return;
+        }
+
+        toast.error("Unexpected checkout session format.");
+        setLoading(false);
       } else {
         const err = await res.json().catch(() => null);
         toast.error(err?.detail || "Failed to create checkout session.");
@@ -134,6 +143,33 @@ function BillingPageContent() {
     } catch {
       toast.error("Could not connect to billing service. Please try again.");
       setLoading(false);
+    }
+  }
+
+  async function handleManagePortal() {
+    if (!session?.access_token) return;
+    setPortalLoading(true);
+    try {
+      const res = await fetch(`/api/create-portal-session`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.portal_url) {
+          window.location.href = data.portal_url;
+          return;
+        }
+        toast.info(data.message || "Subscription is active.");
+      } else {
+        toast.error("Failed to generate customer portal session.");
+      }
+    } catch {
+      toast.error("Could not connect to customer portal service.");
+    } finally {
+      setPortalLoading(false);
     }
   }
 
@@ -222,7 +258,7 @@ function BillingPageContent() {
             </div>
             <div className="text-left sm:text-right shrink-0">
               <p className="text-3xl font-black text-amber-500">
-                {isActuallyPro ? "₹499" : "₹0"}
+                {isActuallyPro ? "$19" : "$0"}
                 <span className="text-xs font-bold text-slate-400 dark:text-slate-500 tracking-normal">/mo</span>
               </p>
             </div>
@@ -283,12 +319,12 @@ function BillingPageContent() {
             
             <div className="mt-8 space-y-3">
               <Button 
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-2 h-11 px-6 shadow-md shadow-amber-500/20 rounded-xl" 
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-2 h-11 px-6 shadow-md shadow-amber-500/20 rounded-xl cursor-pointer" 
                 onClick={handleUpgrade} 
                 disabled={loading || !enableBilling}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                {loading ? "Allocating Gateway..." : enableBilling ? "Activate Pro — ₹499/Month" : "Subscriptions Paused"}
+                {loading ? "Allocating Gateway..." : enableBilling ? "Activate Pro — $19/Month" : "Subscriptions Paused"}
               </Button>
               {!enableBilling && (
                 <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 italic font-medium leading-relaxed max-w-md">
@@ -309,6 +345,17 @@ function BillingPageContent() {
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl">
               Your profile is authenticated to run unlimited model queries, with direct GPU allocation and cloud history archiving active.
             </p>
+            <div className="mt-4">
+              <Button
+                onClick={handleManagePortal}
+                disabled={portalLoading}
+                variant="outline"
+                className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 text-xs font-semibold gap-2 rounded-xl cursor-pointer"
+              >
+                {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
+                <span>{portalLoading ? "Opening Portal..." : "Manage Subscription in Customer Portal"}</span>
+              </Button>
+            </div>
           </Card>
         )}
 

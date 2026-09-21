@@ -643,6 +643,7 @@ def mock_celery_tasks():
         "prune_translation_history_task",
         "process_large_file_task",
         "process_github_repo_task",
+        "process_github_pr_review_task",
         "prune_database_footprint",
     ]
 

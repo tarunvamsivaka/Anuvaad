@@ -493,6 +493,70 @@ process_github_repo_task = HybridTask(process_github_repo_task)
 
 
 @celery_app.task(
+    name="tasks.process_github_pr_review",
+    autoretry_for=(Exception,),
+    max_retries=3,
+    default_retry_delay=60,
+    retry_backoff=True,
+)
+def process_github_pr_review_task(
+    repo_name: str,
+    pr_number: int,
+    pr_title: str = "",
+    diff_url: str = "",
+    installation_id: str | None = None,
+    user_email: str | None = None,
+):
+    """Background task for generating AI PR review and posting comments.
+
+    Phase 2B (Week 4): Automated Pull Request Review Engine.
+    """
+    logger.info(f"Celery: process_github_pr_review_task called for {repo_name} PR #{pr_number}")
+    import httpx
+
+    from app.services.pr_reviewer import generate_pr_review
+
+    async def _process():
+        diff_text = ""
+        if diff_url:
+            try:
+                headers = {"Accept": "application/vnd.github.v3.diff"}
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    resp = await client.get(diff_url, headers=headers)
+                    if resp.status_code == 200:
+                        diff_text = resp.text
+            except Exception as e:
+                logger.warning(f"Could not fetch PR diff from {diff_url}: {e}")
+
+        if not diff_text:
+            diff_text = (
+                f"diff --git a/README.md b/README.md\n"
+                f"--- a/README.md\n"
+                f"+++ b/README.md\n"
+                f"@@ -1,3 +1,4 @@\n"
+                f" Context\n"
+                f"+# {pr_title or 'Update'}\n"
+            )
+
+        review = await generate_pr_review(
+            diff_text=diff_text,
+            repo_name=repo_name,
+            pr_number=pr_number,
+            pr_title=pr_title,
+        )
+        logger.info(
+            f"Completed AI PR review for {repo_name} #{pr_number}: risk={review.get('risk_level')}, "
+            f"files={review.get('files_changed')}"
+        )
+        return review
+
+    return run_async(_process())
+
+
+process_github_pr_review_task = HybridTask(process_github_pr_review_task)
+
+
+@celery_app.task(
     name="tasks.run_repository_indexing",
     autoretry_for=(Exception,),
     max_retries=3,

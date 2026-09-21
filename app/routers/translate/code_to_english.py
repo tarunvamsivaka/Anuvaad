@@ -101,10 +101,19 @@ async def function_translate_to_english_stream(
 
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
+    privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
+    is_ephemeral = (privacy_mode == "ephemeral")
+
+    headers = {"Content-Type": "text/event-stream"}
+    if is_ephemeral:
+        headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
 
     return StreamingResponse(
-        stream_code_to_english(payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown),
+        stream_code_to_english(
+            payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown, ephemeral=is_ephemeral
+        ),
         media_type="text/event-stream",
+        headers=headers,
     )
 
 
@@ -124,30 +133,33 @@ async def function_translate_to_english(
 
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
+    privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
+    is_ephemeral = (privacy_mode == "ephemeral")
 
     model_name = "deepseek-reasoner" if use_r1 else "standard"
     key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
 
-    cached = await cache.get(key)
-    if cached:
-        await metrics.record_cache_hit()
-        if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            _dispatch_history(
-                background_tasks,
-                user_email=email,
-                mode="Code → English",
-                source_language=payload.language,
-                target_language="english",
-                input_text=payload.raw_code,
-                blocks=cached,
-                model_used=model_name,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
-        return cached
+    if not is_ephemeral:
+        cached = await cache.get(key)
+        if cached:
+            await metrics.record_cache_hit()
+            if email:
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                _dispatch_history(
+                    background_tasks,
+                    user_email=email,
+                    mode="Code → English",
+                    source_language=payload.language,
+                    target_language="english",
+                    input_text=payload.raw_code,
+                    blocks=cached,
+                    model_used=model_name,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+            return cached
 
     await metrics.record_cache_miss()
 
@@ -165,7 +177,8 @@ async def function_translate_to_english(
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
 
-        await cache.put(key, result, 86400 * 7)
+        if not is_ephemeral:
+            await cache.put(key, result, 86400 * 7)
 
         # Extract source symbols for diagnostics and structured inspection
         try:
@@ -178,19 +191,32 @@ async def function_translate_to_english(
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            _dispatch_history(
-                background_tasks,
-                user_email=email,
-                mode="Code → English",
-                source_language=payload.language,
-                target_language="english",
-                input_text=payload.raw_code,
-                blocks=result,
-                model_used=model_used,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
+            if not is_ephemeral:
+                _dispatch_history(
+                    background_tasks,
+                    user_email=email,
+                    mode="Code → English",
+                    source_language=payload.language,
+                    target_language="english",
+                    input_text=payload.raw_code,
+                    blocks=result,
+                    model_used=model_used,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+
+        if is_ephemeral:
+            # Memory dereferencing sweep for RAM-only ephemeral privacy
+            del user_prompt
+            del response_text
+            del raw
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(
+                content=result,
+                headers={"X-Anuvaad-Privacy": "ephemeral; zero-retention"},
             )
 
         # Return result list directly for backward compat; clients that don't

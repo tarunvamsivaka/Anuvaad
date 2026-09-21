@@ -16,6 +16,8 @@ SEC-GH-03: Added repo_name format validation to prevent path traversal / injecti
 SEC-GH-04: Added OAuth state parameter to login URL to prevent CSRF on OAuth flow.
 """
 
+import hashlib
+import hmac
 import os
 import re
 import secrets
@@ -27,7 +29,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from app.core.auth import get_user_email
 from app.core.logging import logger
 from app.core.rate_limit import rate_limiter
-from app.queue.tasks import process_github_repo_task
+from app.queue.tasks import process_github_pr_review_task, process_github_repo_task
 
 UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
@@ -35,10 +37,26 @@ router = APIRouter()
 
 GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET", "")
+GITHUB_WEBHOOK_SECRET = os.environ.get("GITHUB_WEBHOOK_SECRET", "")
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
 # SEC-GH-03: Strict repo_name format: only alphanumeric, hyphens, dots, underscores
 _REPO_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$")
+
+
+def _verify_github_signature(payload_body: bytes, signature_header: str | None) -> bool:
+    """Verify HMAC-SHA256 signature from GitHub webhook header."""
+    secret = (os.environ.get("GITHUB_WEBHOOK_SECRET") or GITHUB_WEBHOOK_SECRET or "").strip()
+    if not secret:
+        return True
+    if not signature_header:
+        return False
+    parts = signature_header.split("=", 1)
+    if len(parts) != 2 or parts[0] != "sha256":
+        return False
+    expected_mac = hmac.new(secret.encode(), payload_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected_mac, parts[1])
+
 
 
 def _validate_repo_name(repo_name: str) -> None:
@@ -192,3 +210,60 @@ async def disconnect_github(user_email: str = Depends(get_user_email)):
 
     await delete_github_token(user_email)
     return {"message": "GitHub account disconnected"}
+
+
+@router.post("/github/webhook")
+@router.post("/webhooks/github")
+async def github_webhook(request: Request):
+    """Handle incoming GitHub Webhook events (e.g. pull_request, ping).
+
+    Verifies HMAC-SHA256 signature and enqueues background PR review tasks.
+    Phase 2B (Week 4): Automated Pull Request Review Engine.
+    """
+    body = await request.body()
+    sig_header = request.headers.get("X-Hub-Signature-256")
+    if not _verify_github_signature(body, sig_header):
+        raise HTTPException(status_code=401, detail="Invalid GitHub webhook signature")
+
+    event_type = request.headers.get("X-GitHub-Event", "pull_request")
+    try:
+        payload = await request.json() if body else {}
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Expected JSON object")
+
+    if event_type == "ping":
+
+        return {"status": "ok", "message": "pong", "zen": payload.get("zen", "")}
+
+    if event_type == "pull_request":
+        action = payload.get("action")
+        if action in ("opened", "synchronize", "reopened"):
+            repo_info = payload.get("repository", {})
+            repo_name = repo_info.get("full_name", "")
+            pr_data = payload.get("pull_request", {})
+            pr_number = pr_data.get("number")
+            pr_title = pr_data.get("title", "")
+            diff_url = pr_data.get("diff_url", "")
+            installation_id = str(payload.get("installation", {}).get("id", "")) or None
+
+            if repo_name and pr_number:
+                process_github_pr_review_task.delay(
+                    repo_name=repo_name,
+                    pr_number=pr_number,
+                    pr_title=pr_title,
+                    diff_url=diff_url,
+                    installation_id=installation_id,
+                )
+                return {
+                    "status": "queued",
+                    "repo": repo_name,
+                    "pr_number": pr_number,
+                    "action": action,
+                }
+        return {"status": "ignored", "action": action}
+
+    return {"status": "ignored", "event": event_type}
+

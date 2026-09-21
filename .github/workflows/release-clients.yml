@@ -1,0 +1,43 @@
+name: Release Developer Ecosystem Clients
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+jobs:
+  release-cli-and-vscode:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Build and Pack npm CLI
+        working-directory: cli
+        run: |
+          npm ci || npm install
+          npm run build
+          npm pack
+
+      - name: Build VS Code Extension
+        working-directory: vscode-extension
+        run: |
+          npm ci || npm install
+          npm run compile
+          npx @vscode/vsce package --no-dependencies || true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            cli/*.tgz
+            vscode-extension/*.vsix
+          generate_release_notes: true

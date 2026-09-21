@@ -619,6 +619,7 @@ async def stream_code_to_english(
     tier: str,
     deduct_credit_flag: bool = False,
     cooldown: int = 0,
+    ephemeral: bool = False,
 ):
     try:
         # Intelligent LLM Routing
@@ -630,30 +631,31 @@ async def stream_code_to_english(
             payload.raw_code, payload.language, "code-to-english", f"{model_name}:{requested_model or 'auto'}"
         )
 
-        # Check Cache
-        cached = await cache.get(key)
+        if not ephemeral:
+            # Check Cache
+            cached = await cache.get(key)
 
-        if cached:
-            await metrics.record_cache_hit()
-            yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
+            if cached:
+                await metrics.record_cache_hit()
+                yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
-            if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                save_translation_history_task.delay(
-                    user_email=email,
-                    mode="Code → English",
-                    source_language=payload.language,
-                    target_language="english",
-                    input_text=payload.raw_code,
-                    blocks=cached,
-                    model_used=model_name,
-                    workspace_id=payload.workspace_id,
-                    session_id=payload.session_id,
-                    repository_name=payload.repository_name,
-                    file_path=payload.file_path,
-                )
-            return
+                if email:
+                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                    save_translation_history_task.delay(
+                        user_email=email,
+                        mode="Code → English",
+                        source_language=payload.language,
+                        target_language="english",
+                        input_text=payload.raw_code,
+                        blocks=cached,
+                        model_used=model_name,
+                        workspace_id=payload.workspace_id,
+                        session_id=payload.session_id,
+                        repository_name=payload.repository_name,
+                        file_path=payload.file_path,
+                    )
+                return
 
         await metrics.record_cache_miss()
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
@@ -751,25 +753,37 @@ async def stream_code_to_english(
         raw = json.loads(cleaned)
         result = normalize_blocks(raw, model_used=used_model, tier=tier)
 
-        await cache.put(key, result, 86400 * 7)
+        if not ephemeral:
+            await cache.put(key, result, 86400 * 7)
 
-        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
+        done_payload = {"done": True, "blocks": result, "model_used": used_model}
+        if ephemeral:
+            done_payload["privacy_mode"] = "ephemeral"
+
+        yield f"data: {json.dumps(done_payload)}\n\n"
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → English",
-                source_language=payload.language,
-                target_language="english",
-                input_text=payload.raw_code,
-                blocks=result,
-                model_used=used_model,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
+            if not ephemeral:
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode="Code → English",
+                    source_language=payload.language,
+                    target_language="english",
+                    input_text=payload.raw_code,
+                    blocks=result,
+                    model_used=used_model,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+
+        if ephemeral:
+            del full_content
+            del cleaned
+            del raw
+            del result
 
     except Exception as e:
         if isinstance(e, HTTPException):

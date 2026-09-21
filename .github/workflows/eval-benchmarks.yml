@@ -1,0 +1,52 @@
+name: Verifiable Evaluation Harness
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/eval_harness/**"
+      - "app/services/ai.py"
+      - "app/services/pr_reviewer.py"
+  workflow_dispatch:
+  schedule:
+    # Run nightly at 03:00 UTC (Zero-budget GitHub Actions free runner)
+    - cron: "0 3 * * *"
+
+jobs:
+  evaluate-benchmarks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install evaluation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx
+
+      - name: Run Canonical Evaluation Harness
+        run: |
+          python scripts/eval_harness/eval_benchmarks.py --output frontend/public/data/benchmarks-latest.json
+
+      - name: Verify Evaluation Outputs
+        run: |
+          pytest tests/test_eval_harness.py -v
+
+      - name: Commit Updated Benchmarks (Automated Verifiable Audit)
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          git config --local user.email "bot@getanuvaad.com"
+          git config --local user.name "Anuvaad Eval Bot"
+          if [[ -n $(git status --porcelain frontend/public/data/benchmarks-latest.json) ]]; then
+            git add frontend/public/data/benchmarks-latest.json
+            git commit -m "chore(benchmarks): refresh verifiable evaluation metrics [skip ci]"
+            git push
+          else
+            echo "No benchmark metrics changes detected."
+          fi

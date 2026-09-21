@@ -6,21 +6,36 @@ Returns a pre-cached sample translation for the selected language pair.
 This powers the landing page Live Demo section without requiring a user account.
 """
 
+import asyncio
+import json
 import os
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from app.core.auth import get_client_ip
 from app.core.cache import cache
-from app.core.config import logger
+from app.core.config import GROQ_API_KEY, LLM_TIMEOUT, logger
 from app.core.quota import raise_quota_429
+from app.services.ai import _get_groq_client
 
 router = APIRouter(prefix="", tags=["demo"])
 
 DEMO_RATE_LIMIT = int(os.getenv("DEMO_RATE_LIMIT_PER_DAY", "3"))
+DEMO_STREAM_RATE_LIMIT = int(os.getenv("DEMO_STREAM_RATE_LIMIT_PER_DAY", "10"))
 DEMO_RATE_WINDOW = 86400  # 24 hours in seconds
+
+
+class DemoStreamRequest(BaseModel):
+    raw_code: str = Field(..., max_length=1000, description="Code snippet or prompt (max 1000 chars)")
+    language: str = Field("python", min_length=1, max_length=30)
+    mode: str = Field(
+        "code-to-english",
+        description="Translation mode: code-to-english | code-to-code | english-to-code",
+        pattern=r"^(code-to-english|code-to-code|english-to-code)$",
+    )
+    target_language: str = Field("python", min_length=1, max_length=30)
 
 
 class DemoTranslateRequest(BaseModel):
@@ -149,3 +164,115 @@ async def demo_translate(request: Request, payload: DemoTranslateRequest):
             "Cache-Control": "private, no-store",
         },
     )
+
+
+async def _stream_groq_demo(payload: DemoStreamRequest):
+    groq_key = (GROQ_API_KEY or "").strip()
+    is_live_groq_available = bool(groq_key and groq_key != "dummy_key_to_allow_startup")
+
+    language_key = payload.language.lower()
+    sample = DEMO_SAMPLES.get(language_key, DEFAULT_DEMO)
+    preset_blocks = sample.get("blocks", [])
+
+    if is_live_groq_available:
+        try:
+            client = _get_groq_client()
+            if payload.mode == "english-to-code":
+                system = (
+                    f"You are an expert polyglot programmer. Generate clean, idiomatic {payload.language} code "
+                    "for the user specification. Output raw code only with no surrounding markdown backticks or commentary."
+                )
+                user_msg = payload.raw_code
+            elif payload.mode == "code-to-code":
+                system = (
+                    f"You are an expert polyglot programmer. Translate the provided {payload.language} code "
+                    f"into idiomatic {payload.target_language} code. Output raw code only with no surrounding markdown backticks."
+                )
+                user_msg = payload.raw_code
+            else:
+                system = (
+                    "You are an expert code analyzer. Explain what the provided code does in concise, plain English. "
+                    "Break down the logic clearly and mention variables, operations, and behavior."
+                )
+                user_msg = f"Language: {payload.language}\nCode:\n{payload.raw_code}"
+
+            stream_resp = await asyncio.wait_for(
+                client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[
+                        {"role": "system", "content": system},
+                        {"role": "user", "content": user_msg},
+                    ],
+                    stream=True,
+                    max_tokens=600,
+                ),
+                timeout=LLM_TIMEOUT,
+            )
+
+            accumulated = ""
+            async for chunk in stream_resp:
+                delta = chunk.choices[0].delta.content if chunk.choices else ""
+                if delta:
+                    accumulated += delta
+                    yield f"data: {json.dumps({'chunk': delta, 'done': False})}\n\n"
+
+            blocks = [
+                {
+                    "id": "block_1",
+                    "code_snippet": payload.raw_code,
+                    "english_translation": accumulated.strip(),
+                }
+            ]
+            yield f"data: {json.dumps({'done': True, 'blocks': blocks, 'model_used': 'llama-3.3-70b-versatile'})}\n\n"
+            return
+        except Exception as e:
+            logger.warning(f"Live demo Groq streaming fallback: {e}")
+
+    # Fallback streaming (for testing, offline, or invalid keys)
+    fallback_text = (
+        preset_blocks[0]["english_translation"]
+        if preset_blocks and payload.mode == "code-to-english"
+        else f"// Generated {payload.language} implementation\nfunction executeGenerated() {{\n    return true;\n}}"
+    )
+    step = 8
+    for i in range(0, len(fallback_text), step):
+        token = fallback_text[i : i + step]
+        yield f"data: {json.dumps({'chunk': token, 'done': False})}\n\n"
+        await asyncio.sleep(0.01)
+
+    yield f"data: {json.dumps({'done': True, 'blocks': preset_blocks, 'model_used': 'demo-groq-stream'})}\n\n"
+
+
+@router.post("/demo/translate-stream")
+async def demo_translate_stream(request: Request, payload: DemoStreamRequest):
+    """
+    Anonymous high-speed streaming demo translation endpoint.
+    Powered by Groq LPU inference (llama-3.3-70b-versatile).
+    Rate-limited to 10 requests per IP per 24 hours.
+    """
+    client_ip = get_client_ip(request)
+    rate_key = f"demo_stream_rate:{client_ip}"
+
+    current_count = await cache.incr_rate_limit(rate_key, DEMO_RATE_WINDOW)
+    if current_count > DEMO_STREAM_RATE_LIMIT:
+        logger.info(f"Demo stream rate limit exceeded for IP: {client_ip}")
+        raise_quota_429(
+            detail="Demo streaming daily limit reached.",
+            limit_type="daily_quota",
+            retry_after_seconds=86400,
+            tier_limit=10,
+        )
+
+    remaining = max(0, DEMO_STREAM_RATE_LIMIT - current_count)
+    logger.info(f"Demo stream served: language={payload.language}, ip={client_ip}, remaining={remaining}")
+
+    return StreamingResponse(
+        _stream_groq_demo(payload),
+        media_type="text/event-stream",
+        headers={
+            "X-Demo-Remaining": str(remaining),
+            "X-Demo-Limit": str(DEMO_STREAM_RATE_LIMIT),
+            "Cache-Control": "private, no-store",
+        },
+    )
+

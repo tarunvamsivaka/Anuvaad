@@ -12,6 +12,7 @@
   },
   "license": "MIT",
   "bin": {
+    "anuvaad": "./dist/index.js",
     "anuvaad-cli": "./dist/index.js"
   },
   "main": "./dist/index.js",

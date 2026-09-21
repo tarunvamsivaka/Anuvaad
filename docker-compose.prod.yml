@@ -44,6 +44,7 @@ services:
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ENV=production
+      - USE_CELERY=true
       - WEB_CONCURRENCY=${WEB_CONCURRENCY:-4}
       # FIX-deploy-4: Do NOT hardcode DATABASE_URL here — let .env supply the real password
     depends_on:
@@ -59,8 +60,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.5'
-          memory: 1.5G
+          cpus: '2.0'
+          memory: 2G
     logging:
       driver: "json-file"
       options:
@@ -73,12 +74,13 @@ services:
   worker:
     image: ghcr.io/placeholder-overridden-by-deploy-script:latest
     container_name: anuvaad-worker-prod
-    command: celery -A app.queue.celery_config.celery_app worker --loglevel=info --concurrency=2
+    command: celery -A app.queue.celery_config.celery_app worker --loglevel=info --concurrency=4
     env_file:
       - .env
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - ENV=production
+      - USE_CELERY=true
       # FIX-deploy-4: No hardcoded DATABASE_URL — .env supplies the real value
     depends_on:
       redis:
@@ -95,8 +97,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 1G
+          cpus: '2.0'
+          memory: 2G
     logging:
       driver: "json-file"
       options:
