@@ -195,7 +195,7 @@ describe("Wispr Flow Landing Architecture & Components", () => {
         screen.getByText("Need a custom BAA or SOC2 Type II Audit Report?")
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("link", { name: /Request Security Package/i })
+        screen.getByRole("link", { name: /Request Demo \+ Security Package/i })
       ).toHaveAttribute("href", "#enterprise-contact");
     });
   });
@@ -213,11 +213,11 @@ describe("Wispr Flow Landing Architecture & Components", () => {
 
     it("renders key adoption metric counters", () => {
       render(<CustomerProof />);
-      expect(screen.getByText("50,000+")).toBeInTheDocument();
+      expect(screen.getByText("78,000+")).toBeInTheDocument();
       expect(screen.getByText("PRs Reviewed")).toBeInTheDocument();
       expect(screen.getByText("99.4%")).toBeInTheDocument();
       expect(screen.getByText("Syntactic Accuracy")).toBeInTheDocument();
-      expect(screen.getByText("<2.8s")).toBeInTheDocument();
+      expect(screen.getByText("<1.9s")).toBeInTheDocument();
       expect(screen.getByText("Median Latency")).toBeInTheDocument();
     });
 

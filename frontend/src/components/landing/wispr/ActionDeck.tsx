@@ -85,13 +85,58 @@ export function ActionDeck({
 
           {/* Subtitle */}
           <p
-            className={cn("text-base sm:text-lg text-slate-400 leading-relaxed mb-10 sr-fade-up", isVisible && "is-visible")}
+            className={cn("text-base sm:text-lg text-slate-400 leading-relaxed mb-8 sr-fade-up", isVisible && "is-visible")}
             style={{ "--sr-delay": "200ms" } as React.CSSProperties}
           >
             Join thousands of developers turning cryptographic legacy
             repositories into clean, readable documentation. Start in under 60
             seconds.
           </p>
+
+          {/* Pricing Tier Grid */}
+          <div
+            className={cn("grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10 text-left sr-fade-up", isVisible && "is-visible")}
+            style={{ "--sr-delay": "250ms" } as React.CSSProperties}
+          >
+            {/* Free Tier */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 flex flex-col gap-2 hover:border-slate-600 transition-colors">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Free</div>
+              <div className="text-2xl font-extrabold text-white">₹0<span className="text-sm font-normal text-slate-500">/mo</span></div>
+              <ul className="space-y-1.5 text-xs text-slate-400 mt-1">
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> 10 translations/day</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> 35+ languages</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Zero code storage</li>
+                <li className="flex items-center gap-1.5"><span className="text-slate-600">○</span> No PR review</li>
+              </ul>
+            </div>
+
+            {/* Pro Tier — highlighted */}
+            <div className="rounded-2xl border border-amber-500/50 bg-amber-500/5 p-4 flex flex-col gap-2 relative hover:border-amber-500/70 transition-colors">
+              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-slate-950">
+                RECOMMENDED
+              </span>
+              <div className="text-xs font-bold uppercase tracking-wider text-amber-400">Pro</div>
+              <div className="text-2xl font-extrabold text-white">₹499<span className="text-sm font-normal text-slate-500">/mo</span></div>
+              <ul className="space-y-1.5 text-xs text-slate-300 mt-1">
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Unlimited translations</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Priority &lt;1.5s latency</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Full PR AI review</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> API access</li>
+              </ul>
+            </div>
+
+            {/* Enterprise Tier */}
+            <div className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 flex flex-col gap-2 hover:border-slate-600 transition-colors">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Enterprise</div>
+              <div className="text-2xl font-extrabold text-white">Custom</div>
+              <ul className="space-y-1.5 text-xs text-slate-400 mt-1">
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Unlimited team seats</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> SOC2 + HIPAA BAA</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> VPC / air-gap deploy</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> SAML SSO + SCIM</li>
+              </ul>
+            </div>
+          </div>
 
           {/* Dual CTA Triggers */}
           <div

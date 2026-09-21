@@ -199,7 +199,7 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
             href="#enterprise-contact"
             className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold bg-white text-slate-950 hover:bg-amber-400 hover:text-slate-950 transition-all duration-200 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 hover:scale-105"
           >
-            <span>Request Security Package</span>
+            <span>Request Demo + Security Package</span>
             <ArrowRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" aria-hidden="true" />
           </a>
         </div>

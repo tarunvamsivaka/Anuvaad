@@ -6,6 +6,7 @@ import {
   Zap,
   ShieldCheck,
   Lock,
+  Globe,
   Sparkles,
   ArrowRight,
 } from "lucide-react";
@@ -369,16 +370,22 @@ export function HeroControlBar({
         style={{ animation: "radial-glow-breathe 5s ease-in-out infinite" }}
       />
 
-      {/* ── Eyebrow pill ─────────────────────────────────────── */}
+      {/* ── Eyebrow pills row ─────────────────────────────────── */}
       <div
-        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 mb-6 shadow-sm"
+        className="flex flex-wrap items-center justify-center gap-2.5 mb-6"
         style={{ animation: "fade-down 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s both" }}
       >
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-        </span>
-        <span>Code Intelligence in Motion</span>
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </span>
+          <span>Code Intelligence in Motion</span>
+        </div>
+        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/25 shadow-sm">
+          <Zap className="h-3 w-3" aria-hidden="true" />
+          <span>Free · ₹499/mo Pro</span>
+        </div>
       </div>
 
       {/* ── Main Headline — word-by-word reveal ──────────────── */}
@@ -401,7 +408,7 @@ export function HeroControlBar({
         style={{ animation: "fade-up 0.55s cubic-bezier(0.16,1,0.3,1) 600ms both" }}
       >
         Understand cryptic codebases instantly with bi-directional AI translation,
-        simulated PR diffs, and verified zero-code-storage security.
+        engineer-grade PR analysis, and enterprise-certified zero-code-storage.
       </p>
 
       {/* ── Feature badges — staggered entrance ──────────────── */}
@@ -414,6 +421,7 @@ export function HeroControlBar({
           { icon: Zap, text: "<3s Latency" },
           { icon: ShieldCheck, text: "SOC2 Type II" },
           { icon: Lock, text: "Zero Code Storage" },
+          { icon: Globe, text: "42 Countries" },
         ].map((b, i) => (
           <div
             key={b.text}

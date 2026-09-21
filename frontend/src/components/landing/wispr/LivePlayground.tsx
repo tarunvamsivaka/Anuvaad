@@ -42,6 +42,8 @@ export function LivePlayground({
   );
   const [isTranslating, setIsTranslating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [latencyProgress, setLatencyProgress] = useState(0); // 0-100 for progress bar
+  const [latencyMs, setLatencyMs] = useState(1240); // displayed ms value
 
   const handleLanguageChange = (langKey: string) => {
     setActiveLang(langKey);
@@ -79,9 +81,27 @@ export function LivePlayground({
 
   const handleRunTranslate = () => {
     setIsTranslating(true);
+    setLatencyProgress(0);
+    setLatencyMs(0);
     onTranslate?.(code, activeLang);
+
+    // Animate latency progress bar over ~400ms
+    const targetMs = 1140 + Math.floor(Math.random() * 300); // 1140–1440ms
+    const startTime = Date.now();
+    const animDuration = 400;
+    const frame = () => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(elapsed / animDuration, 1);
+      setLatencyProgress(Math.round(pct * 100));
+      setLatencyMs(Math.round(pct * targetMs));
+      if (pct < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+
     setTimeout(() => {
       setIsTranslating(false);
+      setLatencyProgress(100);
+      setLatencyMs(targetMs);
       const sample = SAMPLE_SNIPPETS[activeLang];
       if (mode === "code-to-english") {
         setOutput(
@@ -104,6 +124,8 @@ export function LivePlayground({
 
   const handleReset = () => {
     const sample = SAMPLE_SNIPPETS[activeLang];
+    setLatencyProgress(0);
+    setLatencyMs(1240);
     if (sample) {
       if (mode === "code-to-english") {
         setCode(sample.code);
@@ -312,11 +334,25 @@ export function LivePlayground({
                 {output}
               </div>
             </div>
-            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono">
-              <span>Latency: 1.24s</span>
-              <span className="text-emerald-500 font-sans font-medium">
-                Verified Accuracy 99.4%
-              </span>
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                <span>Latency: {isTranslating ? `${latencyMs}ms` : `${(latencyMs / 1000).toFixed(2)}s`}</span>
+                <span className="text-emerald-500 font-sans font-medium">
+                  Verified Accuracy 99.4%
+                </span>
+              </div>
+              {/* Animated latency progress bar */}
+              <div className="relative h-1 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-500 to-emerald-500 transition-all duration-75"
+                  style={{ width: `${latencyProgress}%` }}
+                  role="progressbar"
+                  aria-label="Translation latency"
+                  aria-valuenow={latencyProgress}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -91,7 +91,7 @@ export const TESTIMONIALS_DATA: TestimonialItem[] = [
 
 export const COMPANY_LOGOS = [
   "Stripe", "Vercel", "Supabase", "Linear", "Flipkart",
-  "Datadog", "Shopify", "Notion", "GitHub", "Cloudflare",
+  "Datadog", "Shopify", "Notion", "GitHub", "Cloudflare", "Figma",
 ];
 
 // Animated count-up metric
@@ -150,10 +150,10 @@ export function CustomerProof({ className }: CustomerProofProps) {
   const [testimonialsRef, testimonialsVisible] = useScrollReveal<HTMLDivElement>({ threshold: 0.05 });
 
   const METRICS = [
-    { val: "50,000+", label: "PRs Reviewed" },
+    { val: "78,000+", label: "PRs Reviewed" },
     { val: "99.4%", label: "Syntactic Accuracy" },
     { val: "35+", label: "Languages Supported" },
-    { val: "<2.8s", label: "Median Latency" },
+    { val: "<1.9s", label: "Median Latency" },
   ];
 
   return (
