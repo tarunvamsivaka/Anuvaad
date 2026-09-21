@@ -4,7 +4,7 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "lib": ["ES2022", "DOM"],
-    "typeRoots": ["../frontend/node_modules/@types"],
+    "typeRoots": ["./node_modules/@types", "../frontend/node_modules/@types"],
     "rootDir": "src",
     "outDir": "dist",
     "declaration": true,
