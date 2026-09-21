@@ -25,7 +25,9 @@ from app.core.config import FRONTEND_URL, SUPABASE_JWT_SECRET, logger
 
 router = APIRouter(tags=["Enterprise SSO"])
 
-SSO_SIGNING_KEY = os.environ.get("SSO_SIGNING_KEY", SUPABASE_JWT_SECRET or "sso_enterprise_secret_key_default_32bytes_long")
+SSO_SIGNING_KEY = os.environ.get(
+    "SSO_SIGNING_KEY", SUPABASE_JWT_SECRET or "sso_enterprise_secret_key_default_32bytes_long"
+)
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 # Mock/Configured enterprise tenants (Domain -> Tenant Config)
@@ -154,7 +156,11 @@ async def saml_callback(request: Request, payload: SAMLCallbackRequest):
 
     # In production with BoxyHQ Jackson, this validates XML digital signature against IdP cert
     # For zero-budget / mock tests, verify assertion structure
-    if "<saml:Assertion" not in decoded_xml and "<Assertion" not in decoded_xml and "Status: Success" not in decoded_xml:
+    if (
+        "<saml:Assertion" not in decoded_xml
+        and "<Assertion" not in decoded_xml
+        and "Status: Success" not in decoded_xml
+    ):
         raise HTTPException(status_code=400, detail="Malformed SAML response or missing assertion")
 
     # Extract user email from NameID or claim
@@ -163,11 +169,7 @@ async def saml_callback(request: Request, payload: SAMLCallbackRequest):
 
     logger.info(f"Enterprise SSO login verified for user: {user_email}")
 
-    signing_key = (
-        os.environ.get("SUPABASE_JWT_SECRET")
-        or SUPABASE_JWT_SECRET
-        or SSO_SIGNING_KEY
-    )
+    signing_key = os.environ.get("SUPABASE_JWT_SECRET") or SUPABASE_JWT_SECRET or SSO_SIGNING_KEY
 
     access_token = jwt.encode(
         {
@@ -187,4 +189,3 @@ async def saml_callback(request: Request, payload: SAMLCallbackRequest):
         "user_email": user_email,
         "relay_state": payload.RelayState or f"{FRONTEND_URL}/dashboard",
     }
-

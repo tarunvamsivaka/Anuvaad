@@ -27,9 +27,10 @@ def test_ephemeral_header_attached_to_stream(client: TestClient):
 
 def test_ephemeral_sync_bypasses_cache_and_history(client: TestClient):
     """Sync endpoint does not cache code or persist history when ephemeral header is present."""
-    with patch("app.routers.translate.code_to_english.cache.put") as mock_cache_put, \
-         patch("app.routers.translate.code_to_english._dispatch_history") as mock_dispatch:
-
+    with (
+        patch("app.routers.translate.code_to_english.cache.put") as mock_cache_put,
+        patch("app.routers.translate.code_to_english._dispatch_history") as mock_dispatch,
+    ):
         resp = client.post(
             "/api/v1/code-to-english/sync",
             json={"raw_code": "let secret_token = 'sk_live_xyz';", "language": "javascript"},
@@ -61,13 +62,12 @@ def test_non_ephemeral_invokes_history_and_cache(client: TestClient):
 
 def test_ephemeral_stale_recovery_skips_history(client: TestClient):
     """When stale translation recovery occurs, ephemeral mode strictly suppresses history dispatch."""
-    stale_sample = [
-        {"id": "block_1", "code_snippet": "val secret = 1", "english_translation": "Sets secret to 1"}
-    ]
-    with patch("app.routers.translate.code_to_english.get_completion", side_effect=Exception("LLM down")), \
-         patch("app.routers.translate.code_to_english.find_stale_translation", return_value=stale_sample), \
-         patch("app.routers.translate.code_to_english._dispatch_history") as mock_dispatch:
-
+    stale_sample = [{"id": "block_1", "code_snippet": "val secret = 1", "english_translation": "Sets secret to 1"}]
+    with (
+        patch("app.routers.translate.code_to_english.get_completion", side_effect=Exception("LLM down")),
+        patch("app.routers.translate.code_to_english.find_stale_translation", return_value=stale_sample),
+        patch("app.routers.translate.code_to_english._dispatch_history") as mock_dispatch,
+    ):
         resp = client.post(
             "/api/v1/code-to-english/sync",
             json={"raw_code": "val secret = 1", "language": "scala"},
@@ -76,4 +76,3 @@ def test_ephemeral_stale_recovery_skips_history(client: TestClient):
         assert resp.status_code == 200
         assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; zero-retention"
         mock_dispatch.assert_not_called()
-

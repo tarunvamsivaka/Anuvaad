@@ -96,11 +96,7 @@ async def generate_pr_review(
                 "  - 'body': constructive critique and optional ```suggestion markdown\n"
                 "Return ONLY valid JSON."
             )
-            user_msg = (
-                f"Repository: {repo_name}\n"
-                f"Pull Request: #{pr_number} - {pr_title}\n\n"
-                f"Diff:\n{diff_text[:6000]}"
-            )
+            user_msg = f"Repository: {repo_name}\nPull Request: #{pr_number} - {pr_title}\n\nDiff:\n{diff_text[:6000]}"
 
             resp = await client.chat.completions.create(
                 model="llama-3.3-70b-versatile",

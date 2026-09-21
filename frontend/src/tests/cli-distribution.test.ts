@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { beforeAll, describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
@@ -7,6 +7,21 @@ describe("Developer Ecosystem Distribution Suite (CLI & Homebrew & VS Code)", ()
   const cliRoot = path.resolve(__dirname, "../../../cli");
   const vscodeRoot = path.resolve(__dirname, "../../../vscode-extension");
   const formulaFile = path.resolve(__dirname, "../../../Formula/anuvaad.rb");
+
+  beforeAll(() => {
+    const cliEntry = path.join(cliRoot, "dist/index.js");
+    if (!fs.existsSync(cliEntry)) {
+      try {
+        execSync("npx tsc -p tsconfig.json", { cwd: cliRoot, stdio: "pipe" });
+      } catch {
+        try {
+          execSync("npx tsc -p ../cli/tsconfig.json", { cwd: path.resolve(__dirname, "../.."), stdio: "pipe" });
+        } catch (e) {
+          console.warn("Could not precompile CLI binary in test:", e);
+        }
+      }
+    }
+  });
 
   it("CLI package.json has valid bin executables and MIT license", () => {
     const pkgPath = path.join(cliRoot, "package.json");

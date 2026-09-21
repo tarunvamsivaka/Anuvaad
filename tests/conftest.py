@@ -100,6 +100,7 @@ os.environ["LIMIT_FREE_COOLDOWN"] = "0"
 os.environ.setdefault("RATE_LIMIT_IP_MAX", "15")
 # BACK-01: Signal test mode via env var (replaces sys.modules inspection in quota.py)
 os.environ["TESTING"] = "true"
+os.environ.setdefault("SUPABASE_JWT_SECRET", "test_supabase_jwt_secret_32bytes_minimum_length")
 
 import app.core.cache as cache_module  # noqa: E402
 

@@ -117,4 +117,3 @@ async def test_sso_token_authenticated_by_auth_dependency():
         )
         # Auth must succeed: status should not be 401
         assert protected_resp.status_code != 401
-

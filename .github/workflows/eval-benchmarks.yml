@@ -2,7 +2,7 @@ name: Verifiable Evaluation Harness
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
     paths:
       - "scripts/eval_harness/**"
       - "app/services/ai.py"
@@ -11,6 +11,9 @@ on:
   schedule:
     # Run nightly at 03:00 UTC (Zero-budget GitHub Actions free runner)
     - cron: "0 3 * * *"
+
+permissions:
+  contents: write
 
 jobs:
   evaluate-benchmarks:
@@ -39,7 +42,7 @@ jobs:
           pytest tests/test_eval_harness.py -v
 
       - name: Commit Updated Benchmarks (Automated Verifiable Audit)
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && github.event_name != 'pull_request'
         run: |
           git config --local user.email "bot@getanuvaad.com"
           git config --local user.name "Anuvaad Eval Bot"

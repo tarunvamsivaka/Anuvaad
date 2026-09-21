@@ -58,7 +58,6 @@ def _verify_github_signature(payload_body: bytes, signature_header: str | None) 
     return hmac.compare_digest(expected_mac, parts[1])
 
 
-
 def _validate_repo_name(repo_name: str) -> None:
     """Raise HTTP 400 if repo_name is not a valid 'owner/repo' format.
 
@@ -235,7 +234,6 @@ async def github_webhook(request: Request):
         raise HTTPException(status_code=400, detail="Expected JSON object")
 
     if event_type == "ping":
-
         return {"status": "ok", "message": "pong", "zen": payload.get("zen", "")}
 
     if event_type == "pull_request":
@@ -266,4 +264,3 @@ async def github_webhook(request: Request):
         return {"status": "ignored", "action": action}
 
     return {"status": "ignored", "event": event_type}
-

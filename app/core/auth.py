@@ -139,7 +139,8 @@ async def _authenticate_jwt(token: str) -> str:
     try:
         if alg == "HS256":
             # ── Legacy HS256 path (fast, no outbound HTTP) ─────────────────
-            if not SUPABASE_JWT_SECRET:
+            jwt_secret = os.environ.get("SUPABASE_JWT_SECRET") or SUPABASE_JWT_SECRET
+            if not jwt_secret:
                 logger.warning(
                     "SUPABASE_JWT_SECRET is not set — HS256 JWT verification disabled. Set this env var in production."
                 )
@@ -149,7 +150,7 @@ async def _authenticate_jwt(token: str) -> str:
                 )
             payload = jwt.decode(
                 token,
-                SUPABASE_JWT_SECRET,
+                jwt_secret,
                 algorithms=["HS256"],
                 audience="authenticated",
                 options={"require": ["exp", "email"]},

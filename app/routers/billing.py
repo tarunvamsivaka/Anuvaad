@@ -103,10 +103,12 @@ async def create_checkout_session(
                 payment_method_types=["card"],
                 mode="subscription",
                 customer_email=user_email,
-                line_items=[{
-                    "price": STRIPE_PRICE_ID_PRO,
-                    "quantity": 1,
-                }],
+                line_items=[
+                    {
+                        "price": STRIPE_PRICE_ID_PRO,
+                        "quantity": 1,
+                    }
+                ],
                 automatic_tax={"enabled": True},
                 success_url=f"{FRONTEND_URL}/dashboard/billing?session_id={{CHECKOUT_SESSION_ID}}&success=true",
                 cancel_url=f"{FRONTEND_URL}/dashboard/billing?canceled=true",
@@ -498,4 +500,3 @@ async def stripe_webhook(request: Request):
         await cache.put(f"webhook:stripe:idempotency:{event_id}", "1", ttl=86400)
 
     return {"received": True, "type": event_type}
-

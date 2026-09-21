@@ -25,10 +25,11 @@ def test_stripe_create_checkout_session(client: TestClient):
 
     app.dependency_overrides[get_user_email] = lambda: "tester@example.com"
     try:
-        with patch.dict(os.environ, {"ENABLE_BILLING": "true"}), \
-             patch("app.routers.billing.STRIPE_SECRET_KEY", "sk_test_mock_123"), \
-             patch("app.routers.billing.stripe.checkout.Session.create", return_value=fake_session):
-
+        with (
+            patch.dict(os.environ, {"ENABLE_BILLING": "true"}),
+            patch("app.routers.billing.STRIPE_SECRET_KEY", "sk_test_mock_123"),
+            patch("app.routers.billing.stripe.checkout.Session.create", return_value=fake_session),
+        ):
             resp = client.post(
                 "/api/v1/billing/create-checkout-session",
                 json={"user_email": "tester@example.com"},
@@ -56,12 +57,13 @@ def test_stripe_create_portal_session(client: TestClient):
 
     app.dependency_overrides[get_user_email] = lambda: "tester@example.com"
     try:
-        with patch.dict(os.environ, {"ENABLE_BILLING": "true"}), \
-             patch("app.routers.billing.STRIPE_SECRET_KEY", "sk_test_mock_123"), \
-             patch("app.routers.billing.subscription_repo.get_subscription", return_value={"is_pro": True}), \
-             patch("app.routers.billing.stripe.Customer.list", return_value=fake_customers), \
-             patch("app.routers.billing.stripe.billing_portal.Session.create", return_value=fake_portal):
-
+        with (
+            patch.dict(os.environ, {"ENABLE_BILLING": "true"}),
+            patch("app.routers.billing.STRIPE_SECRET_KEY", "sk_test_mock_123"),
+            patch("app.routers.billing.subscription_repo.get_subscription", return_value={"is_pro": True}),
+            patch("app.routers.billing.stripe.Customer.list", return_value=fake_customers),
+            patch("app.routers.billing.stripe.billing_portal.Session.create", return_value=fake_portal),
+        ):
             resp = client.post(
                 "/api/v1/billing/create-portal-session",
                 headers={"Authorization": "Bearer test-token"},
@@ -90,10 +92,11 @@ def test_stripe_webhook_checkout_completed(client: TestClient):
         },
     }
 
-    with patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"), \
-         patch("app.routers.billing.stripe.Webhook.construct_event", return_value=fake_event), \
-         patch("app.routers.billing.subscription_repo.upsert_subscription") as mock_upsert:
-
+    with (
+        patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"),
+        patch("app.routers.billing.stripe.Webhook.construct_event", return_value=fake_event),
+        patch("app.routers.billing.subscription_repo.upsert_subscription") as mock_upsert,
+    ):
         resp = client.post(
             "/api/v1/billing/webhook/stripe",
             content=b'{"id":"evt_test_123"}',
@@ -122,10 +125,11 @@ def test_stripe_webhook_subscription_deleted(client: TestClient):
         },
     }
 
-    with patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"), \
-         patch("app.routers.billing.stripe.Webhook.construct_event", return_value=fake_event), \
-         patch("app.routers.billing.subscription_repo.upsert_subscription") as mock_upsert:
-
+    with (
+        patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"),
+        patch("app.routers.billing.stripe.Webhook.construct_event", return_value=fake_event),
+        patch("app.routers.billing.subscription_repo.upsert_subscription") as mock_upsert,
+    ):
         resp = client.post(
             "/api/v1/billing/webhook/stripe",
             content=b'{"id":"evt_test_del_123"}',
@@ -144,9 +148,13 @@ def test_stripe_webhook_invalid_signature_rejected(client: TestClient):
     """Webhook with invalid signature returns 400 Bad Request."""
     import stripe
 
-    with patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"), \
-         patch("app.routers.billing.stripe.Webhook.construct_event", side_effect=stripe.SignatureVerificationError("invalid sig", "sig_header")):
-
+    with (
+        patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"),
+        patch(
+            "app.routers.billing.stripe.Webhook.construct_event",
+            side_effect=stripe.SignatureVerificationError("invalid sig", "sig_header"),
+        ),
+    ):
         resp = client.post(
             "/api/v1/billing/webhook/stripe",
             content=b'{"id":"evt_invalid"}',

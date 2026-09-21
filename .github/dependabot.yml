@@ -46,6 +46,22 @@ updates:
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
 
+  - package-ecosystem: "npm"
+    directory: "/cli"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "cli"
+      - "dependencies"
+
+  - package-ecosystem: "npm"
+    directory: "/vscode-extension"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "vscode-extension"
+      - "dependencies"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -53,3 +69,4 @@ updates:
     labels:
       - "deployment"
       - "dependencies"
+

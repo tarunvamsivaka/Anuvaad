@@ -83,15 +83,17 @@ async def test_github_webhook_ping():
 @pytest.mark.asyncio
 async def test_github_webhook_signature_verification():
     secret = "test_webhook_secret_key"
-    payload = json.dumps({
-        "action": "opened",
-        "repository": {"full_name": "test-org/test-repo"},
-        "pull_request": {
-            "number": 101,
-            "title": "Feature: Add GraphQL",
-            "diff_url": "https://github.com/test-org/test-repo/pull/101.diff",
-        },
-    }).encode("utf-8")
+    payload = json.dumps(
+        {
+            "action": "opened",
+            "repository": {"full_name": "test-org/test-repo"},
+            "pull_request": {
+                "number": 101,
+                "title": "Feature: Add GraphQL",
+                "diff_url": "https://github.com/test-org/test-repo/pull/101.diff",
+            },
+        }
+    ).encode("utf-8")
 
     sig = "sha256=" + hmac.new(secret.encode("utf-8"), payload, hashlib.sha256).hexdigest()
 

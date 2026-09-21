@@ -275,4 +275,3 @@ async def demo_translate_stream(request: Request, payload: DemoStreamRequest):
             "Cache-Control": "private, no-store",
         },
     )
-

@@ -102,7 +102,7 @@ async def function_translate_to_english_stream(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
-    is_ephemeral = (privacy_mode == "ephemeral")
+    is_ephemeral = privacy_mode == "ephemeral"
 
     headers = {"Content-Type": "text/event-stream"}
     if is_ephemeral:
@@ -134,7 +134,7 @@ async def function_translate_to_english(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
-    is_ephemeral = (privacy_mode == "ephemeral")
+    is_ephemeral = privacy_mode == "ephemeral"
 
     model_name = "deepseek-reasoner" if use_r1 else "standard"
     key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
