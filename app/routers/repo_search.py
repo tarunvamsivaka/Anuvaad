@@ -56,6 +56,7 @@ router = APIRouter(prefix="/repo", tags=["repo-search"])
 class IndexRepoPayload(BaseModel):
     # SEC-REPO-01: pattern enforced at the schema level in addition to regex check
     repo_name: str = Field(..., description="Format: owner/repo")
+    workspace_id: str | None = None
 
     @field_validator("repo_name")
     @classmethod
@@ -73,6 +74,7 @@ class SearchRepoPayload(BaseModel):
     repo_name: str = Field(..., description="Format: owner/repo")
     query: str
     top_k: int = 5
+    workspace_id: str | None = None
 
     @field_validator("repo_name")
     @classmethod
@@ -84,6 +86,33 @@ class SearchRepoPayload(BaseModel):
                 "characters, hyphens, dots, and underscores."
             )
         return v
+
+
+async def _verify_workspace_access(workspace_id: str, user_email: str) -> None:
+    import uuid as uuid_mod
+
+    from app.models.db_models import Workspace
+    from app.repositories.workspace import get_member
+
+    try:
+        ws_uuid = uuid_mod.UUID(str(workspace_id))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    async with AsyncSessionLocal() as session:
+        stmt = select(Workspace).where(Workspace.id == ws_uuid)
+        result = await session.execute(stmt)
+        ws = result.scalars().first()
+        if not ws:
+            raise HTTPException(status_code=404, detail="Workspace not found")
+        if ws.owner_email == user_email:
+            return
+        member = await get_member(str(ws_uuid), user_email)
+        if not member:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have access to this workspace.",
+            )
 
 
 @router.post("/index", dependencies=[Depends(rate_limiter(3, 60))])
@@ -99,6 +128,9 @@ async def index_repo(
     SEC-REPO-02: Verifies the user has a connected GitHub token before enqueueing
                  to prevent unauthenticated users from spamming the task queue.
     """
+    if payload.workspace_id:
+        await _verify_workspace_access(payload.workspace_id, user_email)
+
     # SEC-REPO-02: Verify the user has a connected GitHub token before enqueueing
     from app.repositories.github_token import get_github_token
 
@@ -150,6 +182,9 @@ async def search_repo(
     """
     if not payload.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    if payload.workspace_id:
+        await _verify_workspace_access(payload.workspace_id, user_email)
 
     # Generate query embedding using the same provider that was used at index time
     try:

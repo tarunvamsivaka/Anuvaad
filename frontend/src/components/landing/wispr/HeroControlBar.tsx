@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   Code,
   Zap,
@@ -273,6 +274,13 @@ function TerminalPreview({
           <span className="text-[10px] text-slate-500 hidden sm:inline">
             Zero Storage Verified
           </span>
+          <Link
+            href={`/dashboard/translate?code=${encodeURIComponent(preset.codeSnippet)}&lang=${preset.language}&mode=code-to-english`}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-400 hover:text-amber-300 transition-colors"
+          >
+            <span>Open in IDE</span>
+            <ArrowRight className="h-3 w-3" />
+          </Link>
         </div>
       </div>
 

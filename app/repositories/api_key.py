@@ -56,6 +56,17 @@ def _argon2_verify(raw_key: str, stored_hash: str) -> bool:
         return False
 
 
+_DUMMY_ARGON2_HASH: str | None = None
+
+
+def _get_dummy_argon2_hash() -> str:
+    """Return a cached Argon2id dummy hash for constant-time failure paths (SEC-01)."""
+    global _DUMMY_ARGON2_HASH
+    if _DUMMY_ARGON2_HASH is None:
+        _DUMMY_ARGON2_HASH = _argon2_hash("dummy_constant_time_key_for_timing_mitigation")
+    return _DUMMY_ARGON2_HASH
+
+
 async def get_by_hash(key_hash: str) -> dict | None:
     """Look up an API key by its SHA-256 hash.
 
@@ -110,6 +121,12 @@ async def get_by_raw_key(raw_key: str) -> dict | None:
                 )
             )
             candidates = result.scalars().all()
+            if not candidates:
+                # SEC-01: Constant-time dummy verification to equalize timing profiles
+                # and prevent prefix enumeration side-channel attacks.
+                _argon2_verify(raw_key, _get_dummy_argon2_hash())
+                return None
+
             for candidate in candidates:
                 if _argon2_verify(raw_key, candidate.api_key_hash):
                     return {c.key: getattr(candidate, c.key) for c in candidate.__mapper__.columns}

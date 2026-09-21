@@ -29,4 +29,13 @@ async def security_headers_middleware(request: Request, call_next):
     # Only set in production to avoid breaking local HTTP development.
     if _IS_PRODUCTION:
         response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
+
+    try:
+        from app.core.quota import get_active_protection_mode
+
+        mode = await get_active_protection_mode()
+        response.headers["X-Protection-Mode"] = mode
+    except Exception:
+        pass
+
     return response

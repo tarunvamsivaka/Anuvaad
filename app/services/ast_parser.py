@@ -62,6 +62,22 @@ def _get_parser(language: str) -> object | None:
             import tree_sitter_typescript as tsts  # JS is a subset of TS grammar
 
             lang = Language(tsts.language_tsx())
+        elif language == "rust":
+            try:
+                import tree_sitter_rust as tsrust
+
+                lang = Language(tsrust.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
+        elif language == "java":
+            try:
+                import tree_sitter_java as tsjava
+
+                lang = Language(tsjava.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
         else:
             _PARSERS[language] = None
             return None
@@ -646,3 +662,109 @@ def build_symbol_contract(code: str, language: str) -> dict:
         "function_count": analysis.function_count,
         "class_count": analysis.class_count,
     }
+
+
+def generate_test_harness(analysis: ASTAnalysis, target_framework: str = "pytest") -> str:
+    """Generate a scaffolded unit test harness derived from AST symbol contracts.
+
+    Supported frameworks:
+    - 'pytest': Python unit test suite with arrange/act/assert assertions
+    - 'vitest' / 'jest': TypeScript/JavaScript describe/it blocks
+    - 'testing': Standard Go package testing functions
+    - 'cargo' / 'rust': Rust #[test] module
+    """
+    framework = target_framework.lower()
+    functions = [f for f in analysis.functions if not f.is_method and not f.name.startswith("_")]
+    if not functions:
+        functions = analysis.functions
+
+    if framework == "pytest":
+        lines = [
+            '"""Auto-generated Pytest harness derived from Anuvaad AST symbol contracts."""',
+            "import pytest",
+            "",
+        ]
+        for f in functions:
+            params = ", ".join(f.parameters) if f.parameters else ""
+            lines.extend(
+                [
+                    f"def test_{f.name}():",
+                    f'    """Verify contract and execution boundary for {f.name}({params})."""',
+                    "    # Arrange / Act",
+                    f"    # result = {f.name}(...)",
+                    "    # Assert",
+                    "    assert True",
+                    "",
+                ]
+            )
+        return "\n".join(lines)
+
+    if framework in ("vitest", "jest"):
+        lines = [
+            "// Auto-generated Vitest harness derived from Anuvaad AST symbol contracts",
+            'import { describe, it, expect } from "vitest";',
+            "",
+            f'describe("Symbol Contract Suite: {analysis.language}", () => {{',
+        ]
+        for f in functions:
+            lines.extend(
+                [
+                    f'  it("preserves contract for {f.name}", () => {{',
+                    "    // Arrange / Act / Assert",
+                    "    expect(true).toBe(true);",
+                    "  });",
+                    "",
+                ]
+            )
+        lines.append("});")
+        return "\n".join(lines)
+
+    if framework == "testing":  # Go
+        lines = [
+            "// Auto-generated Go test harness derived from Anuvaad AST symbol contracts",
+            "package main",
+            "",
+            'import "testing"',
+            "",
+        ]
+        for f in functions:
+            cap_name = f.name[0].upper() + f.name[1:] if f.name else "Func"
+            lines.extend(
+                [
+                    f"func Test{cap_name}(t *testing.T) {{",
+                    f"    // Contract test for {f.name}",
+                    "    if false {",
+                    f'        t.Errorf("contract violation in {f.name}")',
+                    "    }",
+                    "}",
+                    "",
+                ]
+            )
+        return "\n".join(lines)
+
+    if framework in ("cargo", "rust"):
+        lines = [
+            "// Auto-generated Rust test harness derived from Anuvaad AST symbol contracts",
+            "#[cfg(test)]",
+            "mod tests {",
+            "    use super::*;",
+            "",
+        ]
+        for f in functions:
+            lines.extend(
+                [
+                    "    #[test]",
+                    f"    fn test_{f.name}() {{",
+                    f"        // Verify boundary for {f.name}",
+                    "        assert!(true);",
+                    "    }",
+                    "",
+                ]
+            )
+        lines.append("}")
+        return "\n".join(lines)
+
+    lines = [f"# Test harness for {analysis.language}"]
+    for f in functions:
+        lines.append(f"# test {f.name}()")
+    return "\n".join(lines)

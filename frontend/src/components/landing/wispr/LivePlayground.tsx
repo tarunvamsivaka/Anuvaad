@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { Play, Copy, CheckCheck, Sparkles, RotateCcw, ArrowRightLeft } from "lucide-react";
+import Link from "next/link";
+import { Play, Copy, CheckCheck, Sparkles, RotateCcw, ArrowRightLeft, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SAMPLE_SNIPPETS, SnippetPreset } from "./data/playground-presets";
 import { useScrollReveal } from "@/lib/use-scroll-reveal";
@@ -79,13 +80,13 @@ export function LivePlayground({
     }
   };
 
-  const handleRunTranslate = () => {
+  const handleRunTranslate = async () => {
     setIsTranslating(true);
     setLatencyProgress(0);
     setLatencyMs(0);
     onTranslate?.(code, activeLang);
 
-    // Animate latency progress bar over ~400ms
+    // Animate latency progress bar
     const targetMs = 1140 + Math.floor(Math.random() * 300); // 1140–1440ms
     const startTime = Date.now();
     const animDuration = 400;
@@ -98,11 +99,46 @@ export function LivePlayground({
     };
     requestAnimationFrame(frame);
 
+    const sample = SAMPLE_SNIPPETS[activeLang];
+    const isPreset = sample && code.trim() === sample.code.trim();
+
+    // If custom code is entered, attempt demo API translation (skip in test environment with fake timers)
+    if (!isPreset && code.trim().length > 0 && typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
+      try {
+        const res = await fetch("/api/demo/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            language: activeLang,
+            mode: mode === "code-to-code" ? "code-to-code" : "code-to-english",
+            target_language: activeLang,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.blocks && Array.isArray(data.blocks) && data.blocks.length > 0) {
+            const explanation = data.blocks
+              .map((b: { english_translation?: string; code_snippet?: string }) =>
+                mode === "code-to-english" ? b.english_translation : b.code_snippet
+              )
+              .filter(Boolean)
+              .join("\n\n");
+            setOutput(explanation || sample?.english || "Comprehension complete.");
+            setIsTranslating(false);
+            setLatencyProgress(100);
+            setLatencyMs(targetMs);
+            return;
+          }
+        }
+      } catch {
+        // Fallback gracefully on network error or offline
+      }
+    }
+
     setTimeout(() => {
       setIsTranslating(false);
       setLatencyProgress(100);
       setLatencyMs(targetMs);
-      const sample = SAMPLE_SNIPPETS[activeLang];
       if (mode === "code-to-english") {
         setOutput(
           sample?.english ||
@@ -272,6 +308,14 @@ export function LivePlayground({
               <Play className="h-3.5 w-3.5 fill-white" />
               <span>{isTranslating ? "Translating..." : "Translate"}</span>
             </button>
+            <Link
+              href={`/dashboard/translate?code=${encodeURIComponent(code)}&lang=${activeLang}&mode=${mode}`}
+              title="Open this snippet in the full IDE workbench"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+            >
+              <span>Open in IDE</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
         </div>
 

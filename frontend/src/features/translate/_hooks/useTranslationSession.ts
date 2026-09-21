@@ -4,16 +4,20 @@ import { mutate } from "swr";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
 import { useTranslationStore } from "../_store/useTranslationStore";
 
+import type { Workspace } from "@/context/WorkspaceContext";
+import type { AnuvaadSession } from "@/lib/supabase-types";
+
 interface UseTranslationSessionProps {
   sourceLanguage: string;
   targetLanguage: string;
   customInstructions: string;
-  activeWorkspace: any;
-  session: any;
+  activeWorkspace: Workspace | null;
+  session: AnuvaadSession | null;
   repositoryName: string;
   filePath: string;
   mode: string;
   onQuotaExceeded?: (error: QuotaError) => void;
+  onSyncSuccess?: () => void;
 }
 
 export function useTranslationSession({
@@ -26,8 +30,10 @@ export function useTranslationSession({
   filePath,
   mode,
   onQuotaExceeded,
+  onSyncSuccess,
 }: UseTranslationSessionProps) {
   const {
+    input,
     outputBlocks,
     setOutputBlocks,
     originalBlocks,
@@ -35,7 +41,8 @@ export function useTranslationSession({
     setInput,
     setModelUsed,
     setRawError,
-    sessionId
+    sessionId,
+    setDiffOriginalCode,
   } = useTranslationStore();
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -93,6 +100,7 @@ export function useTranslationSession({
 
       const data = await res.json();
       if (data.status === "success" && data.updated_code) {
+        setDiffOriginalCode(input);
         setInput(data.updated_code);
         setOutputBlocks(data.blocks);
         setOriginalBlocks(JSON.parse(JSON.stringify(data.blocks)));
@@ -107,7 +115,8 @@ export function useTranslationSession({
           mutate(['/api/check-credits', session.access_token]);
         }
 
-        toast.success("Synchronized successfully! Code has been updated.");
+        toast.success("Synchronized successfully! Reviewing changes in diff mode.");
+        onSyncSuccess?.();
       } else {
         throw new Error("No updated code returned from engine.");
       }

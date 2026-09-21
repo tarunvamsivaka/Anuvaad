@@ -23,6 +23,7 @@ interface TranslateShellProps {
   toolbar: React.ReactNode;
   inputPanel: React.ReactNode;
   outputPanel: React.ReactNode;
+  protectionMode?: string;
 }
 
 export function TranslateShell({
@@ -41,6 +42,7 @@ export function TranslateShell({
   toolbar,
   inputPanel,
   outputPanel,
+  protectionMode,
 }: TranslateShellProps) {
   const [zenMode, setZenMode] = React.useState(false);
   // Re-using showSettings as sidebar collapsed state, inverted
@@ -66,6 +68,24 @@ export function TranslateShell({
             <Badge variant="outline" className="text-[10px] font-medium bg-amber-500/5 text-amber-500 dark:text-amber-500/90 border-amber-500/20">{currentModeLabel}</Badge>
           </div>
           <div className="flex items-center gap-2">
+            {/* Protection Mode Indicator Pill */}
+            {protectionMode && protectionMode !== "NORMAL" ? (
+              <span className={cn(
+                "inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-0.5 rounded-full border shadow-sm",
+                protectionMode === "EMERGENCY" && "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25",
+                protectionMode === "RESTRICTED" && "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/25",
+                protectionMode === "CAUTION" && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25"
+              )}>
+                <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                {protectionMode} Mode
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Protected
+              </span>
+            )}
+
             {/* Topbar Pro Badge moved here instead of old places */}
             <Badge className={cn(
               "text-[10px] font-bold py-0.5 px-2.5",

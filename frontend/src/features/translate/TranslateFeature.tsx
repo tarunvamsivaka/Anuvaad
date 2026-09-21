@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "next-themes";
 import useSWR from "swr";
@@ -61,13 +62,32 @@ export function TranslateFeature() {
   const [gistSource, setGistSource] = useState<{ username: string; filename: string } | null>(null);
   const [selectedModel, setSelectedModel] = useState("auto");
 
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (!searchParams) return;
+    const paramCode = searchParams.get("code");
+    const paramLang = searchParams.get("lang");
+    const paramMode = searchParams.get("mode");
+
+    if (paramCode) {
+      useTranslationStore.getState().setInput(paramCode);
+    }
+    if (paramLang) {
+      setSourceLanguage(paramLang);
+    }
+    if (paramMode) {
+      setMode(paramMode);
+    }
+  }, [searchParams]);
+
   // FIX-22 (P2-10): authFetcher is defined at module level in swr-fetcher.ts
   //   → SWR key is a stable [url, token] tuple; fetcher reference never changes.
   // Uses relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
   const { data: creditsData, isLoading: creditsLoading } = useSWR(
     session?.access_token ? ['/api/check-credits', session.access_token] : null,
     authFetcher,
-  ) as { data: { credits?: number; tier?: string } | undefined; isLoading: boolean };
+  ) as { data: { credits?: number; tier?: string; protection_mode?: string } | undefined; isLoading: boolean };
 
   // FIX-21: session is now AnuvaadSession | null — no more (session as any)
   const credits = creditsData?.credits ?? session?.user?.user_metadata?.credits;
@@ -152,6 +172,7 @@ export function TranslateFeature() {
     filePath,
     mode,
     onQuotaExceeded: setQuotaError,
+    onSyncSuccess: () => setViewType("diff"),
   });
 
   const triggerGistImportWithGuestPrompt = () => {
@@ -206,6 +227,7 @@ export function TranslateFeature() {
         setRepositoryName={setRepositoryName}
         filePath={filePath}
         setFilePath={setFilePath}
+        protectionMode={creditsData?.protection_mode}
         toolbar={
           <Toolbar
             mode={mode}

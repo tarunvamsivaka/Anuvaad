@@ -460,3 +460,39 @@ class TestEdgeCases:
         result = analyze(code, "go")
         assert isinstance(result, ASTAnalysis)
         assert result.has_parse_errors is False
+
+
+# ── T7: Test Harness Generator ────────────────────────────────────────────────
+
+
+class TestGenerateTestHarness:
+    def test_generate_pytest_harness(self):
+        from app.services.ast_parser import generate_test_harness
+
+        analysis = analyze("def add(a: int, b: int) -> int:\n    return a + b", "python")
+        harness = generate_test_harness(analysis, "pytest")
+        assert "def test_add():" in harness
+        assert "import pytest" in harness
+
+    def test_generate_vitest_harness(self):
+        from app.services.ast_parser import generate_test_harness
+
+        analysis = analyze("function computeTotal(x: number): number { return x * 2; }", "typescript")
+        harness = generate_test_harness(analysis, "vitest")
+        assert 'describe("Symbol Contract Suite: typescript"' in harness
+        assert 'it("preserves contract for computeTotal"' in harness
+
+    def test_generate_go_harness(self):
+        from app.services.ast_parser import generate_test_harness
+
+        analysis = analyze("package main\nfunc ProcessData(val int) int { return val }", "go")
+        harness = generate_test_harness(analysis, "testing")
+        assert "func TestProcessData(t *testing.T)" in harness
+
+    def test_generate_cargo_harness(self):
+        from app.services.ast_parser import generate_test_harness
+
+        analysis = analyze("def transform(): pass", "python")
+        harness = generate_test_harness(analysis, "cargo")
+        assert "#[test]" in harness
+        assert "fn test_transform()" in harness

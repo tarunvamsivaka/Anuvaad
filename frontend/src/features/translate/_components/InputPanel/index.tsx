@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { useTranslationStore } from "../../_store/useTranslationStore";
 import { detectLanguage } from "../../_hooks/useLanguageDetection";
 
+import type { DropzoneRootProps, DropzoneInputProps } from "react-dropzone";
+
 const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
   loading: () => <Skeleton className="h-full w-full min-h-[500px] rounded-lg" />,
@@ -45,11 +47,11 @@ interface InputPanelProps {
   sourceLanguage: string;
   setSourceLanguage: (lang: string) => void;
   isDark: boolean;
-  monacoOptions: any;
+  monacoOptions: Record<string, unknown>;
   isTypingManually: boolean;
   setIsTypingManually: (val: boolean) => void;
-  getRootProps: any;
-  getInputProps: any;
+  getRootProps: <T extends DropzoneRootProps>(props?: T) => T;
+  getInputProps: <T extends DropzoneInputProps>(props?: T) => T;
   isDragActive: boolean;
   showGistInput: boolean;
   setShowGistInput: (val: boolean) => void;

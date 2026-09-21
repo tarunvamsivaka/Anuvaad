@@ -3,10 +3,11 @@ import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { track } from "@/lib/analytics";
+import type { DropzoneRootProps, DropzoneInputProps } from "react-dropzone";
 
 interface FileDropZoneProps {
-  getRootProps: any;
-  getInputProps: any;
+  getRootProps: <T extends DropzoneRootProps>(props?: T) => T;
+  getInputProps: <T extends DropzoneInputProps>(props?: T) => T;
   isDragActive: boolean;
   setIsTypingManually: (val: boolean) => void;
   setInput: (val: string) => void;

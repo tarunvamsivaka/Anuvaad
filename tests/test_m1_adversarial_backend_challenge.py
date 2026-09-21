@@ -189,6 +189,7 @@ class TestGithubTokenRepositoryAdversarial:
         """Verify save_github_token rolls back session and returns False on DB failure."""
         with patch("app.repositories.github_token.AsyncSessionLocal") as mock_session_cls:
             mock_session = AsyncMock()
+            mock_session.add = MagicMock()
             mock_session.commit.side_effect = Exception("DB Connection Lost")
             mock_session_cls.return_value.__aenter__.return_value = mock_session
 
@@ -272,6 +273,7 @@ class TestWorkspaceRepositoryAdversarial:
         """Verify create_workspace returns None and rolls back on exception."""
         with patch("app.repositories.workspace.AsyncSessionLocal") as mock_session_cls:
             mock_session = AsyncMock()
+            mock_session.add = MagicMock()
             mock_session.commit.side_effect = Exception("Unique constraint violation")
             mock_session_cls.return_value.__aenter__.return_value = mock_session
 

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   // Create a response object we can modify (set cookies for token refresh)
   let supabaseResponse = NextResponse.next({
     request: { headers: request.headers },
@@ -96,7 +96,7 @@ export async function middleware(request: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Matcher: only run middleware on /dashboard and its sub-routes.
+// Matcher: only run proxy on /dashboard and its sub-routes.
 // Explicitly EXCLUDE /api/*, /signin, /signup, /_next/*, and static assets.
 // ---------------------------------------------------------------------------
 export const config = {

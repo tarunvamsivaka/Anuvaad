@@ -28,6 +28,9 @@ interface TranslationState {
 
   sessionId: string;
   setSessionId: (id: string) => void;
+
+  diffOriginalCode: string | null;
+  setDiffOriginalCode: (code: string | null) => void;
 }
 
 export const useTranslationStore = create<TranslationState>((set) => ({
@@ -61,4 +64,7 @@ export const useTranslationStore = create<TranslationState>((set) => ({
 
   sessionId: "",
   setSessionId: (sessionId) => set({ sessionId }),
+
+  diffOriginalCode: null,
+  setDiffOriginalCode: (diffOriginalCode) => set({ diffOriginalCode }),
 }));

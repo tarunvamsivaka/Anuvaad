@@ -33,7 +33,7 @@ interface OutputPanelProps {
   handleSyncEnglishToCode: () => void;
   targetLanguage: string;
   isDark: boolean;
-  monacoOptions: any;
+  monacoOptions: Record<string, unknown>;
   elapsedTime?: number;
   tokenCount?: number;
   throughput?: string;
@@ -67,6 +67,8 @@ export function OutputPanel({
     rawError,
     modelUsed,
     setOutputBlocks,
+    diffOriginalCode,
+    setDiffOriginalCode,
   } = useTranslationStore();
 
   const fullCodeText = outputBlocks
@@ -383,20 +385,37 @@ export function OutputPanel({
                 </div>
               ) : viewType === "diff" ? (
                 /* Monaco Diff Editor View */
-                <div className="h-full w-full p-2">
-                  <DiffEditor
-                    height="100%"
-                    original={input}
-                    modified={fullCodeText || (outputBlocks ? outputBlocks.map((b) => b.english_translation).join("\n\n") : "")}
-                    language={monacoLang}
-                    theme={isDark ? "vs-dark" : "light"}
-                    options={{
-                      ...monacoOptions,
-                      readOnly: true,
-                      renderSideBySide: true,
-                      originalEditable: false,
-                    }}
-                  />
+                <div className="h-full w-full p-2 flex flex-col">
+                  {diffOriginalCode && (
+                    <div className="mb-2 flex items-center justify-between rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <Diff className="h-3.5 w-3.5" />
+                        <span>Showing inline diff: Original Code vs Updated Code from English edits</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDiffOriginalCode(null)}
+                        className="text-[11px] font-semibold text-muted-foreground hover:text-foreground underline underline-offset-2"
+                      >
+                        Reset Reference
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex-1 w-full overflow-hidden">
+                    <DiffEditor
+                      height="100%"
+                      original={diffOriginalCode ?? input}
+                      modified={diffOriginalCode ? input : (fullCodeText || (outputBlocks ? outputBlocks.map((b) => b.english_translation).join("\n\n") : ""))}
+                      language={monacoLang}
+                      theme={isDark ? "vs-dark" : "light"}
+                      options={{
+                        ...monacoOptions,
+                        readOnly: true,
+                        renderSideBySide: true,
+                        originalEditable: false,
+                      }}
+                    />
+                  </div>
                 </div>
               ) : (
                 /* Structured Blocks View */

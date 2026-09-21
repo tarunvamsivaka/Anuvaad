@@ -26,7 +26,7 @@ from app.core.auth import (
 )
 from app.core.cache import cache
 from app.core.config import RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, logger
-from app.core.quota import get_today_usage_count
+from app.core.quota import get_active_protection_mode, get_today_usage_count
 from app.domain.billing.service import BillingService
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
 from app.queue.tasks import process_billing_webhook_task
@@ -225,6 +225,7 @@ async def get_check_credits(
     email: str | None = Depends(get_optional_user_email_from_request),
 ):
     """Return the user's current translation credit balance and remaining daily quota."""
+    protection_mode = await get_active_protection_mode()
     if not email:
         client_ip = get_client_ip(request)
         today_str = datetime.now(UTC).strftime("%Y-%m-%d")
@@ -237,6 +238,7 @@ async def get_check_credits(
             "limit": 5,
             "tier": "guest",
             "credits": 0,
+            "protection_mode": protection_mode,
         }
 
     is_pro = await get_user_pro_status(email)
@@ -247,6 +249,7 @@ async def get_check_credits(
             "limit": -1,
             "tier": "pro",
             "credits": credits,
+            "protection_mode": protection_mode,
         }
 
     used = await get_today_usage_count(email)
@@ -256,6 +259,7 @@ async def get_check_credits(
         "limit": 25,
         "tier": "free",
         "credits": credits,
+        "protection_mode": protection_mode,
     }
 
 

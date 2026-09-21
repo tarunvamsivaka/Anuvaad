@@ -7,6 +7,8 @@ import { TranslationBlock } from "../_types";
 import type { QuotaError } from "@/components/modals/QuotaExceededModal";
 import { parseQuotaErrorPayload } from "@/components/modals/QuotaExceededModal";
 import { useTranslationStore } from "../_store/useTranslationStore";
+import type { Workspace } from "@/context/WorkspaceContext";
+import type { AnuvaadSession } from "@/lib/supabase-types";
 
 // M-3: Cache the canvas-confetti dynamic import at module level.
 // Previously imported inside handleTranslate on every success call,
@@ -19,14 +21,26 @@ function getConfetti() {
   return _confettiPromise;
 }
 
+class FatalError extends Error {}
+class QuotaErrorObj extends Error {
+  payload: unknown;
+  retryAfter: string | null;
+  constructor(payload: unknown, retryAfter: string | null) {
+    super("QuotaExceeded");
+    this.name = "QuotaExceeded";
+    this.payload = payload;
+    this.retryAfter = retryAfter;
+  }
+}
+
 interface UseTranslationStreamProps {
   mode: string;
   sourceLanguage: string;
   targetLanguage: string;
   customInstructions: string;
-  activeWorkspace: any;
+  activeWorkspace: Workspace | null;
   isPro: boolean;
-  session: any;
+  session: AnuvaadSession | null;
   repositoryName: string;
   filePath: string;
   selectedModel?: string;
@@ -129,19 +143,8 @@ export function useTranslationStream({
       // FIX-18 (P1-10): Create a fresh AbortController for each streaming request.
       abortControllerRef.current = new AbortController();
 
-      class FatalError extends Error {}
-      class QuotaErrorObj extends Error {
-        payload: any;
-        retryAfter: string | null;
-        constructor(payload: any, retryAfter: string | null) {
-          super("QuotaExceeded");
-          this.payload = payload;
-          this.retryAfter = retryAfter;
-        }
-      }
-
-      let completeBlocks = null as any;
-      let streamError = null as any;
+      let completeBlocks: TranslationBlock[] | null = null;
+      let streamError: string | null = null;
 
       // Flush the rAF buffer to React state at display refresh cadence
       const scheduleFlush = () => {
@@ -242,23 +245,26 @@ export function useTranslationStream({
 
         // M-3: Use cached confetti promise (module-level singleton, not re-imported per call)
         getConfetti().then((module) => {
-          module.default({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.8, x: 0.8 },
-            colors: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1']
-          });
+          const confettiFn = module?.default ?? module;
+          if (typeof confettiFn === "function") {
+            confettiFn({
+              particleCount: 100,
+              spread: 70,
+              origin: { y: 0.8, x: 0.8 },
+              colors: ['#3b82f6', '#10b981', '#f59e0b', '#6366f1']
+            });
+          }
         }).catch((err) => console.error("Confetti dynamic import failed", err));
       }
       
     } catch (err: unknown) {
-      const errorObj = err as any;
-      if (errorObj?.name === "QuotaExceeded") {
-        const quotaErr = parseQuotaErrorPayload(errorObj.payload, errorObj.retryAfter);
+      if (err instanceof QuotaErrorObj) {
+        const quotaErr = parseQuotaErrorPayload(err.payload, err.retryAfter);
         setQuotaError(quotaErr);
         setIsStreaming(false);
         return;
       }
+      const errorObj = err as { name?: string; message?: string; status?: number } | undefined;
       if (errorObj?.name === "AbortError" || errorObj?.message?.includes("abort")) {
         toast.info("Translation stopped");
       } else {
@@ -275,7 +281,7 @@ export function useTranslationStream({
       setIsStreaming(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session, sessionId, setSessionId, repositoryName, filePath]);
+  }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session, sessionId, setSessionId, repositoryName, filePath, selectedModel]);
 
   return {
     quotaError,
