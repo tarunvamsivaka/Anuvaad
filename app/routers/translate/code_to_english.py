@@ -234,19 +234,27 @@ async def function_translate_to_english(
         if stale_result:
             if email:
                 await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                _dispatch_history(
-                    background_tasks,
-                    user_email=email,
-                    mode="Code → English",
-                    source_language=payload.language,
-                    target_language="english",
-                    input_text=payload.raw_code,
-                    blocks=stale_result,
-                    model_used=model_name,
-                    workspace_id=payload.workspace_id,
-                    session_id=payload.session_id,
-                    repository_name=payload.repository_name,
-                    file_path=payload.file_path,
+                if not is_ephemeral:
+                    _dispatch_history(
+                        background_tasks,
+                        user_email=email,
+                        mode="Code → English",
+                        source_language=payload.language,
+                        target_language="english",
+                        input_text=payload.raw_code,
+                        blocks=stale_result,
+                        model_used=model_name,
+                        workspace_id=payload.workspace_id,
+                        session_id=payload.session_id,
+                        repository_name=payload.repository_name,
+                        file_path=payload.file_path,
+                    )
+            if is_ephemeral:
+                from fastapi.responses import JSONResponse
+
+                return JSONResponse(
+                    content=stale_result,
+                    headers={"X-Anuvaad-Privacy": "ephemeral; zero-retention"},
                 )
             return stale_result
 

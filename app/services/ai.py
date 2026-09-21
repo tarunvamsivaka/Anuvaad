@@ -728,22 +728,26 @@ async def stream_code_to_english(
             if stale_result:
                 logger.info("Streaming fallback: returning stale recovery result")
                 yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
+                done_payload = {"done": True, "blocks": stale_result, "model_used": "stale_recovery"}
+                if ephemeral:
+                    done_payload["privacy_mode"] = "ephemeral"
+                yield f"data: {json.dumps(done_payload)}\n\n"
                 if email:
                     await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                    save_translation_history_task.delay(
-                        user_email=email,
-                        mode="Code → English",
-                        source_language=payload.language,
-                        target_language="english",
-                        input_text=payload.raw_code,
-                        blocks=stale_result,
-                        model_used="stale_recovery",
-                        workspace_id=payload.workspace_id,
-                        session_id=payload.session_id,
-                        repository_name=payload.repository_name,
-                        file_path=payload.file_path,
-                    )
+                    if not ephemeral:
+                        save_translation_history_task.delay(
+                            user_email=email,
+                            mode="Code → English",
+                            source_language=payload.language,
+                            target_language="english",
+                            input_text=payload.raw_code,
+                            blocks=stale_result,
+                            model_used="stale_recovery",
+                            workspace_id=payload.workspace_id,
+                            session_id=payload.session_id,
+                            repository_name=payload.repository_name,
+                            file_path=payload.file_path,
+                        )
                 return
 
             yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
