@@ -33,13 +33,29 @@ function SignUpPageContent() {
   const [mounted, setMounted] = useState(false);
   const [redirectTo, setRedirectTo] = useState("/dashboard");
 
+  function getSafeRedirectPath(raw: string | null): string {
+    if (!raw || raw.includes("\\") || /[\u0000-\u001f\u007f]/.test(raw)) {
+      return "/dashboard";
+    }
+
+    try {
+      const resolved = new URL(raw, window.location.origin);
+      if (resolved.origin !== window.location.origin || !resolved.pathname.startsWith("/")) {
+        return "/dashboard";
+      }
+      return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    } catch {
+      return "/dashboard";
+    }
+  }
+
   useEffect(() => {
     setMounted(true);
     setQuoteIdx(Math.floor(Math.random() * SOCIAL_PROOF.length));
     // Read redirectTo from URL after mount — avoids useSearchParams() Suspense
     // requirement which prevents the form from appearing in the initial SSR HTML.
-    const raw = new URLSearchParams(window.location.search).get("redirectTo") || "/dashboard";
-    setRedirectTo(raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard");
+    const raw = new URLSearchParams(window.location.search).get("redirectTo");
+    setRedirectTo(getSafeRedirectPath(raw));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

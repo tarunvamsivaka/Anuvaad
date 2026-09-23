@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -21,7 +22,18 @@ def test_verify_ruff_check():
 def test_verify_npm_build():
     if not shutil.which("npm") or not (frontend_dir / "node_modules" / "next").exists():
         pytest.skip("frontend dependencies not installed (run npm ci first)")
-    res = subprocess.run("npm run build", cwd=frontend_dir, capture_output=True, text=True, shell=True)
+    env = os.environ.copy()
+    env.setdefault("NEXT_PUBLIC_SUPABASE_URL", "https://placeholder.supabase.co")
+    env.setdefault("NEXT_PUBLIC_SUPABASE_ANON_KEY", "placeholder_anon_key_for_ci_build")
+    env.setdefault("NEXT_PUBLIC_API_URL", "http://localhost:8000")
+    res = subprocess.run(
+        "npm run build",
+        cwd=frontend_dir,
+        capture_output=True,
+        text=True,
+        shell=True,
+        env=env,
+    )
     print("\n[NPM BUILD STDOUT]\n" + res.stdout)
     if res.stderr:
         print("\n[NPM BUILD STDERR]\n" + res.stderr)

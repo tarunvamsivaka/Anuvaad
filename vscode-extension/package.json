@@ -48,7 +48,8 @@
         "anuvaad.apiUrl": {
           "type": "string",
           "default": "http://localhost:8000",
-          "description": "Anuvaad API Base URL"
+          "description": "Anuvaad API Base URL (HTTPS required except localhost)",
+          "scope": "machine"
         },
         "anuvaad.enableHover": {
           "type": "boolean",

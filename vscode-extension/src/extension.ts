@@ -12,6 +12,29 @@ export function formatCodePayload(rawCode: string, language: string): CodePayloa
   };
 }
 
+function getApiBaseUrl(config: vscode.WorkspaceConfiguration): string {
+  const rawUrl = config.get<string>('apiUrl', 'http://localhost:8000').trim();
+  let url: URL;
+
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error('Anuvaad API URL must be a valid absolute URL.');
+  }
+
+  const isLoopback = url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.hostname === '[::1]';
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLoopback)) {
+    throw new Error('Anuvaad API URL must use HTTPS (HTTP is allowed only for localhost).');
+  }
+  if (url.username || url.password) {
+    throw new Error('Anuvaad API URL must not contain credentials.');
+  }
+
+  return url.toString().replace(/\/$/, '');
+}
+
 export function parseTranslationResponse(data: any): string {
   if (!data) {
     return '';
@@ -143,7 +166,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Get configuration
     const currentConfig = vscode.workspace.getConfiguration('anuvaad');
-    const apiUrl = currentConfig.get<string>('apiUrl', 'http://localhost:8000');
     const apiKey = await context.secrets.get('anuvaad.apiKey');
 
     if (!apiKey) {
@@ -158,6 +180,7 @@ export async function activate(context: vscode.ExtensionContext) {
       cancellable: false
     }, async () => {
       try {
+        const apiUrl = getApiBaseUrl(currentConfig);
         const payload = formatCodePayload(text, editor.document.languageId);
         const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
           method: 'POST',
@@ -214,8 +237,6 @@ export async function activate(context: vscode.ExtensionContext) {
         return null;
       }
 
-      const apiUrl = currentConfig.get<string>('apiUrl', 'http://localhost:8000');
-
       // Get current line or block
       const range = document.getWordRangeAtPosition(position);
       if (!range) {
@@ -242,6 +263,7 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       try {
+        const apiUrl = getApiBaseUrl(currentConfig);
         const payload = formatCodePayload(lineText, document.languageId);
         const response = await fetch(`${apiUrl}/api/v1/code-to-english/sync`, {
           method: 'POST',
