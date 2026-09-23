@@ -1,0 +1,3 @@
+## 2026-09-23 - [Frontend OutputPanel O(N) array calculations on SSE re-render]
+**Learning:** Components subscribing to Zustand stores without specific selectors re-render on *any* store update. In this codebase, the `useTranslationStore` rapidly updates `streamText` during Server-Sent Events (SSE). If a subscribed component like `OutputPanel` recalculates expensive string concatenations (e.g., `outputBlocks.map().join()+`) inline on every render loop, it causes O(N) work to be needlessly executed on every streaming token, leading to UI lag.
+**Action:** Always wrap expensive derived states or array mappings in `useMemo` hooks in components that subscribe to rapidly updating Zustand stores (especially those dealing with SSE streams) without specific selectors.
