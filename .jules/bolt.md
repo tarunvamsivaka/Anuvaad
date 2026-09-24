@@ -1,0 +1,3 @@
+## 2024-09-24 - [Store Subscriptions & Rendering]
+**Learning:** React components subscribing to Zustand stores without specific selectors re-render on *any* store update. Rapid updates (like `streamText` changes via SSE) cause severe performance degradation if derived states or array mappings (e.g., `array.map().join()`) aren't memoized, triggering O(N) calculations repeatedly.
+**Action:** Always wrap expensive derived states or array concatenations in `useMemo` hooks when consuming Zustand stores, especially in components that share state with high-frequency updating properties like streaming text.
