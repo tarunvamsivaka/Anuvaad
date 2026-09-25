@@ -1,0 +1,3 @@
+## 2024-09-25 - Prevent O(N) evaluations in components subscribing to frequently updated Zustand stores
+**Learning:** In React components subscribing to Zustand stores without specific selectors, the component will re-render on any store update (such as rapidly changing streaming text). Deriving state inline using array mappings like `outputBlocks.map(...).join('\n\n')` results in an $O(N)$ calculation blocking the main thread on every render.
+**Action:** Always wrap expensive derived states or array mappings in `useMemo` hooks to prevent redundant evaluations on every render when working with streaming or rapidly changing global states.
