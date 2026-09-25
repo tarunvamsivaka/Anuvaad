@@ -60,8 +60,11 @@ def _sqlite_cosine_distance(v1_raw, v2_raw):
 _raw_url = DATABASE_POOL_URL if IS_PRODUCTION and DATABASE_POOL_URL else DATABASE_URL
 
 _DB_URL = _raw_url
-if _DB_URL and _DB_URL.startswith("postgresql://"):
-    _DB_URL = _DB_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+if _DB_URL:
+    if _DB_URL.startswith("postgresql://"):
+        _DB_URL = _DB_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif _DB_URL.startswith("postgresql+psycopg2://"):
+        _DB_URL = _DB_URL.replace("postgresql+psycopg2://", "postgresql+asyncpg://", 1)
 
 _is_sqlite = False
 
