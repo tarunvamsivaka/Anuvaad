@@ -113,8 +113,8 @@ jobs:
 
       - name: Verify Phase 1B migration upgrade and downgrade
         env:
-          DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
-          MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
+          DATABASE_URL: postgresql+psycopg2://anuvaad:anuvaad@localhost:5432/anuvaad_migration
+          MIGRATION_DATABASE_URL: postgresql+psycopg2://anuvaad:anuvaad@localhost:5432/anuvaad_migration
           # SEC-CI-01: TOKEN_ENCRYPTION_KEY moved from hardcoded value to GitHub Actions secret with test fallback
           TOKEN_ENCRYPTION_KEY: ${{ secrets.CI_TOKEN_ENCRYPTION_KEY || 'GdBdzxEDtOeI20E-5p7tzdkKr4An81VQ6oHcw8Og60U=' }}
         run: pytest tests/test_migrations.py -v
