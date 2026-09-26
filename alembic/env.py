@@ -42,8 +42,10 @@ def get_url() -> str:
             "Example: DATABASE_URL=postgresql://user:pass@host:5432/dbname alembic upgrade head"
         )
     # asyncpg driver is not supported in Alembic's synchronous engine — use psycopg2 dialect
-    url = url.replace("postgresql+asyncpg://", "postgresql://")
-    url = url.replace("postgres://", "postgresql://", 1)
+    url = url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+    url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
     # Escape % for ConfigParser interpolation (e.g. URL-encoded passwords)
     return url.replace("%", "%%")
 
