@@ -1,0 +1,3 @@
+## 2024-10-18 - [Optimization] Memoizing derived state in Zustand-connected components
+**Learning:** In React components subscribing to Zustand stores without specific selectors, the component will re-render on any store update (e.g., rapidly changing `streamText` during SSE streaming). If expensive derived states (like `.map().join()` concatenations) are computed without `useMemo`, it causes $O(N)$ calculations and severe performance degradation on every re-render.
+**Action:** Always wrap expensive derived states or array mappings (like string concatenations from arrays) in `useMemo` hooks, especially when the component relies on un-selected Zustand stores that update frequently.
