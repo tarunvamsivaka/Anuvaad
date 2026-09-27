@@ -18,6 +18,8 @@ from sqlalchemy.engine import Engine
 from alembic import command
 
 MIGRATION_DATABASE_URL = os.getenv("MIGRATION_DATABASE_URL")
+if MIGRATION_DATABASE_URL and MIGRATION_DATABASE_URL.startswith("postgresql://"):
+    MIGRATION_DATABASE_URL = MIGRATION_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 
 @pytest.fixture(scope="module")
