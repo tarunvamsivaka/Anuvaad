@@ -57,10 +57,7 @@ async def analyze_repository(payload: AnalyzeRepositoryRequest):
     if not payload.files:
         raise HTTPException(status_code=400, detail="Files list cannot be empty")
 
-    tasks = [
-        asyncio.to_thread(analyze, f.content, f.language or _infer_lang(f.file_path))
-        for f in payload.files
-    ]
+    tasks = [asyncio.to_thread(analyze, f.content, f.language or _infer_lang(f.file_path)) for f in payload.files]
     results = await asyncio.gather(*tasks)
     analyses = {f.file_path: res for f, res in zip(payload.files, results)}
 
@@ -84,10 +81,7 @@ async def analyze_repository(payload: AnalyzeRepositoryRequest):
 @router.post("/modernize/impact", dependencies=[Depends(rate_limiter(20, 60))])
 async def analyze_impact(payload: ImpactAnalysisRequest):
     """Calculate transitive callers affected by modifying a given symbol."""
-    tasks = [
-        asyncio.to_thread(analyze, f.content, f.language or _infer_lang(f.file_path))
-        for f in payload.files
-    ]
+    tasks = [asyncio.to_thread(analyze, f.content, f.language or _infer_lang(f.file_path)) for f in payload.files]
     results = await asyncio.gather(*tasks)
     analyses = {f.file_path: res for f, res in zip(payload.files, results)}
 

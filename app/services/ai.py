@@ -81,15 +81,17 @@ def init_clients(groq_key: str) -> None:
         _openrouter_client = _create_client(
             OPENROUTER_API_KEY,
             "https://openrouter.ai/api/v1",
-            headers={"HTTP-Referer": FRONTEND_URL, "X-Title": "Anuvaad"}
+            headers={"HTTP-Referer": FRONTEND_URL, "X-Title": "Anuvaad"},
         )
 
-    logger.info(f"LLM clients initialized: "
-                f"{'Cerebras ' if _cerebras_client else ''}"
-                f"{'Gemini ' if _gemini_client else ''}"
-                f"{'DeepSeek ' if _deepseek_client else ''}"
-                f"{'Groq ' if _groq_client else ''}"
-                f"{'OpenRouter' if _openrouter_client else ''}")
+    logger.info(
+        f"LLM clients initialized: "
+        f"{'Cerebras ' if _cerebras_client else ''}"
+        f"{'Gemini ' if _gemini_client else ''}"
+        f"{'DeepSeek ' if _deepseek_client else ''}"
+        f"{'Groq ' if _groq_client else ''}"
+        f"{'OpenRouter' if _openrouter_client else ''}"
+    )
 
 
 async def close_clients() -> None:
@@ -115,11 +117,14 @@ async def close_clients() -> None:
 def _get_cerebras_client() -> AsyncOpenAI | None:
     return _cerebras_client
 
+
 def _get_gemini_client() -> AsyncOpenAI | None:
     return _gemini_client
 
+
 def _get_deepseek_client() -> AsyncOpenAI | None:
     return _deepseek_client
+
 
 def _get_groq_client() -> AsyncOpenAI:
     """Return the shared Groq client, or create a fallback if not yet initialized."""
@@ -127,6 +132,7 @@ def _get_groq_client() -> AsyncOpenAI:
         return _groq_client
     key = os.getenv("GROQ_API_KEY", "")
     return AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
+
 
 def _get_openrouter_client() -> AsyncOpenAI | None:
     """Return the shared OpenRouter fallback client, or None if not configured."""
@@ -784,7 +790,7 @@ async def stream_code_to_english(
                             source_language=payload.language,
                             target_language="english",
                             input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
-                        input_hash=_code_hash,
+                            input_hash=_code_hash,
                             blocks=stale_result,
                             model_used="stale_recovery",
                             workspace_id=payload.workspace_id,

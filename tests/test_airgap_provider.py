@@ -37,4 +37,3 @@ async def test_airgap_provider_availability_check():
 def test_airgap_provider_blocks_cloud_metadata_endpoints():
     with pytest.raises(ValueError, match="cloud instance metadata"):
         AirgapInferenceProvider(LocalModelConfig(base_url="http://169.254.169.254/v1"))
-
