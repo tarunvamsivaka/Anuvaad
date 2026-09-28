@@ -1,0 +1,3 @@
+## 2024-05-18 - Missing Memoization in Zustand Subscriptions
+**Learning:** In React components subscribing to Zustand stores without specific selectors, the component will re-render on any store update (such as rapidly changing streaming text). Expensive derived states or array mappings (like string concatenations from arrays using `.map().join()`) inside the render loop must be wrapped in `useMemo` hooks to prevent $O(N)$ calculations and redundant evaluations on every render.
+**Action:** Always wrap expensive derived states in `useMemo` hooks inside components subscribing to Zustand stores or other frequently updating states, particularly those rendering streaming data or frequent updates.
