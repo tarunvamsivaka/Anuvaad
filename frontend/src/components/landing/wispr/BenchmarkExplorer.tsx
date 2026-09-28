@@ -71,7 +71,6 @@ export function BenchmarkExplorer({
   const [sortBy, setSortBy] = useState<"latency" | "accuracy" | "name">(initialSort);
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
   const [benchmarkSource, setBenchmarkSource] = useState<LanguageBenchmark[]>(BENCHMARK_DATA);
-  const [verifiedTimestamp, setVerifiedTimestamp] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -88,9 +87,6 @@ export function BenchmarkExplorer({
               return fresh ? { ...item, ...fresh } : item;
             });
             setBenchmarkSource(updated);
-            if (data.metadata?.evaluated_at) {
-              setVerifiedTimestamp(new Date(data.metadata.evaluated_at).toLocaleDateString());
-            }
           }
         }
       } catch {
