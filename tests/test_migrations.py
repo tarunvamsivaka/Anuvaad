@@ -19,22 +19,13 @@ from alembic import command
 
 MIGRATION_DATABASE_URL = os.getenv("MIGRATION_DATABASE_URL")
 
-def _get_sync_url(url: str | None) -> str:
-    if not url:
-        return ""
-    if url.startswith("postgresql://"):
-        return url.replace("postgresql://", "postgresql+psycopg2://", 1)
-    if url.startswith("postgresql+asyncpg://"):
-        return url.replace("postgresql+asyncpg://", "postgresql+psycopg2://", 1)
-    return url
 
 @pytest.fixture(scope="module")
 def migration_engine() -> Engine:
     if not MIGRATION_DATABASE_URL:
         pytest.skip("MIGRATION_DATABASE_URL is required for PostgreSQL migration tests")
 
-    sync_url = _get_sync_url(MIGRATION_DATABASE_URL)
-    engine = create_engine(sync_url)
+    engine = create_engine(MIGRATION_DATABASE_URL)
     try:
         yield engine
     finally:
@@ -43,7 +34,7 @@ def migration_engine() -> Engine:
 
 def _alembic_config() -> Config:
     config = Config("alembic.ini")
-    config.set_main_option("sqlalchemy.url", _get_sync_url(MIGRATION_DATABASE_URL))
+    config.set_main_option("sqlalchemy.url", MIGRATION_DATABASE_URL or "")
     return config
 
 
