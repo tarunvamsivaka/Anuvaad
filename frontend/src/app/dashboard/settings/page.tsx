@@ -230,7 +230,7 @@ export default function SettingsPage() {
               System Settings
             </h1>
           </div>
-          <span className="text-xs font-mono text-slate-400">Node ID: ANV-PROD-EAST-01</span>
+          <span className="text-xs font-mono text-slate-400">Environment: Production (v0.1.0)</span>
         </div>
       </header>
 

@@ -14,7 +14,7 @@ python-multipart>=0.0.9
 resend>=2.33.0
 supabase>=2.4.0
 structlog>=24.0.0
-setuptools>=83.0.0
+setuptools>=84.0.0
 sqlalchemy[asyncio]>=2.0.0
 alembic>=1.13.1
 asyncpg>=0.31.0
@@ -24,7 +24,8 @@ pgvector>=0.2.5
 aiosqlite>=0.19.0
 psycopg2-binary>=2.9.9
 PyGithub>=2.3.0
-cryptography>=42.0.0
+cryptography>=50.0.0
+h2>=4.4.1
 PyJWT>=2.8.0
 argon2-cffi>=25.1.0
 
@@ -33,3 +34,20 @@ tree-sitter>=0.23.0
 tree-sitter-python>=0.23.0
 tree-sitter-go>=0.23.0
 tree-sitter-typescript>=0.23.0
+
+# Sprint 1 (existing): Rust + Java grammars (graceful ImportError if missing)
+tree-sitter-rust>=0.23.0
+tree-sitter-java>=0.23.0
+
+# Sprint 4: Extended language support — 10 additional grammars (all MIT-licensed)
+# Each is loaded lazily via graceful ImportError in ast_parser.py._get_parser()
+tree-sitter-ruby>=0.23.0
+tree-sitter-php>=0.23.0
+tree-sitter-c-sharp>=0.23.0
+tree-sitter-kotlin>=0.23.0
+tree-sitter-swift>=0.23.0
+tree-sitter-scala>=0.23.0
+tree-sitter-lua>=0.23.0
+tree-sitter-c>=0.23.0
+tree-sitter-cpp>=0.23.0
+tree-sitter-sql>=0.23.0

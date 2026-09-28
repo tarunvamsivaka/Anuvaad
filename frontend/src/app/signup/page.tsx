@@ -185,6 +185,9 @@ function SignUpPageContent() {
 
         <div className="w-full max-w-sm">
           <div className="mb-8">
+            <div className="mb-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              <span>AI Code Translation · Zero Code Retained</span>
+            </div>
             <h1 className="text-2xl font-bold text-white">Create your account</h1>
             <p className="mt-1.5 text-sm text-slate-400">Start translating code for free — takes 30 seconds.</p>
           </div>

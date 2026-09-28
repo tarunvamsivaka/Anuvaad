@@ -166,9 +166,14 @@ export function BenchmarkExplorer({
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-4">
           <Zap className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Sub-3s Inference Benchmarks</span>
+          {verifiedTimestamp && (
+            <span className="text-[10px] text-slate-500 border-l border-amber-500/30 pl-2">
+              Updated {verifiedTimestamp}
+            </span>
+          )}
         </div>
 
-        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 text-center">
+        <h2 className="font-display text-3xl sm:text-4xl font-extrabold tracking-tighter text-slate-900 dark:text-white mb-4 text-center">
           Multi-Language Latency & Accuracy Matrix
         </h2>
         <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">

@@ -29,23 +29,23 @@ export const ENTERPRISE_SECURITY_PILLARS: SecurityPillar[] = [
   {
     icon: Lock,
     title: "Zero Code Storage",
-    badge: "Ephemeral Memory Guarantee",
+    badge: "Cryptographic ZDR Receipt",
     description:
-      "Code snippets are streamed through encrypted volatile RAM memory buffers during inference and discarded immediately upon response completion. Zero code or AST data is ever written to disk, stored in persistent logs, or retained for model training.",
+      "Code snippets stream through encrypted volatile RAM buffers during inference and are discarded immediately upon response. Every translation generates a verifiable HMAC-SHA256 cryptographic audit receipt — a cryptographic proof that no code was retained.",
   },
   {
     icon: ShieldCheck,
-    title: "SOC2 Type II Certified",
-    badge: "AICPA SOC2 Certified",
+    title: "SOC2 Type II — On Roadmap",
+    badge: "Audit Roadmap Q2 2027",
     description:
-      "Independently audited AICPA SOC2 Type II compliance report covering Security, Availability, and Confidentiality trust service criteria. Continuous third-party automated control monitoring.",
+      "SOC2 Type II audit is on our compliance roadmap for Q2 2027. Our architecture is designed from day one with SOC2 controls in mind: immutable access logs, encryption at rest and in transit, and ZDR data handling policies. Contact us for our current security posture documentation.",
   },
   {
     icon: FileCheck,
-    title: "HIPAA & GDPR Ready",
-    badge: "BAA Available · EU Data Residency",
+    title: "GDPR-Aligned Architecture",
+    badge: "Privacy by Design",
     description:
-      "Compliant with EU General Data Protection Regulation (GDPR) Article 28 data processor obligations and HIPAA requirements. Standard Business Associate Agreements (BAAs) available for enterprise tiers.",
+      "Anuvaad\u2019s Zero Data Retention architecture is designed to be GDPR-aligned: no code is stored, processed data is RAM-ephemeral, and HMAC-SHA256 audit receipts provide verifiable processing proofs. Business Associate Agreements available on the enterprise roadmap.",
   },
   {
     icon: KeyRound,
@@ -56,17 +56,17 @@ export const ENTERPRISE_SECURITY_PILLARS: SecurityPillar[] = [
   },
   {
     icon: Server,
-    title: "Single-Tenant VPC & Air-Gap Deployment",
-    badge: "AWS / GCP / Azure VPC",
+    title: "Self-Hosted Deployment",
+    badge: "On-Premises Roadmap",
     description:
-      "Deploy Anuvaad entirely within your private corporate AWS, GCP, or Azure Virtual Private Cloud, or run on air-gapped on-premises Kubernetes clusters with custom LLM endpoints.",
+      "Enterprise self-hosted deployment on AWS, GCP, Azure VPCs or air-gapped on-premises Kubernetes clusters is on our roadmap. Contact us to join the early-access waitlist for private deployment with custom LLM endpoints.",
   },
   {
     icon: UserCheck,
-    title: "SAML 2.0 & SCIM SSO Provisioning",
-    badge: "Okta · Azure AD · Google",
+    title: "SSO — Coming for Enterprise",
+    badge: "SAML 2.0 Roadmap",
     description:
-      "Enterprise Single Sign-On (SSO) with SAML 2.0 and automated user lifecycle provisioning via SCIM. Immutable audit logs for compliance, workspace role-based access control (RBAC), and session timeout policies.",
+      "SAML 2.0 SSO and SCIM automated user provisioning are on the enterprise roadmap, planned via Ory Polis. Current authentication: Supabase Auth with GitHub OAuth. Enterprise customers get early access — contact us to discuss your requirements.",
   },
 ];
 
@@ -116,7 +116,7 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
           </div>
           <h2
             id="security-heading"
-            className="text-3xl sm:text-5xl font-bold tracking-tight text-white mb-5"
+            className="font-display text-3xl sm:text-5xl font-bold tracking-tighter text-white mb-5"
           >
             Privacy by Default.{" "}
             <span className="text-amber-400">Zero Code Retained.</span>
@@ -187,11 +187,11 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
             </div>
             <div>
               <h4 className="text-base font-semibold text-white">
-                Need a custom BAA or SOC2 Type II Audit Report?
+                Building for a regulated industry?
               </h4>
               <p className="text-xs sm:text-sm text-slate-400">
-                Our compliance engineering team provides complete security
-                packages for enterprise procurement.
+                Tell us about your compliance requirements. We&apos;ll work with
+                you on security questionnaires and architecture reviews.
               </p>
             </div>
           </div>

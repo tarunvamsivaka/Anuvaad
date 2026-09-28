@@ -242,3 +242,64 @@
     transform: none;
   }
 }
+
+/* ── AUTH PAGE CLASSES ───────────────────────────────────────── */
+
+/* Dark starfield/void background for auth pages */
+.auth-bg {
+  background-color: #030010;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% 40%, rgba(245,158,11,0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(99,102,241,0.04), transparent);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glass card with amber tint — used in auth demo panel */
+.glass-amber {
+  background: rgba(10, 6, 30, 0.70);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(245, 158, 11, 0.12);
+}
+
+/* Primary amber submit button with shimmer sweep */
+.btn-amber-shimmer {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #0f172a;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-amber-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 80%
+  );
+  transform: translateX(-100%);
+  animation: shimmer-sweep 2.8s ease-in-out infinite;
+}
+
+.btn-amber-shimmer:hover {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+.btn-amber-shimmer:disabled::before {
+  animation: none;
+}
+
+/* Auth blinking caret cursor */
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* Quota ring track (used in dashboard SVG ring) */
+.quota-ring-track {
+  stroke: var(--surface-mid);
+}

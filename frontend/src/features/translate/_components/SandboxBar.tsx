@@ -35,7 +35,7 @@ export function SandboxBar({ code, language }: SandboxBarProps) {
             <span>Run in Sandbox</span>
           </button>
           <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">
-            In-Browser Wasm · $0.00 Server Burn
+            Client-Side Wasm Sandbox · Zero Cloud Egress
           </span>
         </div>
 

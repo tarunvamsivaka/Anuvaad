@@ -2,7 +2,7 @@ import base64
 import os
 import re
 import secrets
-from datetime import timezone
+from datetime import UTC
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -32,8 +32,6 @@ from app.core.config import (
 )
 from app.core.quota import get_today_usage_count
 from app.core.rate_limit import rate_limiter
-
-UTC = timezone.utc  # noqa: UP017 - datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 router = APIRouter(prefix="", tags=["utility"])
 
@@ -92,70 +90,72 @@ GIST_LANGUAGE_MAP = {
 }
 
 
+_EXT_MAP = {
+    ".py": "python",
+    ".js": "javascript",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".jsx": "javascript",
+    ".java": "java",
+    ".cpp": "cpp",
+    ".cc": "cpp",
+    ".h": "cpp",
+    ".hpp": "cpp",
+    ".c": "c",
+    ".cs": "csharp",
+    ".go": "go",
+    ".rs": "rust",
+    ".swift": "swift",
+    ".kt": "kotlin",
+    ".kts": "kotlin",
+    ".dart": "dart",
+    ".php": "php",
+    ".rb": "ruby",
+    ".pl": "perl",
+    ".lua": "lua",
+    ".r": "r",
+    ".m": "matlab",
+    ".sql": "sql",
+    ".graphql": "graphql",
+    ".sh": "bash",
+    ".bash": "bash",
+    ".ps1": "powershell",
+    ".dockerfile": "dockerfile",
+    "dockerfile": "dockerfile",
+    ".yaml": "yaml",
+    ".yml": "yaml",
+    ".scala": "scala",
+    ".hs": "haskell",
+    ".ex": "elixir",
+    ".exs": "elixir",
+    ".clj": "clojure",
+    ".html": "html",
+    ".css": "css",
+    ".json": "json",
+    ".xml": "xml",
+    ".md": "markdown",
+    ".asm": "assembly",
+    ".s": "assembly",
+    ".v": "verilog",
+    ".sv": "verilog",
+    ".tf": "terraform",
+    ".jl": "julia",
+    ".nim": "nim",
+    ".zig": "zig",
+    ".groovy": "groovy",
+    ".f": "fortran",
+    ".f90": "fortran",
+    ".f95": "fortran",
+    ".ml": "ocaml",
+    ".mli": "ocaml",
+    ".erl": "erlang",
+    ".hrl": "erlang",
+}
+
+
 def get_language_from_filename(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
-    ext_map = {
-        ".py": "python",
-        ".js": "javascript",
-        ".ts": "typescript",
-        ".tsx": "typescript",
-        ".jsx": "javascript",
-        ".java": "java",
-        ".cpp": "cpp",
-        ".cc": "cpp",
-        ".h": "cpp",
-        ".hpp": "cpp",
-        ".c": "c",
-        ".cs": "csharp",
-        ".go": "go",
-        ".rs": "rust",
-        ".swift": "swift",
-        ".kt": "kotlin",
-        ".kts": "kotlin",
-        ".dart": "dart",
-        ".php": "php",
-        ".rb": "ruby",
-        ".pl": "perl",
-        ".lua": "lua",
-        ".r": "r",
-        ".m": "matlab",
-        ".sql": "sql",
-        ".graphql": "graphql",
-        ".sh": "bash",
-        ".bash": "bash",
-        ".ps1": "powershell",
-        ".dockerfile": "dockerfile",
-        "dockerfile": "dockerfile",
-        ".yaml": "yaml",
-        ".yml": "yaml",
-        ".scala": "scala",
-        ".hs": "haskell",
-        ".ex": "elixir",
-        ".exs": "elixir",
-        ".clj": "clojure",
-        ".html": "html",
-        ".css": "css",
-        ".json": "json",
-        ".xml": "xml",
-        ".md": "markdown",
-        ".asm": "assembly",
-        ".s": "assembly",
-        ".v": "verilog",
-        ".sv": "verilog",
-        ".tf": "terraform",
-        ".jl": "julia",
-        ".nim": "nim",
-        ".zig": "zig",
-        ".groovy": "groovy",
-        ".f": "fortran",
-        ".f90": "fortran",
-        ".f95": "fortran",
-        ".ml": "ocaml",
-        ".mli": "ocaml",
-        ".erl": "erlang",
-        ".hrl": "erlang",
-    }
-    return ext_map.get(ext, "python")
+    return _EXT_MAP.get(ext, "python")
 
 
 async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
@@ -763,3 +763,62 @@ async def cron_prune_database(request: Request):
 
     result = await prune_database_footprint_async()
     return JSONResponse(content={"success": True, "details": result})
+
+
+@router.post("/audit/verify", dependencies=[Depends(rate_limiter(30, 60))])
+async def verify_audit_receipt_endpoint(payload: dict):
+    """Verify cryptographic Zero Code Retention (ZDR) receipt."""
+    from app.core.audit import verify_audit_receipt
+
+    user_id = str(payload.get("user_id", ""))
+    timestamp_utc = str(payload.get("timestamp_utc", ""))
+    code_hash = str(payload.get("code_hash", "") or payload.get("sha256_input_hash", ""))
+    audit_digest = str(payload.get("audit_digest", ""))
+
+    if not (user_id and timestamp_utc and code_hash and audit_digest):
+        raise HTTPException(
+            status_code=400,
+            detail="Missing required fields: user_id, timestamp_utc, code_hash, audit_digest",
+        )
+
+    is_valid = verify_audit_receipt(
+        user_id=user_id,
+        timestamp_utc=timestamp_utc,
+        code_hash=code_hash,
+        audit_digest=audit_digest,
+    )
+
+    return {
+        "valid": is_valid,
+        "user_id": user_id,
+        "timestamp_utc": timestamp_utc,
+        "code_hash": code_hash,
+        "retention_policy": "RAM_ONLY_EPHEMERAL",
+    }
+
+
+@router.post("/equivalence/evaluate", dependencies=[Depends(rate_limiter(15, 60))])
+async def evaluate_code_equivalence_endpoint(payload: dict):
+    """Evaluate semantic equivalence and generate characterization test suite."""
+    import asyncio
+
+    from app.services.verification.equivalence_harness import EquivalenceHarness
+
+    source_code = str(payload.get("source_code", ""))
+    target_code = str(payload.get("target_code", ""))
+    source_language = str(payload.get("source_language", "python"))
+    target_language = str(payload.get("target_language", "go"))
+    user_id = str(payload.get("user_id", "anonymous"))
+
+    if not source_code or not target_code:
+        raise HTTPException(status_code=400, detail="source_code and target_code are required")
+
+    report = await asyncio.to_thread(
+        EquivalenceHarness.evaluate,
+        source_language=source_language,
+        target_language=target_language,
+        source_code=source_code,
+        target_code=target_code,
+        user_id=user_id,
+    )
+    return report.to_dict()

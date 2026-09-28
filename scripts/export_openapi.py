@@ -28,7 +28,9 @@ def export_openapi_schema(output_paths: list[str]) -> dict:
 
 
 if __name__ == "__main__":
-    export_openapi_schema([
-        "docs/openapi.json",
-        "frontend/public/data/openapi.json",
-    ])
+    export_openapi_schema(
+        [
+            "docs/openapi.json",
+            "frontend/public/data/openapi.json",
+        ]
+    )

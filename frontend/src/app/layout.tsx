@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Playfair_Display } from "next/font/google";
+import { Inter, JetBrains_Mono, DM_Sans } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -8,21 +8,11 @@ import { EdgeWarmup } from "@/components/EdgeWarmup";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-// Font strategy: Inter for all body/UI text, Playfair Display for editorial
-// headlines (tech-startup flat minimalism redesign), JetBrains Mono for code.
-// Playfair is subset to latin-only and display:swap to keep LCP fast.
+// Font strategy: Inter for all UI text, JetBrains Mono for code blocks.
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",  // Prevent FOIT — show fallback font while Inter loads
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
 });
 
 const jetbrains = JetBrains_Mono({
@@ -32,10 +22,19 @@ const jetbrains = JetBrains_Mono({
   preload: true,    // Critical path — Monaco editor uses this font
 });
 
+// Display font: DM Sans — clean geometric humanist for hero headlines and section headings
+// Loaded with variable weight axis for flexibility (300-900)
+const dmSans = DM_Sans({
+  variable: "--font-display",
+  subsets: ["latin"],
+  display: "swap",
+  axes: ["opsz"],  // optical size axis
+});
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#c8860a",
+  themeColor: "#0f172a",
 };
 
 export const metadata: Metadata = {
@@ -113,7 +112,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${playfair.variable} ${jetbrains.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrains.variable} ${dmSans.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

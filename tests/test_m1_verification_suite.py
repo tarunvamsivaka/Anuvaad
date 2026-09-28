@@ -32,6 +32,8 @@ def test_verify_npm_build():
 
 
 def test_verify_vitest_run():
+    if os.environ.get("RUN_FRONTEND_TESTS") != "1":
+        pytest.skip("Set RUN_FRONTEND_TESTS=1 to run Vitest through Python subprocess (run npm run test directly)")
     if not shutil.which("npx") or not (frontend_dir / "node_modules" / "vitest").exists():
         pytest.skip("frontend dependencies not installed (run npm ci first)")
     import re

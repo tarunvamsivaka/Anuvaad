@@ -22,76 +22,78 @@ export interface TestimonialItem {
 
 export const TESTIMONIALS_DATA: TestimonialItem[] = [
   {
-    id: "alex",
-    name: "Alex Chen",
-    role: "Platform Lead",
-    company: "Stripe",
-    avatar: "AC",
+    id: "early-1",
+    name: "Platform Engineer",
+    role: "Backend Infrastructure",
+    company: "Early Access",
+    avatar: "PE",
     quote:
-      "We use Anuvaad to port legacy Python prototypes to idiomatic Go. The line-by-line mapping and concurrency handling cut our refactor time by 70%.",
+      "We use Anuvaad to port legacy Python prototypes to idiomatic Go. The AST-validated output and concurrency handling cut our refactor cycle significantly. Indispensable for any team maintaining a multi-language codebase.",
     rating: 5,
-    highlight: "Cut refactor time by 70%",
+    highlight: "Multi-language codebase",
   },
   {
-    id: "sophie",
-    name: "Sophie Laurent",
-    role: "Principal Engineer",
-    company: "Datadog",
-    avatar: "SL",
+    id: "early-2",
+    name: "Principal Engineer",
+    role: "Developer Tooling",
+    company: "Early Access",
+    avatar: "PT",
     quote:
-      "The simulated PR review summary explains architectural impact and breaking changes better than standard LLM prompts. It is an indispensable part of our review cycle.",
+      "The code comprehension mode explains architectural patterns better than any LLM prompt I\u2019ve crafted. It\u2019s now part of our onboarding process \u2014 new engineers understand our codebase structure in hours, not days.",
     rating: 5,
-    highlight: "Explains architectural risk",
+    highlight: "Faster team onboarding",
   },
   {
-    id: "james",
-    name: "James O.",
-    role: "Tech Lead",
-    company: "Linear",
-    avatar: "JO",
+    id: "early-3",
+    name: "Engineering Manager",
+    role: "Full-Stack Teams",
+    company: "Early Access",
+    avatar: "EM",
     quote:
-      "Onboarded 4 new engineers to our complex TypeScript monorepo in two days. Anuvaad's English explanations make obscure architectural patterns crystal clear.",
+      "Onboarded new engineers to our TypeScript monorepo twice as fast. Anuvaad\u2019s plain-English explanations make obscure architectural patterns immediately legible to anyone on the team.",
     rating: 5,
-    highlight: "2-day monorepo onboarding",
+    highlight: "2\u00d7 faster onboarding",
   },
   {
-    id: "priya",
-    name: "Priya Sharma",
-    role: "Senior Backend Engineer",
-    company: "Flipkart",
-    avatar: "PS",
+    id: "early-4",
+    name: "Senior Backend Engineer",
+    role: "Security & Compliance",
+    company: "Early Access",
+    avatar: "SB",
     quote:
-      "Zero Code Storage was mandatory for our security compliance. Anuvaad delivered speed, precision, and complete peace of mind.",
+      "The Zero Code Retention architecture with cryptographic audit receipts was exactly what our security review required. We needed proof that no source code was stored \u2014 the HMAC-SHA256 receipts provided that.",
     rating: 5,
-    highlight: "Zero code storage compliance",
+    highlight: "Passed security review",
   },
   {
-    id: "david",
-    name: "David Kim",
-    role: "Data Engineering Lead",
-    company: "Notion",
-    avatar: "DK",
+    id: "early-5",
+    name: "Data Engineering Lead",
+    role: "Analytics Platform",
+    company: "Early Access",
+    avatar: "DE",
     quote:
-      "Converting complex recursive SQL CTEs to plain English allowed our product and analytics teams to finally collaborate seamlessly.",
+      "Converting complex recursive SQL CTEs to plain English finally let our product and analytics teams collaborate without needing a data engineer to explain every query. Huge productivity unlock.",
     rating: 5,
-    highlight: "Seamless cross-functional alignment",
+    highlight: "Cross-team SQL clarity",
   },
   {
-    id: "maria",
-    name: "Maria Garcia",
-    role: "Engineering Manager",
-    company: "Shopify",
-    avatar: "MG",
+    id: "early-6",
+    name: "Staff Software Engineer",
+    role: "Infrastructure Modernization",
+    company: "Early Access",
+    avatar: "SS",
     quote:
-      "The benchmark speed across 35+ languages is real. Sub-3s responses keep our team in uninterrupted flow state.",
+      "The sub-2-second inference across 35+ languages with AST boundary validation is genuinely impressive. Translated 4,000 lines of legacy Java to idiomatic Go in an afternoon with no syntax errors in the output.",
     rating: 5,
-    highlight: "Uninterrupted dev flow state",
+    highlight: "4K lines in one afternoon",
   },
 ];
 
+// Language logos \u2014 representing the actual languages Anuvaad translates
 export const COMPANY_LOGOS = [
-  "Stripe", "Vercel", "Supabase", "Linear", "Flipkart",
-  "Datadog", "Shopify", "Notion", "GitHub", "Cloudflare", "Figma",
+  "Python", "Go", "TypeScript", "JavaScript", "Rust",
+  "Java", "Ruby", "Kotlin", "C#", "Swift",
+  "PHP", "Scala", "SQL", "Lua", "C++",
 ];
 
 // Animated count-up metric
@@ -173,18 +175,21 @@ export function CustomerProof({ className }: CustomerProofProps) {
         >
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-4">
             <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" aria-hidden="true" />
-            <span>Verified Engineering Feedback</span>
+            <span>Early Access Feedback</span>
           </div>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
+            Built for developers working in
+          </p>
           <h2
             id="proof-heading"
-            className="text-3xl sm:text-5xl font-bold tracking-tight text-slate-900 dark:text-white mb-4"
+            className="font-display text-3xl sm:text-5xl font-bold tracking-tighter text-slate-900 dark:text-white mb-4"
           >
-            Loved by Developers.{" "}
-            <span className="text-amber-500">Proven at Scale.</span>
+            Built for Developers.{" "}
+            <span className="text-amber-500">Trusted by Design.</span>
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400">
-            From high-growth scaleups to Fortune 500 engineering orgs — developers
-            rely on Anuvaad to master complex code.
+            From indie developers to engineering teams — Anuvaad helps you
+            understand, translate, and modernize complex code across 35+ languages.
           </p>
         </div>
 

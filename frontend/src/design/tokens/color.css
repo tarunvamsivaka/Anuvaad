@@ -121,6 +121,19 @@
   --status-danger-glow:   rgba(239, 68, 68, 0.30);
   --status-info:          #06b6d4;
   --status-info-glow:     rgba(6, 182, 212, 0.30);
+
+  /* ── BRAND GRADIENT TOKENS ────────────────────────────────── */
+  /* Used for gradient hero text, brand accents, and premium CTAs */
+  --brand-gradient: linear-gradient(135deg, #f59e0b 0%, #ea580c 50%, #f59e0b 100%);
+  --brand-gradient-text: linear-gradient(120deg, #f59e0b 0%, #fb923c 40%, #f97316 100%);
+  --brand-from: #fbbf24;   /* Amber-400 — gradient start */
+  --brand-via:  #f97316;   /* Orange-500 — gradient mid */
+  --brand-to:   #f59e0b;   /* Amber-500 — gradient end */
+
+  /* ── SECONDARY BRAND ACCENT (Sky/Teal) ───────────────────── */
+  --brand-secondary:       #0ea5e9;   /* Sky-500 — secondary accent */
+  --brand-secondary-dark:  #38bdf8;   /* Sky-400 — dark mode secondary */
+  --brand-secondary-muted: rgba(14, 165, 233, 0.12); /* Muted tint */
 }
 
 /* ── DARK MODE OVERRIDES ─────────────────────────────────────── */
@@ -162,4 +175,7 @@
   --status-warning-glow: rgba(245, 158, 11, 0.40);
   --status-danger-glow:  rgba(239, 68, 68, 0.40);
   --status-info-glow:    rgba(6, 182, 212, 0.40);
+
+  /* Dark mode brand secondary */
+  --brand-secondary: #38bdf8;  /* Sky-400 in dark mode */
 }

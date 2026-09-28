@@ -106,7 +106,7 @@ function AuthTypewriter() {
         <div className="p-4 bg-black/20 min-h-[72px]">
           <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-amber-500/50 mb-2">Plain English</p>
           {resultText && (
-            <p className="text-xs text-slate-300 leading-relaxed italic" style={{ fontFamily: "Georgia, serif" }}>
+            <p className="text-xs text-slate-300 leading-relaxed font-sans">
               {resultText}
               {phase === "revealing" && (
                 <span className="inline-block h-3 w-0.5 bg-amber-400 ml-0.5 align-middle" style={{ animation: "caret-blink 0.8s step-end infinite" }} />
@@ -242,6 +242,13 @@ function getSafeRedirectUrl(target: string | null): string {
 
         <div className="w-full max-w-sm">
           <div className="mb-8">
+            <div className="mb-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+              </span>
+              <span>Zero-Retention Code Intelligence</span>
+            </div>
             <h1 className="text-2xl font-bold text-white">Welcome back</h1>
             <p className="mt-1.5 text-sm text-slate-400">Sign in to your account to continue.</p>
           </div>

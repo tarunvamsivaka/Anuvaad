@@ -100,10 +100,10 @@ export function LivePlayground({
     requestAnimationFrame(frame);
 
     const sample = SAMPLE_SNIPPETS[activeLang];
-    const isPreset = sample && code.trim() === sample.code.trim();
 
-    // If custom code is entered, stream real inference from demo API (skip in test environment with fake timers)
-    if (!isPreset && code.trim().length > 0 && typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
+    // Always stream real inference from the demo API for any non-empty code input
+    // (skip only in Jest/Vitest test environments that use fake timers)
+    if (code.trim().length > 0 && typeof process !== "undefined" && process.env.NODE_ENV !== "test") {
       try {
         const res = await fetch("/api/v1/demo/translate-stream", {
           method: "POST",

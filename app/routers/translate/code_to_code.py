@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
+from app.core.audit import generate_audit_receipt
 from app.core.auth import get_optional_user_email_from_request
 from app.core.quota import enforce_quotas_and_protection
 from app.core.rate_limit import rate_limiter
@@ -27,8 +28,20 @@ async def function_code_to_code(
 
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
+    privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
+    is_ephemeral = privacy_mode == "ephemeral"
+
+    audit_receipt = generate_audit_receipt(email or "anonymous", payload.raw_code)
+
+    headers = {
+        "Content-Type": "text/event-stream",
+        "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
+    }
+    if is_ephemeral:
+        headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
 
     return StreamingResponse(
-        stream_code_to_code(payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown),
+        stream_code_to_code(payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown, ephemeral=is_ephemeral),
         media_type="text/event-stream",
+        headers=headers,
     )

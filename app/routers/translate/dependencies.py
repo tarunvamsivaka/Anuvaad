@@ -106,7 +106,7 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
             "Prompt injection detected",
             user=user,
             mode=mode,
-            pattern=match.group(0)[:80],  # log up to 80 chars for diagnostics
+            match_length=len(match.group(0)),
         )
         return "[REDACTED INJECTION ATTEMPT]"
 
@@ -197,3 +197,49 @@ def validate_code_input(raw_code: str):
 
 # EXTENSION_TO_LANGUAGE, ALLOWED_EXTENSIONS, FREE_MAX_FILE_SIZE, PRO_MAX_FILE_SIZE
 # are imported from app.core.config (Arch#2.9: single definition).
+
+
+def dispatch_history(
+    background_tasks,
+    *,
+    user_email: str,
+    mode: str,
+    source_language: str,
+    target_language: str,
+    input_text: str,  # ZDR: callers must pass a safe summary, NOT raw source code
+    input_hash: str | None = None,  # HMAC-SHA256 of raw input code (ZDR receipt)
+    blocks: list,
+    model_used: str,
+    workspace_id: str | None = None,
+    session_id: str | None = None,
+    repository_name: str | None = None,
+    file_path: str | None = None,
+) -> None:
+    """Dispatch translation history persistence with Celery → BackgroundTasks fallback.
+
+    ZDR Invariant (AGENTS.md Rule #1):
+    - `input_text` MUST be a safe metadata summary, never raw source code.
+    - `input_hash` carries the HMAC-SHA256 audit digest for verifiable ZDR proofs.
+    """
+    from app.core.quota import save_translation_background
+    from app.queue.tasks import save_translation_history_task
+
+    kwargs = dict(
+        user_email=user_email,
+        mode=mode,
+        source_language=source_language,
+        target_language=target_language,
+        input_text=input_text,
+        input_hash=input_hash,
+        blocks=blocks,
+        model_used=model_used,
+        workspace_id=workspace_id,
+        session_id=session_id,
+        repository_name=repository_name,
+        file_path=file_path,
+    )
+    try:
+        save_translation_history_task.delay(**kwargs)
+    except Exception as celery_err:
+        logger.warning(f"Celery unavailable ({celery_err!s}); falling back to BackgroundTasks for history save.")
+        background_tasks.add_task(save_translation_background, **kwargs)

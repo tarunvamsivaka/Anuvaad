@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { renderHook, act } from "@testing-library/react";
 import { useWasmRunner } from "@/features/translate/_hooks/useWasmRunner";
@@ -39,7 +39,7 @@ describe("WebAssembly Client-Side Sandbox Suite", () => {
 
     const runBtn = screen.getByRole("button", { name: /run in client sandbox/i });
     expect(runBtn).toBeInTheDocument();
-    expect(screen.getByText(/In-Browser Wasm · \$0.00 Server Burn/i)).toBeInTheDocument();
+    expect(screen.getByText(/Client-Side Wasm Sandbox · Zero Cloud Egress/i)).toBeInTheDocument();
 
     fireEvent.click(runBtn);
 

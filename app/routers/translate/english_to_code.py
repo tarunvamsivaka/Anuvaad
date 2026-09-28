@@ -1,14 +1,15 @@
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 
+from app.core.audit import generate_audit_receipt
 from app.core.auth import get_optional_user_email_from_request
 from app.core.cache import cache, cache_key
 from app.core.config import logger, metrics
 from app.core.quota import (
     enforce_quotas_and_protection,
     record_successful_completion,
-    save_translation_background,
 )
 from app.core.rate_limit import rate_limiter
 from app.models.schemas import (
@@ -16,7 +17,6 @@ from app.models.schemas import (
     GeneratePayload,
     SyncEnglishToCodePayload,
 )
-from app.queue.tasks import save_translation_history_task
 from app.services.ai import (
     SYNC_SYSTEM_INSTRUCTION,
     SYSTEM_INSTRUCTION,
@@ -25,51 +25,10 @@ from app.services.ai import (
     normalize_blocks,
 )
 
+from .dependencies import dispatch_history as _dispatch_history
 from .dependencies import sanitise_input, validate_code_input
 
 router = APIRouter()
-
-
-def _dispatch_history(
-    background_tasks: BackgroundTasks,
-    *,
-    user_email: str,
-    mode: str,
-    source_language: str,
-    target_language: str,
-    input_text: str,
-    blocks: list,
-    model_used: str,
-    workspace_id: str | None = None,
-    session_id: str | None = None,
-    repository_name: str | None = None,
-    file_path: str | None = None,
-) -> None:
-    """Dispatch translation history persistence with Celery → BackgroundTasks fallback.
-
-    Tries to enqueue the task in Celery (zero extra latency via broker).
-    If the Celery broker is unreachable (e.g. Render free-tier deployment without
-    a worker service), falls back gracefully to FastAPI BackgroundTasks so the HTTP
-    response is never blocked and no history is silently lost.
-    """
-    kwargs = dict(
-        user_email=user_email,
-        mode=mode,
-        source_language=source_language,
-        target_language=target_language,
-        input_text=input_text,
-        blocks=blocks,
-        model_used=model_used,
-        workspace_id=workspace_id,
-        session_id=session_id,
-        repository_name=repository_name,
-        file_path=file_path,
-    )
-    try:
-        save_translation_history_task.delay(**kwargs)
-    except Exception as celery_err:
-        logger.warning(f"Celery unavailable ({celery_err!s}); falling back to BackgroundTasks for history save.")
-        background_tasks.add_task(save_translation_background, **kwargs)
 
 
 @router.post("/generate-from-english")
@@ -88,30 +47,41 @@ async def function_generate_from_english(
 
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
+    privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
+    is_ephemeral = privacy_mode == "ephemeral"
+
+    audit_receipt = generate_audit_receipt(email or "anonymous", payload.prompt)
+    response_headers = {
+        "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
+    }
+    if is_ephemeral:
+        response_headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
 
     model_name = "deepseek-reasoner" if use_r1 else "standard"
     key = cache_key(payload.prompt, payload.language, "generate-from-english", model_name)
 
-    cached = await cache.get(key)
-    if cached:
-        await metrics.record_cache_hit()
-        if email:
-            await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            _dispatch_history(
-                background_tasks,
-                user_email=email,
-                mode="English → Code",
-                source_language="english",
-                target_language=payload.language,
-                input_text=payload.prompt,
-                blocks=cached,
-                model_used=model_name,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
-        return cached
+    if not is_ephemeral:
+        cached = await cache.get(key)
+        if cached:
+            await metrics.record_cache_hit()
+            if email:
+                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                _dispatch_history(
+                    background_tasks,
+                    user_email=email,
+                    mode="English → Code",
+                    source_language="english",
+                    target_language=payload.language,
+                    input_text=f"[ZDR-PROTECTED: {len(payload.prompt)} chars | english → {payload.language}]",
+                    input_hash=audit_receipt["sha256_input_hash"],
+                    blocks=cached,
+                    model_used=model_name,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+            return JSONResponse(content=cached, headers=response_headers)
 
     await metrics.record_cache_miss()
 
@@ -129,26 +99,34 @@ async def function_generate_from_english(
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
 
-        await cache.put(key, result, 86400 * 7)
+        if not is_ephemeral:
+            await cache.put(key, result, 86400 * 7)
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            _dispatch_history(
-                background_tasks,
-                user_email=email,
-                mode="English → Code",
-                source_language="english",
-                target_language=payload.language,
-                input_text=payload.prompt,
-                blocks=result,
-                model_used=model_used,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
+            if not is_ephemeral:
+                _dispatch_history(
+                    background_tasks,
+                    user_email=email,
+                    mode="English → Code",
+                    source_language="english",
+                    target_language=payload.language,
+                    input_text=f"[ZDR-PROTECTED: {len(payload.prompt)} chars | english → {payload.language}]",
+                    input_hash=audit_receipt["sha256_input_hash"],
+                    blocks=result,
+                    model_used=model_used,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
 
-        return result
+        if is_ephemeral:
+            del user_prompt
+            del response_text
+            del raw
+
+        return JSONResponse(content=result, headers=response_headers)
     except Exception as e:
         logger.error(f"Generate from English failed: {e!s}")
         stale_result = await find_stale_translation(
@@ -167,7 +145,8 @@ async def function_generate_from_english(
                     mode="English → Code",
                     source_language="english",
                     target_language=payload.language,
-                    input_text=payload.prompt,
+                    input_text=f"[ZDR-PROTECTED: {len(payload.prompt)} chars | english → {payload.language}]",
+                    input_hash=audit_receipt["sha256_input_hash"],
                     blocks=stale_result,
                     model_used=model_name,
                     workspace_id=payload.workspace_id,
@@ -206,11 +185,16 @@ async def function_update_to_code(
         )
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-        return {
-            "status": "success",
-            "updated_code": response_text.strip(),
-            "model_used": model_used,
-        }
+
+        audit_receipt = generate_audit_receipt(email or "anonymous", payload.modified_english)
+        return JSONResponse(
+            content={
+                "status": "success",
+                "updated_code": response_text.strip(),
+                "model_used": model_used,
+            },
+            headers={"X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"]},
+        )
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
@@ -234,6 +218,8 @@ async def function_sync_english_to_code(
 
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
+    privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
+    is_ephemeral = privacy_mode == "ephemeral"
 
     blocks_formatted = []
     for b in payload.blocks:
@@ -289,30 +275,41 @@ async def function_sync_english_to_code(
         except Exception as _ve:
             logger.debug(f"verify_translation skipped in sync: {_ve}")
 
+        audit_receipt = generate_audit_receipt(email or "anonymous", updated_code or user_prompt)
+        response_headers = {
+            "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
+        }
+        if is_ephemeral:
+            response_headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
+
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            _dispatch_history(
-                background_tasks,
-                user_email=email,
-                mode="Two-Way Sync",
-                source_language=payload.language,
-                target_language="english",
-                input_text=updated_code,
-                blocks=normalized_blocks,
-                model_used=model_used,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
+            if not is_ephemeral:
+                _dispatch_history(
+                    background_tasks,
+                    user_email=email,
+                    mode="Two-Way Sync",
+                    source_language=payload.language,
+                    target_language="english",
+                    input_text=updated_code,
+                    blocks=normalized_blocks,
+                    model_used=model_used,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
 
-        return {
-            "status": "success",
-            "updated_code": updated_code,
-            "blocks": normalized_blocks,
-            "model_used": model_used,
-            "verification": verification_meta,
-        }
+        return JSONResponse(
+            content={
+                "status": "success",
+                "updated_code": updated_code,
+                "blocks": normalized_blocks,
+                "model_used": model_used,
+                "verification": verification_meta,
+            },
+            headers=response_headers,
+        )
     except Exception as e:
         logger.error(f"Sync English to Code failed: {e!s}")
         if isinstance(e, HTTPException):

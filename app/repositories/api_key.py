@@ -13,15 +13,13 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import delete, select, update
 
 from app.core.config import logger
 from app.core.database_session import AsyncSessionLocal
 from app.models.db_models import ApiKey
-
-UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 
 def _sha256_hash(raw_key: str) -> str:

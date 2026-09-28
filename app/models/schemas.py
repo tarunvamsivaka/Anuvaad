@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -69,6 +67,7 @@ class CodeToCodePayload(BaseModel):
     repository_name: str | None = None
     file_path: str | None = None
     model: str | None = None
+    verify: bool = False
 
     @field_validator("raw_code")
     @classmethod
@@ -185,56 +184,13 @@ class SharePayload(BaseModel):
     is_public: bool
 
 
-class RepositoryImportCreate(BaseModel):
-    workspace_id: str = Field(..., min_length=36, max_length=36)
-    provider: str = Field(..., min_length=1, max_length=50)
-    provider_repo_id: str = Field(..., min_length=1, max_length=255)
-
-
-class RepositoryImportResponse(RepositoryImportCreate):
-    id: str
-
-
-class SourceStateCreate(BaseModel):
-    import_id: str = Field(..., min_length=36, max_length=36)
-    revision_sha: str = Field(..., min_length=1, max_length=100)
-    snapshot_hash: str | None = None
-
-
-class SourceStateResponse(SourceStateCreate):
-    id: str
-
-
-class IndexConfigurationCreate(BaseModel):
-    config_hash: str = Field(..., min_length=1, max_length=100)
-    chunk_size: int = Field(..., gt=0)
-    admission_policy_version: str = Field(..., min_length=1, max_length=50)
-
-
-class IndexConfigurationResponse(IndexConfigurationCreate):
-    id: str
-
-
-# Phase 1B Schemas
 class DesiredIndexStateCreate(BaseModel):
     import_id: str = Field(..., min_length=36, max_length=36)
     source_state_id: str = Field(..., min_length=36, max_length=36)
     index_configuration_id: str = Field(..., min_length=36, max_length=36)
 
 
-class DesiredIndexStateResponse(DesiredIndexStateCreate):
-    id: str
-    incarnation_id: str
-    created_at: datetime
-
-
 class IndexRunCreate(BaseModel):
     desired_state_id: str = Field(..., min_length=36, max_length=36)
     status: str = Field(..., min_length=1, max_length=50)
     error_diagnostics: str | None = None
-
-
-class IndexRunResponse(IndexRunCreate):
-    id: str
-    created_at: datetime
-    completed_at: datetime | None = None

@@ -127,3 +127,54 @@ async def test_github_webhook_signature_verification():
             assert data["status"] == "queued"
             assert data["pr_number"] == 101
             assert data["repo"] == "test-org/test-repo"
+
+
+@pytest.mark.asyncio
+async def test_apply_pr_refactor():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/github/pr/my-org/my-repo/42/apply-refactor",
+            json={
+                "file_path": "src/utils.py",
+                "refactored_code": "def modern_util(): return 42\n",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "applied"
+        assert data["owner"] == "my-org"
+        assert data["repo"] == "my-repo"
+        assert data["pr_number"] == 42
+
+
+@pytest.mark.asyncio
+async def test_generate_pr_tests():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/github/pr/my-org/my-repo/42/generate-tests",
+            json={
+                "code": "def add(a: int, b: int) -> int:\n    return a + b\n",
+                "language": "python",
+            },
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["functions_covered"] == 1
+        assert "generated_test_suite" in data
+        assert "test_add_characterization" in data["generated_test_suite"]
+
+
+@pytest.mark.asyncio
+async def test_approve_pr_review():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/github/pr/my-org/my-repo/42/approve",
+            json={"comment": "Approved by engineering lead"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "approved"
+        assert "Approved by Anuvaad" in data.get("badge", "")

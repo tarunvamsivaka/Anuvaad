@@ -1,4 +1,5 @@
 export { WisprNavbar, type WisprNavbarProps, NAV_LINKS } from "./WisprNavbar";
+export { NavAnnouncementPill } from "./NavAnnouncementPill";
 export { HeroControlBar, type HeroControlBarProps, HERO_PROMPT_PRESETS, type PromptPreset } from "./HeroControlBar";
 export { LivePlayground, type LivePlaygroundProps } from "./LivePlayground";
 export { GitPrWorkflowDemo, type GitPrWorkflowDemoProps } from "./GitPrWorkflowDemo";

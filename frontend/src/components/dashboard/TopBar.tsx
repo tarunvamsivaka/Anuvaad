@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuth } from "@/lib/auth-context";
@@ -94,6 +95,36 @@ function UserAvatar({ email }: { email?: string }) {
   );
 }
 
+function Breadcrumb() {
+  const pathname = usePathname();
+  // Build breadcrumb segments from pathname
+  const segments = pathname
+    .split("/")
+    .filter(Boolean)
+    .map((segment, index, arr) => ({
+      label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, " "),
+      href: "/" + arr.slice(0, index + 1).join("/"),
+      isLast: index === arr.length - 1,
+    }));
+
+  return (
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-xs text-text-muted">
+      {segments.map((seg, i) => (
+        <span key={seg.href} className="flex items-center gap-1">
+          {i > 0 && <ChevronRight className="h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />}
+          {seg.isLast ? (
+            <span className="font-medium text-text-primary">{seg.label}</span>
+          ) : (
+            <a href={seg.href} className="hover:text-text-primary transition-colors">
+              {seg.label}
+            </a>
+          )}
+        </span>
+      ))}
+    </nav>
+  );
+}
+
 export function TopBar({ breadcrumb, action }: { breadcrumb?: React.ReactNode; action?: React.ReactNode }) {
   const { user, isPro } = useAuth();
 
@@ -103,7 +134,7 @@ export function TopBar({ breadcrumb, action }: { breadcrumb?: React.ReactNode; a
         {breadcrumb ? (
           <div className="text-sm font-semibold tracking-tight text-text-primary">{breadcrumb}</div>
         ) : (
-          <div className="text-sm font-semibold tracking-tight text-text-primary invisible">Dashboard</div>
+          <Breadcrumb />
         )}
       </div>
 

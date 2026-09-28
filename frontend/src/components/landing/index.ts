@@ -37,5 +37,3 @@ export { ScrollStory } from "./ScrollStory";
 export { SmoothScroll } from "./SmoothScroll";
 export { WebGLCanvas } from "./WebGLCanvas";
 export { WebGLScrollProvider } from "./WebGLScrollProvider";
-export { default as LandingWrapper } from "./LandingWrapper";
-export { default as LandingV1Page } from "./LandingV1Page";

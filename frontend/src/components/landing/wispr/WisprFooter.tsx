@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/landing/Logo";
 
 export interface WisprFooterProps {
   className?: string;
@@ -22,15 +23,10 @@ export function WisprFooter({ className }: WisprFooterProps) {
           <div className="lg:col-span-2">
             <Link
               href="/"
-              className="flex items-center gap-2.5 mb-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg inline-flex"
+              className="flex items-center gap-2.5 mb-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
               aria-label="Anuvaad Home"
             >
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-sm">
-                A
-              </div>
-              <span className="font-bold text-base tracking-tight text-slate-900 dark:text-white">
-                Anuvaad
-              </span>
+              <Logo showText iconSize={26} textSize="text-base" theme="auto" />
             </Link>
             <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm leading-relaxed mb-6">
               Next-generation AI code intelligence and translation platform for
@@ -81,12 +77,20 @@ export function WisprFooter({ className }: WisprFooterProps) {
                 </a>
               </li>
               <li>
-                <a
-                  href="#security"
+                <Link
+                  href="/pricing"
+                  className="hover:text-slate-900 dark:hover:text-white transition-colors"
+                >
+                  Pricing
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/enterprise"
                   className="hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   Enterprise Security
-                </a>
+                </Link>
               </li>
               <li>
                 <Link
@@ -126,14 +130,12 @@ export function WisprFooter({ className }: WisprFooterProps) {
                 </a>
               </li>
               <li>
-                <a
-                  href="https://github.com/tarunvamsivaka/Anuvaad/blob/main/CHANGELOG.md"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/changelog"
                   className="hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   Changelog
-                </a>
+                </Link>
               </li>
               <li>
                 <Link
@@ -161,36 +163,36 @@ export function WisprFooter({ className }: WisprFooterProps) {
             </h4>
             <ul className="space-y-2.5 text-sm text-slate-600 dark:text-slate-400">
               <li>
-                <a
-                  href="#security"
+                <Link
+                  href="/enterprise"
                   className="hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
-                  SOC2 Type II Report
-                </a>
+                  Security Architecture
+                </Link>
               </li>
               <li>
-                <a
-                  href="#security"
+                <Link
+                  href="/enterprise"
                   className="hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
-                  HIPAA Compliance
-                </a>
+                  Compliance Roadmap
+                </Link>
               </li>
               <li>
-                <a
-                  href="#security"
+                <Link
+                  href="/enterprise"
                   className="hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   VPC Deployment
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#security"
+                <Link
+                  href="/enterprise"
                   className="hover:text-slate-900 dark:hover:text-white transition-colors"
                 >
                   Trust Center
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

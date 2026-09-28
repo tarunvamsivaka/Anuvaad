@@ -2,7 +2,8 @@
 
 Sprint 1 — Semantic Verification Harness.
 
-This module provides AST-anchored code analysis for Python, Go, and TypeScript
+This module provides AST-anchored code analysis for Python, Go, TypeScript,
+JavaScript, Rust, Java, Ruby, PHP, C#, Kotlin, Swift, Scala, Lua, C, C++, and SQL
 using Tree-sitter, enabling the LLM translation pipeline to:
 
 1. Extract function/method signatures, class names, and module imports
@@ -19,7 +20,8 @@ and symbol harvesting — NOT for full AST-to-AST deterministic transpilation.
 Full AST transpilation across 35+ language pairs requires a production
 compiler infrastructure that is out of scope for Phase 1.
 
-Supported languages: Python, Go, TypeScript.
+Supported languages: Python, Go, TypeScript, JavaScript, Rust, Java,
+Ruby, PHP, C#, Kotlin, Swift, Scala, Lua, C, C++, SQL.
 Unsupported languages fall back gracefully (returning empty symbol sets),
 never raising exceptions that would block the translation path.
 """
@@ -78,12 +80,111 @@ def _get_parser(language: str) -> object | None:
             except ImportError:
                 _PARSERS[language] = None
                 return None
+        elif language == "ruby":
+            try:
+                import tree_sitter_ruby as tsruby
+
+                lang = Language(tsruby.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
+        elif language == "php":
+            try:
+                import tree_sitter_php as tsphp
+
+                lang = Language(tsphp.language_php())
+            except (ImportError, AttributeError):
+                try:
+                    import tree_sitter_php as tsphp  # noqa: F811
+
+                    lang = Language(tsphp.language())
+                except (ImportError, AttributeError):
+                    _PARSERS[language] = None
+                    return None
+        elif language in ("c#", "csharp"):
+            try:
+                import tree_sitter_c_sharp as tscsharp
+
+                lang = Language(tscsharp.language())
+                # Cache under both aliases
+                _PARSERS["c#"] = None  # placeholder until fully set below
+                _PARSERS["csharp"] = None
+            except ImportError:
+                _PARSERS["c#"] = None
+                _PARSERS["csharp"] = None
+                return None
+        elif language == "kotlin":
+            try:
+                import tree_sitter_kotlin as tskotlin
+
+                lang = Language(tskotlin.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
+        elif language == "swift":
+            try:
+                import tree_sitter_swift as tsswift
+
+                lang = Language(tsswift.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
+        elif language == "scala":
+            try:
+                import tree_sitter_scala as tsscala
+
+                lang = Language(tsscala.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
+        elif language == "lua":
+            try:
+                import tree_sitter_lua as tslua
+
+                lang = Language(tslua.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
+        elif language == "c":
+            try:
+                import tree_sitter_c as tsc
+
+                lang = Language(tsc.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
+        elif language in ("c++", "cpp"):
+            try:
+                import tree_sitter_cpp as tscpp
+
+                lang = Language(tscpp.language())
+                _PARSERS["c++"] = None  # placeholder
+                _PARSERS["cpp"] = None
+            except ImportError:
+                _PARSERS["c++"] = None
+                _PARSERS["cpp"] = None
+                return None
+        elif language == "sql":
+            try:
+                import tree_sitter_sql as tssql
+
+                lang = Language(tssql.language())
+            except ImportError:
+                _PARSERS[language] = None
+                return None
         else:
             _PARSERS[language] = None
             return None
 
         parser = Parser(lang)
         _PARSERS[language] = parser
+        # For dual-alias languages, set both
+        if language in ("c#", "csharp"):
+            _PARSERS["c#"] = parser
+            _PARSERS["csharp"] = parser
+        elif language in ("c++", "cpp"):
+            _PARSERS["c++"] = parser
+            _PARSERS["cpp"] = parser
         return parser
     except Exception as e:
         logger.warning(f"Tree-sitter: failed to load grammar for {language!r}: {e}")
@@ -468,7 +569,9 @@ def analyze(code: str, language: str) -> ASTAnalysis:
         source_bytes = code.encode("utf-8")
         tree = parser.parse(source_bytes)
         error_count = _count_errors(tree.root_node)
-        has_errors = error_count > 0
+        has_errors = error_count > 0 or getattr(tree.root_node, "has_error", False)
+        if has_errors and error_count == 0:
+            error_count = 1
 
         # Dispatch to language-specific extractor
         if norm_lang == "python":
@@ -509,6 +612,10 @@ def analyze(code: str, language: str) -> ASTAnalysis:
             class_count=0,
             max_nesting_depth=0,
         )
+
+
+# Alias for backwards and forwards compatibility
+parse_code = analyze
 
 
 def verify_translation(

@@ -97,6 +97,8 @@ EXTENSION_TO_LANGUAGE: dict[str, str] = {
 ALLOWED_EXTENSIONS: frozenset[str] = frozenset(EXTENSION_TO_LANGUAGE.keys())
 
 # ── API KEYS & SERVICE CREDENTIALS ──
+CEREBRAS_API_KEY: str = os.getenv("CEREBRAS_API_KEY", "")
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")

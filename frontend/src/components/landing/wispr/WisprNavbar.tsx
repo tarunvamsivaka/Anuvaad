@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowRight, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/landing/Logo";
 
 export interface WisprNavbarProps {
   onSignIn?: () => void;
@@ -91,32 +92,17 @@ export function WisprNavbar({
           "mx-auto max-w-5xl h-14 px-4 sm:px-6 rounded-full pointer-events-auto flex items-center justify-between transition-all duration-300",
           isScrolled
             ? "bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-300/80 dark:border-slate-700/80 shadow-[0_8px_30px_-4px_rgba(0,0,0,0.12)]"
-            : "bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]",
+            : "bg-white/0 dark:bg-slate-900/0 backdrop-blur-sm border border-slate-200/40 dark:border-slate-800/40 shadow-none",
           className
         )}
       >
         {/* Brand Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
+          className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
           aria-label="Anuvaad Home"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-white font-bold text-sm shadow-sm group-hover:scale-110 group-hover:rotate-[5deg] transition-transform duration-300 will-change-transform">
-            A
-          </div>
-          <span className="font-bold text-sm tracking-tight text-slate-900 dark:text-white">
-            Anuvaad
-          </span>
-          <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-            v2.0
-          </span>
-          <span className="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-            </span>
-            Live
-          </span>
+          <Logo showText iconSize={22} textSize="text-sm" theme="auto" />
         </Link>
 
         {/* Desktop Navigation Links */}

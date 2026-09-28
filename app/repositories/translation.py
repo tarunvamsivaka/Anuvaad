@@ -7,26 +7,21 @@ Phase 5 (Arch#2.1): Typed SQLAlchemy queries replacing supabase_request() string
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import uuid
+from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import and_, cast, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO, logger
 from app.core.database_session import AsyncSessionLocal
-from app.models.db_models import TranslationHistory
-
-UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
+from app.models.db_models import TranslationHistory, Workspace, WorkspaceMember
 
 
 async def _is_workspace_member_or_owner(session, workspace_id: str, email: str) -> bool:
     """Verify that email belongs to either the owner or a member of workspace_id (BE-01)."""
-    import uuid as uuid_mod
-
-    from app.models.db_models import Workspace, WorkspaceMember
-
     try:
-        ws_uuid = uuid_mod.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+        ws_uuid = uuid.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
     except (ValueError, TypeError):
         return False
 
@@ -68,10 +63,8 @@ async def get_history(
             if workspace_id:
                 if not await _is_workspace_member_or_owner(session, workspace_id, email):
                     return []
-                import uuid as uuid_mod
-
                 try:
-                    ws_uuid = uuid_mod.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+                    ws_uuid = uuid.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
                 except (ValueError, TypeError):
                     return []
                 query = query.where(TranslationHistory.workspace_id == ws_uuid)
@@ -83,11 +76,7 @@ async def get_history(
             # Keyset condition: (created_at, id) < (cursor_created_at, cursor_id)
             if after_id and after_created_at:
                 try:
-                    from datetime import datetime
-
                     cursor_dt = datetime.fromisoformat(after_created_at)
-                    from sqlalchemy import and_, cast, or_
-
                     query = query.where(
                         or_(
                             TranslationHistory.created_at < cursor_dt,

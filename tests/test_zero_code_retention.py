@@ -9,6 +9,7 @@ Validates:
 4. Normal mode retains caching and history persistence
 """
 
+from datetime import UTC
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -76,3 +77,71 @@ def test_ephemeral_stale_recovery_skips_history(client: TestClient):
         assert resp.status_code == 200
         assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; zero-retention"
         mock_dispatch.assert_not_called()
+
+
+def test_audit_digest_header_returned_on_all_modes(client: TestClient):
+    """Every translation returns a deterministic HMAC-SHA256 audit digest header."""
+    from app.core.audit import AUDIT_DIGEST_HEADER
+
+    # 1. Code to English stream
+    resp_stream = client.post(
+        "/api/v1/code-to-english",
+        json={"raw_code": "def hello(): return 'world'", "language": "python"},
+    )
+    assert resp_stream.status_code == 200
+    digest_stream = resp_stream.headers.get(AUDIT_DIGEST_HEADER)
+    assert digest_stream is not None and len(digest_stream) == 64
+
+    # 2. Code to English sync
+    resp_sync = client.post(
+        "/api/v1/code-to-english/sync",
+        json={"raw_code": "def hello(): return 'world'", "language": "python"},
+    )
+    assert resp_sync.status_code == 200
+    digest_sync = resp_sync.headers.get(AUDIT_DIGEST_HEADER)
+    assert digest_sync is not None and len(digest_sync) == 64
+
+    # 3. Code to Code stream
+    resp_c2c = client.post(
+        "/api/v1/code-to-code",
+        json={"raw_code": "def hello(): return 'world'", "source_language": "python", "target_language": "go"},
+    )
+    assert resp_c2c.status_code == 200
+    digest_c2c = resp_c2c.headers.get(AUDIT_DIGEST_HEADER)
+    assert digest_c2c is not None and len(digest_c2c) == 64
+
+
+def test_code_to_code_ephemeral_headers(client: TestClient):
+    """Code to code returns both privacy and audit digest headers when ephemeral."""
+    resp = client.post(
+        "/api/v1/code-to-code",
+        json={"raw_code": "fmt.Println(123)", "source_language": "go", "target_language": "python"},
+        headers={"X-Anuvaad-Privacy-Mode": "ephemeral"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; zero-retention"
+    assert "X-Anuvaad-Audit-Digest" in resp.headers
+
+
+def test_deterministic_audit_receipt_generation():
+    """Verify deterministic HMAC-SHA256 receipt generation contract."""
+    from datetime import datetime
+
+    from app.core.audit import compute_audit_digest, compute_code_hash, generate_audit_receipt
+
+    test_time = datetime(2026, 9, 26, 12, 0, 0, tzinfo=UTC)
+    code = "def sample(): return 42"
+    secret = "test-secret-key-12345"
+    receipt = generate_audit_receipt(user_id="alice@example.com", code=code, timestamp=test_time, secret=secret)
+
+    assert receipt["user_id"] == "alice@example.com"
+    assert receipt["retention_policy"] == "RAM_ONLY_EPHEMERAL"
+    assert receipt["sha256_input_hash"] == compute_code_hash(code)
+
+    expected_digest = compute_audit_digest(
+        secret=secret,
+        user_id="alice@example.com",
+        timestamp_utc=test_time.isoformat(),
+        code_hash=compute_code_hash(code),
+    )
+    assert receipt["audit_digest"] == expected_digest

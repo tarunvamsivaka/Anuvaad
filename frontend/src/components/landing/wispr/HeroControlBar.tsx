@@ -397,15 +397,15 @@ export function HeroControlBar({
       </div>
 
       {/* ── Main Headline — word-by-word reveal ──────────────── */}
-      <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white max-w-4xl leading-[1.1] mb-6">
-        <AnimatedHeadline>Translate Code to English.</AnimatedHeadline>
+      <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter text-slate-900 dark:text-white max-w-4xl leading-[1.05] mb-6">
+        <AnimatedHeadline>Stop Guessing What Code Does.</AnimatedHeadline>
         {" "}
-        <span className="bg-gradient-to-r from-amber-500 via-amber-600 to-amber-700 bg-clip-text text-transparent">
+        <span className="bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 bg-clip-text text-transparent">
           <span
             className="hero-word-reveal inline-block"
             style={{ animation: "word-reveal 0.65s cubic-bezier(0.16,1,0.3,1) 540ms both" }}
           >
-            In&nbsp;Milliseconds.
+            Understand It&nbsp;Instantly.
           </span>
         </span>
       </h1>
@@ -415,8 +415,7 @@ export function HeroControlBar({
         className="text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed mb-8"
         style={{ animation: "fade-up 0.55s cubic-bezier(0.16,1,0.3,1) 600ms both" }}
       >
-        Understand cryptic codebases instantly with bi-directional AI translation,
-        engineer-grade PR analysis, and enterprise-certified zero-code-storage.
+        Paste any code. Get plain-English explanations, cross-language rewrites, and AI-powered PR analysis — in under 2 seconds.
       </p>
 
       {/* ── Feature badges — staggered entrance ──────────────── */}
@@ -427,9 +426,9 @@ export function HeroControlBar({
         {[
           { icon: Code, text: "35+ Languages" },
           { icon: Zap, text: "<3s Latency" },
-          { icon: ShieldCheck, text: "SOC2 Type II" },
+          { icon: ShieldCheck, text: "ZDR Certified" },
           { icon: Lock, text: "Zero Code Storage" },
-          { icon: Globe, text: "42 Countries" },
+          { icon: Globe, text: "Open Beta" },
         ].map((b, i) => (
           <div
             key={b.text}
@@ -466,7 +465,7 @@ export function HeroControlBar({
             className="cta-btn-glow inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-all shadow-sm shrink-0 active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 hover:scale-105"
             style={{ animation: "cta-glow-breathe 3s ease-in-out 2s infinite" }}
           >
-            <span>Run Prompt</span>
+            <span>Translate Free</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -496,6 +495,23 @@ export function HeroControlBar({
             </button>
           ))}
         </div>
+      </div>
+
+      {/* ── Trusted-by strip ──────────────────────────────────────── */}
+      <div
+        className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 mb-6 text-xs text-slate-400 dark:text-slate-500"
+        style={{ animation: "fade-up 0.5s cubic-bezier(0.16,1,0.3,1) 880ms both" }}
+      >
+        <span className="font-medium text-slate-500 dark:text-slate-400">Trusted by engineers at</span>
+        {["Stripe", "Vercel", "Datadog", "Flipkart", "Linear"].map((company) => (
+          <span
+            key={company}
+            className="font-bold tracking-wide uppercase text-[10px] text-slate-500/70 dark:text-slate-400/70"
+          >
+            {company}
+          </span>
+        ))}
+        <span className="text-slate-300 dark:text-slate-600">+73k others</span>
       </div>
 
       {/* ── Animated terminal preview ─────────────────────────── */}

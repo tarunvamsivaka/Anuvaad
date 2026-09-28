@@ -49,6 +49,9 @@ describe("Developer Ecosystem Distribution Suite (CLI & Homebrew & VS Code)", ()
     expect(helpOutput).toContain("Anuvaad CLI");
     expect(helpOutput).toContain("explain <file>");
     expect(helpOutput).toContain("translate <file>");
+    expect(helpOutput).toContain("modernize <dir>");
+    expect(helpOutput).toContain("verify-receipt <digest_or_file>");
+    expect(helpOutput).toContain("--ci-gate");
     expect(helpOutput).toContain("auth login");
   });
 

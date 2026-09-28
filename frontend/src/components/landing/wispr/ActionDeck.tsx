@@ -19,6 +19,9 @@ export function ActionDeck({
 }: ActionDeckProps) {
   const [copied, setCopied] = useState(false);
   const [checkmarks, setCheckmarks] = useState(false);
+  const [isAnnual, setIsAnnual] = useState(false);
+  const proPrice = isAnnual ? 399 : 499;
+  const proSavings = isAnnual ? "Save 20%" : null;
   const cliCommand = "npx anuvaad-cli init";
 
   const [sectionRef, isVisible] = useScrollReveal<HTMLElement>({ threshold: 0.2 });
@@ -43,7 +46,7 @@ export function ActionDeck({
     "10 Free Translations / Day",
     "No Credit Card Required",
     "Zero Code Storage Guarantee",
-    "SOC2 Type II Certified",
+    "HMAC-SHA256 Audit Receipts",
   ];
 
   return (
@@ -77,7 +80,7 @@ export function ActionDeck({
 
           {/* Headline */}
           <h2
-            className={cn("text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-6 sr-fade-up", isVisible && "is-visible")}
+            className={cn("font-display text-3xl sm:text-5xl font-extrabold tracking-tighter text-white mb-6 sr-fade-up", isVisible && "is-visible")}
             style={{ "--sr-delay": "100ms" } as React.CSSProperties}
           >
             Transform How Your Engineering Team Reads Code.
@@ -92,6 +95,40 @@ export function ActionDeck({
             repositories into clean, readable documentation. Start in under 60
             seconds.
           </p>
+
+          {/* Billing Toggle */}
+          <div
+            className={cn("flex items-center justify-center gap-3 mb-6 sr-fade-up", isVisible && "is-visible")}
+            style={{ "--sr-delay": "220ms" } as React.CSSProperties}
+          >
+            <span className={cn("text-sm font-medium", !isAnnual ? "text-white" : "text-slate-400")}>Monthly</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isAnnual}
+              aria-label="Toggle annual billing"
+              onClick={() => setIsAnnual((v) => !v)}
+              className={cn(
+                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                isAnnual ? "bg-amber-500" : "bg-slate-700"
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
+                  isAnnual ? "translate-x-6" : "translate-x-1"
+                )}
+              />
+            </button>
+            <span className={cn("text-sm font-medium", isAnnual ? "text-white" : "text-slate-400")}>
+              Annual
+              {isAnnual && (
+                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Save 20%
+                </span>
+              )}
+            </span>
+          </div>
 
           {/* Pricing Tier Grid */}
           <div
@@ -116,7 +153,13 @@ export function ActionDeck({
                 RECOMMENDED
               </span>
               <div className="text-xs font-bold uppercase tracking-wider text-amber-400">Pro</div>
-              <div className="text-2xl font-extrabold text-white">₹499<span className="text-sm font-normal text-slate-500">/mo</span></div>
+              <div className="text-2xl font-extrabold text-white">
+                ₹{proPrice}
+                <span className="text-sm font-normal text-slate-500">/mo</span>
+                {proSavings && (
+                  <span className="ml-2 text-xs font-bold text-emerald-400">{proSavings}</span>
+                )}
+              </div>
               <ul className="space-y-1.5 text-xs text-slate-300 mt-1">
                 <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Unlimited translations</li>
                 <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Priority &lt;1.5s latency</li>
@@ -131,11 +174,21 @@ export function ActionDeck({
               <div className="text-2xl font-extrabold text-white">Custom</div>
               <ul className="space-y-1.5 text-xs text-slate-400 mt-1">
                 <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Unlimited team seats</li>
-                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> SOC2 + HIPAA BAA</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Security review support</li>
                 <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> VPC / air-gap deploy</li>
                 <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> SAML SSO + SCIM</li>
               </ul>
             </div>
+          </div>
+
+          {/* Full Pricing Link */}
+          <div className="text-center mb-6">
+            <a
+              href="/pricing"
+              className="text-xs text-slate-400 hover:text-amber-400 transition-colors underline underline-offset-2"
+            >
+              View full pricing details →
+            </a>
           </div>
 
           {/* Dual CTA Triggers */}

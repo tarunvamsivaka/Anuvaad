@@ -53,14 +53,12 @@ export function TranslateShell({
     <div className={cn("flex flex-col overflow-hidden relative transition-all duration-300", 
       zenMode ? "fixed inset-0 z-50 bg-background h-screen" : "h-screen"
     )}>
-      <div className="apple-mesh-bg"></div>
-
       {/* ── Top bar ── */}
       <motion.header
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="shrink-0 z-20 glass-apple border-b border-border"
+        className="shrink-0 z-20 bg-background/95 backdrop-blur-md border-b border-border"
       >
         <div className="flex h-14 items-center justify-between pl-4 pr-6 md:px-6">
           <div className="flex items-center gap-3">

@@ -29,28 +29,11 @@ warnings.filterwarnings(
 
 import json  # noqa: E402
 import os  # noqa: E402
-import sys  # noqa: E402
-import types  # noqa: E402
 from unittest.mock import MagicMock, patch  # noqa: E402
 
-# Upstream compatibility shim for razorpay SDK when setuptools >= 82 (which removed pkg_resources).
-if "pkg_resources" not in sys.modules:
-    try:
-        import pkg_resources  # noqa: F401
-    except ImportError:
+import app.compat  # noqa: F401, E402
 
-        class _DummyDist:
-            version = "1.4.2"
-
-        class _PkgResources(types.ModuleType):
-            DistributionNotFound = Exception
-
-            @staticmethod
-            def require(*args, **kwargs):
-                return [_DummyDist()]
-
-        sys.modules["pkg_resources"] = _PkgResources("pkg_resources")
-
+# isort: split
 import httpx  # noqa: E402
 import pytest  # noqa: E402
 import razorpay  # noqa: E402

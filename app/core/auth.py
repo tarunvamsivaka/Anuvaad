@@ -24,7 +24,7 @@ import asyncio
 import os
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -111,8 +111,6 @@ def _peek_header(token: str) -> dict[str, str]:
     except Exception:
         return {}
 
-
-UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 security = HTTPBearer(auto_error=False)
 
@@ -292,34 +290,11 @@ async def get_optional_user_email(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> str | None:
-    """Authenticate a request and return the caller's email, or None if unauthenticated.
-
-    Guest requests or requests with missing credentials return None without raising 401.
-    """
-    # 1. API key (machine-to-machine, e.g. VSCode extension)
-    api_key = request.headers.get("X-API-Key")
-    if api_key:
-        try:
-            return await _authenticate_api_key(api_key)
-        except HTTPException:
-            return None
-
-    # 2. Bearer JWT (browser sessions)
-    if credentials and isinstance(credentials, HTTPAuthorizationCredentials) and credentials.credentials:
-        try:
-            return await _authenticate_jwt(credentials.credentials)
-        except HTTPException:
-            return None
-
-    auth_header = request.headers.get("Authorization", "")
-    if auth_header.startswith("Bearer "):
-        token = auth_header.removeprefix("Bearer ").strip()
-        try:
-            return await _authenticate_jwt(token)
-        except HTTPException:
-            return None
-
-    return None
+    """Authenticate a request and return the caller's email, or None if unauthenticated."""
+    try:
+        return await get_user_email(request, credentials=credentials)
+    except HTTPException:
+        return None
 
 
 async def get_optional_user_email_from_request(

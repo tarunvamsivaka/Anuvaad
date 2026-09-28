@@ -1,8 +1,10 @@
+import asyncio
 import json
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
+from app.core.audit import generate_audit_receipt
 from app.core.auth import (
     get_optional_user_email_from_request,
 )
@@ -14,11 +16,9 @@ from app.core.config import logger, metrics
 from app.core.quota import (
     enforce_quotas_and_protection,
     record_successful_completion,
-    save_translation_background,
 )
 from app.core.rate_limit import rate_limiter
 from app.models.schemas import CodePayload
-from app.queue.tasks import save_translation_history_task
 from app.services.ai import (
     SYSTEM_INSTRUCTION,
     find_stale_translation,
@@ -27,51 +27,10 @@ from app.services.ai import (
     stream_code_to_english,
 )
 
+from .dependencies import dispatch_history as _dispatch_history
 from .dependencies import sanitise_input, validate_code_input
 
 router = APIRouter()
-
-
-def _dispatch_history(
-    background_tasks: BackgroundTasks,
-    *,
-    user_email: str,
-    mode: str,
-    source_language: str,
-    target_language: str,
-    input_text: str,
-    blocks: list,
-    model_used: str,
-    workspace_id: str | None = None,
-    session_id: str | None = None,
-    repository_name: str | None = None,
-    file_path: str | None = None,
-) -> None:
-    """Dispatch translation history persistence with Celery → BackgroundTasks fallback.
-
-    Tries to enqueue the task in Celery (zero extra latency via broker).
-    If the Celery broker is unreachable (e.g. Render free-tier deployment without
-    a worker service), falls back gracefully to FastAPI BackgroundTasks so the HTTP
-    response is never blocked and no history is silently lost.
-    """
-    kwargs = dict(
-        user_email=user_email,
-        mode=mode,
-        source_language=source_language,
-        target_language=target_language,
-        input_text=input_text,
-        blocks=blocks,
-        model_used=model_used,
-        workspace_id=workspace_id,
-        session_id=session_id,
-        repository_name=repository_name,
-        file_path=file_path,
-    )
-    try:
-        save_translation_history_task.delay(**kwargs)
-    except Exception as celery_err:
-        logger.warning(f"Celery unavailable ({celery_err!s}); falling back to BackgroundTasks for history save.")
-        background_tasks.add_task(save_translation_background, **kwargs)
 
 
 @router.get("/import-gist", dependencies=[Depends(rate_limiter(10, 60))])
@@ -104,7 +63,12 @@ async def function_translate_to_english_stream(
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
     is_ephemeral = privacy_mode == "ephemeral"
 
-    headers = {"Content-Type": "text/event-stream"}
+    audit_receipt = generate_audit_receipt(email or "anonymous", payload.raw_code)
+
+    headers = {
+        "Content-Type": "text/event-stream",
+        "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
+    }
     if is_ephemeral:
         headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
 
@@ -139,6 +103,13 @@ async def function_translate_to_english(
     model_name = "deepseek-reasoner" if use_r1 else "standard"
     key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
 
+    audit_receipt = generate_audit_receipt(email or "anonymous", payload.raw_code)
+    response_headers = {
+        "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
+    }
+    if is_ephemeral:
+        response_headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
+
     if not is_ephemeral:
         cached = await cache.get(key)
         if cached:
@@ -151,7 +122,8 @@ async def function_translate_to_english(
                     mode="Code → English",
                     source_language=payload.language,
                     target_language="english",
-                    input_text=payload.raw_code,
+                    input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                    input_hash=audit_receipt["sha256_input_hash"],
                     blocks=cached,
                     model_used=model_name,
                     workspace_id=payload.workspace_id,
@@ -159,7 +131,7 @@ async def function_translate_to_english(
                     repository_name=payload.repository_name,
                     file_path=payload.file_path,
                 )
-            return cached
+            return JSONResponse(content=cached, headers=response_headers)
 
     await metrics.record_cache_miss()
 
@@ -180,11 +152,11 @@ async def function_translate_to_english(
         if not is_ephemeral:
             await cache.put(key, result, 86400 * 7)
 
-        # Extract source symbols for diagnostics and structured inspection
+        # Extract source symbols for diagnostics and structured inspection (non-blocking thread)
         try:
             from app.services.ast_parser import extract_symbols as _extract
 
-            source_symbols = _extract(payload.raw_code, payload.language)
+            source_symbols = await asyncio.to_thread(_extract, payload.raw_code, payload.language)
             logger.debug(f"Code-to-English source symbols extracted: {len(source_symbols)}")
         except Exception as _ve:
             logger.debug(f"Source AST symbol extraction skipped: {_ve}")
@@ -198,7 +170,8 @@ async def function_translate_to_english(
                     mode="Code → English",
                     source_language=payload.language,
                     target_language="english",
-                    input_text=payload.raw_code,
+                    input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                    input_hash=audit_receipt["sha256_input_hash"],
                     blocks=result,
                     model_used=model_used,
                     workspace_id=payload.workspace_id,
@@ -212,16 +185,11 @@ async def function_translate_to_english(
             del user_prompt
             del response_text
             del raw
-            from fastapi.responses import JSONResponse
 
-            return JSONResponse(
-                content=result,
-                headers={"X-Anuvaad-Privacy": "ephemeral; zero-retention"},
-            )
-
-        # Return result list directly for backward compat; clients that don't
-        # expect 'verification' will not be affected.
-        return result
+        return JSONResponse(
+            content=result,
+            headers=response_headers,
+        )
     except Exception as e:
         logger.error(f"Code to English failed: {e!s}")
         stale_result = await find_stale_translation(
@@ -241,7 +209,8 @@ async def function_translate_to_english(
                         mode="Code → English",
                         source_language=payload.language,
                         target_language="english",
-                        input_text=payload.raw_code,
+                        input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                        input_hash=audit_receipt["sha256_input_hash"],
                         blocks=stale_result,
                         model_used=model_name,
                         workspace_id=payload.workspace_id,
@@ -250,8 +219,6 @@ async def function_translate_to_english(
                         file_path=payload.file_path,
                     )
             if is_ephemeral:
-                from fastapi.responses import JSONResponse
-
                 return JSONResponse(
                     content=stale_result,
                     headers={"X-Anuvaad-Privacy": "ephemeral; zero-retention"},

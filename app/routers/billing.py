@@ -11,7 +11,7 @@ Business logic (signature verification, DB writes, email dispatch) lives in:
 import asyncio
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import razorpay
 import stripe
@@ -36,12 +36,11 @@ from app.core.config import (
     logger,
 )
 from app.core.quota import get_active_protection_mode, get_today_usage_count
+from app.core.rate_limit import rate_limiter
 from app.domain.billing.service import BillingService
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
 from app.queue.tasks import process_billing_webhook_task
 from app.repositories import subscription as subscription_repo
-
-UTC = timezone.utc  # noqa: UP017 — datetime.UTC requires Python 3.11+; alias for 3.10 compat
 
 router = APIRouter(prefix="", tags=["billing"])
 
@@ -82,16 +81,14 @@ def enforce_billing_enabled():
 # ── Checkout ──
 
 
-@router.post("/billing/create-checkout-session")
-@router.post("/create-checkout-session")
+@router.post("/billing/create-checkout-session", dependencies=[Depends(rate_limiter(10, 60))])
+@router.post("/create-checkout-session", dependencies=[Depends(rate_limiter(10, 60))])
 async def create_checkout_session(
     payload: CheckoutPayload,
-    user_email: str | None = Depends(get_user_email),
+    user_email: str = Depends(get_user_email),
 ):
     """Create a subscription checkout session (Stripe primary, Razorpay fallback)."""
     enforce_billing_enabled()
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Authentication required.")
     if user_email.lower() != payload.user_email.lower():
         raise HTTPException(status_code=403, detail="Email mismatch: token does not belong to this user.")
 
@@ -152,15 +149,13 @@ async def create_checkout_session(
         raise HTTPException(status_code=500, detail="Payment session creation failed.")
 
 
-@router.post("/billing/create-portal-session")
-@router.post("/create-portal-session")
+@router.post("/billing/create-portal-session", dependencies=[Depends(rate_limiter(10, 60))])
+@router.post("/create-portal-session", dependencies=[Depends(rate_limiter(10, 60))])
 async def create_portal_session(
-    user_email: str | None = Depends(get_user_email),
+    user_email: str = Depends(get_user_email),
 ):
     """Generate a self-service customer portal session for subscription management."""
     enforce_billing_enabled()
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Authentication required")
 
     sub = await subscription_repo.get_subscription(user_email)
     if not sub or not sub.get("is_pro"):
@@ -203,14 +198,12 @@ async def create_portal_session(
 
 @router.post("/create-credit-checkout")
 async def create_credit_checkout(
-    user_email: str | None = Depends(get_user_email),
+    user_email: str = Depends(get_user_email),
 ):
     """Create a Razorpay one-time order for buying 100 translation credits (₹100)."""
     enforce_billing_enabled()
     if not razorpay_client:
         raise HTTPException(status_code=503, detail="Payment service not configured.")
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Authentication required")
 
     try:
         order = await asyncio.to_thread(
@@ -240,14 +233,12 @@ async def create_credit_checkout(
 @router.post("/verify-payment")
 async def verify_payment(
     payload: VerifyPaymentPayload,
-    user_email: str | None = Depends(get_user_email),
+    user_email: str = Depends(get_user_email),
 ):
     """Verify Razorpay HMAC signature then activate Pro or top up credits.
     Delegates all business logic to BillingService.
     """
     enforce_billing_enabled()
-    if not user_email:
-        raise HTTPException(status_code=401, detail="Authentication required")
 
     service = _get_service()
     try:
@@ -281,13 +272,11 @@ async def verify_payment(
 
 @router.get("/subscription-status")
 async def get_subscription_status(
-    email: str | None = Depends(get_user_email),
+    email: str = Depends(get_user_email),
 ):
     """Return the user's current subscription plan.
     GET endpoint for SWR caching (P4: replaces the old POST version).
     """
-    if not email:
-        raise HTTPException(status_code=401, detail="Authentication required")
 
     sub = await subscription_repo.get_subscription(email)
     is_pro = bool(sub and sub.get("is_pro"))

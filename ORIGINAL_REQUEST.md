@@ -118,3 +118,39 @@ Execute rigorous verification across all test suites to validate zero regression
 
 ### Deployment & Config Integrity
 - [ ] Dockerfiles, Nginx configurations, and `render.yaml` manifests are validated for production deployment readiness.
+
+## Follow-up — 2026-09-28T18:44:43Z
+
+This is a single self-contained fix; keep it small and focused.
+Reverify the entire Anuvaad codebase across both backend and frontend test and build suites, confirm zero secret leaks or sensitive untracked files, create a dedicated release branch release/v3.0.0-launch, and safely push the verified branch to the remote GitHub repository.
+
+Working directory: C:\Users\tarun\Anuvaad\Anuvaad
+Integrity mode: development
+
+## Requirements
+
+### R1. Comprehensive Pre-Deploy Verification
+Execute the full test and verification harness across all stacks:
+- Run the full backend pytest test suite to guarantee 0 regressions and 0 failures.
+- Run the full frontend Vitest test suite and Next.js production build (npm run build) to ensure 0 compilation, type, or lint errors.
+- Run code quality and import validation (ruff check) to confirm complete codebase hygiene.
+
+### R2. Secret & Sensitive Data Audit
+Perform a strict pre-commit audit ensuring no .env files, API keys, private tokens, or unredacted code snippets are staged. Confirm .gitignore protects all local development secrets and virtual environments.
+
+### R3. Branching & Safe Remote Deployment
+Create and check out a dedicated release branch named release/v3.0.0-launch. Stage all modified platform and documentation files with a clear, descriptive semantic commit message, and push the branch to origin/release/v3.0.0-launch without force-pushing.
+
+## Acceptance Criteria
+
+### Verification Standards
+- [ ] pytest tests/ runs and terminates with 0 failed tests.
+- [ ] npm run test runs and terminates with 0 failed tests across all frontend test suites.
+- [ ] npm run build exits with code 0 and successfully outputs all static and dynamic route artifacts.
+- [ ] ruff check app/ tests/ passes with 0 violations.
+
+### Git & Deployment Verification
+- [ ] No credential files (.env, .env.local, .venv), temporary caches, or untracked logs staged.
+- [ ] The active branch is release/v3.0.0-launch.
+- [ ] git push origin release/v3.0.0-launch completes successfully.
+- [ ] Remote origin/release/v3.0.0-launch reflects the exact tested commit.

@@ -14,11 +14,11 @@ from contextlib import contextmanager
 from fastapi import HTTPException
 from openai import AsyncOpenAI
 
+from app.core.audit import compute_code_hash
 from app.core.cache import cache, cache_key
 from app.core.config import (
     FRONTEND_URL,
     LLM_TIMEOUT,
-    OPENROUTER_API_KEY,
     logger,
     metrics,
 )
@@ -36,72 +36,101 @@ def _nullctx():
 # ── LLM CLIENT SINGLETONS (BACK-02) ──
 # Created once at startup in lifespan, reused for all requests.
 # Eliminates per-request DNS + TLS handshake overhead.
+_cerebras_client: AsyncOpenAI | None = None
+_gemini_client: AsyncOpenAI | None = None
+_deepseek_client: AsyncOpenAI | None = None
 _groq_client: AsyncOpenAI | None = None
-# FIX-24 (P1-03): OpenRouter as second provider for automatic fallback.
 _openrouter_client: AsyncOpenAI | None = None
 
 
 def init_clients(groq_key: str) -> None:
     """Initialize module-level LLM client singletons. Call from app lifespan."""
-    global _groq_client, _openrouter_client
-    _groq_client = AsyncOpenAI(
-        api_key=groq_key,
-        base_url="https://api.groq.com/openai/v1",
+    global _cerebras_client, _gemini_client, _deepseek_client, _groq_client, _openrouter_client
+
+    # Use config for all keys to ensure consistency
+    from app.core.config import (
+        CEREBRAS_API_KEY,
+        DEEPSEEK_API_KEY,
+        GEMINI_API_KEY,
+        GROQ_API_KEY,
+        OPENROUTER_API_KEY,
     )
-    # FIX-24: Initialize OpenRouter client if the key is configured.
+
+    # Helper to create OpenAI-compatible clients
+    def _create_client(key: str, base_url: str, headers: dict = None) -> AsyncOpenAI:
+        return AsyncOpenAI(api_key=key, base_url=base_url, default_headers=headers or {})
+
+    # Tier 1: Cerebras
+    if CEREBRAS_API_KEY:
+        _cerebras_client = _create_client(CEREBRAS_API_KEY, "https://api.cerebras.ai/v1")
+
+    # Tier 2: Gemini
+    if GEMINI_API_KEY:
+        _gemini_client = _create_client(GEMINI_API_KEY, "https://generativelanguage.googleapis.com/v1beta/openai/")
+
+    # Tier 3: DeepSeek
+    if DEEPSEEK_API_KEY:
+        _deepseek_client = _create_client(DEEPSEEK_API_KEY, "https://api.deepseek.com")
+
+    # Supplementary: Groq
+    if groq_key or GROQ_API_KEY:
+        _groq_client = _create_client(groq_key or GROQ_API_KEY, "https://api.groq.com/openai/v1")
+
+    # Tier 4: OpenRouter
     if OPENROUTER_API_KEY:
-        _openrouter_client = AsyncOpenAI(
-            api_key=OPENROUTER_API_KEY,
-            base_url="https://openrouter.ai/api/v1",
-            default_headers={
-                # N-MED-05: Use FRONTEND_URL from config instead of a hardcoded Vercel URL.
-                # This automatically reflects the correct domain across all environments.
-                "HTTP-Referer": FRONTEND_URL,
-                "X-Title": "Anuvaad",
-            },
+        _openrouter_client = _create_client(
+            OPENROUTER_API_KEY,
+            "https://openrouter.ai/api/v1",
+            headers={"HTTP-Referer": FRONTEND_URL, "X-Title": "Anuvaad"}
         )
-        logger.info("LLM client singletons initialized (Groq + OpenRouter fallback)")
-    else:
-        logger.info("LLM client singleton initialized (Groq only — OPENROUTER_API_KEY not set)")
+
+    logger.info(f"LLM clients initialized: "
+                f"{'Cerebras ' if _cerebras_client else ''}"
+                f"{'Gemini ' if _gemini_client else ''}"
+                f"{'DeepSeek ' if _deepseek_client else ''}"
+                f"{'Groq ' if _groq_client else ''}"
+                f"{'OpenRouter' if _openrouter_client else ''}")
 
 
 async def close_clients() -> None:
     """Gracefully close all LLM clients. Call from app lifespan shutdown."""
-    global _groq_client, _openrouter_client
-    if _groq_client:
-        await _groq_client.close()
-        _groq_client = None
-    if _openrouter_client:
-        await _openrouter_client.close()
-        _openrouter_client = None
+    global _cerebras_client, _gemini_client, _deepseek_client, _groq_client, _openrouter_client
+    for client_name, client in [
+        ("_cerebras_client", _cerebras_client),
+        ("_gemini_client", _gemini_client),
+        ("_deepseek_client", _deepseek_client),
+        ("_groq_client", _groq_client),
+        ("_openrouter_client", _openrouter_client),
+    ]:
+        if client:
+            try:
+                await client.close()
+            except Exception as e:
+                logger.warning(f"Error closing {client_name}: {e}")
+
+    _cerebras_client = _gemini_client = _deepseek_client = _groq_client = _openrouter_client = None
     logger.info("LLM client singletons closed")
 
+
+def _get_cerebras_client() -> AsyncOpenAI | None:
+    return _cerebras_client
+
+def _get_gemini_client() -> AsyncOpenAI | None:
+    return _gemini_client
+
+def _get_deepseek_client() -> AsyncOpenAI | None:
+    return _deepseek_client
 
 def _get_groq_client() -> AsyncOpenAI:
     """Return the shared Groq client, or create a fallback if not yet initialized."""
     if _groq_client is not None:
         return _groq_client
-    # Fallback: create on-the-fly (development mode or if lifespan wasn't used)
     key = os.getenv("GROQ_API_KEY", "")
     return AsyncOpenAI(api_key=key, base_url="https://api.groq.com/openai/v1")
 
-
 def _get_openrouter_client() -> AsyncOpenAI | None:
     """Return the shared OpenRouter fallback client, or None if not configured."""
-    if _openrouter_client is not None:
-        return _openrouter_client
-    key = OPENROUTER_API_KEY or os.getenv("OPENROUTER_API_KEY", "")
-    if not key:
-        return None
-    return AsyncOpenAI(
-        api_key=key,
-        base_url="https://openrouter.ai/api/v1",
-        default_headers={
-            # N-MED-05: Use FRONTEND_URL from config (consistent with init_clients).
-            "HTTP-Referer": FRONTEND_URL,
-            "X-Title": "Anuvaad",
-        },
-    )
+    return _openrouter_client
 
 
 SYSTEM_INSTRUCTION = """
@@ -570,6 +599,14 @@ def _build_streaming_providers(
 
     req = (requested_model or "").lower().strip()
 
+    if req in ("local", "ollama", "vllm", "airgap") or os.getenv("AIRGAP_MODE", "0").lower() in ("1", "true"):
+        from app.services.ai_gateway.airgap_provider import AirgapInferenceProvider
+
+        airgap = AirgapInferenceProvider()
+        providers.insert(0, (airgap.client, airgap.config.model_name, "Local Air-Gapped Engine"))
+        if os.getenv("AIRGAP_MODE", "0").lower() in ("1", "true"):
+            return providers
+
     if req in ("groq-llama-3.1-8b", "llama-3.1-8b", "8b"):
         if groq_client:
             providers.append((groq_client, "llama-3.1-8b-instant", "Groq Llama 3.1 8B"))
@@ -622,6 +659,9 @@ async def stream_code_to_english(
     ephemeral: bool = False,
 ):
     try:
+        # ZDR: compute hash once, never log raw_code
+        _code_hash = compute_code_hash(payload.raw_code)
+
         # Intelligent LLM Routing
         requested_model = getattr(payload, "model", None)
         model_name = "deepseek-r1" if use_r1 else "standard"
@@ -647,7 +687,8 @@ async def stream_code_to_english(
                         mode="Code → English",
                         source_language=payload.language,
                         target_language="english",
-                        input_text=payload.raw_code,
+                        input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                        input_hash=_code_hash,
                         blocks=cached,
                         model_used=model_name,
                         workspace_id=payload.workspace_id,
@@ -662,8 +703,10 @@ async def stream_code_to_english(
 
         providers = _build_streaming_providers(requested_model, use_r1)
 
+        augmented_system = _inject_symbol_contract(SYSTEM_INSTRUCTION, payload.raw_code, payload.language)
+
         messages = [
-            {"role": "system", "content": SYSTEM_INSTRUCTION},
+            {"role": "system", "content": augmented_system},
             {
                 "role": "user",
                 "content": f"Programming Language: {payload.language}\n\nCode to Analyze/Translate:\n{payload.raw_code}",
@@ -740,7 +783,8 @@ async def stream_code_to_english(
                             mode="Code → English",
                             source_language=payload.language,
                             target_language="english",
-                            input_text=payload.raw_code,
+                            input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                        input_hash=_code_hash,
                             blocks=stale_result,
                             model_used="stale_recovery",
                             workspace_id=payload.workspace_id,
@@ -774,7 +818,8 @@ async def stream_code_to_english(
                     mode="Code → English",
                     source_language=payload.language,
                     target_language="english",
-                    input_text=payload.raw_code,
+                    input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                    input_hash=_code_hash,
                     blocks=result,
                     model_used=used_model,
                     workspace_id=payload.workspace_id,
@@ -804,8 +849,12 @@ async def stream_code_to_code(
     tier: str,
     deduct_credit_flag: bool = False,
     cooldown: int = 0,
+    ephemeral: bool = False,
 ):
     try:
+        # ZDR: compute hash once, never log raw_code
+        _code_hash = compute_code_hash(payload.raw_code)
+
         # Intelligent LLM Routing
         requested_model = getattr(payload, "model", None)
         model_name = "deepseek-r1" if use_r1 else "standard"
@@ -818,30 +867,32 @@ async def stream_code_to_code(
             f"{model_name}:{requested_model or 'auto'}",
         )
 
-        # Check Cache
-        cached = await cache.get(key)
+        if not ephemeral:
+            # Check Cache
+            cached = await cache.get(key)
 
-        if cached:
-            await metrics.record_cache_hit()
-            yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
+            if cached:
+                await metrics.record_cache_hit()
+                yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'blocks': cached, 'model_used': model})}\n\n"
 
-            if email:
-                await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                save_translation_history_task.delay(
-                    user_email=email,
-                    mode="Code → Code",
-                    source_language=payload.source_language,
-                    target_language=payload.target_language,
-                    input_text=payload.raw_code,
-                    blocks=cached,
-                    model_used=model_name,
-                    workspace_id=payload.workspace_id,
-                    session_id=payload.session_id,
-                    repository_name=payload.repository_name,
-                    file_path=payload.file_path,
-                )
-            return
+                if email:
+                    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                    save_translation_history_task.delay(
+                        user_email=email,
+                        mode="Code → Code",
+                        source_language=payload.source_language,
+                        target_language=payload.target_language,
+                        input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.source_language}→{payload.target_language}]",
+                        input_hash=_code_hash,
+                        blocks=cached,
+                        model_used=model_name,
+                        workspace_id=payload.workspace_id,
+                        session_id=payload.session_id,
+                        repository_name=payload.repository_name,
+                        file_path=payload.file_path,
+                    )
+                return
 
         await metrics.record_cache_miss()
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
@@ -852,10 +903,12 @@ async def stream_code_to_code(
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
 Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
 
+        augmented_system = _inject_symbol_contract(system, payload.raw_code, payload.source_language)
+
         user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
 
         messages = [
-            {"role": "system", "content": system},
+            {"role": "system", "content": augmented_system},
             {"role": "user", "content": user_prompt},
         ]
 
@@ -917,22 +970,27 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             if stale_result:
                 logger.info("Streaming fallback: returning stale recovery result")
                 yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
-                yield f"data: {json.dumps({'done': True, 'blocks': stale_result, 'model_used': 'stale_recovery'})}\n\n"
+                done_payload = {"done": True, "blocks": stale_result, "model_used": "stale_recovery"}
+                if ephemeral:
+                    done_payload["privacy_mode"] = "ephemeral"
+                yield f"data: {json.dumps(done_payload)}\n\n"
                 if email:
                     await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-                    save_translation_history_task.delay(
-                        user_email=email,
-                        mode="Code → Code",
-                        source_language=payload.source_language,
-                        target_language=payload.target_language,
-                        input_text=payload.raw_code,
-                        blocks=stale_result,
-                        model_used="stale_recovery",
-                        workspace_id=payload.workspace_id,
-                        session_id=payload.session_id,
-                        repository_name=payload.repository_name,
-                        file_path=payload.file_path,
-                    )
+                    if not ephemeral:
+                        save_translation_history_task.delay(
+                            user_email=email,
+                            mode="Code → Code",
+                            source_language=payload.source_language,
+                            target_language=payload.target_language,
+                            input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.source_language}→{payload.target_language}]",
+                            input_hash=_code_hash,
+                            blocks=stale_result,
+                            model_used="stale_recovery",
+                            workspace_id=payload.workspace_id,
+                            session_id=payload.session_id,
+                            repository_name=payload.repository_name,
+                            file_path=payload.file_path,
+                        )
                 return
 
             yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
@@ -942,25 +1000,73 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         raw = json.loads(cleaned)
         result = normalize_blocks(raw, model_used=used_model, tier=tier)
 
-        await cache.put(key, result, 86400 * 7)
+        # Deterministic Tree-Sitter AST Boundary Validation
+        try:
+            from app.services.ast_parser import verify_translation
 
-        yield f"data: {json.dumps({'done': True, 'blocks': result, 'model_used': used_model})}\n\n"
+            combined_code = "\n".join(b.get("code_snippet", "") for b in result if isinstance(b, dict))
+            verification = await asyncio.to_thread(
+                verify_translation,
+                payload.raw_code,
+                payload.source_language,
+                combined_code,
+                payload.target_language,
+            )
+            if verification.has_parse_errors_in_target:
+                logger.warning(
+                    f"AST verification flagged parse errors in target code ({payload.target_language}): {verification.warnings}"
+                )
+        except Exception as ve:
+            logger.debug(f"AST verification skipped: {ve}")
+
+        if not ephemeral:
+            await cache.put(key, result, 86400 * 7)
+
+        done_payload = {"done": True, "blocks": result, "model_used": used_model}
+        if ephemeral:
+            done_payload["privacy_mode"] = "ephemeral"
+
+        if getattr(payload, "verify", False):
+            try:
+                from app.services.verification.equivalence_harness import EquivalenceHarness
+
+                combined_code = "\n".join(b.get("code_snippet", "") for b in result if isinstance(b, dict))
+                eq_report = EquivalenceHarness.evaluate(
+                    source_language=payload.source_language,
+                    target_language=payload.target_language,
+                    source_code=payload.raw_code,
+                    target_code=combined_code,
+                    user_id=email or "anonymous",
+                )
+                done_payload["equivalence"] = eq_report.to_dict()
+            except Exception as eq_err:
+                logger.warning(f"Equivalence evaluation skipped: {eq_err}")
+
+        yield f"data: {json.dumps(done_payload)}\n\n"
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode="Code → Code",
-                source_language=payload.source_language,
-                target_language=payload.target_language,
-                input_text=payload.raw_code,
-                blocks=result,
-                model_used=used_model,
-                workspace_id=payload.workspace_id,
-                session_id=payload.session_id,
-                repository_name=payload.repository_name,
-                file_path=payload.file_path,
-            )
+            if not ephemeral:
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode="Code → Code",
+                    source_language=payload.source_language,
+                    target_language=payload.target_language,
+                    input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.source_language}→{payload.target_language}]",
+                    input_hash=_code_hash,
+                    blocks=result,
+                    model_used=used_model,
+                    workspace_id=payload.workspace_id,
+                    session_id=payload.session_id,
+                    repository_name=payload.repository_name,
+                    file_path=payload.file_path,
+                )
+
+        if ephemeral:
+            del full_content
+            del cleaned
+            del raw
+            del result
 
     except Exception as e:
         if isinstance(e, HTTPException):

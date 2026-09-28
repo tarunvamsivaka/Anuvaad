@@ -54,7 +54,10 @@ async def csrf_origin_middleware(request: Request, call_next):
     PUT was previously omitted, leaving any PUT endpoint unprotected.
     """
     if IS_PRODUCTION and request.method in ("POST", "PUT", "PATCH", "DELETE"):
-        if not request.url.path.startswith("/api/webhook/"):
+        # Server-to-server webhooks (Stripe, Razorpay, GitHub) authenticate via HMAC signatures,
+        # never browser cookies or origins. Exempt any webhook endpoint.
+        is_webhook = "/webhook" in request.url.path or "/webhooks" in request.url.path
+        if not is_webhook:
             origin = request.headers.get("Origin")
             referer = request.headers.get("Referer")
 

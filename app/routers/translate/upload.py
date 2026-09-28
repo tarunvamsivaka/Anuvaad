@@ -3,6 +3,7 @@ import os
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
+from app.core.audit import compute_code_hash
 from app.core.auth import get_optional_user_email_from_request, get_user_pro_status
 from app.core.cache import cache, cache_key
 from app.core.config import (
@@ -102,7 +103,8 @@ async def upload_file_translate(
                 mode=f"File Upload ({mode})",
                 source_language=detected_language,
                 target_language=target_language or "english",
-                input_text=raw_code,
+                input_text=f"[ZDR-PROTECTED: {len(raw_code)} chars | {detected_language}]",
+                input_hash=compute_code_hash(raw_code),
                 blocks=cached,
                 model_used=model_name,
                 workspace_id=None,
@@ -144,7 +146,8 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 mode=f"File Upload ({mode})",
                 source_language=detected_language,
                 target_language=target_language or "english",
-                input_text=raw_code,
+                input_text=f"[ZDR-PROTECTED: {len(raw_code)} chars | {detected_language}]",
+                input_hash=compute_code_hash(raw_code),
                 blocks=result,
                 model_used=model_name,
                 workspace_id=None,
@@ -165,7 +168,8 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                     mode=f"File Upload ({mode})",
                     source_language=detected_language,
                     target_language=target_language or "english",
-                    input_text=raw_code,
+                    input_text=f"[ZDR-PROTECTED: {len(raw_code)} chars | {detected_language}]",
+                    input_hash=compute_code_hash(raw_code),
                     blocks=stale_result,
                     model_used=model_name,
                     workspace_id=None,

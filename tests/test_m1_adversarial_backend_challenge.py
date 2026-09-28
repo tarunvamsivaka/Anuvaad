@@ -10,7 +10,7 @@ Executed by Challenger 1 to rigorously stress-test:
 """
 
 import os
-from datetime import timezone
+from datetime import UTC
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,8 +21,6 @@ from sqlalchemy.dialects import postgresql
 # Configure environment for testing
 VALID_FERNET_KEY = Fernet.generate_key().decode()
 os.environ["TOKEN_ENCRYPTION_KEY"] = VALID_FERNET_KEY
-
-UTC = timezone.utc  # noqa: UP017
 
 from app.models.db_models import (  # noqa: E402
     ApiKey,

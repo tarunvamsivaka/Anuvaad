@@ -187,6 +187,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]""",
 
 # ── Metric Computation Helpers ────────────────────────────────────────────────
 
+
 def tokenize(text: str) -> list[str]:
     """Lowercase whitespace and punctuation tokenization."""
     return re.findall(r"\b\w+\b", text.lower())
@@ -255,6 +256,7 @@ def synthesize_reference_explanation(problem: dict[str, Any]) -> str:
 
 # ── Benchmark Suite Runner ────────────────────────────────────────────────────
 
+
 def run_benchmark_suite(output_path: str | None = None) -> dict[str, Any]:
     """Execute the canonical problem suite and generate verified benchmark metrics."""
     start_time = time.perf_counter()
@@ -275,15 +277,17 @@ def run_benchmark_suite(output_path: str | None = None) -> dict[str, Any]:
         lat = problem["expected_latency_sec"]
         tps = problem["tokens_per_sec"]
 
-        language_matrix.append({
-            "language": problem["language"],
-            "category": problem["category"],
-            "latency": f"{lat:.2f}s",
-            "accuracy": f"{acc:.1f}%",
-            "concurrencyScore": min(99, int(acc * 0.98)),
-            "tokensPerSec": tps,
-            "evalScore": matching_eval.get("composite_score", 100.0),
-        })
+        language_matrix.append(
+            {
+                "language": problem["language"],
+                "category": problem["category"],
+                "latency": f"{lat:.2f}s",
+                "accuracy": f"{acc:.1f}%",
+                "concurrencyScore": min(99, int(acc * 0.98)),
+                "tokensPerSec": tps,
+                "evalScore": matching_eval.get("composite_score", 100.0),
+            }
+        )
 
     payload = {
         "metadata": {
@@ -295,9 +299,15 @@ def run_benchmark_suite(output_path: str | None = None) -> dict[str, Any]:
             "cloud_hosting_burn_usd": "$0.00 / month",
         },
         "summary": {
-            "mean_accuracy_pct": round(sum(p["expected_accuracy_pct"] for p in CANONICAL_PROBLEMS) / len(CANONICAL_PROBLEMS), 2),
-            "mean_latency_sec": round(sum(p["expected_latency_sec"] for p in CANONICAL_PROBLEMS) / len(CANONICAL_PROBLEMS), 2),
-            "mean_tokens_per_sec": round(sum(p["tokens_per_sec"] for p in CANONICAL_PROBLEMS) / len(CANONICAL_PROBLEMS), 1),
+            "mean_accuracy_pct": round(
+                sum(p["expected_accuracy_pct"] for p in CANONICAL_PROBLEMS) / len(CANONICAL_PROBLEMS), 2
+            ),
+            "mean_latency_sec": round(
+                sum(p["expected_latency_sec"] for p in CANONICAL_PROBLEMS) / len(CANONICAL_PROBLEMS), 2
+            ),
+            "mean_tokens_per_sec": round(
+                sum(p["tokens_per_sec"] for p in CANONICAL_PROBLEMS) / len(CANONICAL_PROBLEMS), 1
+            ),
             "pass_rate_pct": 100.0,
         },
         "benchmarks": language_matrix,
@@ -327,7 +337,9 @@ def main() -> int:
 
     print("[Anuvaad EvalHarness] Initiating Canonical Benchmark Evaluation...")
     suite_result = run_benchmark_suite(args.output)
-    print(f"[Anuvaad EvalHarness] Evaluation Complete: {len(suite_result['benchmarks'])} languages verified at 100% pass rate.")
+    print(
+        f"[Anuvaad EvalHarness] Evaluation Complete: {len(suite_result['benchmarks'])} languages verified at 100% pass rate."
+    )
     return 0
 
 

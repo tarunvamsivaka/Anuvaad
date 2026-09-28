@@ -32,8 +32,21 @@ def register_all(app: FastAPI) -> None:
         allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-CSRF-Token"],
-        expose_headers=["X-Protection-Mode", "X-Cooldown-Seconds", "Retry-After"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "X-API-Key",
+            "X-CSRF-Token",
+            "X-Anuvaad-Privacy-Mode",
+            "X-Anuvaad-Session-ID",
+        ],
+        expose_headers=[
+            "X-Protection-Mode",
+            "X-Cooldown-Seconds",
+            "Retry-After",
+            "X-Anuvaad-Privacy",
+            "X-Anuvaad-Audit-Digest",
+        ],
     )
 
     # Function-based middleware (registered in reverse-call order)

@@ -1,16 +1,49 @@
 import { Metadata } from "next";
 import Script from "next/script";
+import dynamic from "next/dynamic";
 import {
   WisprNavbar,
+  NavAnnouncementPill,
   HeroControlBar,
-  LivePlayground,
-  GitPrWorkflowDemo,
-  BenchmarkExplorer,
   EnterpriseSecurity,
   CustomerProof,
   ActionDeck,
   WisprFooter,
 } from "@/components/landing/wispr";
+
+// Dynamic imports with layout-preserving skeleton fallbacks to minimize initial bundle size and eliminate TBT
+const LivePlayground = dynamic(
+  () => import("@/components/landing/wispr/LivePlayground").then((mod) => mod.LivePlayground),
+  {
+    loading: () => (
+      <div className="w-full h-[520px] rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 animate-pulse flex items-center justify-center">
+        <span className="text-xs font-mono text-slate-400">Loading Interactive Playground...</span>
+      </div>
+    ),
+  }
+);
+
+const GitPrWorkflowDemo = dynamic(
+  () => import("@/components/landing/wispr/GitPrWorkflowDemo").then((mod) => mod.GitPrWorkflowDemo),
+  {
+    loading: () => (
+      <div className="w-full h-[460px] rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 animate-pulse flex items-center justify-center">
+        <span className="text-xs font-mono text-slate-400">Loading PR Workflow Simulator...</span>
+      </div>
+    ),
+  }
+);
+
+const BenchmarkExplorer = dynamic(
+  () => import("@/components/landing/wispr/BenchmarkExplorer").then((mod) => mod.BenchmarkExplorer),
+  {
+    loading: () => (
+      <div className="w-full h-[480px] rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 animate-pulse flex items-center justify-center">
+        <span className="text-xs font-mono text-slate-400">Loading Benchmark Explorer...</span>
+      </div>
+    ),
+  }
+);
 
 export const metadata: Metadata = {
   title: "Anuvaad — The AI Code Translator for Modern Teams",
@@ -61,6 +94,9 @@ export default function Home() {
         >
           Skip to main content
         </a>
+
+        {/* Announcement Banner */}
+        <NavAnnouncementPill />
 
         {/* Floating Pill Navigation */}
         <WisprNavbar />
