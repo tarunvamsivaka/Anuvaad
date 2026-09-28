@@ -9,11 +9,66 @@ import sys
 
 
 def parse_yaml_with_node(filepath):
+    # Try node js-yaml first if available
     cmd = f"""node -e "const fs = require('fs'); const yaml = require('js-yaml'); console.log(JSON.stringify(yaml.load(fs.readFileSync('{filepath.replace(chr(92), "/")}', 'utf8'))));" """
     res = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd="frontend")
-    if res.returncode != 0:
-        raise RuntimeError(f"Failed to parse YAML {filepath}: {res.stderr}")
-    return json.loads(res.stdout)
+    if res.returncode == 0:
+        try:
+            return json.loads(res.stdout)
+        except Exception:
+            pass
+
+    # Pure-Python fallback for docker-compose file inspection (zero npm dependencies required)
+    import re
+    from pathlib import Path
+
+    path_obj = Path(filepath)
+    if not path_obj.exists():
+        if (Path("frontend") / filepath).exists():
+            path_obj = Path("frontend") / filepath
+        elif filepath.startswith("../") and Path(filepath[3:]).exists():
+            path_obj = Path(filepath[3:])
+
+    text = path_obj.read_text(encoding="utf-8")
+    services = {}
+    current_service = None
+    in_services = False
+    in_volumes = False
+
+    for line in text.splitlines():
+        if line.startswith("services:"):
+            in_services = True
+            current_service = None
+            in_volumes = False
+            continue
+        elif re.match(r"^[a-zA-Z0-9_-]+:", line):
+            in_services = False
+            current_service = None
+            in_volumes = False
+            continue
+
+        if in_services:
+            m_svc = re.match(r"^  ([a-zA-Z0-9_-]+):", line)
+            if m_svc:
+                current_service = m_svc.group(1)
+                services[current_service] = {"volumes": []}
+                in_volumes = False
+                continue
+
+            if current_service:
+                if re.match(r"^    volumes:", line):
+                    in_volumes = True
+                    continue
+                elif re.match(r"^    [a-zA-Z0-9_-]+:", line):
+                    in_volumes = False
+                    continue
+
+                if in_volumes:
+                    m_vol = re.match(r"^      -\s*(.+)", line)
+                    if m_vol:
+                        services[current_service]["volumes"].append(m_vol.group(1).strip())
+
+    return {"services": services}
 
 
 def test_all_dockerfiles():

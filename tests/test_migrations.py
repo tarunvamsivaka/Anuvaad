@@ -25,7 +25,14 @@ def migration_engine() -> Engine:
     if not MIGRATION_DATABASE_URL:
         pytest.skip("MIGRATION_DATABASE_URL is required for PostgreSQL migration tests")
 
-    engine = create_engine(MIGRATION_DATABASE_URL)
+    url = MIGRATION_DATABASE_URL
+    if url.startswith("postgresql://") and "+psycopg" not in url:
+        try:
+            import psycopg  # noqa: F401
+        except ImportError:
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    engine = create_engine(url)
     try:
         yield engine
     finally:
@@ -34,7 +41,13 @@ def migration_engine() -> Engine:
 
 def _alembic_config() -> Config:
     config = Config("alembic.ini")
-    config.set_main_option("sqlalchemy.url", MIGRATION_DATABASE_URL or "")
+    url = MIGRATION_DATABASE_URL or ""
+    if url.startswith("postgresql://") and "+psycopg" not in url:
+        try:
+            import psycopg  # noqa: F401
+        except ImportError:
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    config.set_main_option("sqlalchemy.url", url)
     return config
 
 

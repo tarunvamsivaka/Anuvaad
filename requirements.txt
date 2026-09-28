@@ -23,6 +23,7 @@ celery>=5.6.3
 pgvector>=0.2.5
 aiosqlite>=0.19.0
 psycopg2-binary>=2.9.9
+psycopg[binary]>=3.1.0
 PyGithub>=2.3.0
 cryptography>=50.0.0
 h2>=4.4.1
