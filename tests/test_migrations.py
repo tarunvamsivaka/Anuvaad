@@ -19,7 +19,13 @@ from alembic import command
 
 _raw_migration_url = os.getenv("MIGRATION_DATABASE_URL")
 # SQLAlchemy 2.0 requires psycopg2 driver explicitly instead of psycopg (v3) which is default for postgresql://
-MIGRATION_DATABASE_URL = _raw_migration_url.replace("postgresql://", "postgresql+psycopg2://").replace("postgresql+asyncpg://", "postgresql+psycopg2://") if _raw_migration_url else None
+MIGRATION_DATABASE_URL = (
+    _raw_migration_url.replace("postgresql://", "postgresql+psycopg2://").replace(
+        "postgresql+asyncpg://", "postgresql+psycopg2://"
+    )
+    if _raw_migration_url
+    else None
+)
 
 
 @pytest.fixture(scope="module")
