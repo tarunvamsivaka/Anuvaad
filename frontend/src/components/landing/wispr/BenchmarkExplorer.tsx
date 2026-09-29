@@ -71,6 +71,7 @@ export function BenchmarkExplorer({
   const [sortBy, setSortBy] = useState<"latency" | "accuracy" | "name">(initialSort);
   const [deepDiveOpen, setDeepDiveOpen] = useState(false);
   const [benchmarkSource, setBenchmarkSource] = useState<LanguageBenchmark[]>(BENCHMARK_DATA);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [verifiedTimestamp, setVerifiedTimestamp] = useState<string | null>(null);
 
   useEffect(() => {
