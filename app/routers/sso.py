@@ -163,26 +163,17 @@ async def saml_callback(request: Request, payload: SAMLCallbackRequest):
     ):
         raise HTTPException(status_code=400, detail="Malformed SAML response or missing assertion")
 
-    # Extract user email from NameID or claim safely via XML parsing without regex
+    # Extract user email from NameID or claim safely via linear string search (zero XML bomb, zero ReDoS)
     user_email = "enterprise.user@acme.corp"
-    try:
-        import xml.etree.ElementTree as ET
-
-        root = ET.fromstring(decoded_xml)
-        for elem in root.iter():
-            tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
-            if tag == "NameID" and elem.text and "@" in elem.text:
-                user_email = elem.text.strip()
-                break
-    except Exception:
-        # Deterministic string boundary search fallback (zero regex backtracking)
-        tag_start = decoded_xml.find("NameID>")
-        if tag_start != -1:
-            content_start = tag_start + len("NameID>")
+    tag_start = decoded_xml.find("NameID")
+    if tag_start != -1:
+        closing_bracket = decoded_xml.find(">", tag_start)
+        if closing_bracket != -1:
+            content_start = closing_bracket + 1
             tag_end = decoded_xml.find("</", content_start)
-            if tag_end != -1:
+            if tag_end != -1 and tag_end - content_start < 256:
                 candidate = decoded_xml[content_start:tag_end].strip()
-                if "@" in candidate:
+                if "@" in candidate and "\n" not in candidate:
                     user_email = candidate
 
     logger.info(f"Enterprise SSO login verified for user: {user_email}")
