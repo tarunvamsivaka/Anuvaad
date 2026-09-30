@@ -5,10 +5,24 @@ import { useMotionSafe } from "@/lib/motion";
 import { WebGLSceneManager } from "./WebGLSceneManager";
 
 interface WebGLCanvasProps {
-  globalProgress: number;
+  globalProgress?: number;
 }
 
-export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
+function getQualityTier(): { particleCount: number; dpr: number } {
+  if (typeof window === "undefined") {
+    return { particleCount: 6000, dpr: 2 };
+  }
+  const width = window.innerWidth;
+  const deviceDpr = window.devicePixelRatio || 1;
+  if (width < 768) {
+    return { particleCount: 1500, dpr: 1 };
+  } else if (width < 1024) {
+    return { particleCount: 3000, dpr: Math.min(deviceDpr, 1.5) };
+  }
+  return { particleCount: 6000, dpr: Math.min(deviceDpr, 2) };
+}
+
+export function WebGLCanvas({ globalProgress = 0 }: WebGLCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const workerRef = useRef<Worker | null>(null);
   const managerRef = useRef<WebGLSceneManager | null>(null);
@@ -27,26 +41,6 @@ export function WebGLCanvas({ globalProgress }: WebGLCanvasProps) {
       setWebglSupported(false);
     }
   }, []);
-
-  // Determine quality tier parameters based on window dimensions
-  const getQualityTier = () => {
-    if (typeof window === "undefined") {
-      return { particleCount: 6000, dpr: 2 };
-    }
-    const width = window.innerWidth;
-    const deviceDpr = window.devicePixelRatio || 1;
-
-    if (width < 768) {
-      // Mobile quality tier
-      return { particleCount: 1500, dpr: 1 };
-    } else if (width < 1024) {
-      // Tablet quality tier
-      return { particleCount: 3000, dpr: Math.min(deviceDpr, 1.5) };
-    } else {
-      // Desktop quality tier
-      return { particleCount: 6000, dpr: Math.min(deviceDpr, 2) };
-    }
-  };
 
   useEffect(() => {
     if (!webglSupported || !motionSafe) {

@@ -35,5 +35,6 @@ export { LenisScrollProvider, useLenis } from "./LenisScrollProvider";
 export { Logo } from "./Logo";
 export { ScrollStory } from "./ScrollStory";
 export { SmoothScroll } from "./SmoothScroll";
-export { WebGLCanvas } from "./WebGLCanvas";
+// WebGLCanvas lives in features/landing/_canvas/ (canonical); re-exported here for backward compatibility
+export { WebGLCanvas } from "@/features/landing/_canvas/WebGLCanvas";
 export { WebGLScrollProvider } from "./WebGLScrollProvider";

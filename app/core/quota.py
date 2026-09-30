@@ -93,6 +93,7 @@ async def save_translation_background(
     input_text: str,
     blocks: list,
     model_used: str,
+    input_hash: str | None = None,
     workspace_id: str | None = None,
     session_id: str | None = None,
     repository_name: str | None = None,
@@ -155,6 +156,7 @@ async def save_translation_background(
             input_preview=input_text[:80],
             blocks=blocks,
             model_used=model_used,
+            input_hash=input_hash,
             workspace_id=workspace_id,
             session_id=session_id,
         )

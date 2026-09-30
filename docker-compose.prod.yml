@@ -203,6 +203,81 @@ services:
         max-file: "3"
         labels: "service=anuvaad-nginx"
 
+  # ── LiteLLM AI Gateway ───────────────────────────────────────────────────────
+  # Sprint 6: Unified 5-tier AI proxy with automatic failover
+  # Routes: Cerebras → Gemini → DeepSeek → Groq → OpenRouter → Ollama
+  # Cost: $0.00/month (all free tiers + local Tier 5)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    container_name: anuvaad-litellm-prod
+    volumes:
+      - ./infrastructure/litellm_config.yaml:/app/config.yaml:ro
+      - litellm_data:/app/data
+    command: --config /app/config.yaml --port 4000 --num_workers 4
+    environment:
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - LITELLM_DATABASE_URL=${DATABASE_URL}
+      - STORE_MODEL_IN_DB=False
+    ports:
+      - "127.0.0.1:4000:4000"   # Bind to loopback only — nginx proxies externally
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+        labels: "service=anuvaad-litellm"
+
+  # ── Ollama Local Inference (Tier 5) ─────────────────────────────────────────
+  # Sprint 6: Free unlimited inference on Oracle Always Free VM (4 OCPUs, 24GB RAM)
+  # Models: llama3.3 (8B), deepseek-coder:6.7b
+  # Pull models after deploy: docker exec anuvaad-ollama-prod ollama pull llama3.3
+  ollama:
+    image: ollama/ollama:latest
+    container_name: anuvaad-ollama-prod
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=2
+      - OLLAMA_FLASH_ATTENTION=1
+    ports:
+      - "127.0.0.1:11434:11434"  # Internal only — LiteLLM connects via service name
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '3.5'
+          memory: 20G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+        labels: "service=anuvaad-ollama"
+
   # ── PgBouncer Connection Pooler ──────────────────────────────────────────────
   pgbouncer:
     image: edoburu/pgbouncer:1.22.1
@@ -232,6 +307,9 @@ services:
           cpus: '0.5'
           memory: 256M
 
+
 volumes:
   redis_data_prod:
   certbot_www:
+  ollama_models:    # Persistent Ollama model storage (~4-8GB per model)
+  litellm_data:

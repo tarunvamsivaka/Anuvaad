@@ -167,5 +167,33 @@ class EmailService:
         html = _email_body(header, body)
         EmailService._send(user_email, f"🎉 You've translated {count} snippets with Anuvaad!", html)
 
+    @staticmethod
+    def send_payment_failed_notice(user_email: str, attempt_count: int = 1):
+        """Notify user that their subscription payment failed and prompt them to update payment method."""
+        attempt_text = f"(attempt {attempt_count})" if attempt_count > 1 else ""
+        header = """<h1 style="margin:0;color:#ffffff;font-size:24px;">Action Required: Payment Failed</h1>
+        <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Your subscription payment could not be processed</p>"""
+        body = f"""<p style="margin:0 0 16px;font-size:16px;color:#18181b;">Hi,</p>
+        <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#3f3f46;">
+          We were unable to process your Anuvaad Pro subscription payment {attempt_text}.
+          Your Pro access remains active during our retry period, but please update your
+          payment method to avoid any interruption.
+        </p>
+        <div style="padding:16px;background-color:#fef2f2;border-left:3px solid #ef4444;border-radius:6px;margin-bottom:24px;">
+          <p style="margin:0;font-size:13px;color:#991b1b;">
+            <strong>What to do:</strong> Visit your billing portal to update your payment method.
+            Stripe will automatically retry your payment after the update.
+          </p>
+        </div>
+        <div style="text-align:center;margin:24px 0;">
+          <a href="{FRONTEND_BASE_URL}/dashboard/billing" style="display:inline-block;background-color:#d97706;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;">Update Payment Method →</a>
+        </div>
+        <p style="margin:0;font-size:12px;color:#a1a1aa;text-align:center;">
+          If you have questions, reply to this email or contact support@anuvaad.dev
+        </p>"""
+        footer = f"""<p style="margin:0;font-size:11px;color:#a1a1aa;">Manage your subscription in <a href="{FRONTEND_BASE_URL}/dashboard/billing" style="color:#d97706;text-decoration:none;">Billing Settings</a></p>"""
+        html = _email_body(header, body, footer)
+        EmailService._send(user_email, "Action Required: Update your Anuvaad payment method", html)
+
 
 email_service = EmailService()

@@ -194,6 +194,9 @@ export function useTranslationStream({
               completeBlocks = data.blocks;
               if (data.model_used) {
                 setModelUsed(data.model_used);
+                if (selectedModel && data.model_used !== selectedModel) {
+                  track('model_fallback_triggered', { expected: selectedModel, actual: data.model_used });
+                }
               }
             }
           } catch {
@@ -225,7 +228,10 @@ export function useTranslationStream({
         const latency = Date.now() - translateStartTime;
         track("translation_completed", {
           mode,
+          source_language: sourceLanguage,
+          target_language: targetLanguage,
           block_count: blocks.length,
+          blocks_count: blocks.length,
           model_used: blocks[0]?.model_used || "unknown",
           latency_ms: latency,
           from_cache: false,
@@ -262,6 +268,7 @@ export function useTranslationStream({
         const quotaErr = parseQuotaErrorPayload(err.payload, err.retryAfter);
         setQuotaError(quotaErr);
         setIsStreaming(false);
+        track('quota_hit', { mode });
         return;
       }
       const errorObj = err as { name?: string; message?: string; status?: number } | undefined;

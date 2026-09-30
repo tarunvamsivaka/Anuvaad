@@ -60,3 +60,25 @@ export const BENCHMARK_DATA: LanguageBenchmark[] = [
   { language: "COBOL", category: "Legacy Modernization", latency: "2.10s", accuracy: "98.1%", concurrencyScore: 89, tokensPerSec: 115 },
   { language: "Fortran", category: "Legacy Modernization", latency: "1.98s", accuracy: "98.3%", concurrencyScore: 90, tokensPerSec: 118 },
 ];
+
+/**
+ * BENCHMARK_METHODOLOGY
+ *
+ * Figures represent AI-inference latency and translation quality targets
+ * measured on the Anuvaad 5-tier gateway (Cerebras Llama 3.3 70B → Gemini 2.0
+ * Flash → DeepSeek → OpenRouter → Ollama) in Code → English explanation mode.
+ *
+ * AST boundary validation via Tree-sitter is applied on:
+ *   Dedicated parsers: Python, Go, TypeScript, JavaScript, Rust, Java, Ruby, PHP,
+ *   C#, Kotlin, Swift, Scala, Lua, C, C++, SQL
+ *   Universal fallback (tree-sitter-language-pack ≥1.20.0): Elixir, Dart, Bash,
+ *   Haskell, R, Clojure, Erlang, Zig, and 350+ additional languages
+ *
+ * Latency = p50 observed on Render free tier (cold-start excluded).
+ * Accuracy = semantic equivalence as assessed by LLM judge + tree-sitter parse pass.
+ * Last updated: September 2026.
+ */
+export const BENCHMARK_METHODOLOGY =
+  "Latency/accuracy are AI-inference targets measured September 2026 on the Anuvaad 5-tier gateway. " +
+  "AST validation applied via Tree-sitter on 16 dedicated parsers + 370+ via language-pack. " +
+  "Not independently audited.";

@@ -17,6 +17,7 @@ import razorpay
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 
 import app.compat  # noqa: F401
 from app.core.auth import (
@@ -35,12 +36,15 @@ from app.core.config import (
     STRIPE_WEBHOOK_SECRET,
     logger,
 )
+from app.core.database_session import AsyncSessionLocal
 from app.core.quota import get_active_protection_mode, get_today_usage_count
 from app.core.rate_limit import rate_limiter
 from app.domain.billing.service import BillingService
+from app.models.db_models import PaymentTransaction
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
 from app.queue.tasks import process_billing_webhook_task
 from app.repositories import subscription as subscription_repo
+from app.services.email import email_service
 
 router = APIRouter(prefix="", tags=["billing"])
 
@@ -374,11 +378,6 @@ async def razorpay_webhook(request: Request):
     # Layer 2: DB-backed idempotency (survives cache restart)
     if event_id:
         try:
-            from sqlalchemy import select
-
-            from app.core.database_session import AsyncSessionLocal
-            from app.models.db_models import PaymentTransaction
-
             async with AsyncSessionLocal() as session:
                 existing_tx = await session.execute(
                     select(PaymentTransaction).where(PaymentTransaction.event_id == event_id)
@@ -418,7 +417,15 @@ async def razorpay_webhook(request: Request):
 @router.post("/webhook/stripe")
 @router.post("/webhook")
 async def stripe_webhook(request: Request):
-    """Handle Stripe webhook events — validates HMAC signature, updates subscription."""
+    """Handle Stripe webhook events — validates HMAC signature, updates subscription.
+
+    Handles:
+    - checkout.session.completed → activate Pro
+    - customer.subscription.created / updated → sync Pro status
+    - customer.subscription.deleted / paused → deactivate Pro
+    - invoice.payment_succeeded → ensure Pro is active (renewal)
+    - invoice.payment_failed → flag + send email notification
+    """
     webhook_secret = STRIPE_WEBHOOK_SECRET or os.getenv("STRIPE_WEBHOOK_SECRET", "")
     if not webhook_secret:
         logger.error("STRIPE_WEBHOOK_SECRET is not set — rejecting webhook request.")
@@ -447,6 +454,35 @@ async def stripe_webhook(request: Request):
             logger.info(f"Stripe webhook: duplicate event {event_id} (cache hit) — skipping")
             return {"status": "duplicate", "message": "Event already processed"}
 
+    # DB-backed idempotency (survives cache restarts)
+    if event_id:
+        try:
+            async with AsyncSessionLocal() as session:
+                existing_tx = await session.execute(
+                    select(PaymentTransaction).where(PaymentTransaction.event_id == event_id)
+                )
+                if existing_tx.scalars().first() is not None:
+                    logger.info(f"Stripe webhook: duplicate event {event_id} (DB hit) — skipping")
+                    return {"status": "duplicate", "message": "Event already processed"}
+
+                session.add(
+                    PaymentTransaction(
+                        event_id=event_id,
+                        payload=dict(event),
+                        status="queued",
+                    )
+                )
+                try:
+                    await session.commit()
+                except Exception:
+                    logger.info(f"Stripe webhook: concurrent duplicate for {event_id} — skipping")
+                    return {"status": "duplicate", "message": "Event already processed"}
+
+            await cache.put(f"webhook:stripe:idempotency:{event_id}", "1", ttl=86400)
+
+        except Exception as db_err:
+            logger.warning(f"DB idempotency check failed for Stripe event, falling back to cache-only: {db_err}")
+
     # Process event
     event_data = event.get("data", {}).get("object", {})
     user_email = (
@@ -470,6 +506,24 @@ async def stripe_webhook(request: Request):
                 data={"is_pro": True, "stripe_subscription_id": sub_id},
             )
             logger.info(f"Activated Pro tier for {user_email} via Stripe event {event_type}")
+            try:
+                email_service.send_subscription_upgrade(user_email, "Pro")
+            except Exception as email_err:
+                logger.warning(f"Welcome email failed for {user_email}: {email_err}")
+
+    elif event_type == "customer.subscription.updated":
+        # Handle plan changes, renewals, and status transitions
+        if user_email:
+            stripe_status = event_data.get("status", "")
+            sub_id = event_data.get("id")
+            is_active = stripe_status in ("active", "trialing")
+            await subscription_repo.upsert_subscription(
+                email=user_email,
+                data={"is_pro": is_active, "stripe_subscription_id": sub_id},
+            )
+            logger.info(
+                f"Subscription updated for {user_email} — status={stripe_status}, is_pro={is_active}"
+            )
 
     elif event_type in ("customer.subscription.deleted", "customer.subscription.paused"):
         if user_email:
@@ -480,12 +534,34 @@ async def stripe_webhook(request: Request):
             logger.info(f"Deactivated Pro tier for {user_email} via Stripe event {event_type}")
 
     elif event_type == "invoice.payment_succeeded":
-        logger.info(f"Invoice payment succeeded for customer {event_data.get('customer')}")
+        if user_email:
+            sub_id = event_data.get("subscription")
+            await subscription_repo.upsert_subscription(
+                email=user_email,
+                data={"is_pro": True, "stripe_subscription_id": sub_id},
+            )
+            logger.info(f"Invoice payment succeeded — Pro tier confirmed for {user_email}")
 
     elif event_type == "invoice.payment_failed":
-        logger.warning(f"Invoice payment failed for customer {event_data.get('customer')}")
+        # Do NOT immediately revoke Pro — give a grace period.
+        # The subscription.deleted event fires after Stripe's retry period ends.
+        customer_id = event_data.get("customer")
+        attempt_count = event_data.get("attempt_count", 1)
+        logger.warning(
+            f"Invoice payment failed for customer {customer_id} "
+            f"(attempt {attempt_count}) — grace period active, Pro retained"
+        )
+        if user_email:
+            try:
+                # Notify the user so they can update their payment method
+                email_service.send_payment_failed_notice(user_email, attempt_count)
+            except AttributeError:
+                # send_payment_failed_notice may not exist yet — log and skip
+                logger.info(f"Payment failed notice not sent to {user_email} (method not implemented)")
+            except Exception as email_err:
+                logger.warning(f"Payment failed email error for {user_email}: {email_err}")
 
-    if event_id:
-        await cache.put(f"webhook:stripe:idempotency:{event_id}", "1", ttl=86400)
+    else:
+        logger.debug(f"Stripe webhook: unhandled event type {event_type}")
 
     return {"received": True, "type": event_type}

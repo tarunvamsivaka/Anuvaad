@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import HALFVEC
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, Text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -89,6 +89,8 @@ class TranslationHistory(Base):
     session_id = Column(Text, nullable=True)
     repository_name = Column(Text, nullable=True)
     input_preview = Column(Text, nullable=True)
+    # ZDR audit trail: HMAC-SHA256 of raw input code bytes (see alembic/versions/b2e4f8a1c3d7_*)
+    input_hash = Column(String(64), nullable=True, comment="HMAC-SHA256 of raw input code (ZDR audit receipt)")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     @property

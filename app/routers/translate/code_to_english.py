@@ -8,9 +8,6 @@ from app.core.audit import generate_audit_receipt
 from app.core.auth import (
     get_optional_user_email_from_request,
 )
-from app.core.auth import (
-    get_user_email as get_current_user,
-)
 from app.core.cache import cache, cache_key
 from app.core.config import logger, metrics
 from app.core.quota import (
@@ -31,18 +28,6 @@ from .dependencies import dispatch_history as _dispatch_history
 from .dependencies import sanitise_input, validate_code_input
 
 router = APIRouter()
-
-
-@router.get("/import-gist", dependencies=[Depends(rate_limiter(10, 60))])
-async def import_gist_code_to_english(
-    url: str,
-    file_path: str | None = None,
-    user_email: str = Depends(get_current_user),
-):
-    """Fetch a public GitHub Gist / repository file with authentication and rate-limiting."""
-    from app.routers.utility import import_gist
-
-    return await import_gist(url=url, file_path=file_path, user_email=user_email)
 
 
 @router.post("/code-to-english", response_class=StreamingResponse, dependencies=[Depends(rate_limiter(10, 60))])

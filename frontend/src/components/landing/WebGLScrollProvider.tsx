@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 
 const WebGLCanvas = dynamic(
-  () => import("./WebGLCanvas").then((mod) => mod.WebGLCanvas),
+  () => import("@/features/landing/_canvas/WebGLCanvas").then((mod) => mod.WebGLCanvas),
   { ssr: false }
 );
 

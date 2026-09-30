@@ -104,6 +104,9 @@ export const metadata: Metadata = {
   },
 };
 
+import { CommandPalette } from "@/components/CommandPalette";
+import { KeyboardShortcutsModal } from "@/components/modals/KeyboardShortcutsModal";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -126,7 +129,9 @@ export default function RootLayout({
           <PostHogProvider>
             <TooltipProvider>
               <AuthProvider>
-                  {children}
+                {children}
+                <CommandPalette />
+                <KeyboardShortcutsModal />
               </AuthProvider>
             </TooltipProvider>
           </PostHogProvider>

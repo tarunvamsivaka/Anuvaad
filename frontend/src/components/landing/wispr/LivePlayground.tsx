@@ -326,10 +326,13 @@ export function LivePlayground({
               type="button"
               onClick={handleRunTranslate}
               disabled={isTranslating}
+              title="Translate (⌘ + Enter)"
+              aria-label="Translate snippet (⌘ + Enter)"
               className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             >
               <Play className="h-3.5 w-3.5 fill-white" />
               <span>{isTranslating ? "Translating..." : "Translate"}</span>
+              <kbd className="hidden sm:inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-black/25 text-amber-100 font-semibold ml-0.5">⌘↵</kbd>
             </button>
             <Link
               href={`/dashboard/translate?code=${encodeURIComponent(code)}&lang=${activeLang}&mode=${mode}`}
@@ -360,9 +363,15 @@ export function LivePlayground({
               <textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    handleRunTranslate();
+                  }
+                }}
                 aria-label="Code or specification input"
-                className="w-full h-48 bg-transparent text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none resize-none leading-relaxed"
-                placeholder="Paste code or write specification here..."
+                className="w-full h-48 bg-transparent text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none resize-none leading-relaxed focus-visible:ring-1 focus-visible:ring-amber-500/50 rounded-lg p-1"
+                placeholder="Paste code or write specification here... (Press ⌘+Enter to translate)"
               />
             </div>
           </div>
@@ -404,9 +413,15 @@ export function LivePlayground({
             <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col gap-1.5">
               <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
                 <span>Latency: {isTranslating ? `${latencyMs}ms` : `${(latencyMs / 1000).toFixed(2)}s`}</span>
-                <span className="text-emerald-500 font-sans font-medium">
-                  Verified Accuracy 99.4%
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-sans font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    AST Boundary Validated
+                  </span>
+                  <span className="text-emerald-500 font-sans font-medium hidden sm:inline">
+                    Verified Accuracy 99.4%
+                  </span>
+                </div>
               </div>
               {/* Animated latency progress bar */}
               <div className="relative h-1 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">

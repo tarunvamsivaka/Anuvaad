@@ -5,7 +5,7 @@ import { languages } from "../../_constants/languages";
 import { SearchableLanguageSelect } from "./SearchableLanguageSelect";
 import { RepositorySelector } from "./RepositorySelector";
 import { ModelSelect } from "./ModelSelect";
-import { ArrowLeftRight } from "lucide-react";
+import { ArrowLeftRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -127,6 +127,19 @@ export function Toolbar({
           filePath={filePath}
           setFilePath={setFilePath}
         />
+
+        <div className="h-6 w-px bg-border hidden sm:block mx-0.5" />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-keyboard-shortcuts"))}
+          aria-label="Keyboard Shortcuts (?)"
+          title="Keyboard Shortcuts (?)"
+          className="h-8 w-8 p-0 rounded-xl hover:bg-amber-500/10 hover:text-amber-500 text-muted-foreground transition-colors cursor-pointer"
+        >
+          <HelpCircle className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

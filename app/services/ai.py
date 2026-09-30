@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import re
 
 try:
     import sentry_sdk
@@ -196,19 +197,19 @@ You should update the code_snippet to "print(path.upper())" or language equivale
 """
 
 
+_THINK_TAGS_RE = re.compile(r"<think>.*?</think>", flags=re.DOTALL)
+
+
 def _clean_json_response(text: str) -> str:
     """Strip reasoning tags (<think>...</think>) and markdown code fences (```json...```)."""
-    import re
-
     text = text.strip()
     # Strip DeepSeek R1 / Reasoning model <think>...</think> tags if present
-    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+    text = _THINK_TAGS_RE.sub("", text).strip()
     if text.startswith("```json"):
         text = text[7:]
     elif text.startswith("```"):
         text = text[3:]
-    text = text.removesuffix("```")
-    return text.strip()
+    return text.removesuffix("```").strip()
 
 
 def normalize_blocks(raw_result, model_used: str = "", tier: str = "free") -> list:
@@ -341,8 +342,6 @@ def _inject_symbol_contract(system_instruction: str, code: str, language: str) -
                 actual_code = first_block
 
     try:
-        import json as _json
-
         from app.services.ast_parser import build_symbol_contract
 
         contract = build_symbol_contract(actual_code, language)
@@ -359,7 +358,7 @@ def _inject_symbol_contract(system_instruction: str, code: str, language: str) -
             "\n\n--- SYMBOL CONTRACT (AST-ANCHORED) ---\n"
             "The translated code MUST preserve these exact function and class names.\n"
             "Renaming, omitting, or merging any listed symbol is a critical hallucination.\n"
-            f"{_json.dumps({'functions': func_names, 'classes': class_names}, separators=(',', ':'))}\n"
+            f"{json.dumps({'functions': func_names, 'classes': class_names}, separators=(',', ':'))}\n"
             "--- END SYMBOL CONTRACT ---"
         )
         logger.debug(

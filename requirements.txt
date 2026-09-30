@@ -52,3 +52,18 @@ tree-sitter-lua>=0.5.0
 tree-sitter-c>=0.23.0
 tree-sitter-cpp>=0.23.0
 tree-sitter-sql>=0.3.0
+
+# Sprint 4 (universal): 370+ language fallback via pre-compiled grammar pack
+# Provides parsers for Elixir, Dart, R, Bash, Clojure, Erlang, Haskell, Zig,
+# COBOL, Fortran, and 360+ more — zero additional pip installs required
+tree-sitter-language-pack>=1.20.0
+
+# Sprint 8: OpenTelemetry Observability → Grafana Cloud (free tier)
+# Auto-instruments FastAPI routes, SQLAlchemy queries, httpx calls
+# Exports traces/metrics/logs to any OTLP endpoint (Grafana Cloud, Jaeger, etc.)
+opentelemetry-sdk>=1.25.0
+opentelemetry-instrumentation-fastapi>=0.46b0
+opentelemetry-instrumentation-sqlalchemy>=0.46b0
+opentelemetry-instrumentation-httpx>=0.46b0
+opentelemetry-instrumentation-redis>=0.46b0
+opentelemetry-exporter-otlp-proto-grpc>=1.25.0

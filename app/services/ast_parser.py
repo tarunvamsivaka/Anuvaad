@@ -173,6 +173,19 @@ def _get_parser(language: str) -> object | None:
                 _PARSERS[language] = None
                 return None
         else:
+            # ── Universal fallback via tree-sitter-language-pack ──────────────
+            # Covers 370+ languages (Elixir, Dart, R, Bash, Haskell, Zig, COBOL,
+            # Fortran, Erlang, Clojure, and hundreds more) via pre-built wheels.
+            # Installed as: pip install tree-sitter-language-pack>=1.20.0
+            try:
+                from tree_sitter_language_pack import get_parser as ts_pack_get_parser  # type: ignore[import]
+
+                pack_parser = ts_pack_get_parser(language)
+                _PARSERS[language] = pack_parser
+                logger.debug(f"Tree-sitter: loaded {language!r} via language-pack")
+                return pack_parser
+            except Exception:
+                pass
             _PARSERS[language] = None
             return None
 
@@ -523,6 +536,59 @@ _LANGUAGE_ALIASES: dict[str, str] = {
     "javascript": "javascript",
     "js": "javascript",
     "jsx": "javascript",
+    "rb": "ruby",
+    "rs": "rust",
+    "java": "java",
+    "cpp": "cpp",
+    "c++": "cpp",
+    "cxx": "cpp",
+    "cc": "cpp",
+    "c": "c",
+    "h": "c",
+    "hpp": "cpp",
+    "cs": "csharp",
+    "c#": "csharp",
+    "kt": "kotlin",
+    "kts": "kotlin",
+    "swift": "swift",
+    "scala": "scala",
+    "sc": "scala",
+    "lua": "lua",
+    "php": "php",
+    "sql": "sql",
+    "r": "r",
+    "sh": "bash",
+    "bash": "bash",
+    "zsh": "bash",
+    "yaml": "yaml",
+    "yml": "yaml",
+    "toml": "toml",
+    "json": "json",
+    "html": "html",
+    "htm": "html",
+    "css": "css",
+    "scss": "scss",
+    "sass": "scss",
+    "vue": "vue",
+    "svelte": "svelte",
+    "ex": "elixir",
+    "exs": "elixir",
+    "clj": "clojure",
+    "cljs": "clojure",
+    "hs": "haskell",
+    "ml": "ocaml",
+    "mli": "ocaml",
+    "erl": "erlang",
+    "hrl": "erlang",
+    "dart": "dart",
+    "perl": "perl",
+    "pl": "perl",
+    "pm": "perl",
+    "groovy": "groovy",
+    "gradle": "groovy",
+    "f90": "fortran",
+    "f95": "fortran",
+    "m": "matlab",
 }
 
 

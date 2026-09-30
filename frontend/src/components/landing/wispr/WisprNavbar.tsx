@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/Logo";
 
@@ -139,7 +139,20 @@ export function WisprNavbar({
         </nav>
 
         {/* Desktop CTA Controls */}
-        <div className="hidden md:flex items-center gap-2.5">
+        <div className="hidden md:flex items-center gap-2">
+          {/* Quick Search & Command Palette trigger */}
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
+            aria-label="Quick Search & Command Palette (⌘K)"
+            title="Quick Search & Command Palette (⌘K)"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white bg-slate-50/80 dark:bg-slate-800/80 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          >
+            <Search className="h-3.5 w-3.5 text-amber-500" />
+            <span>Search</span>
+            <kbd className="font-mono text-[9px] px-1 py-0.2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-slate-400">⌘K</kbd>
+          </button>
+
           {onSignIn ? (
             <button
               onClick={onSignIn}

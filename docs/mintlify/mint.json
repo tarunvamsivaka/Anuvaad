@@ -1,0 +1,126 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Anuvaad Docs",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://getanuvaad.com"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#22C55E",
+    "light": "#4ADE80",
+    "dark": "#16A34A",
+    "background": {
+      "dark": "#0F172A"
+    },
+    "anchors": {
+      "from": "#22C55E",
+      "to": "#0EA5E9"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:support@getanuvaad.com"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started Free",
+    "url": "https://getanuvaad.com/signup"
+  },
+  "tabs": [
+    {
+      "name": "API Reference",
+      "url": "api-reference"
+    },
+    {
+      "name": "CLI",
+      "url": "cli"
+    }
+  ],
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/anuvaad/anuvaad"
+    },
+    {
+      "name": "npm",
+      "icon": "npm",
+      "url": "https://www.npmjs.com/package/@anuvaad/cli"
+    },
+    {
+      "name": "Status",
+      "icon": "signal",
+      "url": "https://status.getanuvaad.com"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get Started",
+      "pages": [
+        "introduction",
+        "quickstart",
+        "authentication"
+      ]
+    },
+    {
+      "group": "Core Features",
+      "pages": [
+        "features/translate",
+        "features/explain",
+        "features/modernize",
+        "features/pr-review"
+      ]
+    },
+    {
+      "group": "Security & Privacy",
+      "pages": [
+        "security/zero-data-retention",
+        "security/audit-receipts",
+        "security/encryption"
+      ]
+    },
+    {
+      "group": "CLI Reference",
+      "pages": [
+        "cli/installation",
+        "cli/translate",
+        "cli/explain",
+        "cli/modernize",
+        "cli/auth",
+        "cli/ci-cd"
+      ]
+    },
+    {
+      "group": "API Reference",
+      "pages": [
+        "api-reference/introduction",
+        "api-reference/translate",
+        "api-reference/modernize",
+        "api-reference/history",
+        "api-reference/billing",
+        "api-reference/github"
+      ]
+    },
+    {
+      "group": "Integrations",
+      "pages": [
+        "integrations/vscode",
+        "integrations/github-app",
+        "integrations/ci-cd"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/anuvaad/anuvaad",
+    "twitter": "https://twitter.com/anuvaadai"
+  },
+  "analytics": {
+    "posthog": {
+      "apiKey": "your_posthog_key_here"
+    }
+  },
+  "openapi": "https://api.getanuvaad.com/openapi.json"
+}

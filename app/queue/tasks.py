@@ -152,7 +152,7 @@ class HybridTask:
     retry_backoff=True,
     retry_jitter=True,
 )
-def save_translation_history_task(
+def _save_translation_history_celery_task(
     user_email,
     mode,
     source_language,
@@ -160,6 +160,7 @@ def save_translation_history_task(
     input_text,
     blocks,
     model_used,
+    input_hash: str | None = None,
     workspace_id=None,
     session_id=None,
     repository_name=None,
@@ -176,6 +177,7 @@ def save_translation_history_task(
             input_text=input_text,
             blocks=blocks,
             model_used=model_used,
+            input_hash=input_hash,
             workspace_id=workspace_id,
             session_id=session_id,
             repository_name=repository_name,
@@ -185,7 +187,7 @@ def save_translation_history_task(
 
 
 save_translation_history_task = HybridTask(
-    save_translation_history_task,
+    _save_translation_history_celery_task,
     async_fn=save_translation_background,
 )
 
@@ -198,7 +200,7 @@ save_translation_history_task = HybridTask(
     retry_backoff=True,
     retry_jitter=True,
 )
-def send_transactional_email_task(email_type: str, user_email: str, **kwargs):
+def _send_transactional_email_celery_task(email_type: str, user_email: str, **kwargs):
     """Offloads sending transactional emails to Celery."""
     logger.info(f"Celery: Sending {email_type} email to {user_email}")
     if email_type == "welcome":
@@ -209,7 +211,7 @@ def send_transactional_email_task(email_type: str, user_email: str, **kwargs):
         email_service.send_subscription_upgrade(user_email, kwargs.get("plan_name", "Pro"))
 
 
-send_transactional_email_task = HybridTask(send_transactional_email_task)
+send_transactional_email_task = HybridTask(_send_transactional_email_celery_task)
 
 
 @celery_app.task(
@@ -221,7 +223,7 @@ send_transactional_email_task = HybridTask(send_transactional_email_task)
     retry_backoff_max=300,
     retry_jitter=True,
 )
-def process_billing_webhook_task(event_id: str, payload: dict):
+def _process_billing_webhook_celery_task(event_id: str, payload: dict):
     """
     Offload subscription updates to Celery.
     This guarantees delivery even if the API pod dies.
@@ -303,7 +305,7 @@ def process_billing_webhook_task(event_id: str, payload: dict):
     run_async(_process())
 
 
-process_billing_webhook_task = HybridTask(process_billing_webhook_task)
+process_billing_webhook_task = HybridTask(_process_billing_webhook_celery_task)
 
 
 @celery_app.task(
@@ -312,7 +314,7 @@ process_billing_webhook_task = HybridTask(process_billing_webhook_task)
     max_retries=2,
     default_retry_delay=120,
 )
-def prune_translation_history_task(user_email: str):
+def _prune_translation_history_celery_task(user_email: str):
     """Prune old translation history items for a single user (immediate, on-demand).
 
     NOTE: This task handles per-user immediate pruning when a new translation
@@ -322,34 +324,36 @@ def prune_translation_history_task(user_email: str):
     AUDIT-FIX-02: Replaced magic number 50 with HISTORY_LIMIT_FREE constant.
     """
     logger.info(f"Celery: Pruning translation history for {user_email}")
-    from sqlalchemy import delete, desc, select
+    from sqlalchemy import delete, select
 
     from app.core.config import HISTORY_LIMIT_FREE
     from app.core.database_session import AsyncSessionLocal
     from app.models.db_models import TranslationHistory
 
     async def _process():
-
         async with AsyncSessionLocal() as session:
-            stmt = (
+            # Use a subquery to get IDs to keep (newest N), then delete the rest
+            subq = (
                 select(TranslationHistory.id)
                 .where(TranslationHistory.user_email == user_email)
-                .order_by(desc(TranslationHistory.created_at))
+                .order_by(TranslationHistory.created_at.desc())
+                .limit(HISTORY_LIMIT_FREE)
+                .subquery()
             )
-            result = await session.execute(stmt)
-            ids = [row[0] for row in result.all()]
-
-            if len(ids) > HISTORY_LIMIT_FREE:
-                ids_to_delete = ids[HISTORY_LIMIT_FREE:]
-                delete_stmt = delete(TranslationHistory).where(TranslationHistory.id.in_(ids_to_delete))
-                await session.execute(delete_stmt)
-                await session.commit()
-                logger.info(f"Pruned {len(ids_to_delete)} old translation history items for {user_email}")
+            delete_stmt = (
+                delete(TranslationHistory)
+                .where(TranslationHistory.user_email == user_email)
+                .where(TranslationHistory.id.not_in(select(subq.c.id)))
+            )
+            result = await session.execute(delete_stmt)
+            await session.commit()
+            if result.rowcount:
+                logger.info(f"Pruned {result.rowcount} old translation history items for {user_email}")
 
     run_async(_process())
 
 
-prune_translation_history_task = HybridTask(prune_translation_history_task)
+prune_translation_history_task = HybridTask(_prune_translation_history_celery_task)
 
 
 @celery_app.task(
@@ -361,7 +365,7 @@ prune_translation_history_task = HybridTask(prune_translation_history_task)
     retry_backoff_max=600,
     retry_jitter=True,
 )
-def process_large_file_task(
+def _process_large_file_celery_task(
     file_content: str,
     user_email: str,
     language: str = "auto",
@@ -401,7 +405,7 @@ def process_large_file_task(
     run_async(_process())
 
 
-process_large_file_task = HybridTask(process_large_file_task)
+process_large_file_task = HybridTask(_process_large_file_celery_task)
 
 
 @celery_app.task(
@@ -411,7 +415,7 @@ process_large_file_task = HybridTask(process_large_file_task)
     default_retry_delay=300,
     retry_backoff=True,
 )
-def process_github_repo_task(repo_name: str, installation_id: str = None, user_email: str = None):
+def _process_github_repo_celery_task(repo_name: str, installation_id: str = None, user_email: str = None):
     """Background pipeline for GitHub repo embeddings.
 
     Arch#2.7: Implemented real GitHub API integration.
@@ -489,7 +493,7 @@ def process_github_repo_task(repo_name: str, installation_id: str = None, user_e
     run_async(_process())
 
 
-process_github_repo_task = HybridTask(process_github_repo_task)
+process_github_repo_task = HybridTask(_process_github_repo_celery_task)
 
 
 @celery_app.task(
@@ -499,7 +503,7 @@ process_github_repo_task = HybridTask(process_github_repo_task)
     default_retry_delay=60,
     retry_backoff=True,
 )
-def process_github_pr_review_task(
+def _process_github_pr_review_celery_task(
     repo_name: str,
     pr_number: int,
     pr_title: str = "",
@@ -553,7 +557,7 @@ def process_github_pr_review_task(
     return run_async(_process())
 
 
-process_github_pr_review_task = HybridTask(process_github_pr_review_task)
+process_github_pr_review_task = HybridTask(_process_github_pr_review_celery_task)
 
 
 @celery_app.task(
@@ -564,7 +568,7 @@ process_github_pr_review_task = HybridTask(process_github_pr_review_task)
     retry_backoff=True,
     retry_jitter=True,
 )
-def run_repository_indexing_task(workspace_id: str, import_id: str, desired_state_id: str):
+def _run_repository_indexing_celery_task(workspace_id: str, import_id: str, desired_state_id: str):
     """Run the workspace-owned Phase 3 ingestion pipeline, never RepoEmbedding."""
     from app.core.database_session import AsyncSessionLocal
     from app.services.indexing.pipeline import RepositoryIndexingPipeline
@@ -576,6 +580,9 @@ def run_repository_indexing_task(workspace_id: str, import_id: str, desired_stat
             )
 
     return run_async(_process())
+
+
+run_repository_indexing_task = HybridTask(_run_repository_indexing_celery_task)
 
 
 # ── FIX-11 (P1-04): Celery Beat scheduled tasks ──────────────────────────────
@@ -740,7 +747,7 @@ async def prune_database_footprint_async():
 
 
 @celery_app.task(name="prune_database_footprint")
-def prune_database_footprint():
+def _prune_database_footprint_celery_task():
     """Daily database footprint cleanup task.
 
     Executes prune_anonymous_history(7) and prune_stale_vectors(30).
@@ -751,6 +758,6 @@ def prune_database_footprint():
 
 
 prune_database_footprint = HybridTask(
-    prune_database_footprint,
+    _prune_database_footprint_celery_task,
     async_fn=prune_database_footprint_async,
 )

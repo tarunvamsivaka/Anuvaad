@@ -12,7 +12,8 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import * as THREE from "three";
+// THREE.js removed from project — using local math stub (Color + MathUtils)
+import * as THREE from "./three-stub";
 
 import { FAQ, FAQS } from "@/components/landing/faq";
 import { StatsBanner, STATS } from "@/components/landing/StatsBanner";

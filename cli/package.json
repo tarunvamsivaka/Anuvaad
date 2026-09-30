@@ -1,6 +1,6 @@
 {
   "name": "@anuvaad/cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AI-powered code translation CLI — translate, explain, and review code from your terminal",
   "homepage": "https://getanuvaad.com",
   "repository": {
@@ -11,13 +11,28 @@
     "url": "https://github.com/anuvaad/anuvaad/issues"
   },
   "license": "MIT",
+  "keywords": [
+    "code-translation",
+    "ai",
+    "llm",
+    "code-review",
+    "code-modernization",
+    "cli",
+    "developer-tools",
+    "ast",
+    "tree-sitter"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "anuvaad": "./dist/index.js",
     "anuvaad-cli": "./dist/index.js"
   },
   "main": "./dist/index.js",
   "files": [
-    "dist/**/*"
+    "dist/**/*",
+    "README.md"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -26,6 +41,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -watch -p tsconfig.json",
     "start": "node dist/index.js",
+    "prepare": "npm run build",
     "test": "jest",
     "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts",

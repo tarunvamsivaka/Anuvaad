@@ -32,6 +32,7 @@ from app.core.config import (
     logger,
 )
 from app.core.config import lifespan as _base_lifespan
+from app.core.telemetry import setup_tracing
 from app.routers.billing import router as billing_router
 from app.routers.demo import router as demo_router
 from app.routers.github import router as github_router
@@ -84,6 +85,22 @@ def validate_production_env() -> None:
         raise RuntimeError(msg)
     for name in missing:
         logger.warning(f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production.")
+
+    import os
+    # Warn if fewer than 2 AI tiers are configured
+    _tier_keys_present = sum([
+        bool(os.getenv("CEREBRAS_API_KEY")),
+        bool(os.getenv("GEMINI_API_KEY")),
+        bool(os.getenv("DEEPSEEK_API_KEY")),
+        bool(os.getenv("OPENROUTER_API_KEY")),
+        bool(os.getenv("GROQ_API_KEY")),
+    ])
+    if _tier_keys_present < 2:
+        logger.warning(
+            f"[AI Gateway] Only {_tier_keys_present} of 5 AI tier key(s) configured. "
+            "The 5-tier fallback requires at least 2 live providers for resilience. "
+            "Set CEREBRAS_API_KEY and/or GEMINI_API_KEY for proper failover."
+        )
 
 
 # ── Lifespan ──
@@ -147,6 +164,10 @@ app = FastAPI(
 
 # Register all HTTP middleware (CORS, security headers, CSRF, metrics, rate-limit, deprecation)
 register_all(app)
+
+# ── OpenTelemetry — Sprint 8 ──
+# Gracefully no-ops when OTEL packages not installed or OTEL_EXPORTER_OTLP_ENDPOINT unset.
+setup_tracing(app)
 
 # ── Sentry ──
 if SENTRY_DSN and SENTRY_DSN.startswith(("http://", "https://")):

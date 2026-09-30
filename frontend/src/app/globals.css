@@ -194,3 +194,8 @@
     scroll-behavior:          auto   !important;
   }
 }
+/* -- CSS gradient animation for WebGLCanvas replacement -- */
+@keyframes gradient-shift {
+  0%   { filter: brightness(1); }
+  100% { filter: brightness(1.08); }
+}

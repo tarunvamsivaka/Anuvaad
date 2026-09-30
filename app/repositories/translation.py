@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import and_, cast, delete, func, or_, select
+from sqlalchemy import and_, cast, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO, logger
@@ -115,10 +115,8 @@ async def get_count_since(email: str, workspace_id: str | None = None, since: da
             if workspace_id:
                 if not await _is_workspace_member_or_owner(session, workspace_id, email):
                     return 0
-                import uuid as uuid_mod
-
                 try:
-                    ws_uuid = uuid_mod.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+                    ws_uuid = uuid.UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
                 except (ValueError, TypeError):
                     return 0
                 query = query.where(TranslationHistory.workspace_id == ws_uuid)
@@ -148,6 +146,9 @@ async def save(
     workspace_id: str | None = None,
     session_id: str | None = None,
     is_public: bool = False,
+    # ZDR audit trail: HMAC-SHA256 hash of source code bytes.
+    # Accepted here for API compatibility; stored when DB column is added via migration.
+    input_hash: str | None = None,
 ) -> dict | None:
     """Insert a new translation_history row and return it."""
     async with AsyncSessionLocal() as session:
@@ -267,10 +268,8 @@ async def get_by_id(item_id: str, email: str | None = None) -> dict | None:
     """
     async with AsyncSessionLocal() as session:
         try:
-            import uuid as uuid_mod
-
             try:
-                item_uuid = uuid_mod.UUID(item_id)
+                item_uuid = uuid.UUID(item_id)
             except ValueError:
                 return None
             query = select(TranslationHistory).where(TranslationHistory.id == item_uuid)
@@ -293,10 +292,8 @@ async def delete_by_id(item_id: str, email: str) -> bool:
     """
     async with AsyncSessionLocal() as session:
         try:
-            import uuid as uuid_mod
-
             try:
-                item_uuid = uuid_mod.UUID(item_id)
+                item_uuid = uuid.UUID(item_id)
             except ValueError:
                 return False
             result = await session.execute(
@@ -319,18 +316,14 @@ async def update_share_status(item_id: str, email: str, is_public: bool) -> bool
 
     Verifies ownership before updating. Returns True on success.
     """
-    from sqlalchemy import update as sa_update
-
     async with AsyncSessionLocal() as session:
         try:
-            import uuid as uuid_mod
-
             try:
-                item_uuid = uuid_mod.UUID(item_id)
+                item_uuid = uuid.UUID(item_id)
             except ValueError:
                 return False
             result = await session.execute(
-                sa_update(TranslationHistory)
+                update(TranslationHistory)
                 .where(TranslationHistory.id == item_uuid)
                 .where(TranslationHistory.user_email == email)
                 .values(is_public=is_public)

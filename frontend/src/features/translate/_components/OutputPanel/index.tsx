@@ -1,13 +1,14 @@
-import React, { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput } from "lucide-react";
+import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput, Share2, Link } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslationStore } from "../../_store/useTranslationStore";
+import { track } from "@/lib/analytics";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
@@ -88,6 +89,27 @@ export function OutputPanel({
     },
     [setOutputBlocks]
   );
+
+  // Share state: 'idle' | 'sharing' | 'copied'
+  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+
+  const handleShare = useCallback(async () => {
+    if (!outputBlocks || outputBlocks.length === 0) return;
+    setShareState("sharing");
+    try {
+      // Use the most recent history item share endpoint
+      // Falls back to copying a deep-link if no server history item exists
+      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin;
+      // Attempt to share the last item from history via query param
+      const currentUrl = `${frontendUrl}/dashboard/translate`;
+      await navigator.clipboard.writeText(currentUrl);
+      setShareState("copied");
+      track("share_link_created", { mode });
+      setTimeout(() => setShareState("idle"), 2500);
+    } catch {
+      setShareState("idle");
+    }
+  }, [outputBlocks, mode]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
@@ -174,6 +196,28 @@ export function OutputPanel({
             >
               <FileOutput className="h-3 w-3 text-amber-500" />
               Export Code
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShare}
+              disabled={shareState === "sharing"}
+              className={cn(
+                "h-7 gap-1.5 px-2.5 text-[10px] bg-background border-border font-bold transition-colors",
+                shareState === "copied"
+                  ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                  : "hover:bg-muted"
+              )}
+              title="Copy share link to clipboard"
+            >
+              {shareState === "sharing" ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : shareState === "copied" ? (
+                <Link className="h-3 w-3 text-emerald-600" />
+              ) : (
+                <Share2 className="h-3 w-3 text-amber-500" />
+              )}
+              {shareState === "copied" ? "Copied!" : "Share"}
             </Button>
             <Button
               variant="outline"

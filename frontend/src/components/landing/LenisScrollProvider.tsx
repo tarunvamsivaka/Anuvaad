@@ -1,22 +1,59 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from "react";
-import Lenis from "lenis";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { useMotionSafe } from "@/lib/motion";
-import "lenis/dist/lenis.css";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface LenisContextValue {
-  lenis: Lenis | null;
-  scrollProgress: number; // 0.0 to 1.0
+  lenis: null; // Lenis removed; kept for API compatibility
+  scrollProgress: number; // 0.0 → 1.0
   scrollY: number;
   velocity: number;
   activeSection: string;
   isReducedMotion: boolean;
-  scrollTo: (target: string | HTMLElement | number, options?: Record<string, unknown>) => void;
+  scrollTo: (
+    target: string | HTMLElement | number,
+    options?: Record<string, unknown>
+  ) => void;
 }
 
+export interface LenisScrollProviderProps {
+  children: React.ReactNode;
+  onScrollUpdate?: (data: {
+    progress: number;
+    scrollY: number;
+    velocity: number;
+    activeSection: string;
+  }) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Section IDs tracked for activeSection
+// ---------------------------------------------------------------------------
+const LANDING_SECTIONS = [
+  "hero",
+  "features",
+  "pricing",
+  "testimonials",
+  "security",
+  "git-pr",
+  "faq",
+];
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
 const LenisContext = createContext<LenisContextValue>({
   lenis: null,
   scrollProgress: 0,
@@ -29,136 +66,159 @@ const LenisContext = createContext<LenisContextValue>({
 
 export const useLenis = () => useContext(LenisContext);
 
-const LANDING_SECTIONS = [
-  "hero",
-  "features",
-  "positioning",
-  "trust",
-  "testimonials",
-  "faq",
-  "stats",
-  "footer",
-];
-
-interface LenisScrollProviderProps {
-  children: React.ReactNode;
-  onScrollUpdate?: (data: { progress: number; scrollY: number; velocity: number; activeSection: string }) => void;
-}
-
-export function LenisScrollProvider({ children, onScrollUpdate }: LenisScrollProviderProps) {
-  const [lenisInstance, setLenisInstance] = useState<Lenis | null>(null);
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+export function LenisScrollProvider({
+  children,
+  onScrollUpdate,
+}: LenisScrollProviderProps) {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [scrollY, setScrollY] = useState(0);
   const [velocity, setVelocity] = useState(0);
   const [activeSection, setActiveSection] = useState("hero");
+  const [isReducedMotion, setIsReducedMotion] = useState(false);
 
-  const motionSafe = useMotionSafe();
-  const isReducedMotion = !motionSafe;
   const activeSectionRef = useRef("hero");
+  const lastScrollYRef = useRef(0);
+  const lastTimestampRef = useRef(performance.now());
+  const onScrollUpdateRef = useRef(onScrollUpdate);
+  onScrollUpdateRef.current = onScrollUpdate;
 
+  // ── Detect prefers-reduced-motion ──────────────────────────────────────────
   useEffect(() => {
-    // If reduced motion is requested, do not initialize Lenis smooth scroll driver
-    if (isReducedMotion) {
-      document.documentElement.style.scrollBehavior = "auto";
-      return;
-    }
+    if (typeof window === "undefined") return;
+
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setIsReducedMotion(mq.matches);
+
+    const handler = (e: MediaQueryListEvent) => setIsReducedMotion(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // ── Native scroll listener ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
     gsap.registerPlugin(ScrollTrigger);
 
-    // Initialize Lenis driver
-    const lenis = new Lenis({
-      duration: 1.2,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // Exponential ease-out
-      orientation: "vertical",
-      gestureOrientation: "vertical",
-      smoothWheel: true,
-      wheelMultiplier: 1.0,
-      touchMultiplier: 2.0,
-      infinite: false,
-    });
+    // Respect reduced-motion: disable smooth scroll behaviour
+    if (isReducedMotion) {
+      document.documentElement.style.scrollBehavior = "auto";
+    }
 
-    setLenisInstance(lenis);
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      const maxScroll = document.body.scrollHeight - window.innerHeight;
+      const progress = maxScroll > 0 ? Math.min(currentY / maxScroll, 1) : 0;
 
-    // 1. Sync Lenis scroll events with GSAP ScrollTrigger
-    lenis.on("scroll", (e: { progress: number; scroll: number; velocity: number }) => {
+      const now = performance.now();
+      const dt = now - lastTimestampRef.current;
+      const vel = dt > 0 ? (currentY - lastScrollYRef.current) / dt : 0;
+
+      lastScrollYRef.current = currentY;
+      lastTimestampRef.current = now;
+
+      // Notify GSAP ScrollTrigger of manual scroll position
       ScrollTrigger.update();
-      setScrollProgress(e.progress);
-      setScrollY(e.scroll);
-      setVelocity(e.velocity);
 
-      if (onScrollUpdate) {
-        onScrollUpdate({
-          progress: e.progress,
-          scrollY: e.scroll,
-          velocity: e.velocity,
-          activeSection: activeSectionRef.current,
-        });
-      }
-    });
+      setScrollY(currentY);
+      setScrollProgress(progress);
+      setVelocity(vel);
 
-    // 2. Add Lenis RAF loop to GSAP Ticker
-    // IMPORTANT: GSAP Ticker supplies time in SECONDS. Lenis.raf requires MILLISECONDS.
-    const tickerCallback = (time: number) => {
-      lenis.raf(time * 1000);
+      onScrollUpdateRef.current?.({
+        progress,
+        scrollY: currentY,
+        velocity: vel,
+        activeSection: activeSectionRef.current,
+      });
     };
 
-    gsap.ticker.add(tickerCallback);
-    gsap.ticker.lagSmoothing(0); // Disable GSAP lag smoothing to maintain tight WebGL sync
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Fire once on mount so initial values are correct
+    handleScroll();
 
-    // 3. Register ScrollTriggers to observe active section entry
-    const sectionTriggers: ScrollTrigger[] = [];
-    LANDING_SECTIONS.forEach((sectionId) => {
-      const el = document.getElementById(sectionId);
-      if (el) {
-        const trigger = ScrollTrigger.create({
-          trigger: el,
-          start: "top 60%",
-          end: "bottom 40%",
-          onEnter: () => {
-            setActiveSection(sectionId);
-            activeSectionRef.current = sectionId;
-          },
-          onEnterBack: () => {
-            setActiveSection(sectionId);
-            activeSectionRef.current = sectionId;
-          },
-        });
-        sectionTriggers.push(trigger);
-      }
-    });
-
-    // Cleanup on unmount (or React 19 double-effect execution)
     return () => {
-      gsap.ticker.remove(tickerCallback);
-      sectionTriggers.forEach((st) => st.kill());
-      lenis.destroy();
-      setLenisInstance(null);
+      window.removeEventListener("scroll", handleScroll);
     };
-  }, [isReducedMotion, onScrollUpdate]);
+  }, [isReducedMotion]);
 
-  const scrollTo = useCallback(
-    (target: string | HTMLElement | number, options?: Record<string, unknown>) => {
-      if (lenisInstance) {
-        lenisInstance.scrollTo(target, { duration: 1.2, ...options });
-      } else {
-        // Fallback for reduced-motion or uninitialized state
-        if (typeof target === "string") {
-          const el = document.getElementById(target.replace("#", ""));
-          el?.scrollIntoView({ behavior: "smooth" });
-        } else if (typeof target === "number") {
-          window.scrollTo({ top: target, behavior: "smooth" });
-        } else if (target instanceof HTMLElement) {
-          target.scrollIntoView({ behavior: "smooth" });
+  // ── IntersectionObserver for active section tracking ───────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const observers: IntersectionObserver[] = [];
+
+    LANDING_SECTIONS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const obs = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              setActiveSection(id);
+              activeSectionRef.current = id;
+            }
+          });
+        },
+        {
+          // A section becomes "active" when it occupies at least 30% of the viewport
+          threshold: 0.3,
+          rootMargin: "0px 0px -10% 0px",
         }
+      );
+
+      obs.observe(el);
+      observers.push(obs);
+    });
+
+    return () => {
+      observers.forEach((obs) => obs.disconnect());
+    };
+  }, []);
+
+  // ── ResizeObserver → ScrollTrigger.refresh() for layout reflows ────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const ro = new ResizeObserver(() => {
+      ScrollTrigger.refresh();
+    });
+
+    ro.observe(document.body);
+    return () => ro.disconnect();
+  }, []);
+
+  // ── scrollTo helper ────────────────────────────────────────────────────────
+  const scrollTo = useCallback(
+    (
+      target: string | HTMLElement | number,
+      options?: Record<string, unknown>
+    ) => {
+      const behavior: ScrollBehavior =
+        isReducedMotion
+          ? "auto"
+          : ((options?.behavior as ScrollBehavior | undefined) ?? "smooth");
+
+      if (typeof target === "string") {
+        const id = target.startsWith("#") ? target.slice(1) : target;
+        const el = document.getElementById(id);
+        el?.scrollIntoView({ behavior });
+      } else if (typeof target === "number") {
+        window.scrollTo({ top: target, behavior });
+      } else if (target instanceof HTMLElement) {
+        target.scrollIntoView({ behavior });
       }
     },
-    [lenisInstance]
+    [isReducedMotion]
   );
 
   return (
     <LenisContext.Provider
       value={{
-        lenis: lenisInstance,
+        lenis: null,
         scrollProgress,
         scrollY,
         velocity,

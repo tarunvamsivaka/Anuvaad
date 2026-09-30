@@ -60,6 +60,7 @@ export function LiveCounter({ className, prefix = "", suffix = "", initialValue,
     const end = displayValue;
     const duration = 1800;
     const startTime = performance.now();
+    let rafId: number;
 
     const animate = (now: number) => {
       const elapsed = now - startTime;
@@ -67,10 +68,15 @@ export function LiveCounter({ className, prefix = "", suffix = "", initialValue,
       // ease-out-cubic
       const eased = 1 - Math.pow(1 - progress, 3);
       setRendered(Math.floor(start + (end - start) * eased));
-      if (progress < 1) requestAnimationFrame(animate);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      }
     };
 
-    requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayValue]);
 

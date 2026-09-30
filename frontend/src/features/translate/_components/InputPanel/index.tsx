@@ -139,16 +139,20 @@ export function InputPanel({
           <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{input.length.toLocaleString()} chars</span>
           <Button variant="ghost" size="sm" aria-label="Clear" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
           <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} 
-            aria-label={isStreaming ? "Stop translation" : "Translate code"}
+            aria-label={isStreaming ? "Stop translation" : "Translate code (⌘ + Enter)"}
+            title={isStreaming ? "Stop translation" : "Translate code (⌘ + Enter)"}
             size="sm"
             className={cn(
-              "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs font-bold",
+              "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs font-bold cursor-pointer",
               isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-500"
             )}>
             {isStreaming ? (
               <><X className="h-3.5 w-3.5" /> Stop</>
             ) : (
-              <><Sparkles className="h-3.5 w-3.5" /> Translate</>
+              <>
+                <Sparkles className="h-3.5 w-3.5" /> Translate
+                <kbd className="hidden sm:inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-black/25 text-amber-100 font-semibold ml-0.5">⌘↵</kbd>
+              </>
             )}
           </Button>
         </div>

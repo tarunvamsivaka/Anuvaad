@@ -92,18 +92,24 @@ export function GitPrWorkflowDemo({
         className={cn("flex flex-col items-center sr-fade-up", headerVisible && "is-visible")}
       >
         {/* Module Eyebrow */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 mb-4">
-          <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Automated Pull Request Code Reviews</span>
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+            <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Automated Pull Request Code Reviews</span>
+          </div>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            Interactive Preview · Real GitHub App coming soon
+          </span>
         </div>
 
         <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 text-center">
           Automate Architectural PR Reviews in Seconds
         </h2>
         <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">
-          Anuvaad analyzes code diffs, detects subtle architectural breaking
-          changes, and publishes executive summaries directly to your GitHub &
-          GitLab pipelines.
+          This interactive preview shows how Anuvaad will analyze code diffs, detect subtle
+          architectural breaking changes, and publish executive summaries directly to your GitHub &
+          GitLab pipelines. <strong className="text-slate-700 dark:text-slate-300">GitHub App in active development</strong> — join the waitlist below.
         </p>
       </div>
 

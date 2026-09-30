@@ -497,21 +497,21 @@ export function HeroControlBar({
         </div>
       </div>
 
-      {/* ── Trusted-by strip ──────────────────────────────────────── */}
+      {/* ── Use-case strip ────────────────────────────────────────── */}
       <div
         className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 mb-6 text-xs text-slate-400 dark:text-slate-500"
         style={{ animation: "fade-up 0.5s cubic-bezier(0.16,1,0.3,1) 880ms both" }}
       >
-        <span className="font-medium text-slate-500 dark:text-slate-400">Trusted by engineers at</span>
-        {["Stripe", "Vercel", "Datadog", "Flipkart", "Linear"].map((company) => (
+        <span className="font-medium text-slate-500 dark:text-slate-400">Used for</span>
+        {["Legacy Migration", "Code Reviews", "Team Onboarding", "API Docs", "Monorepo Refactors"].map((useCase) => (
           <span
-            key={company}
+            key={useCase}
             className="font-bold tracking-wide uppercase text-[10px] text-slate-500/70 dark:text-slate-400/70"
           >
-            {company}
+            {useCase}
           </span>
         ))}
-        <span className="text-slate-300 dark:text-slate-600">+73k others</span>
+        <span className="text-slate-300 dark:text-slate-600">→ Join early access</span>
       </div>
 
       {/* ── Animated terminal preview ─────────────────────────── */}

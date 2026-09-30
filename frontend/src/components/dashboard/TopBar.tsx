@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 
-import { ChevronDown, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles, Search, Keyboard } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -142,8 +142,32 @@ export function TopBar({ breadcrumb, action }: { breadcrumb?: React.ReactNode; a
         <WorkspaceSwitcher />
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {action}
+
+        {/* Quick Search & Command Palette trigger */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-command-palette"))}
+          aria-label="Open command palette (Cmd+K)"
+          className="hidden sm:inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-border-subtle bg-surface-card hover:bg-surface-mid text-text-muted hover:text-text-primary text-xs transition-colors cursor-pointer"
+        >
+          <Search className="h-3.5 w-3.5 text-amber-500" />
+          <span className="text-[11px] font-medium">Search / Run</span>
+          <kbd className="font-mono text-[9px] px-1 py-0.5 rounded bg-surface-base border border-border-subtle text-text-muted font-bold">⌘K</kbd>
+        </button>
+
+        {/* Keyboard Shortcuts Guide trigger */}
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-keyboard-shortcuts"))}
+          aria-label="Keyboard Shortcuts Guide (?)"
+          title="Keyboard Shortcuts (?)"
+          className="hidden sm:inline-flex items-center justify-center h-8 w-8 rounded-lg border border-border-subtle bg-surface-card hover:bg-surface-mid text-text-muted hover:text-text-primary transition-colors cursor-pointer"
+        >
+          <Keyboard className="h-3.5 w-3.5" />
+        </button>
+
         {/* M3 Feature #6: Remaining credits badge for free-tier users */}
         <UsageCounterBadge />
         <ThemeToggle />

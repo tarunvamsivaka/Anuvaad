@@ -3,7 +3,8 @@
  * Validates WebGL background lerp precision, boundary safety, and reduced motion fallback.
  */
 import { describe, it, expect } from "vitest";
-import * as THREE from "three";
+// THREE.js removed from project — using local math stub (Color + MathUtils)
+import * as THREE from "./three-stub";
 
 describe("M1 Empirical WebGL Lerp & Reduced Motion Stress Harness", () => {
   it("maintains valid RGB ranges [0, 1] during color lerp from Warm Cream to Deep Dark Room", () => {

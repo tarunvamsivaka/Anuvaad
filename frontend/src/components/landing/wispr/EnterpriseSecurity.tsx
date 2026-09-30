@@ -50,7 +50,7 @@ export const ENTERPRISE_SECURITY_PILLARS: SecurityPillar[] = [
   {
     icon: KeyRound,
     title: "TLS 1.3 & AES-256 Encryption",
-    badge: "FIPS 140-3 Encryption",
+    badge: "TLS 1.3 + AES-256",
     description:
       "All telemetry, translation streams, and API communications are encrypted in transit via TLS 1.3 with Perfect Forward Secrecy (PFS), and encrypted at rest with hardware-accelerated AES-256 keys.",
   },

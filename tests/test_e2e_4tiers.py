@@ -619,33 +619,37 @@ class TestTier1Feature14ExecutiveDocumentation:
 
     def test_f14_1_deep_dive_report_exists(self):
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        report_path = os.path.join(root_dir, "DEEP_DIVE_REPORT.md")
-        assert os.path.exists(report_path)
+        # Phase 0 cleanup moved agent-generated reports to docs/archive/ to reduce root clutter
+        report_path = os.path.join(root_dir, "docs", "archive", "DEEP_DIVE_REPORT.md")
+        assert os.path.exists(report_path), (
+            f"DEEP_DIVE_REPORT.md not found at {report_path}. "
+            "Executive reports are stored in docs/archive/ per the P0-7 cleanup policy."
+        )
 
     def test_f14_2_deep_dive_report_cfo_controls(self):
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        report_path = os.path.join(root_dir, "DEEP_DIVE_REPORT.md")
+        report_path = os.path.join(root_dir, "docs", "archive", "DEEP_DIVE_REPORT.md")
         with open(report_path, encoding="utf-8") as f:
             content = f.read()
         assert "zero-budget" in content.lower() or "cost" in content.lower()
 
     def test_f14_3_deep_dive_report_cto_hygiene(self):
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        report_path = os.path.join(root_dir, "DEEP_DIVE_REPORT.md")
+        report_path = os.path.join(root_dir, "docs", "archive", "DEEP_DIVE_REPORT.md")
         with open(report_path, encoding="utf-8") as f:
             content = f.read()
         assert "architecture" in content.lower() or "fastapi" in content.lower()
 
     def test_f14_4_deep_dive_report_vp_eng_verification(self):
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        report_path = os.path.join(root_dir, "DEEP_DIVE_REPORT.md")
+        report_path = os.path.join(root_dir, "docs", "archive", "DEEP_DIVE_REPORT.md")
         with open(report_path, encoding="utf-8") as f:
             content = f.read()
         assert "verification" in content.lower() or "pytest" in content.lower()
 
     def test_f14_5_deep_dive_report_issue_inventory(self):
         root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        report_path = os.path.join(root_dir, "DEEP_DIVE_REPORT.md")
+        report_path = os.path.join(root_dir, "docs", "archive", "DEEP_DIVE_REPORT.md")
         with open(report_path, encoding="utf-8") as f:
             content = f.read()
         assert "report" in content.lower() or "audit" in content.lower()

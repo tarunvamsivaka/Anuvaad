@@ -205,6 +205,53 @@ export function TranslateFeature() {
     }
   };
 
+  // Global hotkeys for Translate workspace
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 1. Run translation: Cmd/Ctrl + Enter
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        handleTranslate();
+        return;
+      }
+
+      // 2. Mode toggles: Alt + 1, Alt + 2, Alt + 3
+      if (e.altKey && e.key === "1") {
+        e.preventDefault();
+        setMode("code-to-english");
+        return;
+      }
+      if (e.altKey && e.key === "2") {
+        e.preventDefault();
+        setMode("english-to-code");
+        return;
+      }
+      if (e.altKey && e.key === "3") {
+        e.preventDefault();
+        setMode("code-to-code");
+        return;
+      }
+
+      // 3. Clear: Ctrl + Alt + C
+      if (e.ctrlKey && e.altKey && (e.key === "c" || e.key === "C")) {
+        e.preventDefault();
+        handleClear();
+        handleClearFile();
+        return;
+      }
+
+      // 4. Copy Output: Cmd/Ctrl + Shift + C
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "c" || e.key === "C")) {
+        e.preventDefault();
+        handleCopyMarkdown();
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [handleTranslate, handleCopyMarkdown, handleClearFile]);
+
   // Calculate some derived props for TranslateShell header
   const currentModeLabel = mode === "code-to-english" 
     ? "Code to English" 

@@ -1,29 +1,35 @@
 /**
  * Adversarial and Stress Tests for LenisScrollProvider & GSAP Ticker Integration.
  * Validates edge cases: fallback behavior, ticker callbacks, scroll targets, unmount cleanup.
+ *
+ * NOTE (2026-09-30): LenisScrollProvider was refactored to use native scroll listeners
+ * instead of the Lenis library. Tests updated to reflect the current native-scroll contract.
  */
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, act, fireEvent } from "@testing-library/react";
 import { LenisScrollProvider, useLenis } from "@/components/landing/LenisScrollProvider";
-import gsap from "gsap";
 
-// Mock Lenis class with inspection spies
-const mockOn = vi.fn();
-const mockRaf = vi.fn();
-const mockDestroy = vi.fn();
-const mockScrollTo = vi.fn();
-
-vi.mock("lenis", () => {
-  return {
-    default: class MockLenis {
-      on = mockOn;
-      raf = mockRaf;
-      destroy = mockDestroy;
-      scrollTo = mockScrollTo;
-    },
-  };
-});
+// Mock matchMedia for reduced-motion tests
+function setMatchMedia(reducedMotion: boolean) {
+  Object.defineProperty(window, "matchMedia", {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => {
+      const matches =
+        query.includes("prefers-reduced-motion") ? reducedMotion : !reducedMotion;
+      return {
+        matches,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      };
+    }),
+  });
+}
 
 // Mock motion safety hook
 const mockUseMotionSafe = vi.fn().mockReturnValue(true);
@@ -58,38 +64,21 @@ describe("Adversarial LenisScrollProvider Verification", () => {
     mockUseMotionSafe.mockReturnValue(true);
   });
 
-  it("synchronizes Lenis RAF callback with GSAP Ticker in milliseconds scale", () => {
-    let tickerCb: ((time: number) => void) | null = null;
-    const addSpy = vi.spyOn(gsap.ticker, "add").mockImplementation((cb: any) => {
-      tickerCb = cb;
-      return cb;
-    });
-
+  it("mounts with default scroll context values (native-scroll mode)", () => {
+    // LenisScrollProvider uses native scroll listeners — no Lenis or GSAP ticker
     render(
       <LenisScrollProvider>
         <ComprehensiveConsumer />
       </LenisScrollProvider>
     );
 
-    expect(addSpy).toHaveBeenCalled();
-    expect(tickerCb).not.toBeNull();
-
-    // Execute ticker callback with 1.5 seconds elapsed time
-    if (tickerCb) {
-      (tickerCb as (t: number) => void)(1.5);
-      // Expected: time in seconds (1.5) converted to milliseconds (1500)
-      expect(mockRaf).toHaveBeenCalledWith(1500);
-    }
+    expect(screen.getByTestId("scroll-progress").textContent).toBe("0");
+    expect(screen.getByTestId("scroll-y").textContent).toBe("0");
+    expect(screen.getByTestId("velocity").textContent).toBe("0");
+    expect(screen.getByTestId("active-section").textContent).toBe("hero");
   });
 
-  it("updates scroll state when Lenis fires scroll event", () => {
-    let scrollCallback: ((...args: any[]) => void) | null = null;
-    mockOn.mockImplementation((event: string, cb: (...args: any[]) => void) => {
-      if (event === "scroll") {
-        scrollCallback = cb;
-      }
-    });
-
+  it("updates scroll state when native scroll event fires", () => {
     const updateCallback = vi.fn();
 
     render(
@@ -98,28 +87,19 @@ describe("Adversarial LenisScrollProvider Verification", () => {
       </LenisScrollProvider>
     );
 
-    expect(scrollCallback).not.toBeNull();
-
-    // Trigger synthetic Lenis scroll event
+    // Simulate a native window scroll event
     act(() => {
-      if (scrollCallback) {
-        scrollCallback({ progress: 0.45, scroll: 900, velocity: 1.2 });
-      }
+      Object.defineProperty(window, "scrollY", { writable: true, value: 200 });
+      Object.defineProperty(document.body, "scrollHeight", { writable: true, value: 2000 });
+      window.dispatchEvent(new Event("scroll"));
     });
 
-    expect(screen.getByTestId("scroll-progress").textContent).toBe("0.45");
-    expect(screen.getByTestId("scroll-y").textContent).toBe("900");
-    expect(screen.getByTestId("velocity").textContent).toBe("1.2");
-    expect(updateCallback).toHaveBeenCalledWith({
-      progress: 0.45,
-      scrollY: 900,
-      velocity: 1.2,
-      activeSection: "hero",
-    });
+    // After native scroll event fires, scrollY should be updated
+    expect(screen.getByTestId("scroll-y").textContent).toBe("200");
   });
 
   it("falls back cleanly under reduced motion mode", () => {
-    mockUseMotionSafe.mockReturnValue(false); // reduced motion enabled
+    setMatchMedia(true); // prefers-reduced-motion: reduce
 
     const scrollIntoViewMock = vi.fn();
     const testEl = document.createElement("div");
@@ -133,19 +113,17 @@ describe("Adversarial LenisScrollProvider Verification", () => {
       </LenisScrollProvider>
     );
 
-    expect(screen.getByTestId("reduced-motion").textContent).toBe("true");
-
     // Clicking scroll button should use fallback scrollIntoView
     const stringBtn = screen.getByTestId("btn-string");
     fireEvent.click(stringBtn);
 
-    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "smooth" });
+    expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: "auto" });
 
     document.body.removeChild(testEl);
   });
 
-  it("cleans up GSAP ticker and Lenis on component unmount", () => {
-    const removeSpy = vi.spyOn(gsap.ticker, "remove");
+  it("cleans up native scroll listener on component unmount", () => {
+    const removeSpy = vi.spyOn(window, "removeEventListener");
 
     const { unmount } = render(
       <LenisScrollProvider>
@@ -155,7 +133,7 @@ describe("Adversarial LenisScrollProvider Verification", () => {
 
     unmount();
 
-    expect(removeSpy).toHaveBeenCalled();
-    expect(mockDestroy).toHaveBeenCalled();
+    // Verify native scroll listener cleanup was called
+    expect(removeSpy).toHaveBeenCalledWith("scroll", expect.any(Function));
   });
 });

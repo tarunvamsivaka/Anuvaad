@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import os
 import re
@@ -182,6 +183,44 @@ async def fetch_raw_content(client: httpx.AsyncClient, url: str) -> str:
     return resp.text
 
 
+async def _compute_health_status() -> tuple[dict, int, list[str]]:
+    redis_ok = False
+    if cache.client:
+        try:
+            await cache.ping()
+            redis_ok = True
+        except Exception:
+            pass
+
+    llm_configured = bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY)
+    jwt_configured = bool(SUPABASE_JWT_SECRET)
+    supabase_configured = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
+
+    critical_missing = [
+        name
+        for name, ok in [
+            ("GROQ_API_KEY", llm_configured),
+            ("SUPABASE_JWT_SECRET", jwt_configured),
+            ("SUPABASE_URL", supabase_configured),
+        ]
+        if not ok
+    ]
+
+    status_str = "degraded" if (IS_PRODUCTION and critical_missing) else "healthy"
+    http_status = 503 if (IS_PRODUCTION and critical_missing) else 200
+
+    payload = {
+        "status": status_str,
+        "service": "anuvaad-api",
+        "llm_configured": llm_configured,
+        "razorpay_configured": bool(RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")),
+        "redis_connected": redis_ok,
+        "supabase_configured": supabase_configured,
+        "jwt_configured": jwt_configured,
+    }
+    return payload, http_status, critical_missing
+
+
 @router.api_route("/health", methods=["GET", "HEAD"])
 async def health_check(request: Request = None):
     """
@@ -195,55 +234,12 @@ async def health_check(request: Request = None):
     Returns 200 when the service is operational.
     Returns 503 when critical configuration is missing in production.
     """
-    import os
-
-    redis_ok = False
-    if cache.client:
-        try:
-            await cache.ping()
-            redis_ok = True
-        except Exception:
-            pass
-
-    llm_configured = bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY)
-    jwt_configured = bool(SUPABASE_JWT_SECRET)
-    supabase_configured = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
-
-    is_production = os.getenv("ENV", "development").lower() == "production"
-    critical_missing = [
-        name
-        for name, ok in [
-            ("GROQ_API_KEY", llm_configured),
-            ("SUPABASE_JWT_SECRET", jwt_configured),
-            ("SUPABASE_URL", supabase_configured),
-        ]
-        if not ok
-    ]
-
-    if is_production and critical_missing:
-        status_str = "degraded"
-        http_status = 503
-    else:
-        status_str = "healthy"
-        http_status = 200
+    payload, http_status, critical_missing = await _compute_health_status()
 
     if request and request.method == "HEAD":
         return Response(status_code=http_status, media_type="application/json")
 
-    # N-MED-04: Public response — boolean status flags are safe (no credential values).
-    # 'critical_missing' (which names specific env vars) is only in /health/detailed.
-    payload = {
-        "status": status_str,
-        "service": "anuvaad-api",
-        "llm_configured": llm_configured,
-        "razorpay_configured": bool(RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")),
-        "redis_connected": redis_ok,
-        "supabase_configured": supabase_configured,
-        "jwt_configured": jwt_configured,
-    }
-    # Do NOT include 'critical_missing' in the public response — it names specific
-    # env vars which is an information disclosure risk. Use /health/detailed for that.
-    if is_production and critical_missing:
+    if IS_PRODUCTION and critical_missing:
         payload["error"] = "Service misconfigured. Check deployment environment variables."
 
     return JSONResponse(content=payload, status_code=http_status)
@@ -257,10 +253,6 @@ async def health_check_detailed(request: Request):
     N-MED-04: Protected by metrics HTTP Basic Auth to prevent information
     disclosure. Use this endpoint for operator dashboards and alerting.
     """
-    import os
-
-    from fastapi.responses import JSONResponse
-
     if not _check_metrics_auth(request):
         return JSONResponse(
             status_code=401,
@@ -268,49 +260,27 @@ async def health_check_detailed(request: Request):
             headers={"WWW-Authenticate": 'Basic realm="metrics"'},
         )
 
-    redis_ok = False
-    if cache.client:
-        try:
-            await cache.ping()
-            redis_ok = True
-        except Exception:
-            pass
-
-    llm_configured = bool(GROQ_API_KEY) or bool(DEEPSEEK_API_KEY)
-    jwt_configured = bool(SUPABASE_JWT_SECRET)
-    supabase_configured = bool(SUPABASE_URL and SUPABASE_SERVICE_KEY)
-
-    is_production = os.getenv("ENV", "development").lower() == "production"
-    critical_missing = [
-        name
-        for name, ok in [
-            ("GROQ_API_KEY", llm_configured),
-            ("SUPABASE_JWT_SECRET", jwt_configured),
-            ("SUPABASE_URL", supabase_configured),
-        ]
-        if not ok
-    ]
-
-    if is_production and critical_missing:
-        status_str = "degraded"
-        http_status = 503
-    else:
-        status_str = "healthy"
-        http_status = 200
-
-    payload = {
-        "status": status_str,
-        "service": "anuvaad-api",
-        "llm_configured": llm_configured,
-        "razorpay_configured": bool(RAZORPAY_KEY_ID and not RAZORPAY_KEY_ID.startswith("rzp_test_your")),
-        "redis_connected": redis_ok,
-        "supabase_configured": supabase_configured,
-        "jwt_configured": jwt_configured,
-    }
+    payload, http_status, critical_missing = await _compute_health_status()
     if critical_missing:
         payload["critical_missing"] = critical_missing
 
     return JSONResponse(content=payload, status_code=http_status)
+
+
+def _format_file_response(content: str, filename: str, username: str) -> dict:
+    if len(content.encode("utf-8")) > GIST_MAX_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
+        )
+    return {
+        "type": "file",
+        "filename": filename,
+        "language": get_language_from_filename(filename),
+        "content": content,
+        "char_count": len(content),
+        "username": username,
+    }
 
 
 @router.get("/import-gist", dependencies=[Depends(rate_limiter(10, 60))])
@@ -387,58 +357,19 @@ async def import_gist(
     raw_match = GITHUB_RAW_PATTERN.match(clean_url)
     if raw_match:
         owner = raw_match.group(1)
-        repo = raw_match.group(2)
-        branch = raw_match.group(3)
         path = raw_match.group(4)
-        filename = path.split("/")[-1]
-
         client = await get_http_client()
         content = await fetch_raw_content(client, clean_url)
-
-        if len(content.encode("utf-8")) > GIST_MAX_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
-            )
-
-        detected_language = get_language_from_filename(filename)
-        return {
-            "type": "file",
-            "filename": filename,
-            "language": detected_language,
-            "content": content,
-            "char_count": len(content),
-            "username": owner,
-        }
+        return _format_file_response(content, path.split("/")[-1], owner)
 
     # 3. Blob File URL
     blob_match = GITHUB_BLOB_PATTERN.match(clean_url)
     if blob_match:
-        owner = blob_match.group(1)
-        repo = blob_match.group(2)
-        branch = blob_match.group(3)
-        path = blob_match.group(4)
-        filename = path.split("/")[-1]
+        owner, repo, branch, path = blob_match.group(1), blob_match.group(2), blob_match.group(3), blob_match.group(4)
         raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}"
-
         client = await get_http_client()
         content = await fetch_raw_content(client, raw_url)
-
-        if len(content.encode("utf-8")) > GIST_MAX_SIZE:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
-            )
-
-        detected_language = get_language_from_filename(filename)
-        return {
-            "type": "file",
-            "filename": filename,
-            "language": detected_language,
-            "content": content,
-            "char_count": len(content),
-            "username": owner,
-        }
+        return _format_file_response(content, path.split("/")[-1], owner)
 
     # 4. Repo Root URL
     repo_match = GITHUB_REPO_PATTERN.match(clean_url)
@@ -487,22 +418,7 @@ async def import_gist(
 
             client = await get_http_client()
             content = await fetch_raw_content(client, download_url)
-
-            if len(content.encode("utf-8")) > GIST_MAX_SIZE:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File content exceeds the {GIST_MAX_SIZE // 1024}KB limit. Please use a smaller file.",
-                )
-
-            detected_language = get_language_from_filename(filename)
-            return {
-                "type": "file",
-                "filename": filename,
-                "language": detected_language,
-                "content": content,
-                "char_count": len(content),
-                "username": owner,
-            }
+            return _format_file_response(content, filename, owner)
 
         if not isinstance(contents, list):
             raise HTTPException(status_code=400, detail="Could not read repository contents.")
@@ -799,9 +715,6 @@ async def verify_audit_receipt_endpoint(payload: dict):
 
 @router.post("/equivalence/evaluate", dependencies=[Depends(rate_limiter(15, 60))])
 async def evaluate_code_equivalence_endpoint(payload: dict):
-    """Evaluate semantic equivalence and generate characterization test suite."""
-    import asyncio
-
     from app.services.verification.equivalence_harness import EquivalenceHarness
 
     source_code = str(payload.get("source_code", ""))

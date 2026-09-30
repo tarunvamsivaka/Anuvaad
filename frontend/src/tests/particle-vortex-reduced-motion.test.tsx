@@ -5,7 +5,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import * as THREE from "three";
+// THREE.js removed from project — using local math stub (Color + MathUtils)
+import * as THREE from "./three-stub";
 import { WebGLCanvas } from "@/features/landing/_canvas/WebGLCanvas";
 import { ReducedMotion, useReducedMotionContext } from "@/components/motion/ReducedMotion";
 

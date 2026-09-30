@@ -12,7 +12,9 @@ FIX-23 (P1-01): Strengthened prompt injection detection:
 FIX-25 (P1-10/A10): Added URL-in-code SSRF hardening in validate_code_input.
 """
 
+import base64
 import re
+import unicodedata
 
 from fastapi import HTTPException
 
@@ -65,6 +67,10 @@ _PATTERN_HEREDOC = re.compile(rf"(?is)<<<?\w+.*?\b(?:{_INJECTION_KEYWORDS})\b.*?
 
 # Data/HTTP URIs in comments that could be SSRF-via-prompt
 _PATTERN_URL_IN_COMMENT = re.compile(r"(?i)(//|#|--)[^\n]*?(https?://|data:)[^\n]*")
+_PATTERN_B64_CANDIDATE = re.compile(r"(?://|#|--)\s*([A-Za-z0-9+/]{40,}={0,2})")
+_PATTERN_INJECTION_KEYWORDS_SEARCH = re.compile(_INJECTION_KEYWORDS, re.IGNORECASE)
+_PATTERN_IGNORE_COMMENT = re.compile(r"^\s*(//|#)\s*ignore", re.IGNORECASE)
+_PATTERN_DANGEROUS_URL = re.compile(r"(?i)\b(file|jar|ftp|gopher|dict|tftp|ldap)://")
 
 
 def _maybe_base64_injection(text: str) -> bool:
@@ -73,14 +79,12 @@ def _maybe_base64_injection(text: str) -> bool:
     Encoded payloads are a common evasion technique — attackers base64-encode
     their injection to bypass keyword matching.
     """
-    b64_candidates = re.findall(r"(?://|#|--)\s*([A-Za-z0-9+/]{40,}={0,2})", text)
+    b64_candidates = _PATTERN_B64_CANDIDATE.findall(text)
     for candidate in b64_candidates:
         try:
-            import base64
-
             decoded = base64.b64decode(candidate).decode("utf-8", errors="ignore")
             # If the decoded string contains injection keywords, flag it
-            if re.search(_INJECTION_KEYWORDS, decoded, re.IGNORECASE):
+            if _PATTERN_INJECTION_KEYWORDS_SEARCH.search(decoded):
                 return True
         except Exception:
             pass
@@ -95,8 +99,6 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
     """
     if not raw_code:
         return raw_code
-
-    import unicodedata
 
     raw_code = unicodedata.normalize("NFKC", raw_code)
 
@@ -134,8 +136,7 @@ def sanitise_input(raw_code: str, mode: str, email: str | None = None) -> str:
             mode=mode,
         )
         # Redact the entire base64-looking comment
-        raw_code = re.sub(
-            r"(?://|#|--)\s*[A-Za-z0-9+/]{40,}={0,2}",
+        raw_code = _PATTERN_B64_CANDIDATE.sub(
             "[REDACTED BASE64 PAYLOAD]",
             raw_code,
         )
@@ -175,7 +176,7 @@ def validate_code_input(raw_code: str):
 
     lines = raw_code.splitlines()
     if lines:
-        ignore_count = sum(1 for line in lines if re.match(r"^\s*(//|#)\s*ignore", line, re.IGNORECASE))
+        ignore_count = sum(1 for line in lines if _PATTERN_IGNORE_COMMENT.match(line))
         if ignore_count / len(lines) > 0.5:
             raise HTTPException(
                 status_code=422,
@@ -185,8 +186,7 @@ def validate_code_input(raw_code: str):
     # FIX-25 (P1-10/A10): Reject file:// and other dangerous URL schemes.
     # An LLM could be tricked into including file:// paths in its output which
     # a downstream renderer might follow (SSRF or LFI via generated code).
-    _DANGEROUS_URL = re.compile(r"(?i)\b(file|jar|ftp|gopher|dict|tftp|ldap)://")
-    if _DANGEROUS_URL.search(raw_code):
+    if _PATTERN_DANGEROUS_URL.search(raw_code):
         raise HTTPException(
             status_code=422,
             detail=(

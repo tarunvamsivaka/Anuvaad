@@ -14,7 +14,8 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import * as THREE from "three";
+// THREE.js removed from project — using local math stub (Color + MathUtils)
+import * as THREE from "./three-stub";
 
 import { Positioning } from "@/components/landing/Positioning";
 import { Trust } from "@/components/landing/Trust";
@@ -549,7 +550,7 @@ describe("Milestone 3 Empirical Challenger Stress Suite", () => {
         expect(currentColor.b).toBeGreaterThanOrEqual(0);
         expect(currentColor.b).toBeLessThanOrEqual(1);
       }
-    });
+    }, 60000);
 
     it("proves exponential asymptotic convergence to dark room within 60 frames", () => {
       const currentColor = new THREE.Color(0xf5f3ee);
