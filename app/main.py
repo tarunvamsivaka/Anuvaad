@@ -87,14 +87,17 @@ def validate_production_env() -> None:
         logger.warning(f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production.")
 
     import os
+
     # Warn if fewer than 2 AI tiers are configured
-    _tier_keys_present = sum([
-        bool(os.getenv("CEREBRAS_API_KEY")),
-        bool(os.getenv("GEMINI_API_KEY")),
-        bool(os.getenv("DEEPSEEK_API_KEY")),
-        bool(os.getenv("OPENROUTER_API_KEY")),
-        bool(os.getenv("GROQ_API_KEY")),
-    ])
+    _tier_keys_present = sum(
+        [
+            bool(os.getenv("CEREBRAS_API_KEY")),
+            bool(os.getenv("GEMINI_API_KEY")),
+            bool(os.getenv("DEEPSEEK_API_KEY")),
+            bool(os.getenv("OPENROUTER_API_KEY")),
+            bool(os.getenv("GROQ_API_KEY")),
+        ]
+    )
     if _tier_keys_present < 2:
         logger.warning(
             f"[AI Gateway] Only {_tier_keys_present} of 5 AI tier key(s) configured. "

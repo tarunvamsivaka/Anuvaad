@@ -521,9 +521,7 @@ async def stripe_webhook(request: Request):
                 email=user_email,
                 data={"is_pro": is_active, "stripe_subscription_id": sub_id},
             )
-            logger.info(
-                f"Subscription updated for {user_email} — status={stripe_status}, is_pro={is_active}"
-            )
+            logger.info(f"Subscription updated for {user_email} — status={stripe_status}, is_pro={is_active}")
 
     elif event_type in ("customer.subscription.deleted", "customer.subscription.paused"):
         if user_email:

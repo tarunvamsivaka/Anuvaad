@@ -738,7 +738,7 @@ test.describe('Sidebar Navigation', () => {
   test('desktop sidebar has links to all main sections', async ({ page }) => {
     await page.goto('/dashboard');
     const sidebar = desktopSidebar(page);
-    await expect(sidebar.locator('a[href="/dashboard"]')).toBeVisible({ timeout: 8000 });
+    await expect(sidebar.locator('a[href="/dashboard"]').first()).toBeVisible({ timeout: 8000 });
     await expect(sidebar.locator('a[href="/dashboard/translate"]')).toBeVisible();
     await expect(sidebar.locator('a[href="/dashboard/history"]')).toBeVisible();
     await expect(sidebar.locator('a[href="/dashboard/billing"]:has-text("Billing")')).toBeVisible();

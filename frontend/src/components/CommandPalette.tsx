@@ -9,7 +9,6 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 
 function useSafeWorkspace() {
   try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
     return useWorkspace();
   } catch {
     return {
@@ -25,7 +24,6 @@ import { useTranslationStore } from "@/features/translate/_store/useTranslationS
 import {
   Code2,
   History,
-  LayoutDashboard,
   Moon,
   Sun,
   Monitor,
@@ -36,11 +34,7 @@ import {
   CreditCard,
   Settings,
   Keyboard,
-  ArrowRightLeft,
-  Languages,
-  Zap,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface CodePreset {

@@ -81,9 +81,12 @@ export function LenisScrollProvider({
 
   const activeSectionRef = useRef("hero");
   const lastScrollYRef = useRef(0);
-  const lastTimestampRef = useRef(performance.now());
+  const lastTimestampRef = useRef(0);
   const onScrollUpdateRef = useRef(onScrollUpdate);
-  onScrollUpdateRef.current = onScrollUpdate;
+
+  useEffect(() => {
+    onScrollUpdateRef.current = onScrollUpdate;
+  }, [onScrollUpdate]);
 
   // ── Detect prefers-reduced-motion ──────────────────────────────────────────
   useEffect(() => {

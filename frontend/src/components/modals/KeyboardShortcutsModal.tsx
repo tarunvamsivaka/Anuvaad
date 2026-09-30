@@ -2,8 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Keyboard, Command, Sparkles, Terminal, FileCode, ArrowLeftRight, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Keyboard, Command, Sparkles, Terminal, FileCode } from "lucide-react";
 
 interface ShortcutGroup {
   category: string;

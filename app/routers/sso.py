@@ -163,9 +163,13 @@ async def saml_callback(request: Request, payload: SAMLCallbackRequest):
     ):
         raise HTTPException(status_code=400, detail="Malformed SAML response or missing assertion")
 
-    # Extract user email from NameID or claim
-    email_match = re.search(r"[\w.-]+@[\w.-]+\.\w+", decoded_xml)
-    user_email = email_match.group(0) if email_match else "enterprise.user@acme.corp"
+    # Extract user email from NameID or claim safely without ReDoS (bounded input length)
+    nameid_match = re.search(r"<(?:saml:)?NameID[^>]*>([^<]+)</(?:saml:)?NameID>", decoded_xml[:10000])
+    if nameid_match:
+        user_email = nameid_match.group(1).strip()
+    else:
+        email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", decoded_xml[:10000])
+        user_email = email_match.group(0) if email_match else "enterprise.user@acme.corp"
 
     logger.info(f"Enterprise SSO login verified for user: {user_email}")
 

@@ -10,6 +10,7 @@ Validates:
 
 import os
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlparse
 
 from fastapi.testclient import TestClient
 
@@ -40,7 +41,7 @@ def test_stripe_create_checkout_session(client: TestClient):
             data = resp.json()
             assert data["provider"] == "stripe"
             assert data["session_id"] == "cs_test_123"
-            assert "checkout.stripe.com" in data["checkout_url"]
+            assert urlparse(data["checkout_url"]).netloc == "checkout.stripe.com"
     finally:
         app.dependency_overrides.pop(get_user_email, None)
 
@@ -72,7 +73,7 @@ def test_stripe_create_portal_session(client: TestClient):
             assert resp.status_code == 200
             data = resp.json()
             assert data["provider"] == "stripe"
-            assert "billing.stripe.com" in data["portal_url"]
+            assert urlparse(data["portal_url"]).netloc == "billing.stripe.com"
     finally:
         app.dependency_overrides.pop(get_user_email, None)
 
