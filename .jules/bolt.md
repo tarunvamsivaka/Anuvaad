@@ -1,0 +1,3 @@
+## 2025-02-27 - Memoizing derived state in OutputPanel due to Zustand store updates
+**Learning:** In React components subscribing to Zustand stores without specific selectors, the component re-renders on any store update. In `OutputPanel`, rapid streaming text updates triggered expensive derived state recalculations ($O(N)$ string mapping and concatenation for `outputBlocks`).
+**Action:** Always wrap expensive derived states or array mappings that depend on large/complex structures (like `outputBlocks.map(...).join(...)`) in `useMemo` hooks, especially in components that subscribe to high-frequency state updates like SSE streaming.
