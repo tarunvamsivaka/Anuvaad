@@ -163,13 +163,27 @@ async def saml_callback(request: Request, payload: SAMLCallbackRequest):
     ):
         raise HTTPException(status_code=400, detail="Malformed SAML response or missing assertion")
 
-    # Extract user email from NameID or claim safely without ReDoS (bounded input length)
-    nameid_match = re.search(r"<(?:saml:)?NameID[^>]*>([^<]+)</(?:saml:)?NameID>", decoded_xml[:10000])
-    if nameid_match:
-        user_email = nameid_match.group(1).strip()
-    else:
-        email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", decoded_xml[:10000])
-        user_email = email_match.group(0) if email_match else "enterprise.user@acme.corp"
+    # Extract user email from NameID or claim safely via XML parsing without regex
+    user_email = "enterprise.user@acme.corp"
+    try:
+        import xml.etree.ElementTree as ET
+
+        root = ET.fromstring(decoded_xml)
+        for elem in root.iter():
+            tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
+            if tag == "NameID" and elem.text and "@" in elem.text:
+                user_email = elem.text.strip()
+                break
+    except Exception:
+        # Deterministic string boundary search fallback (zero regex backtracking)
+        tag_start = decoded_xml.find("NameID>")
+        if tag_start != -1:
+            content_start = tag_start + len("NameID>")
+            tag_end = decoded_xml.find("</", content_start)
+            if tag_end != -1:
+                candidate = decoded_xml[content_start:tag_end].strip()
+                if "@" in candidate:
+                    user_email = candidate
 
     logger.info(f"Enterprise SSO login verified for user: {user_email}")
 
