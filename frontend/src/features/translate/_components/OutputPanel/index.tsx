@@ -1,24 +1,46 @@
 import React, { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput, Share2, Link } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Download,
+  Sparkles,
+  ArrowLeftRight,
+  Loader2,
+  Diff,
+  Code2,
+  FileCode,
+  Clock,
+  Zap,
+  FileOutput,
+  Share2,
+  Link,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslationStore } from "../../_store/useTranslationStore";
+import { useShallow } from "zustand/react/shallow";
 import { track } from "@/lib/analytics";
 
-const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
-  ssr: false,
-  loading: () => <MonacoSkeleton lines={14} />,
-});
+const MonacoEditor = dynamic(
+  () => import("@monaco-editor/react").then((mod) => mod.Editor),
+  {
+    ssr: false,
+    loading: () => <MonacoSkeleton lines={14} />,
+  },
+);
 
-const DiffEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.DiffEditor), {
-  ssr: false,
-  loading: () => <MonacoSkeleton lines={14} />,
-});
+const DiffEditor = dynamic(
+  () => import("@monaco-editor/react").then((mod) => mod.DiffEditor),
+  {
+    ssr: false,
+    loading: () => <MonacoSkeleton lines={14} />,
+  },
+);
 
 interface OutputPanelProps {
   mode: string;
@@ -70,11 +92,27 @@ export function OutputPanel({
     setOutputBlocks,
     diffOriginalCode,
     setDiffOriginalCode,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      input: state.input,
+      streamText: state.streamText,
+      isStreaming: state.isStreaming,
+      outputBlocks: state.outputBlocks,
+      originalBlocks: state.originalBlocks,
+      rawError: state.rawError,
+      modelUsed: state.modelUsed,
+      setOutputBlocks: state.setOutputBlocks,
+      diffOriginalCode: state.diffOriginalCode,
+      setDiffOriginalCode: state.setDiffOriginalCode,
+    })),
+  );
 
   const fullCodeText = useMemo(() => {
     return outputBlocks
-      ? outputBlocks.map((b) => b.code_snippet).filter(Boolean).join("\n\n")
+      ? outputBlocks
+          .map((b) => b.code_snippet)
+          .filter(Boolean)
+          .join("\n\n")
       : "";
   }, [outputBlocks]);
 
@@ -84,7 +122,9 @@ export function OutputPanel({
       : "";
   }, [outputBlocks]);
 
-  const monacoLang = languages.find((l) => l.value === targetLanguage)?.monacoId || targetLanguage;
+  const monacoLang =
+    languages.find((l) => l.value === targetLanguage)?.monacoId ||
+    targetLanguage;
 
   const handleEditBlock = useCallback(
     (index: number, newEnglish: string) => {
@@ -95,11 +135,13 @@ export function OutputPanel({
         return updated;
       });
     },
-    [setOutputBlocks]
+    [setOutputBlocks],
   );
 
   // Share state: 'idle' | 'sharing' | 'copied'
-  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">(
+    "idle",
+  );
 
   const handleShare = useCallback(async () => {
     if (!outputBlocks || outputBlocks.length === 0) return;
@@ -107,7 +149,8 @@ export function OutputPanel({
     try {
       // Use the most recent history item share endpoint
       // Falls back to copying a deep-link if no server history item exists
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin;
+      const frontendUrl =
+        process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin;
       // Attempt to share the last item from history via query param
       const currentUrl = `${frontendUrl}/dashboard/translate`;
       await navigator.clipboard.writeText(currentUrl);
@@ -138,7 +181,7 @@ export function OutputPanel({
                 "h-6 gap-1 px-2 text-[10px] rounded-md font-bold transition-all",
                 viewType === "editor"
                   ? "bg-background shadow-sm text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Code2 className="h-3 w-3" /> Monaco
@@ -151,7 +194,7 @@ export function OutputPanel({
                 "h-6 gap-1 px-2 text-[10px] rounded-md font-bold transition-all",
                 viewType === "blocks"
                   ? "bg-background shadow-sm text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <FileCode className="h-3 w-3" /> Blocks
@@ -164,7 +207,7 @@ export function OutputPanel({
                 "h-6 gap-1 px-2 text-[10px] rounded-md font-bold transition-all",
                 viewType === "diff"
                   ? "bg-background shadow-sm text-primary"
-                  : "text-muted-foreground hover:text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Diff className="h-3 w-3" /> Diff
@@ -192,7 +235,11 @@ export function OutputPanel({
               className="h-7 gap-1.5 px-2.5 text-[10px] bg-background border-border hover:bg-muted font-bold"
               title="Copy as formatted Markdown"
             >
-              {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+              {copied ? (
+                <Check className="h-3 w-3 text-emerald-600" />
+              ) : (
+                <Copy className="h-3 w-3" />
+              )}
               {copied ? "Copied" : "Copy as Markdown"}
             </Button>
             <Button
@@ -214,7 +261,7 @@ export function OutputPanel({
                 "h-7 gap-1.5 px-2.5 text-[10px] bg-background border-border font-bold transition-colors",
                 shareState === "copied"
                   ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
-                  : "hover:bg-muted"
+                  : "hover:bg-muted",
               )}
               title="Copy share link to clipboard"
             >
@@ -253,7 +300,13 @@ export function OutputPanel({
               variant="ghost"
               size="sm"
               className="h-7 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5"
-              onClick={() => setOutputBlocks(originalBlocks ? JSON.parse(JSON.stringify(originalBlocks)) : null)}
+              onClick={() =>
+                setOutputBlocks(
+                  originalBlocks
+                    ? JSON.parse(JSON.stringify(originalBlocks))
+                    : null,
+                )
+              }
               disabled={isSyncing}
             >
               Reset Edits
@@ -264,7 +317,11 @@ export function OutputPanel({
               onClick={handleSyncEnglishToCode}
               disabled={isSyncing}
             >
-              {isSyncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ArrowLeftRight className="h-3 w-3" />}
+              {isSyncing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <ArrowLeftRight className="h-3 w-3" />
+              )}
               Sync to Code
             </Button>
           </div>
@@ -283,7 +340,7 @@ export function OutputPanel({
               exit={{ opacity: 0, y: -10 }}
               className={cn(
                 "p-5 m-4 rounded-xl bg-card border backdrop-blur-md shadow-lg flex flex-col h-[calc(100%-2rem)] overflow-hidden",
-                rawError ? "border-destructive" : "border-border"
+                rawError ? "border-destructive" : "border-border",
               )}
             >
               {/* Real-time SSE metrics header bar */}
@@ -292,58 +349,79 @@ export function OutputPanel({
                   <div className="relative flex h-4 w-4 items-center justify-center">
                     {isStreaming ? (
                       <>
-                        <motion.span 
-                          animate={{ rotate: 360 }} 
-                          transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                          className="absolute inset-0 rounded-full border-[2px] border-amber-500/20 border-t-amber-500" 
+                        <motion.span
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            repeat: Infinity,
+                            duration: 1.5,
+                            ease: "linear",
+                          }}
+                          className="absolute inset-0 rounded-full border-[2px] border-amber-500/20 border-t-amber-500"
                         />
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
                       </>
                     ) : (
                       <>
-                        <motion.span 
+                        <motion.span
                           initial={{ scale: 0 }}
                           animate={{ scale: 1 }}
-                          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                          className="absolute inset-0 rounded-full border-[2px] border-emerald-500/30" 
+                          transition={{
+                            type: "spring",
+                            stiffness: 300,
+                            damping: 20,
+                          }}
+                          className="absolute inset-0 rounded-full border-[2px] border-emerald-500/30"
                         />
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       </>
                     )}
                   </div>
                   <AnimatePresence mode="wait">
-                    <motion.span 
-                      key={isStreaming ? (streamText.length === 0 ? "connecting" : "streaming") : "completed"}
+                    <motion.span
+                      key={
+                        isStreaming
+                          ? streamText.length === 0
+                            ? "connecting"
+                            : "streaming"
+                          : "completed"
+                      }
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -5 }}
                       transition={{ duration: 0.2 }}
                       className="text-[11px] font-bold uppercase tracking-widest text-slate-700 dark:text-slate-200"
                     >
-                      {isStreaming 
-                        ? (streamText.length === 0 ? "Connecting via SSE..." : "Receiving Stream (SSE)...") 
+                      {isStreaming
+                        ? streamText.length === 0
+                          ? "Connecting via SSE..."
+                          : "Receiving Stream (SSE)..."
                         : "Stream Complete"}
                     </motion.span>
                   </AnimatePresence>
                 </div>
 
                 <div className="flex items-center gap-3 text-[10px] font-mono">
-                  <motion.span 
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
                     className="flex items-center gap-1 text-muted-foreground bg-muted px-2.5 py-1 rounded-md shadow-sm border border-border"
                   >
                     <Clock className="h-3 w-3 text-amber-500" />
                     {elapsedTime}s
                   </motion.span>
-                  <motion.span 
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.1 }}
                     className="flex items-center gap-1 text-muted-foreground bg-muted px-2.5 py-1 rounded-md shadow-sm border border-border"
                   >
                     <Code2 className="h-3 w-3 text-blue-400" />
                     {tokenCount} tok
                   </motion.span>
-                  <motion.span 
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}
+                  <motion.span
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
                     className="flex items-center gap-1 text-muted-foreground bg-muted px-2.5 py-1 rounded-md shadow-sm border border-border"
                   >
                     <Zap className="h-3 w-3 text-emerald-400" />
@@ -355,16 +433,20 @@ export function OutputPanel({
               {/* Progress shimmer bar when streaming */}
               <AnimatePresence>
                 {isStreaming && (
-                  <motion.div 
+                  <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 4, opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     className="w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden mb-3 shrink-0"
                   >
-                    <motion.div 
+                    <motion.div
                       className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500 w-full"
                       animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
-                      transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 2,
+                        ease: "linear",
+                      }}
                       style={{ backgroundSize: "200% 100%" }}
                     />
                   </motion.div>
@@ -372,8 +454,9 @@ export function OutputPanel({
               </AnimatePresence>
 
               {rawError && (
-                <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   className="text-sm text-red-500 whitespace-pre-wrap font-mono mb-3 p-3 bg-red-500/10 rounded-lg border border-red-500/20"
                 >
                   {rawError}
@@ -387,7 +470,7 @@ export function OutputPanel({
                   aria-atomic="false"
                   className={cn(
                     "font-mono text-[13px] text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed p-2",
-                    isStreaming ? "blinking-cursor" : ""
+                    isStreaming ? "blinking-cursor" : "",
                   )}
                 >
                   {streamText}
@@ -442,7 +525,10 @@ export function OutputPanel({
                     <div className="mb-2 flex items-center justify-between rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs text-amber-600 dark:text-amber-400">
                       <div className="flex items-center gap-1.5 font-medium">
                         <Diff className="h-3.5 w-3.5" />
-                        <span>Showing inline diff: Original Code vs Updated Code from English edits</span>
+                        <span>
+                          Showing inline diff: Original Code vs Updated Code
+                          from English edits
+                        </span>
                       </div>
                       <button
                         type="button"
@@ -457,7 +543,11 @@ export function OutputPanel({
                     <DiffEditor
                       height="100%"
                       original={diffOriginalCode ?? input}
-                      modified={diffOriginalCode ? input : (fullCodeText || fullEnglishText)}
+                      modified={
+                        diffOriginalCode
+                          ? input
+                          : fullCodeText || fullEnglishText
+                      }
                       language={monacoLang}
                       theme={isDark ? "vs-dark" : "light"}
                       options={{
@@ -505,9 +595,13 @@ export function OutputPanel({
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-lg">
                   <Code2 className="h-8 w-8 text-amber-500" />
                 </div>
-                <p className="mt-5 text-base font-bold text-foreground">Workspace Ready</p>
+                <p className="mt-5 text-base font-bold text-foreground">
+                  Workspace Ready
+                </p>
                 <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  Paste your code or requirements into the Monaco editor on the left panel, select your target language and LLM model, then click Translate.
+                  Paste your code or requirements into the Monaco editor on the
+                  left panel, select your target language and LLM model, then
+                  click Translate.
                 </p>
               </div>
             </motion.div>
