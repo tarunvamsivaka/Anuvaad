@@ -25,7 +25,7 @@ export function useFileImport({
   onQuotaExceeded,
   accessToken,
 }: UseFileImportProps) {
-  const { setInput } = useTranslationStore();
+  const setInput = useTranslationStore(state => state.setInput);
   const [showGistInput, setShowGistInput] = useState(false);
   const [gistUrl, setGistUrl] = useState("");
   const [gistLoading, setGistLoading] = useState(false);
