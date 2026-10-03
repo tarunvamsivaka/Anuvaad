@@ -1,0 +1,3 @@
+## 2024-05-24 - Prevent excessive re-renders during SSE streaming by using useShallow for Zustand store
+**Learning:** In React components subscribing to Zustand stores without specific selectors or wrapped in `useShallow`, the component will re-render on *any* store update. This is particularly problematic during rapidly changing streaming text (like `streamText` from SSE), causing expensive components (e.g., those with Monaco editors like `InputPanel` and `OutputPanel`) to re-render excessively, slowing down the UI and introducing lag.
+**Action:** Always use the `useShallow` hook from `zustand/react/shallow` when subscribing to multiple state variables, or use direct selectors when subscribing to a single state variable.
