@@ -149,8 +149,8 @@ test.describe('Public Pages', () => {
     await expect(page.locator('h1')).toContainText('Sign in to Anuvaad');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
-    await expect(page.locator('button:has-text("Continue with Google")')).toBeVisible();
-    await expect(page.locator('button:has-text("Continue with GitHub")')).toBeVisible();
+    await expect(page.locator('button:has-text("Authenticate with Google")')).toBeVisible();
+    await expect(page.locator('button:has-text("Authenticate with GitHub")')).toBeVisible();
     // Sign-in page has "Forgot password?" link
     await expect(page.locator('a[href="/forgot-password"]')).toBeVisible();
     // Sign-in page has "Sign Up" link to create account
@@ -162,7 +162,7 @@ test.describe('Public Pages', () => {
     await expect(page.locator('h1')).toContainText('Create an account');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
-    await expect(page.locator('button:has-text("Create Free Account")')).toBeVisible();
+    await expect(page.locator('button[type="submit"]')).toContainText('Create an account');
     // Has link back to sign-in
     await expect(page.locator('a[href="/signin"]')).toBeVisible();
   });
@@ -217,7 +217,7 @@ test.describe('Authentication — Unauthenticated Guards', () => {
     await page.fill('input[type="email"]', 'wrong@example.com');
     await page.fill('input[type="password"]', 'wrongpassword');
     await page.click('button[type="submit"]');
-    await expect(page.getByRole('alert')).toContainText('Invalid login credentials', { timeout: 8000 });
+    await expect(page.getByRole('alert').filter({ hasText: 'Invalid login credentials' })).toBeVisible({ timeout: 8000 });
   });
 
   test('sign-up with password shorter than 8 chars shows HTML validation', async ({ page }) => {
