@@ -28,7 +28,7 @@ setup('authenticate', async ({ page }) => {
   try {
     // Wait for redirect to dashboard — the mock auth returns a valid session
     // so we expect the dashboard to load. We wait for a recognisable element.
-    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')))
+    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')).first())
       .toBeVisible({ timeout: 20000 });
   } catch (err) {
     // If signin failed, check for invalid credentials error to trigger self-healing signup
@@ -41,7 +41,7 @@ setup('authenticate', async ({ page }) => {
       await page.click('button[type="submit"]');
       
       // Wait for auto-login redirect to dashboard (email confirmation is disabled)
-      await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')))
+      await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')).first())
         .toBeVisible({ timeout: 30000 });
     } else {
       throw err;
@@ -53,7 +53,7 @@ setup('authenticate', async ({ page }) => {
     await page.waitForURL('**/dashboard/welcome', { timeout: 10000 });
     console.log('[E2E Setup] Onboarding welcome page detected. Skipping onboarding flow...');
     await page.click('button:has-text("Skip onboarding")');
-    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')))
+    await expect(page.locator('text=All Time').or(page.locator('h1:has-text("Welcome")')).first())
       .toBeVisible({ timeout: 20000 });
   } catch {
     // Already onboarded
