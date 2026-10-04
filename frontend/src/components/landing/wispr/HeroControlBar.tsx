@@ -359,7 +359,7 @@ function TerminalPreview({
                   <div key={i}>{String(i + 1).padStart(2, "0")}</div>
                 ))}
               </div>
-              <pre className="text-slate-200 overflow-x-auto whitespace-pre">
+              <pre tabIndex={0} className="text-slate-200 overflow-x-auto whitespace-pre">
                 {preset.codeSnippet}
               </pre>
             </div>

@@ -80,7 +80,7 @@ test.describe('Authenticated Translation Flow', () => {
 
   test('authenticated user can see the translate page', async ({ page }) => {
     await page.goto('/dashboard/translate');
-    await expect(page.locator('h1')).toContainText('Workspace');
+    await expect(page.locator('h1')).toContainText('Translation studio');
     await expect(page.locator('button:has-text("Translate")')).toBeVisible();
   });
 

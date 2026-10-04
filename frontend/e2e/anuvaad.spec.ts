@@ -146,7 +146,7 @@ test.describe('Public Pages', () => {
 
   test('sign-in page renders correctly', async ({ page }) => {
     await page.goto('/signin');
-    await expect(page.locator('h1')).toContainText('Welcome back');
+    await expect(page.locator('h1')).toContainText('Sign in to Anuvaad');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.locator('button:has-text("Continue with Google")')).toBeVisible();
@@ -159,7 +159,7 @@ test.describe('Public Pages', () => {
 
   test('sign-up page renders correctly', async ({ page }) => {
     await page.goto('/signup');
-    await expect(page.locator('h1')).toContainText('Create your account');
+    await expect(page.locator('h1')).toContainText('Create an account');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.locator('button:has-text("Create Free Account")')).toBeVisible();
@@ -171,14 +171,14 @@ test.describe('Public Pages', () => {
     await page.goto('/signin');
     await page.click('a[href="/signup"]', { force: true });
     await expect(page).toHaveURL(/\/signup/);
-    await expect(page.locator('h1')).toContainText('Create your account');
+    await expect(page.locator('h1')).toContainText('Create an account');
   });
 
   test('sign-up page "Sign In" link navigates to /signin', async ({ page }) => {
     await page.goto('/signup');
     await page.click('a[href="/signin"]', { force: true });
     await expect(page).toHaveURL(/\/signin/);
-    await expect(page.locator('h1')).toContainText('Welcome back');
+    await expect(page.locator('h1')).toContainText('Sign in to Anuvaad');
   });
 });
 
@@ -217,7 +217,7 @@ test.describe('Authentication — Unauthenticated Guards', () => {
     await page.fill('input[type="email"]', 'wrong@example.com');
     await page.fill('input[type="password"]', 'wrongpassword');
     await page.click('button[type="submit"]');
-    await expect(page.locator('p.text-destructive, p[class*="destructive"], p.text-red-400')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('alert')).toContainText('Invalid login credentials', { timeout: 8000 });
   });
 
   test('sign-up with password shorter than 8 chars shows HTML validation', async ({ page }) => {
@@ -299,7 +299,7 @@ test.describe('Translation Workspace', () => {
 
   test('translate page loads with correct heading and controls', async ({ page }) => {
     await page.goto('/dashboard/translate');
-    await expect(page.locator('h1')).toContainText('Workspace');
+    await expect(page.locator('h1')).toContainText('Translation studio');
     await expect(page.locator('button:has-text("Translate")')).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("Code → English")')).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("English → Code")')).toBeVisible();
@@ -621,9 +621,9 @@ test.describe('Settings Page', () => {
 
   test('settings Appearance section has theme dropdown with 3 options', async ({ page }) => {
     await page.goto('/dashboard/settings');
-    await expect(page.locator('h3:has-text("Dashboard Skin")')).toBeVisible({ timeout: 8000 });
+    await expect(page.locator('h3:has-text("Dashboard Skin"):visible')).toBeVisible({ timeout: 8000 });
     // The theme select is the last select inside main content
-    const themeSelect = page.locator('#main-content select').last();
+    const themeSelect = page.locator('#main-content select:visible').last();
     await expect(themeSelect).toBeVisible({ timeout: 8000 });
     await expect(themeSelect.locator('option[value="system"]')).toBeAttached();
     await expect(themeSelect.locator('option[value="light"]')).toBeAttached();

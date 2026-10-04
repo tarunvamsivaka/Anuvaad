@@ -14,7 +14,7 @@ test.describe('Sign Up Form Validation and Flow', () => {
   });
 
   test('should display registration form elements', async ({ page }) => {
-    await expect(page.locator('h1')).toContainText('Create your account');
+    await expect(page.locator('h1')).toContainText('Create an account');
     await expect(page.locator('input[type="email"]')).toBeVisible();
     await expect(page.locator('input[type="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();

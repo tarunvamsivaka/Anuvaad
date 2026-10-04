@@ -294,7 +294,7 @@ function SignInPageContent() {
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2.5 font-mono text-xs text-rose-400">
+              <div role="alert" className="flex items-center gap-2 rounded-xl bg-rose-500/10 border border-rose-500/20 px-3 py-2.5 font-mono text-xs text-rose-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
                 <p>{error}</p>
               </div>
