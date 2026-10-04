@@ -28,6 +28,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "cross-env": "^10.1.0",
+    "fill-range": "^7.1.1",
     "framer-motion": "^12.42.0",
     "lucide-react": "^1.24.0",
     "next": "^16.3.8",
@@ -64,6 +65,7 @@
     "vitest": "^4.1.8"
   },
   "overrides": {
+    "braces": "file:vendor/braces",
     "serialize-javascript": "^7.0.5",
     "postcss": "^8.5.10",
     "brace-expansion": "^2.1.7",
@@ -78,6 +80,7 @@
     "undici": "^7.30.0"
   },
   "_comments": {
+    "fill-range": "Directly installed to satisfy the local braces security fork's range-expansion dependency when npm links the fork as an override.",
     "overrides.serialize-javascript": "Security patch: forces all transitive dependents to use serialize-javascript >=7.0.5 which fixes CVE-2020-7660 (XSS via prototype pollution). This override should be periodically reviewed and removed once all direct dependencies have updated."
   }
 }

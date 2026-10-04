@@ -22,6 +22,8 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "playwright/**",
     "test-results/**",
+    // Vendored CommonJS package; preserve its upstream module format.
+    "vendor/braces/**",
   ]),
 ]);
 
