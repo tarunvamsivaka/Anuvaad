@@ -45,9 +45,11 @@ function SidebarContent({
     <div className="flex h-full flex-col">
       {/* Logo and Collapse Toggle Header */}
       <div className="flex h-14 shrink-0 items-center justify-between border-b border-border-subtle px-3 overflow-hidden">
-        <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
-          <Logo showText={!isCollapsed} iconSize={22} textSize="text-sm" />
-        </Link>
+        <div className="flex items-center gap-2 overflow-hidden">
+          <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
+            <Logo showText={!isCollapsed} iconSize={22} textSize="text-sm" />
+          </Link>
+        </div>
         {onToggleCollapse && (
           <button
             type="button"
@@ -152,6 +154,14 @@ function SidebarContent({
                 </Link>
               </div>
             )}
+          </div>
+        )}
+        {!isCollapsed && (
+          <div className="px-2 py-1.5 font-mono text-[10px] text-slate-500 border-t border-border-faint flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span className="led-indicator led-emerald" aria-hidden="true" />
+              <span>Review output beside source</span>
+            </span>
           </div>
         )}
         <div className="flex justify-center border-t border-border-faint pt-2">

@@ -91,25 +91,30 @@ export function GitPrWorkflowDemo({
         ref={headerRef}
         className={cn("flex flex-col items-center sr-fade-up", headerVisible && "is-visible")}
       >
-        {/* Module Eyebrow */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Automated Pull Request Code Reviews</span>
+        {/* Module Eyebrow & Technical Breadcrumb */}
+        <div className="flex flex-col items-center gap-2 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] tracking-widest text-emerald-500 uppercase">[04 // PR REVIEW ACCELERATOR & CI CHECK]</span>
+            <span className="text-slate-600 dark:text-slate-500 text-xs">/</span>
+            <span className="font-mono text-[10px] text-slate-500 uppercase">ZERO-DRIFT DIFF AUDIT</span>
           </div>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-            <Sparkles className="h-3 w-3" aria-hidden="true" />
-            Interactive Preview · Real GitHub App coming soon
-          </span>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-mono">
+              <GitPullRequest className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Pull request review concept</span>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono">
+              <Sparkles className="h-3 w-3" aria-hidden="true" />
+              Interactive example · Not connected to GitHub
+            </span>
+          </div>
         </div>
 
         <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-4 text-center">
-          Automate Architectural PR Reviews in Seconds
+          Explore a pull request review flow
         </h2>
         <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">
-          This interactive preview shows how Anuvaad will analyze code diffs, detect subtle
-          architectural breaking changes, and publish executive summaries directly to your GitHub &
-          GitLab pipelines. <strong className="text-slate-700 dark:text-slate-300">GitHub App in active development</strong> — join the waitlist below.
+          This illustrative preview uses sample changes to show one way a review could be presented. It does not analyze a live pull request or publish results to GitHub or GitLab.
         </p>
       </div>
 
@@ -117,13 +122,13 @@ export function GitPrWorkflowDemo({
       <div
         ref={cardRef}
         className={cn(
-          "w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden sr-fade-up",
+          "w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#080d1a]/95 obsidian-deck shadow-2xl overflow-hidden sr-fade-up",
           cardVisible && "is-visible"
         )}
         style={{ "--sr-delay": "100ms" } as React.CSSProperties}
       >
         {/* PR Header Bar */}
-        <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 sm:p-5 bg-slate-50 dark:bg-slate-900/90 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
               <GitPullRequest className="h-5 w-5" />

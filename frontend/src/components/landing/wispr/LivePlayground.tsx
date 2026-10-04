@@ -225,6 +225,13 @@ export function LivePlayground({
         ref={headerRef}
         className={cn("flex flex-col items-center sr-fade-up", headerVisible && "is-visible")}
       >
+        {/* Technical Breadcrumb */}
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-slate-500">
+            [03 // INTERACTIVE LABORATORY]
+          </span>
+        </div>
+
         {/* Module Eyebrow */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mb-4">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -244,7 +251,7 @@ export function LivePlayground({
       <div
         ref={workbenchRef}
         className={cn(
-          "w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xl overflow-hidden sr-fade-up",
+          "w-full rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-950 dark:obsidian-deck shadow-xl overflow-hidden sr-fade-up",
           workbenchVisible && "is-visible"
         )}
         style={{ "--sr-delay": "100ms" } as React.CSSProperties}
@@ -332,7 +339,7 @@ export function LivePlayground({
             >
               <Play className="h-3.5 w-3.5 fill-white" />
               <span>{isTranslating ? "Translating..." : "Translate"}</span>
-              <kbd className="hidden sm:inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-black/25 text-amber-100 font-semibold ml-0.5">⌘↵</kbd>
+              <kbd className="kbd-keycap hidden sm:inline-flex ml-0.5">⌘↵</kbd>
             </button>
             <Link
               href={`/dashboard/translate?code=${encodeURIComponent(code)}&lang=${activeLang}&mode=${mode}`}
@@ -419,7 +426,7 @@ export function LivePlayground({
                     AST Boundary Validated
                   </span>
                   <span className="text-emerald-500 font-sans font-medium hidden sm:inline">
-                    Verified Accuracy 99.4%
+                    Example output
                   </span>
                 </div>
               </div>

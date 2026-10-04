@@ -21,8 +21,8 @@ This document provides complete design handoff specifications for design teams u
 
 | Viewport | Target Resolution | Container Max-Width | Grid System | Sidebar Behavior |
 | :--- | :--- | :--- | :--- | :--- |
-| **Desktop (Default)** | 1440px &times; 900px+ | `1400px` | 12-column grid, 24px gutter | Fixed 60px rail; expands to 224px on hover |
-| **Laptop / Tablet** | 768px - 1024px | Fluid (`100%`) | 8-column grid, 16px gutter | Fixed 60px rail; icon-only |
+| **Desktop (Default)** | 1440px &times; 900px+ | `1400px` | 12-column grid, 24px gutter | User-controlled 64px / 240px collapsible rail |
+| **Laptop / Tablet** | 768px - 1024px | Fluid (`100%`) | 8-column grid, 16px gutter | Collapsible rail; labels remain user-controlled |
 | **Mobile** | 375px - 414px | Fluid (`100%`) | 4-column grid, 12px gutter | Hidden; slide-out drawer via top-left hamburger |
 
 ### Responsive Layout Adaptations
@@ -35,7 +35,7 @@ This document provides complete design handoff specifications for design teams u
    - **Mobile / Tablet**: Form stacks on top; showcase graphic renders beneath with reduced height (min 200px).
 3. **Translation Studio (`/dashboard/translate`)**:
    - **Desktop**: Split 50/50 dual-pane IDE studio with synchronized scroll.
-   - **Mobile**: Tabbed toggle switching between "Input Code" and "AI Output" to prevent horizontal squishing.
+   - **Mobile**: Tabbed toggle switches between input and output; wide screens show both panes together.
 4. **Billing & Licenses (`/dashboard/billing`)**:
    - **Desktop**: 2-column feature checklist for Pro Tier.
    - **Mobile**: 1-column vertical checklist with full-width action button.
@@ -45,21 +45,9 @@ This document provides complete design handoff specifications for design teams u
 
 ---
 
-## 3. WCAG 2.1 AA Accessibility & Contrast Matrix
+## 3. Accessibility & Contrast Verification
 
-All text and interactive surfaces strictly meet or exceed the **4.5:1** contrast ratio requirement for normal text and **3:1** for large text / graphical UI components.
-
-| Component / Token | Foreground (Hex) | Background (Hex) | Contrast Ratio | WCAG Compliance |
-| :--- | :--- | :--- | :--- | :--- |
-| **Light Mode Headers** (`text-slate-900`) | `#0f172a` | `#ffffff` | **18.7:1** | **AAA Pass** |
-| **Light Mode Body** (`text-slate-700`) | `#334155` | `#ffffff` | **9.6:1** | **AAA Pass** |
-| **Light Mode Muted** (`text-slate-500`) | `#64748b` | `#ffffff` | **4.6:1** | **AA Pass** |
-| **Light Mode Amber Accent** (`text-amber-700`) | `#b45309` | `#ffffff` | **4.8:1** | **AA Pass** |
-| **Primary CTA Button** (Amber-500) | `#020617` (Slate-950) | `#f59e0b` (Amber-500) | **10.5:1** | **AAA Pass** |
-| **Dark Mode Headers** (`text-slate-50`) | `#f8fafc` | `#060a14` (Obsidian) | **20.1:1** | **AAA Pass** |
-| **Dark Mode Secondary** (`text-slate-300`) | `#cbd5e1` | `#0a0f1d` (Card) | **13.2:1** | **AAA Pass** |
-| **Dark Mode Amber Accent** (`text-amber-400`) | `#fbbf24` | `#0a0f1d` (Card) | **11.4:1** | **AAA Pass** |
-| **Status Success Badge** | `#10b981` | `#060a14` | **7.8:1** | **AAA Pass** |
+Treat contrast as a measured acceptance check, not a token-level promise. Verify each foreground/background pairing in both themes, including muted text, badges, focus rings, and disabled states. Normal text must reach 4.5:1 and large text or meaningful UI graphics 3:1. Keep keyboard focus visible, controls labeled, touch targets usable, and reduced-motion behavior intact.
 
 ---
 
@@ -68,4 +56,15 @@ All text and interactive surfaces strictly meet or exceed the **4.5:1** contrast
 - [x] **Primary Buttons**: Height 44px (touch accessible), Radius 12px, Background `#F59E0B`, Text `#020617` Bold, Box-shadow `0 0 12px rgba(245, 158, 11, 0.20)`.
 - [x] **Form Inputs**: Height 44px (desktop) / 48px (mobile), Radius 12px, Border `#CBD5E1` (light) / `#1E293B` (dark), Active Focus Ring `2px solid #F59E0B`.
 - [x] **Card Containers**: Radius 16px - 24px, 1px subtle border, gentle surface elevation.
-- [x] **Sidebar Rail**: 60px default rail with 24px Lucide icons centered; hover expansion to 224px with 50ms transition delay on typography.
+- [x] **Sidebar Rail**: User-controlled collapsible rail; no hover-only navigation or content overlap.
+
+---
+
+## 5. Anuvaad Art Direction & Content Rules
+
+- Use warm paper as a restrained editorial accent, deep ink for code surfaces, and amber for focused actions. Keep the interface quiet enough for code to remain the visual priority.
+- Use DM Sans for display headings, Inter for interface copy, and JetBrains Mono for code and compact technical labels. Do not use serif styling for product copy.
+- Prefer specific labels such as “Translation studio” and “Audit receipt” over simulated system telemetry, invented build versions, or cost slogans.
+- Mark static playgrounds and PR flows as examples. Do not present simulated controls as live integration behavior.
+- Publish customer quotes, adoption metrics, latency, accuracy, uptime, or certifications only when a reviewer can trace each claim to evidence and a date.
+- Use brief motion for feedback, preserve `prefers-reduced-motion`, and do not hide keyboard-focused controls.

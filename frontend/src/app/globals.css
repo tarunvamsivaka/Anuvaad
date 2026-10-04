@@ -26,14 +26,13 @@
 @theme inline {
   --color-background:                  var(--background);
   --color-foreground:                  var(--foreground);
-  --font-sans:                         var(--font-sans);
-  --font-mono:                         var(--font-mono);
-  --font-heading:                      var(--font-sans);
-  --font-outfit:                       var(--font-sans);
-  --font-garamond:                     var(--font-sans);
-  --font-playfair:                     var(--font-sans);
-  --font-display:                      var(--font-display);
-  --font-heading:                      var(--font-display);
+  --font-sans:                         var(--font-inter);
+  --font-mono:                         var(--font-jetbrains);
+  --font-heading:                      var(--font-dm-sans);
+  --font-outfit:                       var(--font-dm-sans);
+  --font-garamond:                     var(--font-dm-sans);
+  --font-playfair:                     var(--font-dm-sans);
+  --font-display:                      var(--font-dm-sans);
   --color-brand-from:                  var(--brand-from);
   --color-brand-via:                   var(--brand-via);
   --color-brand-to:                    var(--brand-to);
@@ -193,9 +192,4 @@
     transition-duration:      0.01ms !important;
     scroll-behavior:          auto   !important;
   }
-}
-/* -- CSS gradient animation for WebGLCanvas replacement -- */
-@keyframes gradient-shift {
-  0%   { filter: brightness(1); }
-  100% { filter: brightness(1.08); }
 }

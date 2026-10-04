@@ -1,5 +1,21 @@
 "use client";
 
+/**
+ * WisprNavbar — Floating pill navigation.
+ *
+ * Active section tracking uses IntersectionObserver rather than scroll
+ * position math. rootMargin "-30% 0px -60% 0px" means a section is
+ * "active" when it occupies the middle 10% of the viewport — this prevents
+ * the navbar from flickering when scrolling quickly between sections.
+ *
+ * The mobile drawer uses a CSS grid-template-rows trick for smooth height
+ * animation without JavaScript height measurement or Framer Motion:
+ *   `grid-template-rows: 0fr` → `1fr` with a transition.
+ *
+ * Body scroll lock + Escape key handling is intentional. Mobile menus that
+ * let the page scroll behind them feel broken on iOS Safari.
+ */
+
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { ArrowRight, Menu, X, Search } from "lucide-react";
@@ -15,9 +31,9 @@ export interface WisprNavbarProps {
 export const NAV_LINKS = [
   { label: "Workbench", href: "#workbench" },
   { label: "Git/PR Demo", href: "#git-pr" },
-  { label: "Benchmarks", href: "#benchmarks" },
+  { label: "Languages", href: "#benchmarks" },
   { label: "Security", href: "#security" },
-  { label: "Testimonials", href: "#proof" },
+  { label: "How it works", href: "#proof" },
   { label: "Pricing", href: "#cta" },
 ];
 
@@ -97,13 +113,18 @@ export function WisprNavbar({
         )}
       >
         {/* Brand Logo */}
-        <Link
-          href="/"
-          className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
-          aria-label="Anuvaad Home"
-        >
-          <Logo showText iconSize={22} textSize="text-sm" theme="auto" />
-        </Link>
+        <div className="flex items-center gap-2.5">
+          <Link
+            href="/"
+            className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
+            aria-label="Anuvaad Home"
+          >
+            <Logo showText iconSize={22} textSize="text-sm" theme="auto" />
+          </Link>
+          <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded font-mono text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 tracking-wider">
+            Developer workspace
+          </span>
+        </div>
 
         {/* Desktop Navigation Links */}
         <nav
@@ -150,7 +171,7 @@ export function WisprNavbar({
           >
             <Search className="h-3.5 w-3.5 text-amber-500" />
             <span>Search</span>
-            <kbd className="font-mono text-[9px] px-1 py-0.2 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-slate-400">⌘K</kbd>
+            <kbd className="kbd-keycap">⌘K</kbd>
           </button>
 
           {onSignIn ? (

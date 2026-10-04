@@ -1,7 +1,7 @@
 /* ============================================================
    ANUVAAD — LANDING PAGE CSS  (Tech-Startup Flat Minimalism)
    Design system: Warm Cream Canvas + Deep Dark Rooms + Ink Borders
-   + Editorial Serif (Playfair Display) + Modern Sans (Inter)
+   + Expressive Display (DM Sans) + Modern Sans (Inter)
    + Organic Curves + Motion + Illustrations
 
    Loaded ONLY on landing page routes — not dashboard, not auth.
@@ -9,8 +9,8 @@
 
 /* ── FONT ALIASES ───────────────────────────────────────────── */
 :root {
-  /* Editorial Serif — Playfair Display (loaded in layout.tsx) */
-  --font-serif:  var(--font-playfair), 'Playfair Display', Georgia, 'Times New Roman', serif;
+  /* Display font — DM Sans (loaded in layout.tsx) */
+  --font-serif:  var(--font-dm-sans, 'DM Sans'), 'DM Sans', sans-serif;
 
   /* Warm Cream Canvas palette */
   --wispr-cream:        #f5f3ee;
@@ -151,7 +151,7 @@
    TYPOGRAPHY — Editorial Serif + Modern Sans
    ══════════════════════════════════════════════════════════════ */
 
-/* Editorial Serif headline — Playfair Display */
+/* Landing display headlines */
 .wispr-headline {
   font-family: var(--font-serif);
   font-weight: 400;

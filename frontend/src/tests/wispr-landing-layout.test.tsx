@@ -36,13 +36,13 @@ describe("Wispr Flow Landing Architecture & Components", () => {
       const gitPrLinks = screen.getAllByRole("link", { name: "Git/PR Demo" });
       expect(gitPrLinks[0]).toHaveAttribute("href", "#git-pr");
 
-      const benchmarkLinks = screen.getAllByRole("link", { name: "Benchmarks" });
+      const benchmarkLinks = screen.getAllByRole("link", { name: "Languages" });
       expect(benchmarkLinks[0]).toHaveAttribute("href", "#benchmarks");
 
       const securityLinks = screen.getAllByRole("link", { name: "Security" });
       expect(securityLinks[0]).toHaveAttribute("href", "#security");
 
-      const testimonialLinks = screen.getAllByRole("link", { name: "Testimonials" });
+      const testimonialLinks = screen.getAllByRole("link", { name: "How it works" });
       expect(testimonialLinks[0]).toHaveAttribute("href", "#proof");
     });
 
@@ -102,19 +102,19 @@ describe("Wispr Flow Landing Architecture & Components", () => {
       render(<HeroControlBar />);
       expect(screen.getByText("Code Intelligence in Motion")).toBeInTheDocument();
       expect(
-        screen.getByRole("heading", { name: /Stop Guessing What Code Does/i })
+        screen.getByRole("heading", { name: /Your codebase speaks every language/i })
       ).toBeInTheDocument();
       expect(
-        screen.getByText(/Paste any code\. Get plain-English explanations/i)
+        screen.getByText(/Explore code explanations and translations/i)
       ).toBeInTheDocument();
     });
 
     it("renders 4 fluid value badges", () => {
       render(<HeroControlBar />);
       expect(screen.getByText("35+ Languages")).toBeInTheDocument();
-      expect(screen.getByText("<3s Latency")).toBeInTheDocument();
-      expect(screen.getByText("ZDR Certified")).toBeInTheDocument();
-      expect(screen.getByText("Zero Code Storage")).toBeInTheDocument();
+      expect(screen.getAllByText("Latency varies by request")).toHaveLength(2);
+      expect(screen.getByText("Audit receipt on supported routes")).toBeInTheDocument();
+      expect(screen.queryByText("ZDR Certified")).not.toBeInTheDocument();
     });
 
     it("triggers onSelectPrompt when clicking preset prompt pills", () => {
@@ -156,8 +156,8 @@ describe("Wispr Flow Landing Architecture & Components", () => {
           name: "Instant code comprehension preview",
         })
       ).toBeInTheDocument();
-      expect(screen.getByText(/1.38s Inference/i)).toBeInTheDocument();
-      expect(screen.getByText(/Zero Storage Verified/i)).toBeInTheDocument();
+      expect(screen.getByText(/Sample interaction/i)).toBeInTheDocument();
+      expect(screen.getByText(/Privacy details/i)).toBeInTheDocument();
     });
   });
 
@@ -165,72 +165,47 @@ describe("Wispr Flow Landing Architecture & Components", () => {
     it("renders #security anchor and section heading", () => {
       render(<EnterpriseSecurity />);
       const heading = screen.getByRole("heading", {
-        name: /Privacy by Default/i,
+        name: /Security details, without the guesswork/i,
       });
       expect(heading).toBeInTheDocument();
       expect(
-        screen.getByText("Enterprise-Grade Security & Governance")
+        screen.getByText("How Anuvaad handles your work")
       ).toBeInTheDocument();
     });
 
-    it("renders all 6 enterprise security pillars", () => {
+    it("renders current, code-backed security details without unsupported certification claims", () => {
       render(<EnterpriseSecurity />);
-      expect(screen.getByText("Zero Code Storage")).toBeInTheDocument();
-      // Roadmap-honest pillar titles
-      expect(screen.getByText("SOC2 Type II — On Roadmap")).toBeInTheDocument();
-      expect(screen.getByText("GDPR-Aligned Architecture")).toBeInTheDocument();
-      expect(
-        screen.getByText("TLS 1.3 & AES-256 Encryption")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText("Self-Hosted Deployment")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText("SSO — Coming for Enterprise")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Translation audit receipts")).toBeInTheDocument();
+      expect(screen.getByText("Run code in the browser")).toBeInTheDocument();
+      expect(screen.getByText("Sign in with GitHub")).toBeInTheDocument();
+      expect(screen.queryByText(/SOC2 Type II|HIPAA|SAML/i)).not.toBeInTheDocument();
     });
 
-    it("renders regulated industry CTA", () => {
+    it("links to the privacy details", () => {
       render(<EnterpriseSecurity />);
-      expect(
-        screen.getByText("Building for a regulated industry?")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("link", { name: /Request Demo \+ Security Package/i })
-      ).toHaveAttribute("href", "#enterprise-contact");
+      expect(screen.getByRole("link", { name: /Read the privacy page/i })).toHaveAttribute("href", "/privacy");
     });
   });
 
   describe("CustomerProof", () => {
-    it("renders #proof anchor and early access feedback badge", () => {
+    it("renders a capability overview instead of unverified customer testimonials", () => {
       render(<CustomerProof />);
-      expect(
-        screen.getByText("Early Access Feedback")
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("heading", { name: /Built for Developers/i })
-      ).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /A clearer way into unfamiliar code/i })).toBeInTheDocument();
+      expect(screen.getByText("Make the logic legible")).toBeInTheDocument();
+      expect(screen.queryByText("Early Access Feedback")).not.toBeInTheDocument();
     });
 
-    it("renders key adoption metric counters", () => {
+    it("does not invent adoption or accuracy figures", () => {
       render(<CustomerProof />);
-      expect(screen.getByText("78,000+")).toBeInTheDocument();
-      expect(screen.getByText("PRs Reviewed")).toBeInTheDocument();
-      expect(screen.getByText("99.4%")).toBeInTheDocument();
-      expect(screen.getByText("Syntactic Accuracy")).toBeInTheDocument();
-      expect(screen.getByText("<1.9s")).toBeInTheDocument();
-      expect(screen.getByText("Median Latency")).toBeInTheDocument();
+      expect(screen.queryByText(/35,000\+|99\.4%|<1\.9s/)).not.toBeInTheDocument();
+      expect(screen.getByRole("list", { name: "Supported programming languages" })).toBeInTheDocument();
     });
 
-    it("renders language logos marquee and anonymous early-access testimonials", () => {
+    it("renders a static language list without fabricated quotes", () => {
       render(<CustomerProof />);
-      // Language logos marquee (replaces company logos)
-      expect(screen.getAllByText("Python")[0]).toBeInTheDocument();
-      expect(screen.getAllByText("Go")[0]).toBeInTheDocument();
-      // Anonymous role-based testimonials (no named company employees)
-      expect(screen.getByText("Platform Engineer")).toBeInTheDocument();
-      expect(screen.getByText("Principal Engineer")).toBeInTheDocument();
-      expect(screen.getByText("Engineering Manager")).toBeInTheDocument();
+      expect(screen.getByText("Python")).toBeInTheDocument();
+      expect(screen.getByText("Go")).toBeInTheDocument();
+      expect(screen.queryByText("Ankit M.")).not.toBeInTheDocument();
     });
   });
 
@@ -238,11 +213,11 @@ describe("Wispr Flow Landing Architecture & Components", () => {
     it("renders high-contrast CTA card with headline", () => {
       render(<ActionDeck />);
       expect(
-        screen.getByText("Ready for Instant Code Comprehension?")
+        screen.getByText("Explore the workspace")
       ).toBeInTheDocument();
       expect(
         screen.getByRole("heading", {
-          name: /Transform How Your Engineering Team Reads Code/i,
+          name: /Your codebase shouldn't need a Rosetta Stone/i,
         })
       ).toBeInTheDocument();
     });
@@ -291,18 +266,17 @@ describe("Wispr Flow Landing Architecture & Components", () => {
       expect(screen.getByText("10 Free Translations / Day")).toBeInTheDocument();
       expect(screen.getByText("No Credit Card Required")).toBeInTheDocument();
       expect(
-        screen.getByText("Zero Code Storage Guarantee")
+        screen.getByText("HMAC-SHA256 Audit Receipts")
       ).toBeInTheDocument();
     });
   });
 
   describe("WisprFooter", () => {
-    it("renders semantic footer with brand description and live status", () => {
+    it("renders semantic footer without an unverified uptime claim", () => {
       render(<WisprFooter />);
       expect(screen.getByRole("contentinfo")).toBeInTheDocument();
-      expect(
-        screen.getByText("All Systems Operational · 99.99% Uptime")
-      ).toBeInTheDocument();
+      expect(screen.getByText(/practical workspace for understanding code/i)).toBeInTheDocument();
+      expect(screen.queryByText(/99\.99% Uptime/i)).not.toBeInTheDocument();
     });
 
     it("renders all 4 link columns with safe external link attributes", () => {
@@ -342,7 +316,7 @@ describe("Wispr Flow Landing Architecture & Components", () => {
       render(<GitPrWorkflowDemo onSelectDiff={onSelectDiff} />);
 
       expect(
-        screen.getByText("Automate Architectural PR Reviews in Seconds")
+        screen.getByText("Explore a pull request review flow")
       ).toBeInTheDocument();
 
       const goFileBtn = screen.getByText("src/database/pool_manager.go");
@@ -356,13 +330,13 @@ describe("Wispr Flow Landing Architecture & Components", () => {
       render(<BenchmarkExplorer onFilterLanguage={onFilter} />);
 
       expect(
-        screen.getByText("Multi-Language Latency & Accuracy Matrix")
+        screen.getByText("Find your language.")
       ).toBeInTheDocument();
 
       const searchInput = screen.getByLabelText("Filter programming languages");
       fireEvent.change(searchInput, { target: { value: "Rust" } });
       expect(onFilter).toHaveBeenCalledWith("Rust");
-      expect(screen.getByText("1.42s")).toBeInTheDocument();
+      expect(screen.getByText("Rust")).toBeInTheDocument();
     });
   });
 

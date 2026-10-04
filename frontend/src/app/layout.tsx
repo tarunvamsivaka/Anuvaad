@@ -10,13 +10,13 @@ import "./globals.css";
 
 // Font strategy: Inter for all UI text, JetBrains Mono for code blocks.
 const inter = Inter({
-  variable: "--font-sans",
+  variable: "--font-inter",
   subsets: ["latin"],
   display: "swap",  // Prevent FOIT — show fallback font while Inter loads
 });
 
 const jetbrains = JetBrains_Mono({
-  variable: "--font-mono",
+  variable: "--font-jetbrains",
   subsets: ["latin"],
   display: "swap",  // Prevent FOIT
   preload: true,    // Critical path — Monaco editor uses this font
@@ -25,7 +25,7 @@ const jetbrains = JetBrains_Mono({
 // Display font: DM Sans — clean geometric humanist for hero headlines and section headings
 // Loaded with variable weight axis for flexibility (300-900)
 const dmSans = DM_Sans({
-  variable: "--font-display",
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   display: "swap",
   axes: ["opsz"],  // optical size axis

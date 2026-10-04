@@ -84,6 +84,22 @@ test.describe('Authenticated Translation Flow', () => {
     await expect(page.locator('button:has-text("Translate")')).toBeVisible();
   });
 
+  test('mobile translation workspace switches between input and output panes', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/dashboard/translate');
+
+    const inputTab = page.getByRole('tab', { name: 'Input' });
+    const outputTab = page.getByRole('tab', { name: 'Output' });
+    await expect(inputTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#input-pane')).toBeVisible();
+    await expect(page.locator('#output-pane')).toBeHidden();
+
+    await outputTab.click();
+    await expect(outputTab).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#output-pane')).toBeVisible();
+    await expect(page.locator('#input-pane')).toBeHidden();
+  });
+
   test('pasting Python code and clicking Translate shows output blocks', async ({ page }) => {
     await page.goto('/dashboard/translate');
 

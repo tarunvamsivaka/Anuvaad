@@ -8,6 +8,7 @@ import {
   EnterpriseSecurity,
   CustomerProof,
   ActionDeck,
+  ArchitecturalPipeline,
   WisprFooter,
 } from "@/components/landing/wispr";
 
@@ -104,6 +105,9 @@ export default function Home() {
         <main id="main-content" className="flex-1 w-full flex flex-col items-center">
           {/* Hero & Quick-Action Prompt Bar */}
           <HeroControlBar />
+
+          {/* Verifiable Execution Pipeline Schematic */}
+          <ArchitecturalPipeline />
 
           {/* Core Product Modules */}
           <section id="playground" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
