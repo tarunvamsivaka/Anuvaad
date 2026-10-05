@@ -7,6 +7,7 @@ import { TranslationBlock } from "../_types";
 import type { QuotaError } from "@/components/modals/QuotaExceededModal";
 import { parseQuotaErrorPayload } from "@/components/modals/QuotaExceededModal";
 import { useTranslationStore } from "../_store/useTranslationStore";
+import { useShallow } from "zustand/react/shallow";
 import type { Workspace } from "@/context/WorkspaceContext";
 import type { AnuvaadSession } from "@/lib/supabase-types";
 
@@ -67,7 +68,16 @@ export function useTranslationStream({
     setOriginalBlocks,
     setModelUsed,
     sessionId, setSessionId
-  } = useTranslationStore();
+  } = useTranslationStore(useShallow((state) => ({
+    input: state.input,
+    isStreaming: state.isStreaming, setIsStreaming: state.setIsStreaming,
+    setStreamText: state.setStreamText,
+    setRawError: state.setRawError,
+    setOutputBlocks: state.setOutputBlocks,
+    setOriginalBlocks: state.setOriginalBlocks,
+    setModelUsed: state.setModelUsed,
+    sessionId: state.sessionId, setSessionId: state.setSessionId
+  })));
 
   // M3 Feature #7: Structured 429 quota error — consumed by QuotaExceededModal.
   const [quotaError, setQuotaError] = useState<QuotaError | null>(null);

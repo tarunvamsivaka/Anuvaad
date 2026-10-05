@@ -1,0 +1,4 @@
+
+## 2024-10-05 - [Zustand `useShallow` Requirement for Rapidly Updating Stores]
+**Learning:** In components subcribing to `useTranslationStore`, direct destructuring (e.g., `const { streamText } = useTranslationStore()`) causes unnecessary, continuous re-renders whenever *any* state in the store updates. Given the `streamText` state is rapidly changing during an AI SSE translation event, this causes significant performance degradation and lag, especially in heavy UI components like `OutputPanel` and `InputPanel` that mount Monaco editor instances.
+**Action:** Always wrap Zustand store object selectors with `useShallow` from `zustand/react/shallow` (`useTranslationStore(useShallow(state => ({ ... })))`) to memoize the selected state and trigger re-renders *only* when the explicitly selected properties change.
