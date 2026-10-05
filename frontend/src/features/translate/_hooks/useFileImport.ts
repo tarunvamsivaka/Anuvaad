@@ -5,6 +5,7 @@ import { track } from "@/lib/analytics";
 import { EXT_TO_LANGUAGE, ACCEPTED_EXTENSIONS } from "../_constants/languages";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
 import { useTranslationStore } from "../_store/useTranslationStore";
+import { useShallow } from "zustand/react/shallow";
 
 interface UseFileImportProps {
   mode: string;
@@ -25,7 +26,7 @@ export function useFileImport({
   onQuotaExceeded,
   accessToken,
 }: UseFileImportProps) {
-  const { setInput } = useTranslationStore();
+  const { setInput } = useTranslationStore(useShallow((state) => ({ setInput: state.setInput })));
   const [showGistInput, setShowGistInput] = useState(false);
   const [gistUrl, setGistUrl] = useState("");
   const [gistLoading, setGistLoading] = useState(false);
