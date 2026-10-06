@@ -35,9 +35,6 @@ import {
   Settings,
   Keyboard,
   Terminal,
-  Copy,
-  Layers,
-  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 

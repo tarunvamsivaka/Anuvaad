@@ -1,0 +1,3 @@
+## 2024-05-19 - Missing Formatter Exclusions Cause Cascading Destructive Changes
+**Learning:** Running `npm run format` (or Prettier) on a project lacking an explicit `.prettierignore` file or containing an incomplete one will recursively format build artifacts (`.next`, `dist`, `build`), testing outputs (`coverage`), and node modules (`node_modules`), resulting in massive, unintended destructive git diffs that crash CI/CD and manual reviews.
+**Action:** Always create or verify a `.prettierignore` file explicitly defining generated and dependency directories before blindly executing formatting tasks on large Javascript/TypeScript monorepositories to avoid codebase corruption.
