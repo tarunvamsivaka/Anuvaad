@@ -44,7 +44,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --include=optional
 
       - name: Run Vitest Unit Tests
         run: npm --prefix frontend run test
