@@ -1,111 +1,12 @@
-import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, DM_Sans } from "next/font/google";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/lib/auth-context";
-import { ThemeProvider } from "@/components/theme-provider";
-import { PostHogProvider } from "@/components/posthog-provider";
-import { EdgeWarmup } from "@/components/EdgeWarmup";
-import { Toaster } from "sonner";
+import type { Metadata } from "next";
 import "./globals.css";
 
-// Font strategy: Inter for all UI text, JetBrains Mono for code blocks.
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",  // Prevent FOIT — show fallback font while Inter loads
-});
-
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
-  display: "swap",  // Prevent FOIT
-  preload: true,    // Critical path — Monaco editor uses this font
-});
-
-// Display font: DM Sans — clean geometric humanist for hero headlines and section headings
-// Loaded with variable weight axis for flexibility (300-900)
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  display: "swap",
-  axes: ["opsz"],  // optical size axis
-});
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  themeColor: "#0f172a",
-};
-
 export const metadata: Metadata = {
-  manifest: "/manifest.json",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Anuvaad",
-  },
-  title: {
-    template: "%s | Anuvaad",
-    default: "Anuvaad — AI Code Translator & Explainer",
-  },
-  description:
-    "AI-powered code explanations, reverse engineering, and code translation. Supports 35+ languages including Python, JavaScript, Java, C++, TypeScript, Rust, Go, Swift, Kotlin, SQL, and more.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_FRONTEND_URL || "https://anuvaad.dev"),
-  keywords: [
-    "code translator",
-    "code to english",
-    "AI code explainer",
-    "code translation",
-    "reverse engineering",
-    "python to javascript",
-    "code to code",
-    "programming language translator",
-    "code documentation generator",
-  ],
-  authors: [{ name: "Anuvaad Team" }],
-  creator: "Anuvaad",
-  publisher: "Anuvaad",
-  alternates: {
-    canonical: "/",
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-    },
-  },
-  openGraph: {
-    title: "Anuvaad — AI Code Translator",
-    description:
-      "Translate code to plain English and back. 35+ languages supported. Understand any codebase instantly.",
-    type: "website",
-    url: "https://anuvaad.dev",
-    siteName: "Anuvaad",
-    images: [
-      {
-        url: "/opengraph-image", // dynamic OG route
-        width: 1200,
-        height: 630,
-        alt: "Anuvaad AI Code Translator",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Anuvaad — AI Code Translator",
-    description:
-      "Translate code to plain English and back. 35+ languages including Python, JavaScript, Java, C++, and more.",
-    images: ["/opengraph-image"],
-  },
+  title: "Anuvaad — High-Performance AI Code Translation Platform",
+  description: "Deterministic AST-validated multi-language code translation with Verifiable Zero Code Retention (ZDR).",
+  keywords: ["AI code translation", "Tree-sitter", "AST validation", "Zero Code Retention", "developer tools"],
+  authors: [{ name: "Anuvaad Engineering" }],
 };
-
-import { CommandPalette } from "@/components/CommandPalette";
-import { KeyboardShortcutsModal } from "@/components/modals/KeyboardShortcutsModal";
 
 export default function RootLayout({
   children,
@@ -113,41 +14,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${jetbrains.variable} ${dmSans.variable} h-full antialiased`}
-      suppressHydrationWarning
-    >
-      <head>
-        {/* FIX-19: Only preconnect to Google Fonts (fonts.gstatic.com). */}
-        {/* FIX-20: Removed LLM API preconnects — these leak server-side     */}
-        {/*         infrastructure to browsers and add unnecessary latency.   */}
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
-        <ThemeProvider>
-          <PostHogProvider>
-            <TooltipProvider>
-              <AuthProvider>
-                {children}
-                <CommandPalette />
-                <KeyboardShortcutsModal />
-              </AuthProvider>
-            </TooltipProvider>
-          </PostHogProvider>
-          <EdgeWarmup />
-          <Toaster
-            position="bottom-right"
-            toastOptions={{
-              className: "text-sm",
-              style: { fontFamily: "var(--font-sans)" },
-            }}
-            richColors
-            closeButton
-          />
-        </ThemeProvider>
+    <html lang="en" className="dark">
+      <body className="min-h-screen bg-[#0a0a0a] text-[#f8fafc] antialiased selection:bg-[#f59e0b]/30 selection:text-[#ffffff]">
+        {children}
       </body>
     </html>
   );
 }
-

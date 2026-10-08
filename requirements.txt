@@ -1,69 +1,18 @@
-fastapi==0.139.0
-uvicorn==0.46.0
-razorpay>=1.4.1,<2.0.0
-stripe>=10.0.0
-openai>=1.0.0,<3.0.0
-python-dotenv==1.2.2
-pydantic==2.13.4
-httpx==0.28.1
-
-upstash-redis==1.7.0
-redis>=8.0.1
-sentry-sdk[fastapi]
-python-multipart>=0.0.9
-resend>=2.33.0
-supabase>=2.4.0
-structlog>=24.0.0
-setuptools>=84.0.0
-sqlalchemy[asyncio]>=2.0.0
-alembic>=1.13.1
-asyncpg>=0.31.0
-greenlet>=3.0.3
-celery>=5.6.3
-pgvector>=0.2.5
-aiosqlite>=0.19.0
-psycopg2-binary>=2.9.9
-psycopg[binary]>=3.1.0
-PyGithub>=2.3.0
-cryptography>=50.0.0
-h2>=4.4.1
-PyJWT>=2.8.0
-argon2-cffi>=25.1.0
-
-# Sprint 1: Tree-sitter AST parser (Semantic Verification Harness)
+fastapi>=0.115.0,<0.140.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.8.0,<3.0.0
+pydantic-settings>=2.4.0
 tree-sitter>=0.23.0
 tree-sitter-python>=0.23.0
-tree-sitter-go>=0.23.0
 tree-sitter-typescript>=0.23.0
-
-# Sprint 1 (existing): Rust + Java grammars (graceful ImportError if missing)
+tree-sitter-javascript>=0.23.0
+tree-sitter-go>=0.23.0
 tree-sitter-rust>=0.23.0
 tree-sitter-java>=0.23.0
-
-# Sprint 4: Extended language support — 10 additional grammars (all MIT-licensed)
-# Each is loaded lazily via graceful ImportError in ast_parser.py._get_parser()
-tree-sitter-ruby>=0.23.0
-tree-sitter-php>=0.23.0
-tree-sitter-c-sharp>=0.23.0
-tree-sitter-kotlin>=1.0.0
-tree-sitter-swift>=0.7.0
-tree-sitter-scala>=0.23.0
-tree-sitter-lua>=0.5.0
-tree-sitter-c>=0.23.0
-tree-sitter-cpp>=0.23.0
-tree-sitter-sql>=0.3.0
-
-# Sprint 4 (universal): 370+ language fallback via pre-compiled grammar pack
-# Provides parsers for Elixir, Dart, R, Bash, Clojure, Erlang, Haskell, Zig,
-# COBOL, Fortran, and 360+ more — zero additional pip installs required
-tree-sitter-language-pack>=1.20.0
-
-# Sprint 8: OpenTelemetry Observability → Grafana Cloud (free tier)
-# Auto-instruments FastAPI routes, SQLAlchemy queries, httpx calls
-# Exports traces/metrics/logs to any OTLP endpoint (Grafana Cloud, Jaeger, etc.)
-opentelemetry-sdk>=1.25.0
-opentelemetry-instrumentation-fastapi>=0.46b0
-opentelemetry-instrumentation-sqlalchemy>=0.46b0
-opentelemetry-instrumentation-httpx>=0.46b0
-opentelemetry-instrumentation-redis>=0.46b0
-opentelemetry-exporter-otlp-proto-grpc>=1.25.0
+sqlalchemy>=2.0.30
+asyncpg>=0.29.0
+httpx>=0.27.0
+python-dotenv>=1.0.1
+scalar-fastapi>=1.0.0
+pytest>=8.3.0
+pytest-asyncio>=0.24.0

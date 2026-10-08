@@ -1,140 +1,90 @@
-import { Metadata } from "next";
-import Script from "next/script";
-import dynamic from "next/dynamic";
-import {
-  WisprNavbar,
-  NavAnnouncementPill,
-  HeroControlBar,
-  EnterpriseSecurity,
-  CustomerProof,
-  ActionDeck,
-  ArchitecturalPipeline,
-  WisprFooter,
-} from "@/components/landing/wispr";
+"use client";
 
-// Dynamic imports with layout-preserving skeleton fallbacks to minimize initial bundle size and eliminate TBT
-const LivePlayground = dynamic(
-  () => import("@/components/landing/wispr/LivePlayground").then((mod) => mod.LivePlayground),
-  {
-    loading: () => (
-      <div className="w-full h-[520px] rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 animate-pulse flex items-center justify-center">
-        <span className="text-xs font-mono text-slate-400">Loading Interactive Playground...</span>
-      </div>
-    ),
-  }
-);
+import React from "react";
+import { GlobalSidebar } from "@/components/workspace/GlobalSidebar";
+import { ContextFileTree } from "@/components/workspace/ContextFileTree";
+import { MonacoDualPane } from "@/components/editor/MonacoDualPane";
+import { ZdrReceiptModal } from "@/components/zdr/ZdrReceiptModal";
+import { GithubExportModal } from "@/components/workspace/GithubExportModal";
+import { SymbolGraphView } from "@/components/workspace/SymbolGraphView";
+import { AuditLedgerView } from "@/components/workspace/AuditLedgerView";
+import { ShieldCheck, Cpu, Database, Terminal, GitBranch } from "lucide-react";
+import { useTranslationStore } from "@/stores/translationStore";
 
-const GitPrWorkflowDemo = dynamic(
-  () => import("@/components/landing/wispr/GitPrWorkflowDemo").then((mod) => mod.GitPrWorkflowDemo),
-  {
-    loading: () => (
-      <div className="w-full h-[460px] rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 animate-pulse flex items-center justify-center">
-        <span className="text-xs font-mono text-slate-400">Loading PR Workflow Simulator...</span>
-      </div>
-    ),
-  }
-);
+export default function HomePage() {
+  const { activeView, repoName, selectedFilePath } = useTranslationStore();
 
-const BenchmarkExplorer = dynamic(
-  () => import("@/components/landing/wispr/BenchmarkExplorer").then((mod) => mod.BenchmarkExplorer),
-  {
-    loading: () => (
-      <div className="w-full h-[480px] rounded-3xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 animate-pulse flex items-center justify-center">
-        <span className="text-xs font-mono text-slate-400">Loading Benchmark Explorer...</span>
-      </div>
-    ),
-  }
-);
-
-export const metadata: Metadata = {
-  title: "Anuvaad — The AI Code Translator for Modern Teams",
-  description:
-    "Stop struggling with legacy code. Anuvaad instantly translates obscure logic into plain English or generates perfect code from your human specifications.",
-};
-
-const jsonLd = {
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  name: "Anuvaad",
-  applicationCategory: "DeveloperApplication",
-  operatingSystem: "Web",
-  description:
-    "AI-powered code translator that converts code to plain English and back. Supports 35+ programming languages.",
-  url: "https://anuvaad.dev",
-  offers: [
-    {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "INR",
-      name: "Free Plan",
-      description: "10 translations per day, 35+ languages",
-    },
-    {
-      "@type": "Offer",
-      price: "499",
-      priceCurrency: "INR",
-      name: "Pro Plan",
-      description: "Unlimited translations, priority processing",
-    },
-  ],
-};
-
-export default function Home() {
   return (
-    <>
-      <Script
-        id="schema-org-web-app"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <div className="relative min-h-screen w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-slate-900 selection:text-white dark:selection:bg-slate-100 dark:selection:text-slate-900 flex flex-col overflow-x-hidden">
-        {/* Skip to Main Content Link for Keyboard & Screen Reader Accessibility */}
-        <a
-          href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-white dark:focus:bg-slate-900 focus:text-slate-900 dark:focus:text-white focus:border focus:border-slate-300 dark:focus:border-slate-700 focus:rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 shadow-xl font-semibold text-xs"
-        >
-          Skip to main content
-        </a>
+    <div className="flex h-screen w-screen overflow-hidden bg-[#0a0a0a] text-[#f8fafc]">
+      {/* Column 1: Global Navigation Sidebar (60px) */}
+      <GlobalSidebar />
 
-        {/* Announcement Banner */}
-        <NavAnnouncementPill />
+      {/* Column 2: Context Panel (File Tree & DAG Hierarchy) */}
+      {activeView === "repo" && <ContextFileTree />}
 
-        {/* Floating Pill Navigation */}
-        <WisprNavbar />
+      {/* Column 3: Main Workspace Stage */}
+      <main className="flex flex-1 flex-col overflow-hidden bg-[#0a0a0a]">
+        {/* Workspace Top Bar */}
+        <header className="flex h-[48px] shrink-0 items-center justify-between border-b border-[#202020] bg-[#0c0c0f] px-6">
+          <div className="flex items-center gap-3">
+            <h1 className="text-xs font-bold text-[#f59e0b] tracking-wide flex items-center gap-1.5">
+              <span>Anuvaad</span>
+              <span className="text-[#94a3b8] font-normal">/</span>
+            </h1>
+            <div className="flex items-center gap-2">
+              <GitBranch className="h-4 w-4 text-[#f59e0b]" aria-hidden="true" />
+              <span className="text-xs font-semibold text-[#f8fafc]">{repoName}</span>
+              <span className="text-[#94a3b8]">/</span>
+              <span className="text-xs font-mono text-[#f59e0b]">{selectedFilePath}</span>
+            </div>
+          </div>
 
-        <main id="main-content" className="flex-1 w-full flex flex-col items-center">
-          {/* Hero & Quick-Action Prompt Bar */}
-          <HeroControlBar />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#22c55e]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] animate-pulse"></span>
+              Zero Code Retention (ZDR) Active
+            </div>
+          </div>
+        </header>
 
-          {/* Verifiable Execution Pipeline Schematic */}
-          <ArchitecturalPipeline />
+        {/* Dynamic Workspace Content */}
+        <div className="flex-1 p-3 overflow-hidden flex flex-col justify-between">
+          {activeView === "symbols" ? (
+            <SymbolGraphView />
+          ) : activeView === "audit" ? (
+            <AuditLedgerView />
+          ) : (
+            <MonacoDualPane />
+          )}
 
-          {/* Core Product Modules */}
-          <section id="playground" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
-            <LivePlayground />
-          </section>
+          {/* Bottom Technical Status Bar */}
+          <footer className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#202020] bg-[#111111] px-3 py-1.5 text-[11px] font-mono text-[#94a3b8] shrink-0">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="flex items-center gap-1.5 text-[#f8fafc]">
+                <Cpu className="h-3.5 w-3.5 text-[#f59e0b]" />
+                Inference: <span className="text-[#f59e0b]">Tier 1 (Cerebras LPU) / Tier 2 (Gemini 2.0 Flash)</span>
+              </span>
+              <span className="hidden sm:flex items-center gap-1.5">
+                <Terminal className="h-3.5 w-3.5 text-[#22c55e]" />
+                Self-Healing AST: Active
+              </span>
+              <span className="hidden md:flex items-center gap-1.5">
+                <Database className="h-3.5 w-3.5 text-[#3b82f6]" />
+                pgvector Memory: Connected
+              </span>
+            </div>
 
-          <section id="workflow" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
-            <GitPrWorkflowDemo />
-          </section>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-3.5 w-3.5 text-[#22c55e]" />
+              <span>HMAC-SHA256 Ephemeral Guarantee</span>
+            </div>
+          </footer>
+        </div>
+      </main>
 
-          <section id="benchmarks" className="w-full py-16 px-4 md:px-8 max-w-7xl mx-auto">
-            <BenchmarkExplorer />
-          </section>
-
-          {/* Enterprise Security & Governance */}
-          <EnterpriseSecurity />
-
-          {/* Customer Social Proof & Adoption */}
-          <CustomerProof />
-
-          {/* High-Conversion Action Deck */}
-          <ActionDeck />
-        </main>
-
-        {/* Semantic Sitemap Footer */}
-        <WisprFooter />
-      </div>
-    </>
+      {/* Global Modals */}
+      <ZdrReceiptModal />
+      <GithubExportModal />
+    </div>
   );
 }

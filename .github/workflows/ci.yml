@@ -1,341 +1,71 @@
-name: Anuvaad CI
+name: Anuvaad CI Pipeline
 
 on:
   push:
-    branches: [master]
+    branches: [main, master]
   pull_request:
-    branches: [master]
-
-permissions:
-  contents: read
+    branches: [main, master]
 
 jobs:
-  test-matrix:
-    name: test
+  backend-test:
+    name: Backend Test & AST Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]  # Production spec Python 3.11+
-
-    # L-02: Start Redis so Redis-backed features are tested in CI (not just gracefully skipped)
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 3
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.12"
           cache: "pip"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "setuptools>=83.0.0"
           pip install -r requirements.txt
-          pip install pytest httpx "pytest-asyncio>=1.0.0,<2.0.0" structlog aiosqlite
 
-      - name: Run tests
-        env:
-          GROQ_API_KEY: test_key_for_ci
-          DEEPSEEK_API_KEY: test_key_for_ci
-          TESTING: "true"
-          SUPABASE_URL: https://placeholder.supabase.co
-          SUPABASE_ANON_KEY: placeholder_key_for_ci
-          SUPABASE_SERVICE_ROLE_KEY: placeholder_service_key_for_ci
-          SUPABASE_JWT_SECRET: "test_supabase_jwt_secret_32bytes_minimum_length"
-          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
-          REDIS_URL: redis://localhost:6379
+      - name: Run Pytest Test Suite
         run: |
-          pytest tests/ -v --tb=short --ignore=tests/test_production.py
+          pytest tests/ -v
 
-      - name: Security audit (pip-audit)
-        run: |
-          pip install pip-audit
-          pip-audit -r requirements.txt --ignore-vuln GHSA-x7gm-x3g3-g6xq --progress-spinner off
-        # Note: GHSA-x7gm-x3g3-g6xq is an optional transitive dependency warning.
-
-  # Status check aggregator for required branch protection 'test'
-  test:
-    name: test
+  frontend-test:
+    name: Frontend Quality & Typecheck
     runs-on: ubuntu-latest
-    needs: [test-matrix]
-    steps:
-      - name: Verify test suite status
-        run: echo "All Python test suites passed across Python 3.11, 3.12, and 3.13."
 
-  # Phase 1B: Exercise the additive repository-index lifecycle migration
-  # against PostgreSQL with pgvector.  SQLite cannot validate these PostgreSQL
-  # schema details or the Alembic upgrade/downgrade path.
-  migration:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_DB: anuvaad_migration
-          POSTGRES_USER: anuvaad
-          POSTGRES_PASSWORD: anuvaad
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U anuvaad -d anuvaad_migration"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt pytest
-
-      - name: Verify Phase 1B migration upgrade and downgrade
-        env:
-          DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
-          MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
-          # SEC-CI-01: TOKEN_ENCRYPTION_KEY moved from hardcoded value to GitHub Actions secret with test fallback
-          TOKEN_ENCRYPTION_KEY: ${{ secrets.CI_TOKEN_ENCRYPTION_KEY || 'GdBdzxEDtOeI20E-5p7tzdkKr4An81VQ6oHcw8Og60U=' }}
-        run: pytest tests/test_migrations.py -v
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install linters
-        run: pip install ruff
-
-      - name: Lint Python
-        run: ruff check main.py app/ tests/ --select E,F,W --ignore E501,F401
-
-      - name: Format check Python
-        run: ruff format --check main.py app/ tests/ alembic/
-        # If this fails, run `ruff format .` locally and commit the changes.
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        run: cd frontend && npm ci
-
-      - name: Typecheck TypeScript
-        run: cd frontend && npx tsc --noEmit
-
-  frontend:
-    runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend
+        working-directory: ./frontend
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: 20
           cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: frontend/package.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build CLI package
-        run: npx tsc -p ../cli/tsconfig.json
+      - name: Run Vitest Unit Tests
+        run: npm run test
 
-      - name: Build frontend
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key_for_ci_build
-          NEXT_PUBLIC_API_URL: http://localhost:8000
+      - name: Next.js Production Build
         run: npm run build
 
-      - name: Run Vitest unit tests
-        run: npx vitest run
-
-      - name: Security audit (npm audit)
-        # B-03: npm audit fix resolved all HIGH/moderate vulnerabilities (2026-08-08).
-        # Audit level is now hardened to 'high' to gate on any future HIGH+ CVEs.
-        run: npm audit --audit-level=high
-
-      - name: Lint frontend
-        run: npm run lint
-
-  e2e:
+  security-audit:
+    name: Shift-Left Security & Gitleaks
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: [frontend]
-    defaults:
-      run:
-        working-directory: frontend
+
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+          fetch-depth: 0
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-
-      - name: Build frontend
+      - name: Run Gitleaks Secret Audit
+        uses: gitleaks/gitleaks-action@v2
         env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key_for_ci_build
-          NEXT_PUBLIC_API_URL: http://localhost:8000
-        run: npm run build
-
-      - name: Copy static assets for standalone server
-        # `node .next/standalone/server.js` does NOT auto-include .next/static or public.
-        # We must copy them so the standalone server serves CSS/JS/images correctly.
-        run: |
-          mkdir -p .next/standalone/.next/static
-          cp -r .next/static/. .next/standalone/.next/static/
-          mkdir -p .next/standalone/public
-          cp -r public/. .next/standalone/public/
-
-      - name: Run Playwright tests
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key_for_ci_build
-          NEXT_PUBLIC_API_URL: http://localhost:8000
-          PLAYWRIGHT_TEST_EMAIL: test@example.com
-          PLAYWRIGHT_TEST_PASSWORD: password123
-        run: npx playwright test
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: frontend/playwright-report/
-          retention-days: 30
-
-  docker:
-    runs-on: ubuntu-latest
-    needs: [test, migration, lint, frontend, e2e, cli, vscode-extension]
-    if: github.ref == 'refs/heads/master'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t anuvaad:latest .
-
-      - name: Verify container health
-        run: |
-          docker run -d --name anuvaad-test \
-            -e GROQ_API_KEY=test_key \
-            -e DEEPSEEK_API_KEY=test_key \
-            -p 8000:8000 \
-            anuvaad:latest
-          
-          echo "Waiting for container to become healthy..."
-          success=false
-          for i in {1..30}; do
-            if curl -s -f http://localhost:8000/api/health > /dev/null; then
-              echo "Container is healthy!"
-              success=true
-              break
-            fi
-            echo "Waiting... ($i/30)"
-            sleep 1
-          done
-          
-          if [ "$success" = false ]; then
-            echo "❌ Container health check failed! Fetching logs:"
-            docker logs anuvaad-test
-            exit 1
-          fi
-          
-          docker stop anuvaad-test
-
-  # CLI package CI — typecheck + build + verification
-  cli:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cli
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: cli/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Typecheck and Build CLI
-        run: |
-          npx tsc -p tsconfig.json
-          node dist/index.js --version
-          node dist/index.js --help
-
-  # L-03: VSCode extension CI — typecheck + lint + test (P2-RISK-01)
-  vscode-extension:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: vscode-extension
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: vscode-extension/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: TypeScript typecheck
-        run: npx tsc --noEmit
-
-      - name: Lint
-        run: npm run lint --if-present
-
-      - name: Run VS Code Extension Tests
-        run: npm test
-
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

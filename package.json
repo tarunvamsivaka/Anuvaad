@@ -1,0 +1,15 @@
+{
+  "name": "anuvaad-platform",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "build": "npm --prefix frontend run build",
+    "dev": "npm --prefix frontend run dev",
+    "start": "npm --prefix frontend run start",
+    "test": "npm --prefix frontend run test",
+    "lint": "npm --prefix frontend run lint"
+  }
+}

@@ -1,77 +1,50 @@
-# Environments
-.env
-.env.*
-!.env.example
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
-.pytest_cache/
-.ruff_cache/
-
-# IDEs
-.vscode/
-!.vscode/mcp.json
-.idea/
-
-# Dependencies
-venv/
+*.so
+.Python
 env/
-.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Next.js
 node_modules/
+.next/
+out/
+.vercel
 
-# Next.js build output
-frontend/.next/
-frontend/test-results/
-frontend/playwright-report/
-cli/dist/
+# Environment variables & secrets
+.env*
+!.env.example
+*.local
 
-# Deprecated monolith (replaced by js/ modules)
-script.js
-TEST_CASES.md
+# Nested archives & agent state
+Anuvaad/
+.agents/
+.gsd/
 
-# Internal planning documents (keep in private Notion / separate repo)
-implementation_plan*
-walkthrough*
-task.md
-task-*.md
-
-# OS
+# IDE & OS
 .DS_Store
 Thumbs.db
-scratch/
-test.db
-
-# Large generated documents (auto-built, not for source control)
-all_source_code.md
-combined_markdown_files.md
-ENGINEERING_AUDIT_REPORT.md
-audit_findings.md
-
-# Logs and test artifacts
-failed_e2e_log.txt
-frontend-log.txt
-playwright-report.zip
-.playwright-report/
-
-# Playwright dynamic state
-frontend/playwright/.auth/
-frontend/playwright/*.png
-
-# VS Code extension build output
-vscode-extension/out/
-vscode-extension/*.vsix
-vscode-extension/.vscode-test/
-.agents/
-
-# Certificates, private keys, and credential stores
-*.pem
-*.key
-*.cert
-*.pfx
-*.p12
-id_rsa*
-id_ed25519*
-secrets.tar*
-
+*.swp
+*.swo
+.vscode/
+.idea/
+.playwright-mcp/

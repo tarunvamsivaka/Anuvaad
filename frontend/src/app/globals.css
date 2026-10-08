@@ -1,195 +1,50 @@
-/* ============================================================
-   ANUVAAD — globals.css
-   Phase E1: Slim entry point (< 60 lines)
-   Only imports what every route needs: tokens + base + utilities + animations.
-   Route-specific CSS (landing/dashboard/auth) is imported in their layouts.
-   ============================================================ */
-
-/* ── TAILWIND ECOSYSTEM ───────────────────────────────────── */
 @import "tailwindcss";
-@import "tw-animate-css";
-
-/* ── DESIGN SYSTEM V2 TOKENS ──────────────────────────────── */
-@import "../design/tokens/index.css";
-
-/* ── ROUTE-AGNOSTIC FOUNDATIONS ───────────────────────────── */
-@import "../design/css/base.css";
-@import "../design/css/animations.css";
-@import "../design/css/utilities.css";
-@import "../design/css/components.css";
-
-/* ── TAILWIND CUSTOM VARIANT ──────────────────────────────── */
-@custom-variant dark (&:is(.dark, .dark *));
-
-/* ── TAILWIND THEME BRIDGE ─────────────────────────────────── */
-/* Maps shadcn semantic tokens → Tailwind v4 color utilities   */
-@theme inline {
-  --color-background:                  var(--background);
-  --color-foreground:                  var(--foreground);
-  --font-sans:                         var(--font-inter);
-  --font-mono:                         var(--font-jetbrains);
-  --font-heading:                      var(--font-dm-sans);
-  --font-outfit:                       var(--font-dm-sans);
-  --font-garamond:                     var(--font-dm-sans);
-  --font-playfair:                     var(--font-dm-sans);
-  --font-display:                      var(--font-dm-sans);
-  --color-brand-from:                  var(--brand-from);
-  --color-brand-via:                   var(--brand-via);
-  --color-brand-to:                    var(--brand-to);
-  --color-brand-secondary:             var(--brand-secondary);
-  --color-sidebar-ring:                var(--sidebar-ring);
-  --color-sidebar-border:              var(--sidebar-border);
-  --color-sidebar-accent-foreground:   var(--sidebar-accent-foreground);
-  --color-sidebar-accent:              var(--sidebar-accent);
-  --color-sidebar-primary-foreground:  var(--sidebar-primary-foreground);
-  --color-sidebar-primary:             var(--sidebar-primary);
-  --color-sidebar-foreground:          var(--sidebar-foreground);
-  --color-sidebar:                     var(--sidebar);
-  --color-chart-5:                     var(--chart-5);
-  --color-chart-4:                     var(--chart-4);
-  --color-chart-3:                     var(--chart-3);
-  --color-chart-2:                     var(--chart-2);
-  --color-chart-1:                     var(--chart-1);
-  --color-ring:                        var(--ring);
-  --color-input:                       var(--input);
-  --color-border:                      var(--border);
-  --color-destructive:                 var(--destructive);
-  --color-accent-foreground:           var(--accent-foreground);
-  --color-accent:                      var(--accent);
-  --color-muted-foreground:            var(--muted-foreground);
-  --color-muted:                       var(--muted);
-  --color-secondary-foreground:        var(--secondary-foreground);
-  --color-secondary:                   var(--secondary);
-  --color-primary-foreground:          var(--primary-foreground);
-  --color-primary:                     var(--primary);
-  --color-popover-foreground:          var(--popover-foreground);
-  --color-popover:                     var(--popover);
-  --color-card-foreground:             var(--card-foreground);
-  --color-card:                        var(--card);
-
-  /* Radius bridge */
-  --radius-sm:  calc(var(--radius) * 0.6);
-  --radius-md:  calc(var(--radius) * 0.8);
-  --radius-lg:  var(--radius);
-  --radius-xl:  calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-
-  /* Anuvaad Surfaces */
-  --color-surface-base:     var(--surface-base);
-  --color-surface-low:      var(--surface-low);
-  --color-surface-mid:      var(--surface-mid);
-  --color-surface-high:     var(--surface-high);
-  --color-surface-overlay:  var(--surface-overlay);
-  --color-surface-card:     var(--surface-card);
-  --color-surface-charcoal: var(--surface-charcoal);
-  --color-surface-panel:    var(--surface-panel);
-
-  /* Anuvaad Borders */
-  --color-border-faint:   var(--border-faint);
-  --color-border-subtle:  var(--border-subtle);
-  --color-border-default: var(--border-default);
-  --color-border-medium:  var(--border-medium);
-  --color-border-active:  var(--border-active);
-  --color-border-focus:   var(--border-focus);
-
-  /* Anuvaad Text */
-  --color-text-primary:   var(--text-primary);
-  --color-text-secondary: var(--text-secondary);
-  --color-text-muted:     var(--text-muted);
-  --color-text-amber:     var(--text-amber);
-  --color-text-teal:      var(--text-teal);
-  --color-text-on-brand:  var(--text-on-brand);
-
-  /* Anuvaad design token aliases in Tailwind color space */
-  --color-amber-400: #fbbf24;
-  --color-amber-500: var(--amber-500);
-  --color-amber-600: var(--amber-600);
-  --color-amber-700: var(--amber-700);
-}
-
-/* ── SHADCN BASE TOKENS (light / dark) ────────────────────── */
 
 :root {
-  /* Clean Neutral Surface Hierarchy (Light Mode) */
-  --background:              #ffffff;
-  --foreground:              #0f172a;  /* Slate-900 */
-  --card:                    #ffffff;
-  --card-foreground:         #0f172a;
-  --popover:                 #ffffff;
-  --popover-foreground:      #0f172a;
-  --primary:                 #0f172a;  /* Slate-900 primary action */
-  --primary-foreground:      #ffffff;
-  --secondary:               #f8fafc;  /* Slate-50 secondary surfaces */
-  --secondary-foreground:    #0f172a;
-  --muted:                   #f1f5f9;  /* Slate-100 muted */
-  --muted-foreground:        #64748b;  /* Slate-500 */
-  --accent:                  #f1f5f9;
-  --accent-foreground:       #0f172a;
-  --destructive:             oklch(0.6 0.2 25);
-  --border:                  #e2e8f0;  /* Slate-200 subtle 1px border */
-  --input:                   #e2e8f0;
-  --ring:                    #0f172a;
-  --chart-1:                 oklch(0.87 0 0);
-  --chart-2:                 oklch(0.556 0 0);
-  --chart-3:                 oklch(0.439 0 0);
-  --chart-4:                 oklch(0.371 0 0);
-  --chart-5:                 oklch(0.269 0 0);
-  --radius:                  0.75rem;
-  --sidebar:                 #ffffff;
-  --sidebar-foreground:      #0f172a;
-  --sidebar-primary:         #0f172a;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent:          #f8fafc;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border:          #e2e8f0;
-  --sidebar-ring:            #0f172a;
+  --background: #0a0a0a;
+  --foreground: #f8fafc;
+  --surface-0: #0a0a0a;
+  --surface-1: #111111;
+  --surface-2: #171717;
+  --border-subtle: #202020;
+  --border-focus: #f59e0b;
+  --accent: #f59e0b;
+  --accent-glow: rgba(245, 158, 11, 0.25);
+  --success: #22c55e;
+  --error: #ef4444;
 }
 
-.dark {
-  /* High-Contrast Dark Charcoal Architecture (Dark Mode) */
-  --background:              #020617;  /* Slate-950 deep canvas */
-  --foreground:              #f8fafc;  /* Slate-50 crisp typography */
-  --card:                    #0f172a;  /* Slate-900 card surface */
-  --card-foreground:         #f8fafc;
-  --popover:                 #0f172a;
-  --popover-foreground:      #f8fafc;
-  --primary:                 #f8fafc;  /* Crisp light primary */
-  --primary-foreground:      #020617;
-  --secondary:               #0f172a;
-  --secondary-foreground:    #f8fafc;
-  --muted:                   #1e293b;  /* Slate-800 */
-  --muted-foreground:        #94a3b8;  /* Slate-400 */
-  --accent:                  #1e293b;
-  --accent-foreground:       #f8fafc;
-  --destructive:             oklch(0.6 0.2 25);
-  --border:                  #1e293b;  /* Slate-800 subtle 1px border */
-  --input:                   #1e293b;
-  --ring:                    #f8fafc;
-  --chart-1:                 oklch(0.87 0 0);
-  --chart-2:                 oklch(0.556 0 0);
-  --chart-3:                 oklch(0.439 0 0);
-  --chart-4:                 oklch(0.371 0 0);
-  --chart-5:                 oklch(0.269 0 0);
-  --sidebar:                 #020617;
-  --sidebar-foreground:      #f8fafc;
-  --sidebar-primary:         #f8fafc;
-  --sidebar-primary-foreground: #020617;
-  --sidebar-accent:          #0f172a;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border:          #1e293b;
-  --sidebar-ring:            #f8fafc;
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Geist", "Inter", sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ── HARD REDUCED MOTION GUARANTEE ────────────────────────── */
-/* Belt-and-suspenders: catches anything not using the media  */
-/* query in individual files.                                  */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration:       0.01ms !important;
-    animation-iteration-count: 1     !important;
-    transition-duration:      0.01ms !important;
-    scroll-behavior:          auto   !important;
-  }
+/* Custom code typography */
+code, pre, .font-mono {
+  font-family: "JetBrains Mono", "Geist Mono", monospace;
+}
+
+/* Accessible focus outline */
+*:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #262626;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3b3b3b;
 }
