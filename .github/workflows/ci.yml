@@ -44,7 +44,9 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        run: npm install --include=optional
+        run: |
+          npm install --include=optional
+          npm --prefix frontend install @tailwindcss/oxide-linux-x64-gnu lightningcss-linux-x64-gnu @rollup/rollup-linux-x64-gnu --no-save
 
       - name: Run Vitest Unit Tests
         run: npm --prefix frontend run test

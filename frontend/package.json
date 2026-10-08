@@ -33,6 +33,7 @@
   "optionalDependencies": {
     "@next/swc-linux-x64-gnu": "^16.4.0",
     "@rollup/rollup-linux-x64-gnu": "^4.9.0",
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.3.0",
     "lightningcss-linux-x64-gnu": "^1.32.0"
   }
 }
