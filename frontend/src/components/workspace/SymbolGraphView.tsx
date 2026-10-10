@@ -3,9 +3,18 @@
 import React from "react";
 import { Network, Layers, FileCode, CheckCircle2, ArrowRight } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function SymbolGraphView() {
-  const { repoName, repoFiles, selectFile, setActiveView } = useTranslationStore();
+  // Optimize: Use useShallow with specific selectors to prevent re-renders when other store values change
+  const { repoName, repoFiles, selectFile, setActiveView } = useTranslationStore(
+    useShallow((state) => ({
+      repoName: state.repoName,
+      repoFiles: state.repoFiles,
+      selectFile: state.selectFile,
+      setActiveView: state.setActiveView,
+    }))
+  );
   const fileEntries = Object.entries(repoFiles);
 
   const handleNodeClick = (path: string) => {
