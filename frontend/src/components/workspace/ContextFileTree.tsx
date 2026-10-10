@@ -12,8 +12,11 @@ import {
   Layers,
 } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function ContextFileTree() {
+  // Optimize: Use useShallow with specific selectors to prevent re-renders when other store values change
+  // Impact: Reduces re-renders significantly on rapid store updates (like code changes)
   const {
     repoName,
     repoFiles,
@@ -22,7 +25,15 @@ export function ContextFileTree() {
     isBatchTranslating,
     setBatchTranslating,
     updateFileTranslation,
-  } = useTranslationStore();
+  } = useTranslationStore(useShallow((state) => ({
+    repoName: state.repoName,
+    repoFiles: state.repoFiles,
+    selectedFilePath: state.selectedFilePath,
+    selectFile: state.selectFile,
+    isBatchTranslating: state.isBatchTranslating,
+    setBatchTranslating: state.setBatchTranslating,
+    updateFileTranslation: state.updateFileTranslation,
+  })));
 
   const fileList = Object.values(repoFiles);
   const completedCount = fileList.filter((f) => f.status === "completed").length;

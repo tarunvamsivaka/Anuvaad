@@ -5,10 +5,18 @@ import { GitPullRequest, Check, ExternalLink, X, ShieldCheck } from "lucide-reac
 import { useTranslationStore } from "@/stores/translationStore";
 
 import { createGithubPullRequest } from "@/lib/api";
+import { useShallow } from "zustand/react/shallow";
 
 export function GithubExportModal() {
-  const { isGithubPrModalOpen, closeGithubPrModal, repoName, activeRepoId } =
-    useTranslationStore();
+  // Optimize: Use useShallow with specific selectors to prevent re-renders when other store values change
+  const { isGithubPrModalOpen, closeGithubPrModal, repoName, activeRepoId } = useTranslationStore(
+    useShallow((state) => ({
+      isGithubPrModalOpen: state.isGithubPrModalOpen,
+      closeGithubPrModal: state.closeGithubPrModal,
+      repoName: state.repoName,
+      activeRepoId: state.activeRepoId,
+    }))
+  );
 
   const [branch, setBranch] = useState("anuvaad/modernize-typescript");
   const [prTitle, setPrTitle] = useState("feat: Autonomous multi-file code modernization via Anuvaad");
