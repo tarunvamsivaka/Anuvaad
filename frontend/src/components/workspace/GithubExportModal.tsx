@@ -3,12 +3,20 @@
 import React, { useState } from "react";
 import { GitPullRequest, Check, ExternalLink, X, ShieldCheck } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 import { createGithubPullRequest } from "@/lib/api";
 
 export function GithubExportModal() {
   const { isGithubPrModalOpen, closeGithubPrModal, repoName, activeRepoId } =
-    useTranslationStore();
+    useTranslationStore(
+      useShallow((state) => ({
+        isGithubPrModalOpen: state.isGithubPrModalOpen,
+        closeGithubPrModal: state.closeGithubPrModal,
+        repoName: state.repoName,
+        activeRepoId: state.activeRepoId,
+      }))
+    );
 
   const [branch, setBranch] = useState("anuvaad/modernize-typescript");
   const [prTitle, setPrTitle] = useState("feat: Autonomous multi-file code modernization via Anuvaad");
