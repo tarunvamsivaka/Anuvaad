@@ -10,9 +10,16 @@ import {
   Settings,
 } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function GlobalSidebar() {
-  const { activeView, setActiveView, openGithubPrModal } = useTranslationStore();
+  const { activeView, setActiveView, openGithubPrModal } = useTranslationStore(
+    useShallow((state) => ({
+      activeView: state.activeView,
+      setActiveView: state.setActiveView,
+      openGithubPrModal: state.openGithubPrModal,
+    }))
+  );
 
   const navItems = [
     { id: "repo", label: "Repository Tree", icon: FolderTree },

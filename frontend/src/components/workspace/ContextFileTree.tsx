@@ -12,6 +12,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function ContextFileTree() {
   const {
@@ -22,10 +23,20 @@ export function ContextFileTree() {
     isBatchTranslating,
     setBatchTranslating,
     updateFileTranslation,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      repoName: state.repoName,
+      repoFiles: state.repoFiles,
+      selectedFilePath: state.selectedFilePath,
+      selectFile: state.selectFile,
+      isBatchTranslating: state.isBatchTranslating,
+      setBatchTranslating: state.setBatchTranslating,
+      updateFileTranslation: state.updateFileTranslation,
+    }))
+  );
 
-  const fileList = Object.values(repoFiles);
-  const completedCount = fileList.filter((f) => f.status === "completed").length;
+  const fileList = React.useMemo(() => Object.values(repoFiles), [repoFiles]);
+  const completedCount = React.useMemo(() => fileList.filter((f) => f.status === "completed").length, [fileList]);
 
   const handleRunBatchTranslation = async () => {
     setBatchTranslating(true);
