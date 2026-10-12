@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   FileCode,
   CheckCircle2,
@@ -11,6 +11,7 @@ import {
   GitBranch,
   Layers,
 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { useTranslationStore } from "@/stores/translationStore";
 
 export function ContextFileTree() {
@@ -22,10 +23,24 @@ export function ContextFileTree() {
     isBatchTranslating,
     setBatchTranslating,
     updateFileTranslation,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      repoName: state.repoName,
+      repoFiles: state.repoFiles,
+      selectedFilePath: state.selectedFilePath,
+      selectFile: state.selectFile,
+      isBatchTranslating: state.isBatchTranslating,
+      setBatchTranslating: state.setBatchTranslating,
+      updateFileTranslation: state.updateFileTranslation,
+    })),
+  );
 
-  const fileList = Object.values(repoFiles);
-  const completedCount = fileList.filter((f) => f.status === "completed").length;
+  // ⚡ Bolt: Memoize derived state from repoFiles to avoid O(N) calculations and array creation on every render
+  const fileList = useMemo(() => Object.values(repoFiles), [repoFiles]);
+  const completedCount = useMemo(
+    () => fileList.filter((f) => f.status === "completed").length,
+    [fileList],
+  );
 
   const handleRunBatchTranslation = async () => {
     setBatchTranslating(true);

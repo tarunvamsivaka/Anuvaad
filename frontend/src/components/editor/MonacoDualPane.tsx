@@ -13,6 +13,7 @@ import {
   Check,
   RotateCw,
 } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { useTranslationStore, LanguageOption } from "@/stores/translationStore";
 import { translateCode } from "@/lib/api";
 
@@ -39,6 +40,7 @@ const LANGUAGES: { id: LanguageOption; label: string; monacoLang: string }[] = [
 ];
 
 export function MonacoDualPane() {
+  // ⚡ Bolt: Use useShallow hook to prevent expensive Monaco editor re-renders when unrelated state (like modal toggles) changes
   const {
     sourceLanguage,
     targetLanguage,
@@ -55,7 +57,25 @@ export function MonacoDualPane() {
     setError,
     setLastResponse,
     openReceiptModal,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      sourceLanguage: state.sourceLanguage,
+      targetLanguage: state.targetLanguage,
+      sourceCode: state.sourceCode,
+      translatedCode: state.translatedCode,
+      isLoading: state.isLoading,
+      error: state.error,
+      lastResponse: state.lastResponse,
+      setSourceLanguage: state.setSourceLanguage,
+      setTargetLanguage: state.setTargetLanguage,
+      setSourceCode: state.setSourceCode,
+      setTranslatedCode: state.setTranslatedCode,
+      setLoading: state.setLoading,
+      setError: state.setError,
+      setLastResponse: state.setLastResponse,
+      openReceiptModal: state.openReceiptModal,
+    })),
+  );
 
   const [copied, setCopied] = useState(false);
 
@@ -108,7 +128,9 @@ export function MonacoDualPane() {
               id="source-language-select"
               aria-label="Source Language"
               value={sourceLanguage}
-              onChange={(e) => setSourceLanguage(e.target.value as LanguageOption)}
+              onChange={(e) =>
+                setSourceLanguage(e.target.value as LanguageOption)
+              }
               className="rounded-lg border border-[#202020] bg-[#171717] px-2.5 py-1.5 text-xs font-medium text-[#f8fafc] focus:border-[#f59e0b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f59e0b]"
             >
               {LANGUAGES.map((l) => (
@@ -132,7 +154,9 @@ export function MonacoDualPane() {
               id="target-language-select"
               aria-label="Target Language"
               value={targetLanguage}
-              onChange={(e) => setTargetLanguage(e.target.value as LanguageOption)}
+              onChange={(e) =>
+                setTargetLanguage(e.target.value as LanguageOption)
+              }
               className="rounded-lg border border-[#202020] bg-[#171717] px-2.5 py-1.5 text-xs font-medium text-[#f8fafc] focus:border-[#f59e0b] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f59e0b]"
             >
               {LANGUAGES.map((l) => (
@@ -235,7 +259,11 @@ export function MonacoDualPane() {
                   className="flex items-center gap-1 hover:text-[#f8fafc]"
                   aria-label="Copy translated code"
                 >
-                  {copied ? <Check className="h-3 w-3 text-[#22c55e]" /> : <Copy className="h-3 w-3" />}
+                  {copied ? (
+                    <Check className="h-3 w-3 text-[#22c55e]" />
+                  ) : (
+                    <Copy className="h-3 w-3" />
+                  )}
                   {copied ? "Copied" : "Copy"}
                 </button>
               )}
