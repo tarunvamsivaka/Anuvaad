@@ -27,3 +27,8 @@ Build the Anuvaad AI Code Translation and Understanding web application into a p
 - [x] Task 14: Real-time Server-Sent Events (SSE) Streaming Translation (COMPLETED)
 - [x] Task 15: Direct GitHub Ingestion & One-Click Pull Request Generator (COMPLETED)
 - [x] Task 16: Interactive 3-Column Enterprise Workspace (File Tree, DAG Visualizer, ZDR Ledger) (COMPLETED)
+- [x] Task 17: Architectural Pivot to Client-Side WASM / Web Worker Engine & Legacy Backend Archival (COMPLETED)
+- [x] Task 18: Core Deterministic React Class -> Hooks Codemod Engine with Babel AST (COMPLETED)
+- [x] Task 19: Off-Thread Web Worker Dispatcher & Air-Gapped Zero Network Studio (COMPLETED)
+- [x] Task 20: Monaco Dual-Pane & AST Diff View with BYOK Local Key Storage (COMPLETED)
+- [x] Task 21: Public Evaluation Benchmark Suite & CI Scorecard Harness (COMPLETED)

@@ -1,48 +1,57 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { useTranslationStore } from "../stores/translationStore";
 
-describe("TranslationStore & ZDR State", () => {
+describe("TranslationStore & Modernization State", () => {
   beforeEach(() => {
     useTranslationStore.setState({
-      sourceCode: "def test(): pass",
+      sourceCode: "class Card extends React.Component { render() { return null; } }",
       translatedCode: "",
       isLoading: false,
       error: null,
-      selectedReceipt: null,
-      isReceiptModalOpen: false,
+      isByokModalOpen: false,
     });
   });
 
-  it("should initialize with default python source language and models file", () => {
+  it("should initialize with default repository files and active view", () => {
     const state = useTranslationStore.getState();
-    expect(state.sourceLanguage).toBe("python");
-    expect(state.targetLanguage).toBe("typescript");
     expect(state.activeView).toBe("repo");
+    expect(state.selectedFilePath).toBe("src/components/UserProfileCard.tsx");
+    expect(state.repoFiles["src/components/UserProfileCard.tsx"]).toBeDefined();
   });
 
   it("should update source code and translated code correctly", () => {
-    useTranslationStore.getState().setSourceCode("def add(a, b): return a + b");
-    expect(useTranslationStore.getState().sourceCode).toBe("def add(a, b): return a + b");
+    useTranslationStore.getState().setSourceCode("class Hello extends React.Component {}");
+    expect(useTranslationStore.getState().sourceCode).toBe("class Hello extends React.Component {}");
 
-    useTranslationStore.getState().setTranslatedCode("export function add(a: number, b: number) { return a + b; }");
-    expect(useTranslationStore.getState().translatedCode).toBe("export function add(a: number, b: number) { return a + b; }");
+    useTranslationStore.getState().setTranslatedCode("export function Hello() { return null; }");
+    expect(useTranslationStore.getState().translatedCode).toBe("export function Hello() { return null; }");
   });
 
-  it("should open and close ZDR receipt modal with audit data", () => {
-    const mockReceipt = {
-      audit_digest: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      source_code_hash: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
-      timestamp: 1728410000,
-      user_id: "test-user-1",
-      ephemeral_lifecycle_ms: 12.4,
-      zero_retention_guaranteed: true,
-    };
+  it("should open and close BYOK modal and persist API key", () => {
+    useTranslationStore.getState().openByokModal();
+    expect(useTranslationStore.getState().isByokModalOpen).toBe(true);
 
-    useTranslationStore.getState().openReceiptModal(mockReceipt);
-    expect(useTranslationStore.getState().isReceiptModalOpen).toBe(true);
-    expect(useTranslationStore.getState().selectedReceipt?.audit_digest).toBe(mockReceipt.audit_digest);
+    useTranslationStore.getState().setByokApiKey("test-byok-key-123");
+    expect(useTranslationStore.getState().byokApiKey).toBe("test-byok-key-123");
 
-    useTranslationStore.getState().closeReceiptModal();
-    expect(useTranslationStore.getState().isReceiptModalOpen).toBe(false);
+    useTranslationStore.getState().closeByokModal();
+    expect(useTranslationStore.getState().isByokModalOpen).toBe(false);
+  });
+
+  it("should run modernization in store and populate stats", async () => {
+    const classComp = `
+import React, { Component } from 'react';
+class Mini extends Component {
+  state = { val: 1 };
+  render() { return <div>{this.state.val}</div>; }
+}
+`;
+    useTranslationStore.getState().setSourceCode(classComp);
+    await useTranslationStore.getState().runModernization();
+
+    const state = useTranslationStore.getState();
+    expect(state.translatedCode).toContain("useState(1)");
+    expect(state.stats?.stateVariables).toBe(1);
+    expect(state.error).toBeNull();
   });
 });

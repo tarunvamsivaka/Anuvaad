@@ -1,38 +1,37 @@
 import { create } from "zustand";
-import { TranslationResponse, ZdrAuditReceipt } from "@/lib/api";
-
-export type LanguageOption =
-  | "python"
-  | "typescript"
-  | "javascript"
-  | "go"
-  | "rust"
-  | "java"
-  | "cpp"
-  | "csharp";
+import { executeModernization } from "@/engine/dispatcher";
+import { TransformChange } from "@/engine/types";
 
 export interface RepoFileItem {
   path: string;
   sourceCode: string;
   translatedCode?: string;
-  language: LanguageOption;
   status: "pending" | "translating" | "completed" | "failed";
+  language?: string;
   astValid?: boolean;
+  stats?: {
+    stateVariables: number;
+    effects: number;
+    methodsConverted: number;
+    timeMs: number;
+  };
 }
 
 interface TranslationState {
-  // Single-File Mode State
-  sourceLanguage: LanguageOption;
-  targetLanguage: LanguageOption;
+  // Modernization State
   sourceCode: string;
   translatedCode: string;
   isLoading: boolean;
   error: string | null;
-  lastResponse: TranslationResponse | null;
-  selectedReceipt: ZdrAuditReceipt | null;
-  isReceiptModalOpen: boolean;
+  changes: TransformChange[];
+  stats: {
+    stateVariables: number;
+    effects: number;
+    methodsConverted: number;
+    timeMs: number;
+  } | null;
 
-  // Enterprise Repository Mode State
+  // View & Repository Explorer State
   activeView: "editor" | "repo" | "symbols" | "audit";
   activeRepoId: string | null;
   repoName: string;
@@ -40,92 +39,243 @@ interface TranslationState {
   selectedFilePath: string | null;
   isBatchTranslating: boolean;
   isGithubPrModalOpen: boolean;
+  isByokModalOpen: boolean;
+  byokApiKey: string;
+  isReceiptModalOpen: boolean;
+  selectedReceipt: any | null;
 
-  // Setters
-  setSourceLanguage: (lang: LanguageOption) => void;
-  setTargetLanguage: (lang: LanguageOption) => void;
+  // Actions
   setSourceCode: (code: string) => void;
   setTranslatedCode: (code: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (err: string | null) => void;
-  setLastResponse: (res: TranslationResponse | null) => void;
-  openReceiptModal: (receipt: ZdrAuditReceipt) => void;
-  closeReceiptModal: () => void;
-
-  // Repo Setters
+  runModernization: () => Promise<void>;
   setActiveView: (view: "editor" | "repo" | "symbols" | "audit") => void;
-  setRepoFiles: (files: Record<string, RepoFileItem>, repoName: string, repoId: string) => void;
   selectFile: (path: string) => void;
   setBatchTranslating: (isTranslating: boolean) => void;
   updateFileTranslation: (path: string, translatedCode: string, astValid: boolean) => void;
   openGithubPrModal: () => void;
   closeGithubPrModal: () => void;
+  openByokModal: () => void;
+  closeByokModal: () => void;
+  setByokApiKey: (key: string) => void;
+  openReceiptModal: (receipt: any) => void;
+  closeReceiptModal: () => void;
 }
 
-const DEFAULT_REPO_FILES: Record<string, RepoFileItem> = {
-  "src/models.py": {
-    path: "src/models.py",
-    language: "python",
+const DEFAULT_REACT_FILES: Record<string, RepoFileItem> = {
+  "src/components/UserProfileCard.tsx": {
+    path: "src/components/UserProfileCard.tsx",
     status: "completed",
+    language: "typescript",
     astValid: true,
-    sourceCode: `class UserAccount:\n    def __init__(self, user_id: str, email: str):\n        self.user_id = user_id\n        self.email = email\n        self.is_active = True`,
-    translatedCode: `export class UserAccount {\n    constructor(\n        public userId: string,\n        public email: string,\n        public isActive: boolean = true\n    ) {}\n}`,
+    sourceCode: `import React, { Component } from 'react';
+
+interface UserProfileProps {
+  userId: string;
+  initialRole?: string;
+}
+
+interface UserProfileState {
+  loading: boolean;
+  userData: { name: string; email: string } | null;
+  error: string | null;
+}
+
+export class UserProfileCard extends Component<UserProfileProps, UserProfileState> {
+  state = {
+    loading: true,
+    userData: null,
+    error: null,
+  };
+
+  componentDidMount() {
+    console.log('Fetching user profile for:', this.props.userId);
+  }
+
+  componentWillUnmount() {
+    console.log('Cleaning up profile subscription');
+  }
+
+  handleRefresh = () => {
+    this.setState({ loading: true, error: null });
+  };
+
+  render() {
+    const { loading, userData } = this.state;
+
+    return (
+      <div className="profile-card">
+        <h3>User Profile: {this.props.userId}</h3>
+        {loading ? (
+          <p>Loading details...</p>
+        ) : (
+          <div>
+            <p>Name: {userData?.name}</p>
+            <button onClick={this.handleRefresh}>Refresh Profile</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+}
+`,
+    translatedCode: `import React, { useState, useEffect } from 'react';
+
+interface UserProfileProps {
+  userId: string;
+  initialRole?: string;
+}
+
+interface UserProfileState {
+  loading: boolean;
+  userData: { name: string; email: string } | null;
+  error: string | null;
+}
+
+export function UserProfileCard(props: UserProfileProps) {
+  const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState(null);
+  const [error, setError] = useState(null);
+
+  const handleRefresh = () => {
+    setLoading(true), setError(null);
+  };
+
+  useEffect(() => {
+    console.log('Fetching user profile for:', props.userId);
+    return () => {
+      console.log('Cleaning up profile subscription');
+    };
+  }, []);
+
+  return (
+    <div className="profile-card">
+      <h3>User Profile: {props.userId}</h3>
+      {loading ? (
+        <p>Loading details...</p>
+      ) : (
+        <div>
+          <p>Name: {userData?.name}</p>
+          <button onClick={handleRefresh}>Refresh Profile</button>
+        </div>
+      )}
+    </div>
+  );
+}
+`,
   },
-  "src/service.py": {
-    path: "src/service.py",
-    language: "python",
+  "src/components/CounterTimer.tsx": {
+    path: "src/components/CounterTimer.tsx",
     status: "pending",
-    sourceCode: `from .models import UserAccount\n\nclass AuthService:\n    def authenticate(self, account: UserAccount) -> bool:\n        return account.is_active`,
-  },
-  "src/main.py": {
-    path: "src/main.py",
-    language: "python",
-    status: "pending",
-    sourceCode: `from .service import AuthService\nfrom .models import UserAccount\n\ndef main():\n    user = UserAccount("usr_1", "dev@anuvaad.internal")\n    auth = AuthService()\n    print("Auth:", auth.authenticate(user))`,
+    language: "typescript",
+    sourceCode: `import React, { Component } from 'react';
+
+export class CounterTimer extends Component {
+  state = {
+    seconds: 0,
+    isActive: false,
+  };
+
+  componentDidMount() {
+    console.log('Timer started');
+  }
+
+  componentWillUnmount() {
+    console.log('Timer cleared');
+  }
+
+  handleStart = () => {
+    this.setState({ isActive: true });
+  };
+
+  render() {
+    return (
+      <div className="timer">
+        <span>Seconds: {this.state.seconds}</span>
+        <button onClick={this.handleStart}>Start</button>
+      </div>
+    );
+  }
+}
+`,
   },
 };
 
 export const useTranslationStore = create<TranslationState>((set, get) => ({
-  sourceLanguage: "python",
-  targetLanguage: "typescript",
-  sourceCode: DEFAULT_REPO_FILES["src/models.py"].sourceCode,
-  translatedCode: DEFAULT_REPO_FILES["src/models.py"].translatedCode || "",
+  sourceCode: DEFAULT_REACT_FILES["src/components/UserProfileCard.tsx"].sourceCode,
+  translatedCode: DEFAULT_REACT_FILES["src/components/UserProfileCard.tsx"].translatedCode || "",
   isLoading: false,
   error: null,
-  lastResponse: null,
-  selectedReceipt: null,
-  isReceiptModalOpen: false,
+  changes: [],
+  stats: {
+    stateVariables: 3,
+    effects: 1,
+    methodsConverted: 1,
+    timeMs: 4.2,
+  },
 
   activeView: "repo",
-  activeRepoId: "demo-repo-anuvaad-core",
-  repoName: "anuvaad/core-modernization",
-  repoFiles: DEFAULT_REPO_FILES,
-  selectedFilePath: "src/models.py",
+  activeRepoId: "legacy-react-enterprise-app",
+  repoName: "enterprise/legacy-react-app",
+  repoFiles: DEFAULT_REACT_FILES,
+  selectedFilePath: "src/components/UserProfileCard.tsx",
   isBatchTranslating: false,
   isGithubPrModalOpen: false,
+  isByokModalOpen: false,
+  byokApiKey: "",
+  isReceiptModalOpen: false,
+  selectedReceipt: null,
 
-  setSourceLanguage: (lang) => set({ sourceLanguage: lang }),
-  setTargetLanguage: (lang) => set({ targetLanguage: lang }),
   setSourceCode: (code) => set({ sourceCode: code }),
   setTranslatedCode: (code) => set({ translatedCode: code }),
   setLoading: (loading) => set({ isLoading: loading }),
   setError: (err) => set({ error: err }),
-  setLastResponse: (res) => set({ lastResponse: res }),
-  openReceiptModal: (receipt) => set({ selectedReceipt: receipt, isReceiptModalOpen: true }),
-  closeReceiptModal: () => set({ isReceiptModalOpen: false }),
+
+  runModernization: async () => {
+    const { sourceCode, selectedFilePath } = get();
+    if (!sourceCode.trim()) return;
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const result = await executeModernization(sourceCode);
+
+      if (!result.success) {
+        set({
+          error: result.errors?.join(", ") || "AST modernization failed.",
+          isLoading: false,
+        });
+        return;
+      }
+
+      set({
+        translatedCode: result.code,
+        changes: result.changes,
+        stats: result.stats,
+        isLoading: false,
+      });
+
+      if (selectedFilePath && get().repoFiles[selectedFilePath]) {
+        const files = { ...get().repoFiles };
+        files[selectedFilePath] = {
+          ...files[selectedFilePath],
+          translatedCode: result.code,
+          status: "completed",
+          astValid: true,
+          stats: result.stats,
+        };
+        set({ repoFiles: files });
+      }
+    } catch (err: any) {
+      set({
+        error: err.message || "Failed to transform code.",
+        isLoading: false,
+      });
+    }
+  },
 
   setActiveView: (view) => set({ activeView: view }),
-  setRepoFiles: (files, repoName, repoId) => {
-    const firstKey = Object.keys(files)[0] || null;
-    set({
-      repoFiles: files,
-      repoName,
-      activeRepoId: repoId,
-      selectedFilePath: firstKey,
-      sourceCode: firstKey ? files[firstKey].sourceCode : "",
-      translatedCode: firstKey ? files[firstKey].translatedCode || "" : "",
-    });
-  },
   selectFile: (path) => {
     const file = get().repoFiles[path];
     if (file) {
@@ -133,7 +283,6 @@ export const useTranslationStore = create<TranslationState>((set, get) => ({
         selectedFilePath: path,
         sourceCode: file.sourceCode,
         translatedCode: file.translatedCode || "",
-        sourceLanguage: file.language,
       });
     }
   },
@@ -147,12 +296,14 @@ export const useTranslationStore = create<TranslationState>((set, get) => ({
         astValid,
         status: astValid ? "completed" : "failed",
       };
-      set({
-        repoFiles: files,
-        translatedCode: get().selectedFilePath === path ? translatedCode : get().translatedCode,
-      });
+      set({ repoFiles: files });
     }
   },
   openGithubPrModal: () => set({ isGithubPrModalOpen: true }),
   closeGithubPrModal: () => set({ isGithubPrModalOpen: false }),
+  openByokModal: () => set({ isByokModalOpen: true }),
+  closeByokModal: () => set({ isByokModalOpen: false }),
+  setByokApiKey: (key) => set({ byokApiKey: key }),
+  openReceiptModal: (receipt) => set({ selectedReceipt: receipt, isReceiptModalOpen: true }),
+  closeReceiptModal: () => set({ isReceiptModalOpen: false }),
 }));

@@ -30,6 +30,7 @@ node_modules/
 .next/
 out/
 .vercel
+*.tsbuildinfo
 
 # Environment variables & secrets
 .env*

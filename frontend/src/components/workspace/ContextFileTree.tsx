@@ -30,15 +30,14 @@ export function ContextFileTree() {
   const handleRunBatchTranslation = async () => {
     setBatchTranslating(true);
     try {
-      // Simulate/trigger topological batch translation across the DAG order
+      const { executeModernization } = await import("@/engine/dispatcher");
       for (const file of fileList) {
         if (file.status === "completed") continue;
-
-        // Mock translation update
-        await new Promise((r) => setTimeout(r, 600));
-        const translatedMock = `// Modernized ${file.path}\nexport function modernizedRoutine(): void {\n    // Converted logic\n}`;
-        updateFileTranslation(file.path, translatedMock, true);
+        const result = await executeModernization(file.sourceCode);
+        updateFileTranslation(file.path, result.code, result.success);
       }
+    } catch (err) {
+      console.error("Batch modernization error:", err);
     } finally {
       setBatchTranslating(false);
     }

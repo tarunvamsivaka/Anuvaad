@@ -6,9 +6,10 @@ import { ContextFileTree } from "@/components/workspace/ContextFileTree";
 import { MonacoDualPane } from "@/components/editor/MonacoDualPane";
 import { ZdrReceiptModal } from "@/components/zdr/ZdrReceiptModal";
 import { GithubExportModal } from "@/components/workspace/GithubExportModal";
+import { ByokModal } from "@/components/settings/ByokModal";
 import { SymbolGraphView } from "@/components/workspace/SymbolGraphView";
 import { AuditLedgerView } from "@/components/workspace/AuditLedgerView";
-import { ShieldCheck, Cpu, Database, Terminal, GitBranch } from "lucide-react";
+import { ShieldCheck, Cpu, Terminal, GitBranch, Sparkles } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
 
 export default function HomePage() {
@@ -30,8 +31,11 @@ export default function HomePage() {
             <h1 className="text-xs font-bold text-[#f59e0b] tracking-wide flex items-center gap-1.5">
               <span>Anuvaad</span>
               <span className="text-[#94a3b8] font-normal">/</span>
+              <span className="rounded bg-[#f59e0b]/10 px-1.5 py-0.5 text-[10px] text-[#f59e0b]">
+                React Modernization Wedge
+              </span>
             </h1>
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <GitBranch className="h-4 w-4 text-[#f59e0b]" aria-hidden="true" />
               <span className="text-xs font-semibold text-[#f8fafc]">{repoName}</span>
               <span className="text-[#94a3b8]">/</span>
@@ -42,7 +46,7 @@ export default function HomePage() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-1.5 rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#22c55e]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] animate-pulse"></span>
-              Zero Code Retention (ZDR) Active
+              Architectural ZDR (In-Browser Only)
             </div>
           </div>
         </header>
@@ -62,21 +66,21 @@ export default function HomePage() {
             <div className="flex flex-wrap items-center gap-4">
               <span className="flex items-center gap-1.5 text-[#f8fafc]">
                 <Cpu className="h-3.5 w-3.5 text-[#f59e0b]" />
-                Inference: <span className="text-[#f59e0b]">Tier 1 (Cerebras LPU) / Tier 2 (Gemini 2.0 Flash)</span>
+                Compute: <span className="text-[#f59e0b]">Client WebAssembly & Web Worker ($0.00 / mo)</span>
               </span>
               <span className="hidden sm:flex items-center gap-1.5">
                 <Terminal className="h-3.5 w-3.5 text-[#22c55e]" />
-                Self-Healing AST: Active
+                AST Codemod Engine: Active
               </span>
               <span className="hidden md:flex items-center gap-1.5">
-                <Database className="h-3.5 w-3.5 text-[#3b82f6]" />
-                pgvector Memory: Connected
+                <Sparkles className="h-3.5 w-3.5 text-[#3b82f6]" />
+                Target: React 19 Hooks
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-3.5 w-3.5 text-[#22c55e]" />
-              <span>HMAC-SHA256 Ephemeral Guarantee</span>
+              <span>Verifiable Air-Gapped Execution</span>
             </div>
           </footer>
         </div>
@@ -85,6 +89,7 @@ export default function HomePage() {
       {/* Global Modals */}
       <ZdrReceiptModal />
       <GithubExportModal />
+      <ByokModal />
     </div>
   );
 }

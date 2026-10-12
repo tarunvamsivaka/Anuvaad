@@ -1,0 +1,42 @@
+[
+  {
+    "name": "react-autocomplete",
+    "repo": "reactjs/react-autocomplete",
+    "stars": 1900,
+    "license": "MIT",
+    "classComponents": 4,
+    "testFramework": "jest"
+  },
+  {
+    "name": "react-tabs",
+    "repo": "reactjs/react-tabs",
+    "stars": 3200,
+    "license": "MIT",
+    "classComponents": 6,
+    "testFramework": "jest"
+  },
+  {
+    "name": "react-modal",
+    "repo": "reactjs/react-modal",
+    "stars": 7400,
+    "license": "MIT",
+    "classComponents": 5,
+    "testFramework": "jest"
+  },
+  {
+    "name": "react-router-v3-examples",
+    "repo": "remix-run/react-router",
+    "stars": 52000,
+    "license": "MIT",
+    "classComponents": 12,
+    "testFramework": "jest"
+  },
+  {
+    "name": "react-day-picker-v7",
+    "repo": "gpbl/react-day-picker",
+    "stars": 5600,
+    "license": "MIT",
+    "classComponents": 8,
+    "testFramework": "jest"
+  }
+]

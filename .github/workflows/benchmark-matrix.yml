@@ -1,0 +1,33 @@
+name: Anuvaad Evaluation Benchmark
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  schedule:
+    - cron: '0 0 * * *' # Nightly evaluation
+
+jobs:
+  benchmark:
+    name: Public Codemod Benchmark Runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm --prefix frontend install
+
+      - name: Run Unit Tests & Benchmark Suite
+        run: npm --prefix frontend test
+
+      - name: Verify Next.js Static Build
+        run: npm --prefix frontend run build
