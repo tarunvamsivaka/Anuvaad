@@ -1,0 +1,3 @@
+## 2024-05-18 - [Optimized Zustand subscriptions and Derived States]
+**Learning:** React components using Zustand stores without selectors re-render on any store update. When using multiple properties, the component will re-render on any store update. We should always use the `useShallow` hook from `zustand/react/shallow` when subscribing to multiple state variables, and wrap expensive derived states or array mappings (like `.map().join()`) in `useMemo` hooks to prevent redundant evaluations on every render.
+**Action:** Use `useShallow` from `zustand/react/shallow` to subscribe to multiple state variables in Zustand store. Wrap derived states that involve loops (like mapping over an array) in `useMemo` to prevent unneeded re-calculations.
