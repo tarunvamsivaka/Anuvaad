@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   FileCode,
   CheckCircle2,
@@ -12,8 +12,12 @@ import {
   Layers,
 } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function ContextFileTree() {
+  // ⚡ Bolt Optimization: Use `useShallow` to prevent ContextFileTree from re-rendering
+  // on every single state change in `useTranslationStore` (like sourceCode typing updates).
+  // Impact: Eliminates a major source of unnecessary React renders in the sidebar.
   const {
     repoName,
     repoFiles,
@@ -22,10 +26,25 @@ export function ContextFileTree() {
     isBatchTranslating,
     setBatchTranslating,
     updateFileTranslation,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      repoName: state.repoName,
+      repoFiles: state.repoFiles,
+      selectedFilePath: state.selectedFilePath,
+      selectFile: state.selectFile,
+      isBatchTranslating: state.isBatchTranslating,
+      setBatchTranslating: state.setBatchTranslating,
+      updateFileTranslation: state.updateFileTranslation,
+    }))
+  );
 
-  const fileList = Object.values(repoFiles);
-  const completedCount = fileList.filter((f) => f.status === "completed").length;
+  // ⚡ Bolt Optimization: Memoize derived state to prevent O(N) recalculation
+  // of the file list and completed count on every component render.
+  const fileList = useMemo(() => Object.values(repoFiles), [repoFiles]);
+  const completedCount = useMemo(
+    () => fileList.filter((f) => f.status === "completed").length,
+    [fileList]
+  );
 
   const handleRunBatchTranslation = async () => {
     setBatchTranslating(true);
