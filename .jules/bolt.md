@@ -1,0 +1,3 @@
+## 2023-10-13 - Zustand State Granularity
+**Learning:** Default imports from Zustand (without selectors) trigger re-renders on ANY state change. In highly dynamic applications (like a code translation app with streaming state and frequent sourceCode changes), global state subscriptions in generic structural components like file trees cause severe React render lag.
+**Action:** Always extract specific store fields using `useShallow()` for generic components to isolate renders and prevent cascading React render loops. Wrap derived object parsing (`Object.values()`) into `useMemo` so we avoid unnecessary garbage collection overhead and $O(N)$ derivations per render loop.
