@@ -1,42 +1,67 @@
 [
   {
-    "name": "react-autocomplete",
-    "repo": "reactjs/react-autocomplete",
-    "stars": 1900,
-    "license": "MIT",
-    "classComponents": 4,
-    "testFramework": "jest"
-  },
-  {
-    "name": "react-tabs",
-    "repo": "reactjs/react-tabs",
-    "stars": 3200,
-    "license": "MIT",
-    "classComponents": 6,
-    "testFramework": "jest"
-  },
-  {
+    "id": "react-modal",
     "name": "react-modal",
     "repo": "reactjs/react-modal",
     "stars": 7400,
     "license": "MIT",
+    "category": "UI Overlays",
     "classComponents": 5,
-    "testFramework": "jest"
+    "testFramework": "jest",
+    "fixtures": [
+      "Modal.jsx"
+    ]
   },
   {
-    "name": "react-router-v3-examples",
-    "repo": "remix-run/react-router",
-    "stars": 52000,
+    "id": "react-autocomplete",
+    "name": "react-autocomplete",
+    "repo": "reactjs/react-autocomplete",
+    "stars": 1900,
     "license": "MIT",
-    "classComponents": 12,
-    "testFramework": "jest"
+    "category": "Form Controls",
+    "classComponents": 4,
+    "testFramework": "jest",
+    "fixtures": [
+      "Autocomplete.jsx"
+    ]
   },
   {
+    "id": "react-tabs",
+    "name": "react-tabs",
+    "repo": "reactjs/react-tabs",
+    "stars": 3200,
+    "license": "MIT",
+    "category": "Navigation",
+    "classComponents": 6,
+    "testFramework": "jest",
+    "fixtures": [
+      "Tabs.jsx"
+    ]
+  },
+  {
+    "id": "react-day-picker",
     "name": "react-day-picker-v7",
     "repo": "gpbl/react-day-picker",
     "stars": 5600,
     "license": "MIT",
+    "category": "Date & Time Pickers",
     "classComponents": 8,
-    "testFramework": "jest"
+    "testFramework": "jest",
+    "fixtures": [
+      "DatePicker.jsx"
+    ]
+  },
+  {
+    "id": "react-router-v3",
+    "name": "react-router-v3-examples",
+    "repo": "remix-run/react-router",
+    "stars": 52000,
+    "license": "MIT",
+    "category": "Routing Architecture",
+    "classComponents": 12,
+    "testFramework": "jest",
+    "fixtures": [
+      "RouterLink.jsx"
+    ]
   }
 ]

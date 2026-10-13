@@ -35,6 +35,10 @@ function getOrCreateWorker(): Worker | null {
 
       workerInstance.onerror = (err) => {
         console.error('Anuvaad Web Worker error:', err);
+        pendingRequests.forEach((pending) => {
+          pending.reject(err);
+        });
+        pendingRequests.clear();
       };
     } catch (e) {
       console.warn('Could not initialize Web Worker, falling back to main-thread execution:', e);

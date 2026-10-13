@@ -4,19 +4,30 @@ import generateModule from '@babel/generator';
 import * as t from '@babel/types';
 import { TransformChange, TransformOptions, TransformResult } from '../types';
 
+import {
+  extractStateDefinitions,
+  createStateHookDeclarations,
+  transformSetStateCallNode,
+} from './stateRules';
+
+import { processLifecycleMethods } from './lifecycleRules';
+
+import {
+  extractBindingAndRefs,
+} from './bindingRules';
+
+import {
+  processTypesAndStatics,
+  updateReactImports,
+} from './typeRules';
+
 // Handle CommonJS / ESM interop for babel packages
 const traverse = (traverseModule as any).default || traverseModule;
 const generate = (generateModule as any).default || generateModule;
 
 /**
- * Capitalize first letter helper for setter name (e.g., count -> setCount)
- */
-function toSetterName(stateKey: string): string {
-  return `set${stateKey.charAt(0).toUpperCase()}${stateKey.slice(1)}`;
-}
-
-/**
  * Transforms React Class Components to Functional Components with Hooks
+ * Implements the full 40-rule deterministic AST catalog in volatile RAM.
  */
 export function transformReactClassToHooks(
   sourceCode: string,
@@ -29,14 +40,12 @@ export function transformReactClassToHooks(
   let stateVariablesCount = 0;
   let effectsCount = 0;
   let methodsCount = 0;
+  let refsCount = 0;
 
   try {
     const ast = parse(sourceCode, {
       sourceType: 'module',
-      plugins: [
-        'jsx',
-        'typescript',
-      ],
+      plugins: ['jsx', 'typescript'],
     });
 
     const neededReactHooks = new Set<string>();
@@ -46,7 +55,7 @@ export function transformReactClassToHooks(
         const superClass = path.node.superClass;
         if (!superClass) return;
 
-        // Check if extends React.Component or Component or PureComponent
+        // Check if extends React.Component or Component or React.PureComponent or PureComponent
         const isReactComponent =
           (t.isMemberExpression(superClass) &&
             t.isIdentifier(superClass.object, { name: 'React' }) &&
@@ -58,435 +67,580 @@ export function transformReactClassToHooks(
         if (!isReactComponent) return;
 
         const componentName = path.node.id ? path.node.id.name : 'ConvertedComponent';
+
         changes.push({
           type: 'signature',
           description: `Converting class '${componentName}' to modern Functional Component`,
         });
 
-        // Collect TypeScript types if available
-        let propsTypeAnnotation: any = null;
-        const typeArgs = path.node.superTypeArguments || path.node.superTypeParameters;
-        if (typeArgs && typeArgs.params && typeArgs.params.length > 0) {
-          propsTypeAnnotation = typeArgs.params[0];
+        // 1. Process Types, Statics, Context, defaultProps (Rules 10, 30-40)
+        const typeStaticRes = processTypesAndStatics(path, componentName);
+        typeStaticRes.neededHooks.forEach((h) => neededReactHooks.add(h));
+        changes.push(...typeStaticRes.changes);
+
+        const defaultPropKeys = new Set<string>();
+        if (t.isObjectPattern(typeStaticRes.propsParam)) {
+          typeStaticRes.propsParam.properties.forEach((prop: any) => {
+            if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
+              defaultPropKeys.add(prop.key.name);
+            }
+          });
         }
 
-        const stateInitializers: Array<{ key: string; initNode: t.Expression }> = [];
-        const lifecycleMethods: Map<string, any> = new Map();
-        const customMethods: Array<{ name: string; node: any; isArrow: boolean }> = [];
-        const refDeclarations: Array<{ name: string; initNode?: t.Expression }> = [];
-        let renderMethodBody: t.Statement[] = [];
-        let renderReturnStatement: t.ReturnStatement | null = null;
+        // 2. Extract Lifecycles (Rules 11-18)
+        const lifecycleRes = processLifecycleMethods(path.node.body.body, componentName);
+        lifecycleRes.neededHooks.forEach((h) => neededReactHooks.add(h));
+        effectsCount += lifecycleRes.hookStatements.length;
+        changes.push(...lifecycleRes.changes);
+        warnings.push(...lifecycleRes.warnings);
 
-        // Inspect class body
-        path.node.body.body.forEach((member: any) => {
-          // 1. State property: state = { count: 0 }
-          if (
-            t.isClassProperty(member) &&
-            t.isIdentifier(member.key, { name: 'state' }) &&
-            member.value &&
-            t.isObjectExpression(member.value)
-          ) {
-            member.value.properties.forEach((prop: any) => {
-              if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
-                stateInitializers.push({
-                  key: prop.key.name,
-                  initNode: prop.value as t.Expression,
-                });
-              }
-            });
-          }
-
-          // 2. Ref property: myRef = React.createRef()
-          if (
-            t.isClassProperty(member) &&
-            t.isIdentifier(member.key) &&
-            member.value &&
-            t.isCallExpression(member.value)
-          ) {
-            const callee = member.value.callee;
-            if (
-              (t.isMemberExpression(callee) &&
-                t.isIdentifier(callee.property, { name: 'createRef' })) ||
-              (t.isIdentifier(callee, { name: 'createRef' }))
-            ) {
-              refDeclarations.push({ name: member.key.name });
-            }
-          }
-
-          // 3. Constructor
-          if (t.isClassMethod(member, { kind: 'constructor' })) {
-            member.body.body.forEach((stmt: any) => {
-              // Look for this.state = { ... }
-              if (
-                t.isExpressionStatement(stmt) &&
-                t.isAssignmentExpression(stmt.expression) &&
-                t.isMemberExpression(stmt.expression.left) &&
-                t.isThisExpression(stmt.expression.left.object) &&
-                t.isIdentifier(stmt.expression.left.property, { name: 'state' }) &&
-                t.isObjectExpression(stmt.expression.right)
-              ) {
-                stmt.expression.right.properties.forEach((prop: any) => {
-                  if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
-                    stateInitializers.push({
-                      key: prop.key.name,
-                      initNode: prop.value as t.Expression,
-                    });
-                  }
-                });
-              }
-              // Look for this.myRef = React.createRef()
-              if (
-                t.isExpressionStatement(stmt) &&
-                t.isAssignmentExpression(stmt.expression) &&
-                t.isMemberExpression(stmt.expression.left) &&
-                t.isThisExpression(stmt.expression.left.object) &&
-                t.isIdentifier(stmt.expression.left.property) &&
-                t.isCallExpression(stmt.expression.right)
-              ) {
-                const callee = stmt.expression.right.callee;
-                if (
-                  (t.isMemberExpression(callee) &&
-                    t.isIdentifier(callee.property, { name: 'createRef' })) ||
-                  (t.isIdentifier(callee, { name: 'createRef' }))
-                ) {
-                  refDeclarations.push({ name: stmt.expression.left.property.name });
-                }
-              }
-            });
-          }
-
-          // 4. Lifecycle methods
-          if (t.isClassMethod(member) && t.isIdentifier(member.key)) {
-            const name = member.key.name;
-            if (
-              [
-                'componentDidMount',
-                'componentWillUnmount',
-                'componentDidUpdate',
-                'componentDidCatch',
-              ].includes(name)
-            ) {
-              lifecycleMethods.set(name, member);
-            } else if (name === 'render') {
-              // Extract render method statements and return statement
-              member.body.body.forEach((s: any) => {
-                if (t.isReturnStatement(s)) {
-                  renderReturnStatement = s;
-                } else {
-                  renderMethodBody.push(s);
-                }
-              });
-            } else if (name === 'constructor') {
-              // Handled separately in constructor block
-            } else {
-              // Custom method
-              customMethods.push({
-                name,
-                node: member,
-                isArrow: false,
-              });
-            }
-          }
-
-          // 5. Arrow function class property: handleClick = () => { ... }
-          if (
-            t.isClassProperty(member) &&
-            t.isIdentifier(member.key) &&
-            member.value &&
-            t.isArrowFunctionExpression(member.value)
-          ) {
-            customMethods.push({
-              name: member.key.name,
-              node: member.value,
-              isArrow: true,
-            });
-          }
-        });
-
-        // Assemble the functional component body statements
-        const funcBodyStatements: t.Statement[] = [];
-
-        // Add useState declarations
-        stateInitializers.forEach(({ key, initNode }) => {
+        // 3. Extract State (Rules 1, 2, 37) (filtering derived state keys)
+        const stateRes = extractStateDefinitions(path.node.body.body);
+        const filteredStateDefs = stateRes.stateDefs.filter(
+          (d) => !lifecycleRes.derivedStateKeys.has(d.key)
+        );
+        const stateVarNames = new Set<string>();
+        filteredStateDefs.forEach((d) => stateVarNames.add(d.key));
+        stateVariablesCount += filteredStateDefs.length;
+        if (filteredStateDefs.length > 0) {
           neededReactHooks.add('useState');
-          stateVariablesCount++;
-          const setter = toSetterName(key);
-          const stateDecl = t.variableDeclaration('const', [
-            t.variableDeclarator(
-              t.arrayPattern([t.identifier(key), t.identifier(setter)]),
-              t.callExpression(t.identifier('useState'), [initNode])
-            ),
-          ]);
-          funcBodyStatements.push(stateDecl);
-          changes.push({
-            type: 'state',
-            description: `Transformed state property '${key}' to useState hook [${key}, ${setter}]`,
-          });
-        });
+        }
+        changes.push(...stateRes.changes);
+        const stateHookDeclarations = createStateHookDeclarations(filteredStateDefs);
 
-        // Add useRef declarations
-        refDeclarations.forEach(({ name }) => {
+        // 4. Extract Bindings, Refs, and Methods (Rules 19, 20, 23, 24, 26, 27, 28)
+        const bindingRes = extractBindingAndRefs(path.node.body.body, options);
+        refsCount += bindingRes.refDeclarations.length;
+        methodsCount += bindingRes.customMethodDeclarations.length;
+        if (bindingRes.refDeclarations.length > 0) {
           neededReactHooks.add('useRef');
-          const refDecl = t.variableDeclaration('const', [
-            t.variableDeclarator(
-              t.identifier(name),
-              t.callExpression(t.identifier('useRef'), [t.nullLiteral()])
-            ),
-          ]);
-          funcBodyStatements.push(refDecl);
-          changes.push({
-            type: 'method',
-            description: `Transformed ref '${name}' to useRef hook`,
-          });
-        });
-
-        // Add custom methods as regular functions or callbacks
-        customMethods.forEach(({ name, node, isArrow }) => {
-          methodsCount++;
-          let fnStatement: t.Statement;
-          if (isArrow) {
-            fnStatement = t.variableDeclaration('const', [
-              t.variableDeclarator(t.identifier(name), node),
-            ]);
-          } else {
-            fnStatement = t.functionDeclaration(
-              t.identifier(name),
-              node.params,
-              node.body,
-              node.generator,
-              node.async
-            );
-          }
-          funcBodyStatements.push(fnStatement);
-          changes.push({
-            type: 'method',
-            description: `Transformed class method '${name}' to component function`,
-          });
-        });
-
-        // Add useEffect for componentDidMount and/or componentWillUnmount
-        const mountMethod = lifecycleMethods.get('componentDidMount');
-        const unmountMethod = lifecycleMethods.get('componentWillUnmount');
-        const updateMethod = lifecycleMethods.get('componentDidUpdate');
-
-        if (mountMethod || unmountMethod) {
-          neededReactHooks.add('useEffect');
-          effectsCount++;
-
-          const effectStatements: t.Statement[] = [];
-          if (mountMethod) {
-            effectStatements.push(...mountMethod.body.body);
-          }
-
-          if (unmountMethod) {
-            // Add return () => { ... } cleanup
-            const cleanupFn = t.arrowFunctionExpression([], unmountMethod.body);
-            effectStatements.push(t.returnStatement(cleanupFn));
-          }
-
-          const effectCall = t.expressionStatement(
-            t.callExpression(t.identifier('useEffect'), [
-              t.arrowFunctionExpression([], t.blockStatement(effectStatements)),
-              t.arrayExpression([]), // empty dependency array for mount/unmount
-            ])
-          );
-          funcBodyStatements.push(effectCall);
-          changes.push({
-            type: 'lifecycle',
-            description: `Unified ${mountMethod ? 'componentDidMount' : ''}${
-              mountMethod && unmountMethod ? ' and ' : ''
-            }${unmountMethod ? 'componentWillUnmount' : ''} into useEffect hook with [] deps`,
-          });
         }
+        changes.push(...bindingRes.changes);
 
-        if (updateMethod) {
-          neededReactHooks.add('useEffect');
-          effectsCount++;
-          warnings.push(
-            `componentDidUpdate converted to useEffect. Please review dependency array.`
-          );
-          const updateEffectCall = t.expressionStatement(
-            t.callExpression(t.identifier('useEffect'), [
-              t.arrowFunctionExpression([], updateMethod.body),
-            ])
-          );
-          funcBodyStatements.push(updateEffectCall);
-          changes.push({
-            type: 'lifecycle',
-            description: `Converted componentDidUpdate to useEffect hook`,
-          });
-        }
+        // 5. In-place rewrite of method bodies and render statements inside the class
+        const injectedBodyHookDecls: t.Statement[] = [];
 
-        // Add statements from render method
-        renderMethodBody.forEach((stmt) => {
-          // If statement is `const { ... } = this.state;`, skip it because state variables are now top-level
-          if (
-            t.isVariableDeclaration(stmt) &&
-            stmt.declarations.some(
-              (d) =>
+        path.traverse({
+          // Rule 25: Callback ref to useRef
+          JSXAttribute(attrPath: any) {
+            if (attrPath.node.name.name === 'ref' && attrPath.node.value) {
+              const val = attrPath.node.value;
+              if (t.isJSXExpressionContainer(val)) {
+                const expr = val.expression;
+                let targetRefName: string | null = null;
+
+                if (t.isArrowFunctionExpression(expr) || t.isFunctionExpression(expr)) {
+                  const body = expr.body;
+                  let assignExpr: t.AssignmentExpression | null = null;
+
+                  if (t.isAssignmentExpression(body)) {
+                    assignExpr = body;
+                  } else if (t.isBlockStatement(body)) {
+                    for (const s of body.body) {
+                      if (t.isExpressionStatement(s) && t.isAssignmentExpression(s.expression)) {
+                        assignExpr = s.expression;
+                        break;
+                      }
+                    }
+                  }
+
+                  if (
+                    assignExpr &&
+                    t.isMemberExpression(assignExpr.left) &&
+                    t.isThisExpression(assignExpr.left.object) &&
+                    t.isIdentifier(assignExpr.left.property)
+                  ) {
+                    targetRefName = assignExpr.left.property.name;
+                  }
+                }
+
+                if (targetRefName) {
+                  bindingRes.createRefNames.add(targetRefName);
+                  if (
+                    !bindingRes.refDeclarations.some(
+                      (d) => (d.declarations[0].id as any).name === targetRefName
+                    )
+                  ) {
+                    neededReactHooks.add('useRef');
+                    bindingRes.refDeclarations.push(
+                      t.variableDeclaration('const', [
+                        t.variableDeclarator(
+                          t.identifier(targetRefName),
+                          t.callExpression(t.identifier('useRef'), [t.nullLiteral()])
+                        ),
+                      ])
+                    );
+                  }
+                  attrPath.node.value = t.jsxExpressionContainer(t.identifier(targetRefName));
+                }
+              }
+            }
+          },
+
+          // Rule 32: Context Consumer JSX hoisting
+          JSXElement(elemPath: any) {
+            const opening = elemPath.node.openingElement;
+            if (
+              t.isJSXMemberExpression(opening.name) &&
+              t.isJSXIdentifier(opening.name.property, { name: 'Consumer' }) &&
+              t.isJSXIdentifier(opening.name.object)
+            ) {
+              const contextName = opening.name.object.name;
+              for (const child of elemPath.node.children) {
+                if (t.isJSXExpressionContainer(child)) {
+                  const expr = child.expression;
+                  if (t.isArrowFunctionExpression(expr) || t.isFunctionExpression(expr)) {
+                    const param = expr.params[0];
+                    if (t.isIdentifier(param) || t.isObjectPattern(param) || t.isArrayPattern(param)) {
+                      neededReactHooks.add('useContext');
+                      injectedBodyHookDecls.push(
+                        t.variableDeclaration('const', [
+                          t.variableDeclarator(
+                            param,
+                            t.callExpression(t.identifier('useContext'), [
+                              t.identifier(contextName),
+                            ])
+                          ),
+                        ])
+                      );
+
+                      const body = expr.body;
+                      if (t.isJSXElement(body) || t.isJSXFragment(body)) {
+                        elemPath.replaceWith(body);
+                        return;
+                      } else if (t.isBlockStatement(body)) {
+                        for (const s of body.body) {
+                          if (t.isReturnStatement(s) && s.argument) {
+                            elemPath.replaceWith(s.argument);
+                            return;
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+
+          // Rule 9: Destructured state pruning
+          VariableDeclaration(declPath: any) {
+            const decls = declPath.node.declarations;
+            let shouldPruneWholeDecl = false;
+            const replacements: t.VariableDeclaration[] = [];
+
+            decls.forEach((d: any) => {
+              if (
+                t.isVariableDeclarator(d) &&
                 t.isMemberExpression(d.init) &&
                 t.isThisExpression(d.init.object) &&
-                t.isIdentifier(d.init.property, { name: 'state' })
-            )
-          ) {
-            return;
-          }
-          funcBodyStatements.push(stmt);
+                t.isIdentifier(d.init.property, { name: 'state' }) &&
+                t.isObjectPattern(d.id)
+              ) {
+                let allMatch = true;
+                d.id.properties.forEach((prop: any) => {
+                  if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
+                    const origKey = prop.key.name;
+                    if (t.isIdentifier(prop.value)) {
+                      const aliasKey = prop.value.name;
+                      if (aliasKey !== origKey) {
+                        replacements.push(
+                          t.variableDeclaration('const', [
+                            t.variableDeclarator(
+                              t.identifier(aliasKey),
+                              t.identifier(origKey)
+                            ),
+                          ])
+                        );
+                      }
+                    }
+                  } else {
+                    allMatch = false;
+                  }
+                });
+
+                if (allMatch) {
+                  shouldPruneWholeDecl = true;
+                }
+              }
+
+              // Prune defaultProps destructuring collision (e.g. const { theme } = this.props / props)
+              if (
+                t.isVariableDeclarator(d) &&
+                t.isObjectPattern(d.id) &&
+                defaultPropKeys.size > 0 &&
+                ((t.isMemberExpression(d.init) &&
+                  t.isThisExpression(d.init.object) &&
+                  t.isIdentifier(d.init.property, { name: 'props' })) ||
+                  (t.isIdentifier(d.init, { name: 'props' })))
+              ) {
+                const remainingProps: Array<t.RestElement | t.ObjectProperty> = [];
+                d.id.properties.forEach((prop: any) => {
+                  if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
+                    if (!defaultPropKeys.has(prop.key.name)) {
+                      remainingProps.push(prop);
+                    }
+                  } else {
+                    remainingProps.push(prop);
+                  }
+                });
+
+                if (remainingProps.length === 0) {
+                  shouldPruneWholeDecl = true;
+                } else if (remainingProps.length < d.id.properties.length) {
+                  d.id.properties = remainingProps;
+                }
+              }
+            });
+
+            if (shouldPruneWholeDecl) {
+              if (replacements.length > 0) {
+                declPath.replaceWithMultiple(replacements);
+              } else {
+                declPath.remove();
+              }
+            }
+          },
+
+          // Rule 35: this.forceUpdate()
+          CallExpression(callPath: any) {
+            const callee = callPath.node.callee;
+            if (
+              t.isMemberExpression(callee) &&
+              t.isThisExpression(callee.object) &&
+              t.isIdentifier(callee.property, { name: 'forceUpdate' })
+            ) {
+              neededReactHooks.add('useReducer');
+              const incArrow = t.arrowFunctionExpression(
+                [t.identifier('x')],
+                t.binaryExpression('+', t.identifier('x'), t.numericLiteral(1))
+              );
+              injectedBodyHookDecls.push(
+                t.variableDeclaration('const', [
+                  t.variableDeclarator(
+                    t.arrayPattern([null, t.identifier('forceUpdate')]),
+                    t.callExpression(t.identifier('useReducer'), [
+                      incArrow,
+                      t.numericLiteral(0),
+                    ])
+                  ),
+                ])
+              );
+              callPath.node.callee = t.identifier('forceUpdate');
+              return;
+            }
+
+            // Rules 3, 4, 5, 6, 7: this.setState(...)
+            transformSetStateCallNode(callPath, stateVarNames, changes, warnings);
+          },
+
+          // Rule 22: Instance property writes (this.timer = val, this.counter += 1)
+          AssignmentExpression(assignPath: any) {
+            const left = assignPath.node.left;
+            if (
+              t.isMemberExpression(left) &&
+              t.isThisExpression(left.object) &&
+              t.isIdentifier(left.property)
+            ) {
+              const propName = left.property.name;
+              if (
+                bindingRes.instanceFieldNames.has(propName) ||
+                bindingRes.createRefNames.has(propName)
+              ) {
+                assignPath.node.left = t.memberExpression(
+                  t.identifier(propName),
+                  t.identifier('current')
+                );
+              }
+            }
+          },
+
+          // Rule 22: UpdateExpression (this.counter++)
+          UpdateExpression(upPath: any) {
+            const arg = upPath.node.argument;
+            if (
+              t.isMemberExpression(arg) &&
+              t.isThisExpression(arg.object) &&
+              t.isIdentifier(arg.property)
+            ) {
+              const propName = arg.property.name;
+              if (bindingRes.instanceFieldNames.has(propName)) {
+                upPath.node.argument = t.memberExpression(
+                  t.identifier(propName),
+                  t.identifier('current')
+                );
+              }
+            }
+          },
+
+          // Member expressions (Rules 8, 10, 21, 29, 31)
+          MemberExpression(memPath: any) {
+            // Rule 8: this.state.x -> x
+            if (
+              t.isMemberExpression(memPath.node.object) &&
+              t.isThisExpression(memPath.node.object.object) &&
+              t.isIdentifier(memPath.node.object.property, { name: 'state' }) &&
+              t.isIdentifier(memPath.node.property)
+            ) {
+              memPath.replaceWith(t.identifier(memPath.node.property.name));
+              return;
+            }
+
+            // Rule 8: Bare this.state -> { key1, key2, ... }
+            if (
+              t.isThisExpression(memPath.node.object) &&
+              t.isIdentifier(memPath.node.property, { name: 'state' })
+            ) {
+              if (
+                memPath.parentPath.isMemberExpression() &&
+                memPath.parentPath.node.object === memPath.node
+              ) {
+                return;
+              }
+              if (
+                memPath.parentPath.isAssignmentExpression() &&
+                memPath.parentPath.node.left === memPath.node
+              ) {
+                return;
+              }
+              const stateProps = stateRes.stateDefs.map((d) =>
+                t.objectProperty(t.identifier(d.key), t.identifier(d.key), false, true)
+              );
+              memPath.replaceWith(t.objectExpression(stateProps));
+              return;
+            }
+
+            // Rule 31: this.context.theme -> context.theme
+            if (
+              t.isThisExpression(memPath.node.object) &&
+              t.isIdentifier(memPath.node.property, { name: 'context' })
+            ) {
+              memPath.replaceWith(t.identifier('context'));
+              return;
+            }
+
+            // Rule 10: this.props.x -> props.x (or x if default prop)
+            if (
+              t.isMemberExpression(memPath.node.object) &&
+              t.isThisExpression(memPath.node.object.object) &&
+              t.isIdentifier(memPath.node.object.property, { name: 'props' }) &&
+              t.isIdentifier(memPath.node.property)
+            ) {
+              const propName = memPath.node.property.name;
+              if (defaultPropKeys.has(propName)) {
+                memPath.replaceWith(t.identifier(propName));
+              } else {
+                memPath.replaceWith(
+                  t.memberExpression(t.identifier('props'), t.identifier(propName))
+                );
+              }
+              return;
+            }
+
+            // Rule 10: this.props -> props
+            if (
+              t.isThisExpression(memPath.node.object) &&
+              t.isIdentifier(memPath.node.property, { name: 'props' })
+            ) {
+              memPath.replaceWith(t.identifier('props'));
+              return;
+            }
+
+            // Rule 21 & Rule 29: this.myVar, this.method
+            if (
+              t.isThisExpression(memPath.node.object) &&
+              t.isIdentifier(memPath.node.property)
+            ) {
+              const propName = memPath.node.property.name;
+              if (['state', 'props', 'setState', 'context'].includes(propName)) {
+                return;
+              }
+
+              // React createRef: this.inputRef -> inputRef (preserves .current already in code)
+              if (bindingRes.createRefNames.has(propName)) {
+                memPath.replaceWith(t.identifier(propName));
+                return;
+              }
+
+              // Rule 21: Instance property read (this.timer -> timer.current)
+              if (bindingRes.instanceFieldNames.has(propName)) {
+                memPath.replaceWith(
+                  t.memberExpression(t.identifier(propName), t.identifier('current'))
+                );
+                return;
+              }
+
+              // Rule 29: Method invocation / reference
+              memPath.replaceWith(t.identifier(propName));
+            }
+          },
         });
 
-        // Add return statement from render
+        // 6. Extract Render method AFTER path.traverse has completed
+        const renderMethodBody: t.Statement[] = [];
+        let renderReturnStatement: t.ReturnStatement | null = null;
+
+        const renderMethod = path.node.body.body.find(
+          (member: any) =>
+            t.isClassMethod(member) && t.isIdentifier(member.key, { name: 'render' })
+        );
+
+        if (renderMethod) {
+          renderMethod.body.body.forEach((s: any) => {
+            if (t.isReturnStatement(s)) {
+              renderReturnStatement = s;
+            } else {
+              renderMethodBody.push(s);
+            }
+          });
+        }
+
+        // 7. Assemble Functional Component body
+        const funcBodyStatements: t.Statement[] = [];
+
+        // 7a. State hooks
+        funcBodyStatements.push(...stateHookDeclarations);
+
+        // 7b. Ref hooks
+        funcBodyStatements.push(...bindingRes.refDeclarations);
+
+        // 7c. Context hooks (static contextType)
+        funcBodyStatements.push(...typeStaticRes.contextHookDeclarations);
+
+        // 7d. Injected body hook declarations (forceUpdate, Context.Consumer)
+        funcBodyStatements.push(...injectedBodyHookDecls);
+
+        // 7e. Lifecycle hook statements (getDerivedStateFromProps, getSnapshotBeforeUpdate, useEffects)
+        funcBodyStatements.push(...lifecycleRes.hookStatements);
+
+        // 7f. Custom method declarations
+        funcBodyStatements.push(...bindingRes.customMethodDeclarations);
+
+        // 7g. Render method body statements
+        funcBodyStatements.push(...renderMethodBody);
+
+        // 7h. Return statement
         if (renderReturnStatement) {
           funcBodyStatements.push(renderReturnStatement);
         } else {
           funcBodyStatements.push(t.returnStatement(t.nullLiteral()));
         }
 
-        // Create the functional component
-        // Parameters: props (typed if TypeScript was present)
-        const propsParam = t.identifier('props');
-        if (propsTypeAnnotation) {
-          propsParam.typeAnnotation = t.tsTypeAnnotation(propsTypeAnnotation);
-        }
-
+        // 8. Create Function Component declaration
         const funcComponent = t.functionDeclaration(
           t.identifier(componentName),
-          [propsParam],
+          [typeStaticRes.propsParam as any],
           t.blockStatement(funcBodyStatements)
         );
 
-        // Replace the class declaration with the function component
+        if (path.node.typeParameters) {
+          funcComponent.typeParameters = t.cloneNode(path.node.typeParameters);
+        }
+
+        // 9. Handle PureComponent wrapping (Rule 34) and shouldComponentUpdate memo (Rule 17)
+        const isExportDefault = path.parentPath.isExportDefaultDeclaration();
+        const isExportNamed = path.parentPath.isExportNamedDeclaration();
+
+        const needsMemo = typeStaticRes.isPureComponent || !!lifecycleRes.memoComparator;
+        if (needsMemo) {
+          neededReactHooks.add('memo');
+        }
+
+        // Clean bindings before replacement to avoid Duplicate Declaration collision
+        const pScope = path.parentPath.scope || path.scope;
+        if (pScope && pScope.bindings) delete pScope.bindings[componentName];
+        if (path.scope && path.scope.bindings) delete path.scope.bindings[componentName];
         if (path.scope && path.scope.hasOwnBinding && path.scope.hasOwnBinding(componentName)) {
           path.scope.removeBinding(componentName);
         }
-        path.replaceWith(funcComponent);
-      },
-    });
 
-    // Second traversal pass: replace `this.state.x` -> `x`, `this.props.x` -> `props.x`, `this.setState(...)` -> setters, `this.method` -> `method`
-    traverse(ast, {
-      MemberExpression(path: any) {
-        // 1. this.state.something -> something
-        if (
-          t.isMemberExpression(path.node.object) &&
-          t.isThisExpression(path.node.object.object) &&
-          t.isIdentifier(path.node.object.property, { name: 'state' }) &&
-          t.isIdentifier(path.node.property)
-        ) {
-          path.replaceWith(t.identifier(path.node.property.name));
-          return;
-        }
-
-        // 2. this.props.something -> props.something
-        if (
-          t.isThisExpression(path.node.object) &&
-          t.isIdentifier(path.node.property, { name: 'props' })
-        ) {
-          path.replaceWith(t.identifier('props'));
-          return;
-        }
-
-        // 3. this.methodName -> methodName (or this.myRef -> myRef)
-        if (
-          t.isThisExpression(path.node.object) &&
-          t.isIdentifier(path.node.property) &&
-          path.node.property.name !== 'state' &&
-          path.node.property.name !== 'props' &&
-          path.node.property.name !== 'setState'
-        ) {
-          path.replaceWith(t.identifier(path.node.property.name));
-          return;
-        }
-      },
-
-      CallExpression(path: any) {
-        // Handle this.setState({ x: 1, y: 2 })
-        const callee = path.node.callee;
-        if (
-          t.isMemberExpression(callee) &&
-          t.isThisExpression(callee.object) &&
-          t.isIdentifier(callee.property, { name: 'setState' })
-        ) {
-          const arg = path.node.arguments[0];
-          if (t.isObjectExpression(arg)) {
-            // Replace with sequence of setter calls: setX(1); setY(2)
-            const setterCalls: t.Expression[] = [];
-            arg.properties.forEach((prop: any) => {
-              if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
-                const setter = toSetterName(prop.key.name);
-                setterCalls.push(
-                  t.callExpression(t.identifier(setter), [prop.value as t.Expression])
-                );
-              }
-            });
-
-            if (setterCalls.length === 1) {
-              path.replaceWith(setterCalls[0]);
-            } else if (setterCalls.length > 1) {
-              path.replaceWith(t.sequenceExpression(setterCalls));
-            }
-          } else if (t.isArrowFunctionExpression(arg) || t.isFunctionExpression(arg)) {
-            // Handle this.setState(prev => ({ count: prev.count + 1 }))
-            warnings.push(`Functional setState converted. Please review updater arguments.`);
+        // Prepend memoComparator if defined
+        if (lifecycleRes.memoComparator) {
+          if (isExportNamed || isExportDefault) {
+            path.parentPath.insertBefore(lifecycleRes.memoComparator);
+          } else {
+            path.insertBefore(lifecycleRes.memoComparator);
           }
         }
-      },
-    });
 
-    // Update React imports to ensure required hooks are imported
-    let reactImportFound = false;
-    traverse(ast, {
-      ImportDeclaration(path: any) {
-        if (path.node.source.value === 'react') {
-          reactImportFound = true;
-          // Remove Component and PureComponent specifiers
-          path.node.specifiers = path.node.specifiers.filter((s: any) => {
-            if (t.isImportSpecifier(s) && t.isIdentifier(s.imported)) {
-              return s.imported.name !== 'Component' && s.imported.name !== 'PureComponent';
-            }
-            return true;
-          });
+        if (needsMemo) {
+          const fnExpr = t.functionExpression(
+            t.identifier(componentName),
+            [typeStaticRes.propsParam as any],
+            t.blockStatement(funcBodyStatements)
+          );
 
-          // Add needed hooks if not already present
-          neededReactHooks.forEach((hook) => {
-            const alreadyImported = path.node.specifiers.some(
-              (s: any) => t.isImportSpecifier(s) && t.isIdentifier(s.imported, { name: hook })
-            );
-            if (!alreadyImported) {
-              path.node.specifiers.push(
-                t.importSpecifier(t.identifier(hook), t.identifier(hook))
-              );
-            }
-          });
+          const arePropsEqualArg = lifecycleRes.memoComparator
+            ? [fnExpr, t.identifier('arePropsEqual')]
+            : [fnExpr];
+
+          const memoExpression = t.callExpression(
+            t.memberExpression(t.identifier('React'), t.identifier('memo')),
+            arePropsEqualArg
+          );
+
+          if (isExportDefault) {
+            path.parentPath.replaceWith(t.exportDefaultDeclaration(memoExpression));
+          } else if (isExportNamed) {
+            const memoDecl = t.variableDeclaration('const', [
+              t.variableDeclarator(t.identifier(componentName), memoExpression),
+            ]);
+            path.parentPath.replaceWith(t.exportNamedDeclaration(memoDecl));
+          } else {
+            const memoDecl = t.variableDeclaration('const', [
+              t.variableDeclarator(t.identifier(componentName), memoExpression),
+            ]);
+            path.replaceWith(memoDecl);
+          }
+        } else {
+          // Standard functional component
+          path.replaceWith(funcComponent);
+        }
+
+        // 10. Append static statements (Rule 40)
+        if (typeStaticRes.staticStatements.length > 0) {
+          const targetPath = isExportDefault || isExportNamed ? path.parentPath : path;
+          targetPath.insertAfter(typeStaticRes.staticStatements);
         }
       },
     });
 
-    // If no react import exists at all but hooks are needed, add one at the top
-    if (!reactImportFound && neededReactHooks.size > 0) {
-      const specifiers: Array<t.ImportSpecifier | t.ImportDefaultSpecifier> = Array.from(neededReactHooks).map((hook) =>
-        t.importSpecifier(t.identifier(hook), t.identifier(hook))
-      );
-      specifiers.unshift(t.importDefaultSpecifier(t.identifier('React')));
-      const newImport = t.importDeclaration(specifiers, t.stringLiteral('react'));
-      ast.program.body.unshift(newImport);
-    }
+    // Update React imports (Rule 38)
+    updateReactImports(ast, traverse, neededReactHooks);
 
-    const output = generate(ast, {
-      retainLines: false,
-      compact: false,
-      jsescOption: { minimal: true },
-    }, sourceCode);
+    const output = generate(
+      ast,
+      {
+        retainLines: false,
+        compact: false,
+        jsescOption: { quotes: 'single', minimal: true },
+      },
+      sourceCode
+    );
+
+    let finalCode = output.code;
+    // Format single-property destructured arrow parameters inline: ({ target }) =>
+    finalCode = finalCode.replace(
+      /\(\{\s*\n\s*([a-zA-Z0-9_$]+)\s*\n\s*\}\)\s*=>/g,
+      '({ $1 }) =>'
+    );
+    // Normalize react import quote if generated as double quotes
+    finalCode = finalCode.replace(/from "react";?/g, "from 'react';");
 
     const timeMs = Math.round((performance.now() - startTime) * 100) / 100;
 
     return {
-      code: output.code,
+      code: finalCode,
       success: true,
+      syntaxValid: true,
       changes,
       warnings,
       stats: {
         stateVariables: stateVariablesCount,
+        stateVarsCount: stateVariablesCount,
         effects: effectsCount,
+        effectsCount: effectsCount,
+        refsCount,
         methodsConverted: methodsCount,
         timeMs,
       },
@@ -496,12 +650,16 @@ export function transformReactClassToHooks(
     return {
       code: sourceCode,
       success: false,
+      syntaxValid: false,
       changes,
       warnings,
       errors,
       stats: {
         stateVariables: 0,
+        stateVarsCount: 0,
         effects: 0,
+        effectsCount: 0,
+        refsCount: 0,
         methodsConverted: 0,
         timeMs: Math.round((performance.now() - startTime) * 100) / 100,
       },

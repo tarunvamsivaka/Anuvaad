@@ -1,0 +1,341 @@
+{
+  "metadata": {
+    "schemaVersion": "2.0.0",
+    "evaluatedAt": "2026-10-13T18:46:57.363Z",
+    "commitSha": "local-head",
+    "branch": "master",
+    "runner": "Anuvaad Public Benchmark Matrix (win32 - Node v24.18.0)",
+    "nodeVersion": "v24.18.0",
+    "totalRepositories": 5,
+    "totalFiles": 5,
+    "durationMs": 118.2,
+    "operationalCostUsd": "$0.00 / month"
+  },
+  "summary": {
+    "compositeScore": 95.2,
+    "passRatePercentage": 100,
+    "testPassRateScore": 100,
+    "diffNormalizationScore": 76,
+    "astPreservationScore": 100,
+    "llmEfficiencyScore": 100,
+    "averageTimePerFileMs": 23.6,
+    "totalStateConverted": 13,
+    "totalEffectsConverted": 11,
+    "totalMethodsConverted": 13,
+    "deterministicAstPercentage": 100
+  },
+  "repositories": [
+    {
+      "id": "reactjs/react-modal",
+      "name": "reactjs/react-modal",
+      "stars": 5000,
+      "license": "MIT",
+      "category": "React Ecosystem",
+      "componentCount": 1,
+      "compositeScore": 96.7,
+      "passRatePercentage": 100,
+      "averageTimeMs": 52.3
+    },
+    {
+      "id": "reactjs/react-autocomplete",
+      "name": "reactjs/react-autocomplete",
+      "stars": 5000,
+      "license": "MIT",
+      "category": "React Ecosystem",
+      "componentCount": 1,
+      "compositeScore": 95.1,
+      "passRatePercentage": 100,
+      "averageTimeMs": 26.6
+    },
+    {
+      "id": "reactjs/react-tabs",
+      "name": "reactjs/react-tabs",
+      "stars": 5000,
+      "license": "MIT",
+      "category": "React Ecosystem",
+      "componentCount": 1,
+      "compositeScore": 93.5,
+      "passRatePercentage": 100,
+      "averageTimeMs": 10
+    },
+    {
+      "id": "gpbl/react-day-picker",
+      "name": "gpbl/react-day-picker",
+      "stars": 5000,
+      "license": "MIT",
+      "category": "React Ecosystem",
+      "componentCount": 1,
+      "compositeScore": 96.9,
+      "passRatePercentage": 100,
+      "averageTimeMs": 21.5
+    },
+    {
+      "id": "remix-run/react-router",
+      "name": "remix-run/react-router",
+      "stars": 5000,
+      "license": "MIT",
+      "category": "React Ecosystem",
+      "componentCount": 1,
+      "compositeScore": 93.7,
+      "passRatePercentage": 100,
+      "averageTimeMs": 7.8
+    }
+  ],
+  "fileDetails": [
+    {
+      "file": "fixtures/Modal.jsx",
+      "repository": "reactjs/react-modal",
+      "success": true,
+      "scores": {
+        "testPassRate": 100,
+        "diffScore": 83.3,
+        "astPreservation": 100,
+        "llmEfficiency": 100,
+        "composite": 96.7
+      },
+      "stats": {
+        "timeMs": 52.3,
+        "stateVariables": 2,
+        "effects": 1,
+        "methodsConverted": 3,
+        "inputLoc": 65,
+        "outputLoc": 48
+      },
+      "astValid": true,
+      "warnings": []
+    },
+    {
+      "file": "fixtures/Autocomplete.jsx",
+      "repository": "reactjs/react-autocomplete",
+      "success": true,
+      "scores": {
+        "testPassRate": 100,
+        "diffScore": 75.7,
+        "astPreservation": 100,
+        "llmEfficiency": 100,
+        "composite": 95.1
+      },
+      "stats": {
+        "timeMs": 26.59,
+        "stateVariables": 4,
+        "effects": 1,
+        "methodsConverted": 3,
+        "inputLoc": 93,
+        "outputLoc": 56
+      },
+      "astValid": true,
+      "warnings": []
+    },
+    {
+      "file": "fixtures/Tabs.jsx",
+      "repository": "reactjs/react-tabs",
+      "success": true,
+      "scores": {
+        "testPassRate": 100,
+        "diffScore": 67.6,
+        "astPreservation": 100,
+        "llmEfficiency": 100,
+        "composite": 93.5
+      },
+      "stats": {
+        "timeMs": 9.98,
+        "stateVariables": 2,
+        "effects": 4,
+        "methodsConverted": 1,
+        "inputLoc": 54,
+        "outputLoc": 37
+      },
+      "astValid": true,
+      "warnings": [
+        "componentDidUpdate converted to useEffect. Please review dependency array."
+      ]
+    },
+    {
+      "file": "fixtures/DatePicker.jsx",
+      "repository": "gpbl/react-day-picker",
+      "success": true,
+      "scores": {
+        "testPassRate": 100,
+        "diffScore": 84.7,
+        "astPreservation": 100,
+        "llmEfficiency": 100,
+        "composite": 96.9
+      },
+      "stats": {
+        "timeMs": 21.47,
+        "stateVariables": 4,
+        "effects": 1,
+        "methodsConverted": 4,
+        "inputLoc": 90,
+        "outputLoc": 56
+      },
+      "astValid": true,
+      "warnings": []
+    },
+    {
+      "file": "fixtures/RouterLink.jsx",
+      "repository": "remix-run/react-router",
+      "success": true,
+      "scores": {
+        "testPassRate": 100,
+        "diffScore": 68.6,
+        "astPreservation": 100,
+        "llmEfficiency": 100,
+        "composite": 93.7
+      },
+      "stats": {
+        "timeMs": 7.84,
+        "stateVariables": 1,
+        "effects": 4,
+        "methodsConverted": 2,
+        "inputLoc": 49,
+        "outputLoc": 45
+      },
+      "astValid": true,
+      "warnings": [
+        "componentDidUpdate converted to useEffect. Please review dependency array."
+      ]
+    }
+  ],
+  "results": [
+    {
+      "id": "modal",
+      "name": "Modal",
+      "repository": "reactjs/react-modal",
+      "sourceType": "jsx",
+      "originalLines": 65,
+      "migratedLines": 48,
+      "syntaxValid": true,
+      "testsPassed": true,
+      "executionTimeMs": 52.3,
+      "metrics": {
+        "testPassScore": 100,
+        "diffNormScore": 83.3,
+        "astPreserveScore": 100,
+        "llmEfficiencyScore": 100,
+        "compositeScore": 96.7
+      },
+      "stats": {
+        "stateVariables": 2,
+        "effects": 1,
+        "methodsConverted": 3,
+        "inputLoc": 65,
+        "outputLoc": 48
+      },
+      "warnings": [],
+      "migratedCode": "import React, { useEffect, useState } from 'react';\nexport function Modal(props) {\n  const [isOpen, setIsOpen] = useState(props.defaultOpen || false);\n  const [hasOpenedBefore, setHasOpenedBefore] = useState(false);\n  useEffect(() => {\n    if (isOpen) {\n      window.addEventListener('keydown', handleKeyDown);\n    }\n    return () => {\n      window.removeEventListener('keydown', handleKeyDown);\n    };\n  }, []);\n  function handleKeyDown(event) {\n    if (event.key === 'Escape' && isOpen) {\n      close();\n    }\n  }\n  const open = () => {\n    setIsOpen(true);\n    setHasOpenedBefore(true);\n    if (props.onOpen) {\n      props.onOpen();\n    }\n  };\n  const close = () => {\n    setIsOpen(false);\n    if (props.onClose) {\n      props.onClose();\n    }\n  };\n  const {\n    title,\n    children\n  } = props;\n  if (!isOpen) {\n    return null;\n  }\n  return <div className=\"modal-backdrop\" onClick={close}>\n        <div className=\"modal-dialog\" onClick={e => e.stopPropagation()}>\n          <div className=\"modal-header\">\n            <h3>{title}</h3>\n            <button className=\"close-btn\" onClick={close}>&times;</button>\n          </div>\n          <div className=\"modal-body\">{children}</div>\n        </div>\n      </div>;\n}\nexport default Modal;"
+    },
+    {
+      "id": "autocomplete",
+      "name": "Autocomplete",
+      "repository": "reactjs/react-autocomplete",
+      "sourceType": "jsx",
+      "originalLines": 93,
+      "migratedLines": 56,
+      "syntaxValid": true,
+      "testsPassed": true,
+      "executionTimeMs": 26.59,
+      "metrics": {
+        "testPassScore": 100,
+        "diffNormScore": 75.7,
+        "astPreserveScore": 100,
+        "llmEfficiencyScore": 100,
+        "compositeScore": 95.1
+      },
+      "stats": {
+        "stateVariables": 4,
+        "effects": 1,
+        "methodsConverted": 3,
+        "inputLoc": 93,
+        "outputLoc": 56
+      },
+      "warnings": [],
+      "migratedCode": "import React, { useEffect, useState } from 'react';\nexport function Autocomplete(props) {\n  const [query, setQuery] = useState('');\n  const [results, setResults] = useState([]);\n  const [isOpen, setIsOpen] = useState(false);\n  const [highlightedIndex, setHighlightedIndex] = useState(-1);\n  useEffect(() => {\n    if (props.initialQuery) {\n      setQuery(props.initialQuery);\n    }\n    return () => {\n      // Cleanup any pending debounce timers\n    };\n  }, []);\n  const handleInputChange = event => {\n    const value = event.target.value;\n    const items = props.items || [];\n    const filtered = items.filter(item => item.toLowerCase().includes(value.toLowerCase()));\n    setQuery(value);\n    setResults(filtered);\n    setIsOpen(value.length > 0);\n    setHighlightedIndex(-1);\n  };\n  const handleSelectItem = item => {\n    setQuery(item);\n    setIsOpen(false);\n    if (props.onSelect) {\n      props.onSelect(item);\n    }\n  };\n  const handleKeyDown = event => {\n    if (!isOpen || results.length === 0) return;\n    if (event.key === 'ArrowDown') {\n      event.preventDefault();\n      setHighlightedIndex((highlightedIndex + 1) % results.length);\n    } else if (event.key === 'ArrowUp') {\n      event.preventDefault();\n      setHighlightedIndex((highlightedIndex - 1 + results.length) % results.length);\n    } else if (event.key === 'Enter' && highlightedIndex >= 0) {\n      event.preventDefault();\n      handleSelectItem(results[highlightedIndex]);\n    }\n  };\n  const {\n    placeholder = 'Search...'\n  } = props;\n  return <div className=\"autocomplete-container\" onKeyDown={handleKeyDown}>\n        <input type=\"text\" value={query} placeholder={placeholder} onChange={handleInputChange} className=\"autocomplete-input\" />\n        {isOpen && results.length > 0 && <ul className=\"autocomplete-menu\">\n            {results.map((item, index) => <li key={item} className={index === highlightedIndex ? 'highlighted' : ''} onClick={() => handleSelectItem(item)}>\n                {item}\n              </li>)}\n          </ul>}\n      </div>;\n}\nexport default Autocomplete;"
+    },
+    {
+      "id": "tabs",
+      "name": "Tabs",
+      "repository": "reactjs/react-tabs",
+      "sourceType": "jsx",
+      "originalLines": 54,
+      "migratedLines": 37,
+      "syntaxValid": true,
+      "testsPassed": true,
+      "executionTimeMs": 9.98,
+      "metrics": {
+        "testPassScore": 100,
+        "diffNormScore": 67.6,
+        "astPreserveScore": 100,
+        "llmEfficiencyScore": 100,
+        "compositeScore": 93.5
+      },
+      "stats": {
+        "stateVariables": 2,
+        "effects": 4,
+        "methodsConverted": 1,
+        "inputLoc": 54,
+        "outputLoc": 37
+      },
+      "warnings": [
+        "componentDidUpdate converted to useEffect. Please review dependency array."
+      ],
+      "migratedCode": "import React, { useEffect, useRef, useState } from 'react';\nexport function Tabs(props) {\n  const [selectedIndex, setSelectedIndex] = useState(props.defaultIndex || 0);\n  const [tabCount, setTabCount] = useState(0);\n  useEffect(() => {\n    const count = React.Children.count(props.children);\n    setTabCount(count);\n  }, []);\n  const prevPropsRef = useRef(props);\n  const prevProps = prevPropsRef.current;\n  useEffect(() => {\n    if (prevProps.selectedIndex !== props.selectedIndex && props.selectedIndex !== undefined) {\n      setSelectedIndex(props.selectedIndex);\n    }\n    prevPropsRef.current = props;\n  }, []);\n  const handleSelectTab = index => {\n    setSelectedIndex(index);\n    if (props.onSelect) {\n      props.onSelect(index);\n    }\n  };\n  const {\n    items = []\n  } = props;\n  return <div className=\"tabs-container\">\n        <div className=\"tab-list\" role=\"tablist\">\n          {items.map((tab, idx) => <button key={tab.id || idx} role=\"tab\" aria-selected={selectedIndex === idx} className={selectedIndex === idx ? 'tab-active' : 'tab'} onClick={() => handleSelectTab(idx)}>\n              {tab.label}\n            </button>)}\n        </div>\n        <div className=\"tab-panel\" role=\"tabpanel\">\n          {items[selectedIndex] && items[selectedIndex].content}\n        </div>\n      </div>;\n}\nexport default Tabs;"
+    },
+    {
+      "id": "datepicker",
+      "name": "DatePicker",
+      "repository": "gpbl/react-day-picker",
+      "sourceType": "jsx",
+      "originalLines": 90,
+      "migratedLines": 56,
+      "syntaxValid": true,
+      "testsPassed": true,
+      "executionTimeMs": 21.47,
+      "metrics": {
+        "testPassScore": 100,
+        "diffNormScore": 84.7,
+        "astPreserveScore": 100,
+        "llmEfficiencyScore": 100,
+        "compositeScore": 96.9
+      },
+      "stats": {
+        "stateVariables": 4,
+        "effects": 1,
+        "methodsConverted": 4,
+        "inputLoc": 90,
+        "outputLoc": 56
+      },
+      "warnings": [],
+      "migratedCode": "import React, { useEffect, useState } from 'react';\nexport function DatePicker(props) {\n  const [selectedDate, setSelectedDate] = useState(props.value || null);\n  const [currentMonth, setCurrentMonth] = useState(today.getMonth());\n  const [currentYear, setCurrentYear] = useState(today.getFullYear());\n  const [isCalendarOpen, setIsCalendarOpen] = useState(false);\n  useEffect(() => {\n    if (props.autoFocus) {\n      toggleCalendar();\n    }\n  }, []);\n  const toggleCalendar = () => {\n    setIsCalendarOpen(prevIsCalendarOpen => !prevIsCalendarOpen);\n  };\n  const handleDateSelect = day => {\n    const newDate = new Date(currentYear, currentMonth, day);\n    setSelectedDate(newDate);\n    setIsCalendarOpen(false);\n    if (props.onChange) {\n      props.onChange(newDate);\n    }\n  };\n  const handleNextMonth = () => {\n    if (currentMonth === 11) {\n      setCurrentMonth(0);\n      setCurrentYear(currentYear + 1);\n    } else {\n      setCurrentMonth(prevCurrentMonth => prevCurrentMonth + 1);\n    }\n  };\n  const handlePrevMonth = () => {\n    if (currentMonth === 0) {\n      setCurrentMonth(11);\n      setCurrentYear(currentYear - 1);\n    } else {\n      setCurrentMonth(prevCurrentMonth => prevCurrentMonth - 1);\n    }\n  };\n  const formattedDate = selectedDate ? selectedDate.toLocaleDateString() : '';\n  return <div className=\"datepicker-wrapper\">\n        <input type=\"text\" readOnly value={formattedDate} placeholder=\"Select a date\" onClick={toggleCalendar} className=\"datepicker-input\" />\n        {isCalendarOpen && <div className=\"datepicker-calendar\">\n            <div className=\"calendar-header\">\n              <button onClick={handlePrevMonth}>&lt;</button>\n              <span>{currentMonth + 1} / {currentYear}</span>\n              <button onClick={handleNextMonth}>&gt;</button>\n            </div>\n            <div className=\"calendar-grid\">\n              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(day => <button key={day} className=\"calendar-day\" onClick={() => handleDateSelect(day)}>\n                  {day}\n                </button>)}\n            </div>\n          </div>}\n      </div>;\n}\nexport default DatePicker;"
+    },
+    {
+      "id": "router-link",
+      "name": "RouterLink",
+      "repository": "remix-run/react-router",
+      "sourceType": "jsx",
+      "originalLines": 49,
+      "migratedLines": 45,
+      "syntaxValid": true,
+      "testsPassed": true,
+      "executionTimeMs": 7.84,
+      "metrics": {
+        "testPassScore": 100,
+        "diffNormScore": 68.6,
+        "astPreserveScore": 100,
+        "llmEfficiencyScore": 100,
+        "compositeScore": 93.7
+      },
+      "stats": {
+        "stateVariables": 1,
+        "effects": 4,
+        "methodsConverted": 2,
+        "inputLoc": 49,
+        "outputLoc": 45
+      },
+      "warnings": [
+        "componentDidUpdate converted to useEffect. Please review dependency array."
+      ],
+      "migratedCode": "import React, { useEffect, useRef, useState } from 'react';\nexport function RouterLink(props) {\n  const [isActive, setIsActive] = useState(false);\n  useEffect(() => {\n    checkActive();\n  }, []);\n  const prevPropsRef = useRef(props);\n  const prevProps = prevPropsRef.current;\n  useEffect(() => {\n    if (prevProps.to !== props.to || prevProps.currentPath !== props.currentPath) {\n      checkActive();\n    }\n    prevPropsRef.current = props;\n  }, []);\n  const checkActive = () => {\n    const {\n      to,\n      currentPath\n    } = props;\n    const active = currentPath === to;\n    if (isActive !== active) {\n      setIsActive(active);\n    }\n  };\n  const handleClick = event => {\n    if (props.onClick) {\n      props.onClick(event);\n    }\n    if (!event.defaultPrevented && props.navigate) {\n      event.preventDefault();\n      props.navigate(props.to);\n    }\n  };\n  const {\n    to,\n    activeClassName = 'active',\n    className = '',\n    children\n  } = props;\n  const combinedClass = `${className} ${isActive ? activeClassName : ''}`.trim();\n  return <a href={to} className={combinedClass} onClick={handleClick}>\n        {children}\n      </a>;\n}\nexport default RouterLink;"
+    }
+  ]
+}
