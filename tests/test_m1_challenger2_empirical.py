@@ -79,7 +79,7 @@ def test_alembic_linear_dag_traversal():
     expected_chain = [
         "016_share_link_expiry",
         "015_revoke_public_table_grants",
-        "014_fix_supabase_security_and_indexes",  # Supabase security & RLS fix
+        "014_supabase_security_indexes",  # Supabase security & RLS fix
         "b2e4f8a1c3d7",  # Sprint 3: add input_hash for ZDR compliance
         "013_halfvec_and_ivfflat",
         "012_grant_anon_translation_count",

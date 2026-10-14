@@ -12,7 +12,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "015_revoke_public_table_grants"
-down_revision: Union[str, Sequence[str], None] = "014_fix_supabase_security_and_indexes"
+down_revision: Union[str, Sequence[str], None] = "014_supabase_security_indexes"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

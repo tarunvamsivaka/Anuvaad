@@ -16,7 +16,7 @@ from typing import Union
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "014_fix_supabase_security_and_indexes"
+revision: str = "014_supabase_security_indexes"
 down_revision: Union[str, Sequence[str], None] = "b2e4f8a1c3d7"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
