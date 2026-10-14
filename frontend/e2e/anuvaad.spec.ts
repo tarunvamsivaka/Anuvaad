@@ -65,6 +65,15 @@ async function mockTranslateAPI(page: import('@playwright/test').Page) {
         await route.fulfill({ status: 200, headers: corsHeaders });
         return;
       }
+      if (endpoint.includes('generate-from-english')) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          headers: corsHeaders,
+          body: JSON.stringify({ blocks, model_used: 'groq/llama3-70b' })
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: 'text/event-stream',
@@ -246,7 +255,7 @@ test.describe('Dashboard Home', () => {
     await expect(page.locator('p:has-text("This Week")')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('p:has-text("All Time")')).toBeVisible({ timeout: 5000 });
     // "Current Plan" stat card
-    await expect(page.locator('p:has-text("Current Plan")')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('p:has-text("Current Plan")').first()).toBeVisible({ timeout: 5000 });
   });
 
   test('dashboard Quick Actions section has 3 translation mode links', async ({ page }) => {
@@ -267,8 +276,8 @@ test.describe('Dashboard Home', () => {
     test.skip(isMobile, 'Upgrade banner is inside the desktop sidebar which is hidden on mobile');
     await page.goto('/dashboard');
     const sidebar = desktopSidebar(page);
-    await expect(sidebar.locator('text=Upgrade to Pro')).toBeVisible({ timeout: 8000 });
-    await expect(sidebar.locator('a:has-text("Upgrade Now")')).toBeVisible();
+    await expect(sidebar.locator('text=Plans paused')).toBeVisible({ timeout: 8000 });
+    await expect(sidebar.locator('a:has-text("Billing status")')).toBeVisible();
   });
 
   test('"Upgrade Now" banner links to billing page', async ({ page, isMobile }) => {
@@ -277,7 +286,7 @@ test.describe('Dashboard Home', () => {
     const sidebar = desktopSidebar(page);
     await sidebar.hover();
     await page.waitForTimeout(350);
-    await sidebar.locator('a:has-text("Upgrade Now")').click();
+    await sidebar.locator('a:has-text("Billing status")').click();
     await expect(page).toHaveURL(/\/dashboard\/billing/);
   });
 
@@ -741,7 +750,7 @@ test.describe('Sidebar Navigation', () => {
     await expect(sidebar.locator('a[href="/dashboard"]').first()).toBeVisible({ timeout: 8000 });
     await expect(sidebar.locator('a[href="/dashboard/translate"]')).toBeVisible();
     await expect(sidebar.locator('a[href="/dashboard/history"]')).toBeVisible();
-    await expect(sidebar.locator('a[href="/dashboard/billing"]:has-text("Billing")')).toBeVisible();
+    await expect(sidebar.locator('a[href="/dashboard/billing"]').first()).toBeVisible();
     await expect(sidebar.locator('a[href="/dashboard/settings"]')).toBeVisible();
   });
 
@@ -759,7 +768,7 @@ test.describe('Sidebar Navigation', () => {
 
   test('clicking Billing in sidebar navigates to /dashboard/billing', async ({ page }) => {
     await page.goto('/dashboard');
-    await desktopSidebar(page).locator('a[href="/dashboard/billing"]:has-text("Billing")').click();
+    await desktopSidebar(page).locator('a[href="/dashboard/billing"]').first().click();
     await expect(page).toHaveURL(/\/dashboard\/billing/);
   });
 

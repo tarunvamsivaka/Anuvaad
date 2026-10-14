@@ -140,6 +140,11 @@ jobs:
             END IF;
           END
           $$;
+          CREATE SCHEMA IF NOT EXISTS private;
+          CREATE OR REPLACE FUNCTION private.get_user_workspaces()
+          RETURNS SETOF uuid LANGUAGE sql STABLE AS $$
+            SELECT '00000000-0000-0000-0000-000000000000'::uuid WHERE false;
+          $$;
           SQL
 
       - name: Generate an ephemeral test encryption key

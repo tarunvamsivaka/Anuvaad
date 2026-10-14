@@ -42,6 +42,23 @@ def upgrade() -> None:
         op.execute(f"ALTER TABLE IF EXISTS public.{table} ENABLE ROW LEVEL SECURITY;")
 
     # 2. Add service_role and workspace access policies
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        op.execute("CREATE SCHEMA IF NOT EXISTS private;")
+        op.execute(
+            """
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_proc JOIN pg_namespace ON pg_proc.pronamespace = pg_namespace.oid
+                    WHERE pg_namespace.nspname = 'private' AND proname = 'get_user_workspaces'
+                ) THEN
+                    EXECUTE 'CREATE FUNCTION private.get_user_workspaces() RETURNS SETOF uuid LANGUAGE sql STABLE AS $fn$ SELECT ''00000000-0000-0000-0000-000000000000''::uuid WHERE false; $fn$';
+                END IF;
+            END $$;
+            """
+        )
+
     op.execute(
         """
         DO $$
