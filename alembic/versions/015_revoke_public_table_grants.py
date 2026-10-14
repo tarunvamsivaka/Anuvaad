@@ -19,6 +19,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Keep browser roles limited to the explicit public lead-capture insert."""
+    op.execute(
+        """
+        CREATE TABLE IF NOT EXISTS public.landing_leads (
+            id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+            email text NOT NULL,
+            source text DEFAULT 'exit_intent',
+            created_at timestamptz DEFAULT now()
+        );
+        """
+    )
     op.execute("REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM anon, authenticated")
     op.execute("REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated")
     op.execute("GRANT INSERT (email, source) ON TABLE public.landing_leads TO anon")
