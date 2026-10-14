@@ -41,17 +41,35 @@ def upgrade() -> None:
         ),
     )
 
-    # 2. Retroactively redact any existing raw code from input_text.
+    # 2. Retroactively redact any existing raw code from input_preview / input_text.
     #    The [ZDR-PROTECTED: ...] marker is the safe format set by all new writes.
-    #    We only touch rows that don't already have the marker.
-    op.execute(
-        """
-        UPDATE translation_history
-        SET input_text = '[ZDR-REDACTED: migrated ' || LENGTH(input_text)::TEXT || ' chars on 2026-09-28]'
-        WHERE input_text IS NOT NULL
-          AND input_text NOT LIKE '[ZDR-%'
-        """
-    )
+    #    We check whether input_preview or input_text exists before executing update.
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        op.execute(
+            """
+            DO $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'translation_history' AND column_name = 'input_preview'
+                ) THEN
+                    UPDATE translation_history
+                    SET input_preview = '[ZDR-REDACTED: migrated ' || LENGTH(input_preview)::TEXT || ' chars on 2026-09-28]'
+                    WHERE input_preview IS NOT NULL
+                      AND input_preview NOT LIKE '[ZDR-%';
+                ELSIF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_name = 'translation_history' AND column_name = 'input_text'
+                ) THEN
+                    UPDATE translation_history
+                    SET input_text = '[ZDR-REDACTED: migrated ' || LENGTH(input_text)::TEXT || ' chars on 2026-09-28]'
+                    WHERE input_text IS NOT NULL
+                      AND input_text NOT LIKE '[ZDR-%';
+                END IF;
+            END $$;
+            """
+        )
 
 
 def downgrade() -> None:
