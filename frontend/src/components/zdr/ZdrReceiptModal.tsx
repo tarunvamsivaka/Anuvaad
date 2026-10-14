@@ -4,9 +4,16 @@ import React, { useState } from "react";
 import { ShieldCheck, Copy, Check, X, Lock, Cpu } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
 import { verifyReceipt } from "@/lib/api";
+import { useShallow } from "zustand/react/shallow";
 
 export function ZdrReceiptModal() {
-  const { isReceiptModalOpen, selectedReceipt, closeReceiptModal } = useTranslationStore();
+  const { isReceiptModalOpen, selectedReceipt, closeReceiptModal } = useTranslationStore(
+    useShallow((state) => ({
+      isReceiptModalOpen: state.isReceiptModalOpen,
+      selectedReceipt: state.selectedReceipt,
+      closeReceiptModal: state.closeReceiptModal,
+    }))
+  );
   const [copied, setCopied] = useState(false);
   const [verificationResult, setVerificationResult] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);

@@ -10,9 +10,17 @@ import { SymbolGraphView } from "@/components/workspace/SymbolGraphView";
 import { AuditLedgerView } from "@/components/workspace/AuditLedgerView";
 import { ShieldCheck, Cpu, Database, Terminal, GitBranch } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 export default function HomePage() {
-  const { activeView, repoName, selectedFilePath } = useTranslationStore();
+  // Optimization: `useShallow` ensures HomePage only re-renders when activeView, repoName, or selectedFilePath change, ignoring typing activity.
+  const { activeView, repoName, selectedFilePath } = useTranslationStore(
+    useShallow((state) => ({
+      activeView: state.activeView,
+      repoName: state.repoName,
+      selectedFilePath: state.selectedFilePath,
+    }))
+  );
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#0a0a0a] text-[#f8fafc]">

@@ -12,8 +12,11 @@ import {
   Layers,
 } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
+import { useMemo } from "react";
 
 export function ContextFileTree() {
+  // Optimization: Select specific state slices with `useShallow` to prevent components re-rendering when other state values change.
   const {
     repoName,
     repoFiles,
@@ -22,10 +25,21 @@ export function ContextFileTree() {
     isBatchTranslating,
     setBatchTranslating,
     updateFileTranslation,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      repoName: state.repoName,
+      repoFiles: state.repoFiles,
+      selectedFilePath: state.selectedFilePath,
+      selectFile: state.selectFile,
+      isBatchTranslating: state.isBatchTranslating,
+      setBatchTranslating: state.setBatchTranslating,
+      updateFileTranslation: state.updateFileTranslation,
+    }))
+  );
 
-  const fileList = Object.values(repoFiles);
-  const completedCount = fileList.filter((f) => f.status === "completed").length;
+  // Optimization: Memoize these object manipulations to avoid O(N) calculations on every single render cycle.
+  const fileList = useMemo(() => Object.values(repoFiles), [repoFiles]);
+  const completedCount = useMemo(() => fileList.filter((f) => f.status === "completed").length, [fileList]);
 
   const handleRunBatchTranslation = async () => {
     setBatchTranslating(true);
