@@ -24,8 +24,9 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: ["lucide-react", "framer-motion", "@monaco-editor/react"],
+    optimizePackageImports: ["lucide-react", "@radix-ui/react-icons", "framer-motion", "@monaco-editor/react"],
   },
+  turbopack: {},
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,
   },
@@ -49,10 +50,18 @@ const analyze = withBundleAnalyzer({
 
 const configWithPWA = withPWA(nextConfig);
 
-export default analyze(withSentryConfig(configWithPWA, {
-  silent: !process.env.CI,
-  widenClientFileUpload: true,
-  // INFRA-05: Use /sentry-tunnel (not /monitoring) to avoid /api/:path* rewrite conflict
-  tunnelRoute: "/sentry-tunnel",
-}));
+const shouldEnableSentry = Boolean(
+  process.env.NEXT_PUBLIC_SENTRY_DSN && process.env.SENTRY_AUTH_TOKEN
+);
+
+const finalConfig = shouldEnableSentry
+  ? withSentryConfig(configWithPWA, {
+      silent: !process.env.CI,
+      widenClientFileUpload: true,
+      // INFRA-05: Use /sentry-tunnel (not /monitoring) to avoid /api/:path* rewrite conflict
+      tunnelRoute: "/sentry-tunnel",
+    })
+  : configWithPWA;
+
+export default analyze(finalConfig);
 

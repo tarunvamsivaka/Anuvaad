@@ -51,10 +51,7 @@ export function RepositorySelector({
   
   const handleConnect = async () => {
     try {
-      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
-      const res = await fetch(`/api/v1/oauth/github/login`);
-      const data = await res.json();
-      window.location.href = data.auth_url;
+      window.location.href = "/api/auth/github/start";
     } catch (e) {
       console.error(e);
     }

@@ -1,9 +1,9 @@
-# docker-compose.yml — Development / staging compose configuration
+# docker-compose.yml — Local development compose configuration
 # FIX-06 (P0-03): Split monolithic container into separate api, frontend, worker, beat services.
 # FIX-11 (P1-04): Added `beat` service for Celery periodic tasks.
 # FIX-12 (P2-12): Added nginx health check.
 #
-# For production, use docker-compose.prod.yml which overrides image tags and resource limits.
+# Not a production manifest. Use the reviewed hosted deployment workflow for releases.
 
 services:
   redis:
@@ -52,7 +52,7 @@ services:
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-}@redis:6379
-      - ENV=production
+      - ENV=development
     depends_on:
       redis:
         condition: service_healthy

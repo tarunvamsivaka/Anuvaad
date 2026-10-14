@@ -3,7 +3,7 @@
  *
  * Displays remaining daily translation credits in the TopBar as a color-coded
  * pill: green (>50% remaining), amber (<50%), red (<20% or exhausted).
- * Hidden for Pro users (unlimited) and guests (unauthenticated).
+ * Hidden when the effective plan has no daily cap.
  *
  * API: GET /api/check-credits → { remaining: number, limit: number, tier: string }
  */
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 interface CreditsResponse {
   remaining: number;
   limit: number;
-  tier: "guest" | "free" | "pro";
+  tier: "guest" | "free" | "pro" | "admin";
   credits?: number;
   reset_at?: string;
 }
@@ -36,7 +36,7 @@ async function fetchCredits([url, tokenKey]: [string, string]): Promise<CreditsR
 }
 
 export function UsageCounterBadge() {
-  const { session, isPro } = useAuth();
+  const { session } = useAuth();
   const token = session?.access_token;
 
   const { data, error } = useSWR<CreditsResponse>(
@@ -46,7 +46,7 @@ export function UsageCounterBadge() {
   );
 
   // Don't render for Pro (unlimited)
-  if (isPro || data?.tier === "pro") return null;
+  if (data?.limit === -1 || data?.tier === "admin") return null;
   // Suppress while loading or on error
   if (!data || error) return null;
 

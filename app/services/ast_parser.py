@@ -597,6 +597,11 @@ def _normalize_language(language: str) -> str:
     return _LANGUAGE_ALIASES.get(language.lower().strip(), language.lower().strip())
 
 
+def is_language_supported(language: str) -> bool:
+    """Return whether a Tree-sitter parser is available for this language."""
+    return _get_parser(_normalize_language(language)) is not None
+
+
 # ── Public API ─────────────────────────────────────────────────────────────
 
 

@@ -1,0 +1,9 @@
+-r requirements.txt
+
+# Local and CI verification dependencies
+pytest
+httpx
+pytest-asyncio>=1.0.0,<2.0.0
+structlog
+aiosqlite
+ruff

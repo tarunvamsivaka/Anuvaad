@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -30,6 +32,14 @@ class EnglishUpdatePayload(BaseModel):
     block_id: str = Field(..., min_length=1, max_length=50)
     modified_english: str = Field(..., min_length=1, max_length=5000)
     full_context: str = Field(..., min_length=1, max_length=10000)
+    language: str = Field(..., min_length=1, max_length=30)
+
+    @field_validator("language")
+    @classmethod
+    def language_not_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Language cannot be empty or whitespace only")
+        return value.strip().lower()
 
 
 class GeneratePayload(BaseModel):
@@ -179,9 +189,10 @@ class VerifyPaymentPayload(BaseModel):
 
 
 class SharePayload(BaseModel):
-    """Payload for toggling public/private sharing of a translation history item."""
+    """Payload for publishing a history item with an optional public-link lifetime."""
 
     is_public: bool
+    expires_in_days: Literal[1, 7, 30] | None = None
 
 
 class DesiredIndexStateCreate(BaseModel):

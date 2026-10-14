@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { TranslationBlock } from '../_types';
 
 interface TranslationState {
@@ -12,7 +13,10 @@ interface TranslationState {
   setIsStreaming: (isStreaming: boolean) => void;
 
   outputBlocks: TranslationBlock[] | null;
+  blockIds: string[];
+  blocksById: Record<string, TranslationBlock>;
   setOutputBlocks: (blocks: TranslationBlock[] | null | ((prev: TranslationBlock[] | null) => TranslationBlock[] | null)) => void;
+  updateBlockEnglish: (blockId: string, newEnglish: string) => void;
 
   originalBlocks: TranslationBlock[] | null;
   setOriginalBlocks: (blocks: TranslationBlock[] | null) => void;
@@ -33,7 +37,24 @@ interface TranslationState {
   setDiffOriginalCode: (code: string | null) => void;
 }
 
-export const useTranslationStore = create<TranslationState>((set) => ({
+function normalizeBlocks(blocks: TranslationBlock[] | null) {
+  if (!blocks || !Array.isArray(blocks)) {
+    return { blockIds: [], blocksById: {} };
+  }
+  const blockIds: string[] = [];
+  const blocksById: Record<string, TranslationBlock> = {};
+  blocks.forEach((b, idx) => {
+    const id = b.id || `block-${idx}`;
+    const blockWithId = { ...b, id };
+    blockIds.push(id);
+    blocksById[id] = blockWithId;
+  });
+  return { blockIds, blocksById };
+}
+
+export const useTranslationStore = create<TranslationState>()(
+  persist(
+    (set) => ({
   input: "",
   setInput: (input) => set({ input }),
 
@@ -46,9 +67,25 @@ export const useTranslationStore = create<TranslationState>((set) => ({
   setIsStreaming: (isStreaming) => set({ isStreaming }),
 
   outputBlocks: null,
-  setOutputBlocks: (outputBlocks) => set((state) => ({ 
-    outputBlocks: typeof outputBlocks === 'function' ? outputBlocks(state.outputBlocks) : outputBlocks 
-  })),
+  blockIds: [],
+  blocksById: {},
+  setOutputBlocks: (outputBlocks) => set((state) => {
+    const nextBlocks = typeof outputBlocks === 'function' ? outputBlocks(state.outputBlocks) : outputBlocks;
+    const { blockIds, blocksById } = normalizeBlocks(nextBlocks);
+    return { outputBlocks: nextBlocks, blockIds, blocksById };
+  }),
+
+  updateBlockEnglish: (blockId, newEnglish) => set((state) => {
+    const existing = state.blocksById[blockId];
+    if (!existing) return state;
+    const updated = { ...existing, english_translation: newEnglish };
+    const nextBlocksById = { ...state.blocksById, [blockId]: updated };
+    const nextBlocks = (state.outputBlocks || []).map((b) => (b.id === blockId ? updated : b));
+    return {
+      blocksById: nextBlocksById,
+      outputBlocks: nextBlocks,
+    };
+  }),
 
   originalBlocks: null,
   setOriginalBlocks: (originalBlocks) => set({ originalBlocks }),
@@ -67,4 +104,29 @@ export const useTranslationStore = create<TranslationState>((set) => ({
 
   diffOriginalCode: null,
   setDiffOriginalCode: (diffOriginalCode) => set({ diffOriginalCode }),
-}));
+    }),
+    {
+      name: "anuvaad-active-draft",
+      storage: createJSONStorage(() => (typeof window !== "undefined" ? window.sessionStorage : {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      })),
+      partialize: (state) => ({
+        input: state.input,
+        detectedLang: state.detectedLang,
+        sessionId: state.sessionId,
+        outputBlocks: state.outputBlocks,
+        originalBlocks: state.originalBlocks,
+        diffOriginalCode: state.diffOriginalCode,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state && state.outputBlocks) {
+          const { blockIds, blocksById } = normalizeBlocks(state.outputBlocks);
+          state.blockIds = blockIds;
+          state.blocksById = blocksById;
+        }
+      },
+    }
+  )
+);

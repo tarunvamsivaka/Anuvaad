@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "src/tests/**/*",
+    "e2e/**/*"
+  ],
+  "exclude": ["node_modules", ".next", "out", "dist"]
+}

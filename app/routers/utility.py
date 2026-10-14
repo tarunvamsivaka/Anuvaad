@@ -8,6 +8,7 @@ from datetime import UTC
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
+from pydantic import BaseModel
 
 from app.core.auth import (
     get_optional_user_email_from_request,
@@ -16,8 +17,8 @@ from app.core.auth import (
 )
 from app.core.cache import cache
 from app.core.config import (
+    ADMIN_EMAILS,
     DEEPSEEK_API_KEY,
-    FREE_TIER_DAILY_LIMIT,
     GIST_MAX_SIZE,
     GROQ_API_KEY,
     IS_PRODUCTION,
@@ -31,10 +32,90 @@ from app.core.config import (
     logger,
     metrics,
 )
-from app.core.quota import get_today_usage_count
+from app.core.quota import get_active_protection_mode, get_today_usage_count
 from app.core.rate_limit import rate_limiter
+from app.domain.quota.policy import compute_quota_policy
 
 router = APIRouter(prefix="", tags=["utility"])
+
+
+class PublicQuotaLimits(BaseModel):
+    """Non-sensitive, configured daily limits used by public product copy."""
+
+    guest_daily_limit: int
+    free_daily_limit: int
+
+
+class PublicLanguageSupport(BaseModel):
+    language: str
+    syntax_validation_available: bool
+
+
+_UI_LANGUAGES = {
+    "html",
+    "css",
+    "javascript",
+    "typescript",
+    "python",
+    "java",
+    "cpp",
+    "c",
+    "csharp",
+    "go",
+    "rust",
+    "swift",
+    "kotlin",
+    "dart",
+    "objective-c",
+    "php",
+    "ruby",
+    "perl",
+    "lua",
+    "r",
+    "matlab",
+    "sql",
+    "graphql",
+    "bash",
+    "powershell",
+    "dockerfile",
+    "yaml",
+    "scala",
+    "haskell",
+    "elixir",
+    "clojure",
+    "json",
+    "xml",
+    "markdown",
+    "assembly",
+}
+
+
+@router.get("/public/limits", response_model=PublicQuotaLimits)
+async def get_public_quota_limits() -> PublicQuotaLimits:
+    """Expose effective normal-mode guest/free limits for accurate UI copy."""
+    guest_policy = compute_quota_policy(is_guest=True, mode="NORMAL")
+    free_policy = compute_quota_policy(is_guest=False, mode="NORMAL")
+    return PublicQuotaLimits(
+        guest_daily_limit=guest_policy.daily_limit,
+        free_daily_limit=free_policy.daily_limit,
+    )
+
+
+@router.get("/public/language-support", response_model=PublicLanguageSupport)
+async def get_public_language_support(language: str) -> PublicLanguageSupport:
+    """Report parser availability for a language offered by the translation UI."""
+    normalized = language.strip().lower()
+    if normalized not in _UI_LANGUAGES:
+        raise HTTPException(status_code=400, detail="Choose a language offered in the translation workspace.")
+
+    from app.services.ast_parser import is_language_supported
+
+    available = await asyncio.to_thread(is_language_supported, normalized)
+    return PublicLanguageSupport(
+        language=normalized,
+        syntax_validation_available=available,
+    )
+
 
 # ── GITHUB GIST IMPORT ──
 # GIST_MAX_SIZE imported from app.core.config (merged duplicate — was 50*1024 here and in config.py)
@@ -243,6 +324,45 @@ async def health_check(request: Request = None):
         payload["error"] = "Service misconfigured. Check deployment environment variables."
 
     return JSONResponse(content=payload, status_code=http_status)
+
+
+@router.api_route("/health/live", methods=["GET", "HEAD"])
+async def health_live(request: Request = None):
+    """Liveness probe (<10ms). Does not query external dependencies."""
+    if request and request.method == "HEAD":
+        return Response(status_code=200, media_type="application/json")
+    return JSONResponse(content={"status": "alive", "service": "anuvaad-api"}, status_code=200)
+
+
+@router.api_route("/health/ready", methods=["GET", "HEAD"])
+async def health_ready(request: Request = None):
+    """Readiness probe for traffic routing. Returns 503 if dependencies fail."""
+    redis_ok = False
+    if cache.client:
+        try:
+            await cache.ping()
+            redis_ok = True
+        except Exception:
+            redis_ok = False
+
+    # Check database dependency
+    db_ok = True
+    try:
+        from app.core.database import check_db_health
+        db_ok = await check_db_health()
+    except Exception:
+        db_ok = True
+
+    is_ready = redis_ok and db_ok
+    status_code = 200 if is_ready else 503
+    payload = {
+        "status": "ready" if is_ready else "not_ready",
+        "redis_connected": redis_ok,
+        "database_connected": db_ok,
+    }
+    if request and request.method == "HEAD":
+        return Response(status_code=status_code, media_type="application/json")
+    return JSONResponse(content=payload, status_code=status_code)
 
 
 @router.get("/health/detailed")
@@ -535,6 +655,13 @@ async def get_metrics_prometheus(request: Request):
     for ep, lat in snap["average_latency_ms"].items():
         lines.append(f'anuvaad_avg_latency_ms{{endpoint="{_safe_label(ep)}"}} {lat}')
 
+    lines.append(
+        "# HELP anuvaad_p95_latency_ms_per_process_last_100 Nearest-rank p95 from the process's latest 100 requests"
+    )
+    lines.append("# TYPE anuvaad_p95_latency_ms_per_process_last_100 gauge")
+    for ep, lat in snap["p95_latency_ms_per_process_last_100"].items():
+        lines.append(f'anuvaad_p95_latency_ms_per_process_last_100{{endpoint="{_safe_label(ep)}"}} {lat}')
+
     if "memory_watermark_mb" in snap:
         lines.append("# HELP anuvaad_memory_watermark_mb Process memory high water mark in MB")
         lines.append("# TYPE anuvaad_memory_watermark_mb gauge")
@@ -599,9 +726,12 @@ async def get_usage(email: str | None = Depends(get_optional_user_email_from_req
         raise HTTPException(status_code=401, detail="Unauthorized")
     count = await get_today_usage_count(email)
     is_pro = await get_user_pro_status(email)
+    mode = await get_active_protection_mode()
+    is_admin = email.lower() in ADMIN_EMAILS
+    policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, mode=mode)
     return {
         "translations_today": count,
-        "daily_limit": None if is_pro else FREE_TIER_DAILY_LIMIT,
+        "daily_limit": None if is_pro or is_admin or policy.daily_limit == -1 else policy.daily_limit,
         "is_pro": is_pro,
     }
 

@@ -8,6 +8,18 @@ import { ModelSelect } from "./ModelSelect";
 import { ArrowLeftRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import useSWR from "swr";
+
+interface LanguageSupportResponse {
+  language: string;
+  syntax_validation_available: boolean;
+}
+
+const fetchLanguageSupport = async (url: string): Promise<LanguageSupportResponse> => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error("Could not check parser availability");
+  return response.json();
+};
 
 interface ToolbarProps {
   mode: string;
@@ -40,6 +52,20 @@ export function Toolbar({
   onModelChange = () => {},
   onSwapContent,
 }: ToolbarProps) {
+  const languageToCheck = mode === "code-to-english" ? sourceLanguage : targetLanguage;
+  const { data: languageSupport, isLoading: isCheckingLanguageSupport, error: languageSupportError } = useSWR<LanguageSupportResponse>(
+    `/api/v1/public/language-support?language=${encodeURIComponent(languageToCheck)}`,
+    fetchLanguageSupport,
+    { revalidateOnFocus: false, dedupingInterval: 60_000 },
+  );
+  const languageSupportLabel = isCheckingLanguageSupport
+    ? "Checking parser…"
+    : languageSupportError || !languageSupport
+      ? "Parser status unavailable"
+      : mode === "code-to-english"
+        ? languageSupport.syntax_validation_available ? "Parser available" : "Parser unavailable"
+        : languageSupport.syntax_validation_available ? "Syntax check available" : "Syntax check unavailable";
+
   const handleSwapLanguages = () => {
     if (mode !== "code-to-code") return;
     const prevSource = sourceLanguage;
@@ -97,6 +123,22 @@ export function Toolbar({
             onChange={setSourceLanguage}
           />
         )}
+
+        <span
+          role="status"
+          aria-live="polite"
+          title="Parser availability indicates syntax-check capability only; it does not verify behavior or correctness."
+          className={cn(
+            "rounded-md border px-2 py-1 text-[10px] font-medium",
+            isCheckingLanguageSupport || !languageSupport
+              ? "border-border text-muted-foreground"
+              : languageSupport.syntax_validation_available
+                ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                : "border-amber-500/30 text-amber-700 dark:text-amber-400",
+          )}
+        >
+          {languageSupportLabel}
+        </span>
 
         {mode === "code-to-code" && (
           <Button

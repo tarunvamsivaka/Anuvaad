@@ -158,5 +158,5 @@ def format_review_comment_body(review: dict[str, Any]) -> str:
         f"### 📋 Executive Summary\n"
         f"{review.get('summary', 'Review complete.')}\n\n"
         f"---\n"
-        f"*Automated review by [Anuvaad](https://getanuvaad.com) · Verified Zero Code Storage Runtime*"
+        f"*Automated review by [Anuvaad](https://getanuvaad.com). Review generated suggestions before applying them.*"
     )

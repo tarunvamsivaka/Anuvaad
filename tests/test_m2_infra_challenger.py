@@ -247,10 +247,11 @@ def test_render_and_ci_configurations():
     with open("render.yaml", encoding="utf-8") as f:
         render_yaml = f.read()
 
-    assert (
-        "startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${WEB_CONCURRENCY:-2}" in render_yaml
-    ), "render.yaml startCommand not properly parameterized with WEB_CONCURRENCY:-2"
-    print("  [PASS] render.yaml startCommand properly parameterized with ${WEB_CONCURRENCY:-2}.")
+    assert "startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT" in render_yaml, (
+        "render.yaml must start the API through the root ASGI entry point"
+    )
+    assert "plan: free" in render_yaml, "render.yaml should reflect the configured free API plan"
+    print("  [PASS] render.yaml API start command and plan are explicit.")
 
     with open(".github/workflows/ci.yml", encoding="utf-8") as f:
         ci_yml = f.read()

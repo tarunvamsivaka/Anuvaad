@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -5,9 +6,27 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const error = searchParams.get("error");
+  const state = searchParams.get("state");
+  const expectedState = request.cookies.get("anuvaad_github_oauth_state")?.value;
+  const clearStateCookie = (response: NextResponse) => {
+    response.cookies.set("anuvaad_github_oauth_state", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/auth/github/callback",
+      maxAge: 0,
+    });
+    return response;
+  };
 
-  if (error || !code) {
-    return NextResponse.redirect(`${origin}/dashboard?error=${encodeURIComponent(error || "missing_code")}`);
+  if (
+    error || !code || !state || !expectedState ||
+    Buffer.byteLength(state) !== Buffer.byteLength(expectedState) ||
+    !timingSafeEqual(Buffer.from(state), Buffer.from(expectedState))
+  ) {
+    return clearStateCookie(NextResponse.redirect(
+      `${origin}/dashboard?error=${encodeURIComponent(error || "github_oauth_state_invalid")}`
+    ));
   }
 
   // Retrieve current user's session from Supabase cookies
@@ -29,13 +48,16 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getSession();
 
   if (!session?.access_token) {
-    return NextResponse.redirect(`${origin}/signin?redirectTo=/dashboard`);
+    return clearStateCookie(NextResponse.redirect(`${origin}/signin?redirectTo=/dashboard`));
   }
 
   const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   try {
-    const res = await fetch(`${backendUrl}/api/v1/oauth/github/callback?code=${encodeURIComponent(code)}`, {
+    const callbackUrl = new URL(`${backendUrl}/api/v1/oauth/github/callback`);
+    callbackUrl.searchParams.set("code", code);
+    callbackUrl.searchParams.set("state", state);
+    const res = await fetch(callbackUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -45,14 +67,13 @@ export async function GET(request: NextRequest) {
 
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      return NextResponse.redirect(
+      return clearStateCookie(NextResponse.redirect(
         `${origin}/dashboard?error=${encodeURIComponent(errData.detail || "github_connect_failed")}`
-      );
+      ));
     }
 
-    return NextResponse.redirect(`${origin}/dashboard?github=connected`);
-  } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : "network_error";
-    return NextResponse.redirect(`${origin}/dashboard?error=${encodeURIComponent(errMsg)}`);
+    return clearStateCookie(NextResponse.redirect(`${origin}/dashboard?github=connected`));
+  } catch {
+    return clearStateCookie(NextResponse.redirect(`${origin}/dashboard?error=github_connect_failed`));
   }
 }

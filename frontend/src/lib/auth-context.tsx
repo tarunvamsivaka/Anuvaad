@@ -13,8 +13,8 @@ interface AuthState {
   isPro: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
-  signInWithGoogle: () => Promise<{ error: string | null }>;
-  signInWithGitHub: () => Promise<{ error: string | null }>;
+  signInWithGoogle: (next?: string) => Promise<{ error: string | null }>;
+  signInWithGitHub: (next?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
 
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
-    async function checkProStatus(accessToken: string, email?: string) {
+    async function checkProStatus(accessToken: string, userId?: string) {
       try {
         // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
         const res = await fetch(`/api/subscription-status`, {
@@ -47,8 +47,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setIsPro(data.isPro === true);
-          if (email) {
-            identifyUser(email, { plan: data.isPro ? "pro" : "free" });
+          if (userId) {
+            identifyUser(userId, { plan: data.isPro ? "pro" : "free" });
           }
         }
       } catch {
@@ -61,10 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session?.user?.email) {
-        identifyUser(session.user.email, { plan: "free" });
+      if (session?.user?.id) {
+        identifyUser(session.user.id, { plan: "free" });
       }
-      if (session) checkProStatus(session.access_token, session.user?.email);
+      if (session) checkProStatus(session.access_token, session.user?.id);
     });
 
     // Listen for auth changes
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      if (session) checkProStatus(session.access_token, session.user?.email);
+      if (session) checkProStatus(session.access_token, session.user?.id);
       else setIsPro(false);
     });
 
@@ -89,18 +89,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
+  const signInWithGoogle = useCallback(async (next = "/dashboard") => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}` },
     });
     return { error: error?.message ?? null };
   }, []);
 
-  const signInWithGitHub = useCallback(async () => {
+  const signInWithGitHub = useCallback(async (next = "/dashboard") => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "github",
-      options: { redirectTo: `${window.location.origin}/api/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}` },
     });
     return { error: error?.message ?? null };
   }, []);

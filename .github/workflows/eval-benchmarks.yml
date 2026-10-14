@@ -39,7 +39,7 @@ jobs:
 
       - name: Verify Evaluation Outputs
         run: |
-          pytest tests/test_eval_harness.py -v
+          pytest scripts/eval_harness/tests/test_eval_harness.py -v
 
       - name: Commit Updated Benchmarks (Automated Verifiable Audit)
         if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && github.event_name != 'pull_request'

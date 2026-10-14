@@ -28,6 +28,7 @@ from app.core.auth import (
 )
 from app.core.cache import cache
 from app.core.config import (
+    ADMIN_EMAILS,
     FRONTEND_URL,
     RAZORPAY_KEY_ID,
     RAZORPAY_KEY_SECRET,
@@ -40,6 +41,7 @@ from app.core.database_session import AsyncSessionLocal
 from app.core.quota import get_active_protection_mode, get_today_usage_count
 from app.core.rate_limit import rate_limiter
 from app.domain.billing.service import BillingService
+from app.domain.quota.policy import compute_quota_policy
 from app.models.db_models import PaymentTransaction
 from app.models.schemas import CheckoutPayload, VerifyPaymentPayload
 from app.queue.tasks import process_billing_webhook_task
@@ -121,7 +123,7 @@ async def create_checkout_session(
                 "session_id": session.id,
                 "provider": "stripe",
                 "name": "Anuvaad Pro",
-                "description": "Unlimited translations · DeepSeek R1 · Priority processing",
+                "description": "Expanded usage · DeepSeek R1 · Priority processing",
             }
         except Exception as e:
             logger.error(f"Stripe checkout session creation error: {e}")
@@ -146,7 +148,7 @@ async def create_checkout_session(
             "subscription_id": subscription["id"],
             "key_id": RAZORPAY_KEY_ID,
             "name": "Anuvaad Pro",
-            "description": "Unlimited translations · DeepSeek R1 · Priority processing",
+            "description": "Expanded usage · DeepSeek R1 · Priority processing",
         }
     except Exception as e:
         logger.error(f"Razorpay subscription creation error: {e}")
@@ -300,10 +302,11 @@ async def get_check_credits(
         guest_key = f"guest_daily_usage:{client_ip}:{today_str}"
         used = await cache.get(guest_key)
         used_count = int(used) if used is not None else 0
-        remaining = max(0, 5 - used_count)
+        policy = compute_quota_policy(is_guest=True, mode=protection_mode)
+        remaining = max(0, policy.daily_limit - used_count)
         return {
             "remaining": remaining,
-            "limit": 5,
+            "limit": policy.daily_limit,
             "tier": "guest",
             "credits": 0,
             "protection_mode": protection_mode,
@@ -311,20 +314,22 @@ async def get_check_credits(
 
     is_pro = await get_user_pro_status(email)
     credits = await subscription_repo.get_credits(email)
-    if is_pro:
+    is_admin = email.lower() in ADMIN_EMAILS
+    policy = compute_quota_policy(is_pro=is_pro, is_admin=is_admin, mode=protection_mode)
+    if policy.daily_limit == -1:
         return {
             "remaining": -1,
             "limit": -1,
-            "tier": "pro",
+            "tier": "pro" if is_pro else "admin",
             "credits": credits,
             "protection_mode": protection_mode,
         }
 
     used = await get_today_usage_count(email)
-    remaining = max(0, 25 - used)
+    remaining = max(0, policy.daily_limit - used)
     return {
         "remaining": remaining,
-        "limit": 25,
+        "limit": policy.daily_limit,
         "tier": "free",
         "credits": credits,
         "protection_mode": protection_mode,

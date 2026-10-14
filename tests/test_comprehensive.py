@@ -733,6 +733,7 @@ class TestBoundaryValues:
                 "block_id": "b" * 50,
                 "modified_english": "do something",
                 "full_context": "print('hello')",
+                "language": "python",
             },
         )
         assert res.status_code == 200

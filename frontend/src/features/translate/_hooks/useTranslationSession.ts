@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { mutate } from "swr";
+import { track } from "@/lib/analytics";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
 import { useTranslationStore } from "../_store/useTranslationStore";
 
@@ -16,6 +17,7 @@ interface UseTranslationSessionProps {
   repositoryName: string;
   filePath: string;
   mode: string;
+  skipAppHistory?: boolean;
   onQuotaExceeded?: (error: QuotaError) => void;
   onSyncSuccess?: () => void;
 }
@@ -29,6 +31,7 @@ export function useTranslationSession({
   repositoryName,
   filePath,
   mode,
+  skipAppHistory = false,
   onQuotaExceeded,
   onSyncSuccess,
 }: UseTranslationSessionProps) {
@@ -79,6 +82,7 @@ export function useTranslationSession({
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }
+      if (skipAppHistory) headers["X-Anuvaad-Privacy-Mode"] = "ephemeral";
 
       const res = await fetch(`/api/sync-english-to-code`, {
         method: "POST",
@@ -111,7 +115,7 @@ export function useTranslationSession({
         // Use relative /api/... paths — routed through Next.js proxy (next.config.ts rewrites).
         if (session?.access_token) {
           mutate(['/api/stats', session.access_token]);
-          mutate(['/api/history?limit=5', session.access_token]);
+          if (!skipAppHistory) mutate(['/api/history?limit=5', session.access_token]);
           mutate(['/api/check-credits', session.access_token]);
         }
 
@@ -140,6 +144,7 @@ export function useTranslationSession({
     }
     
     navigator.clipboard.writeText(content);
+    track("translation_action", { action: "copy_markdown", mode, source_language: sourceLanguage, target_language: targetLanguage });
     setCopied(true);
     toast.success("Copied Markdown to clipboard");
     setTimeout(() => setCopied(false), 2000);
@@ -149,8 +154,9 @@ export function useTranslationSession({
     if (!outputBlocks || !outputBlocks.length) return;
     const pureCode = outputBlocks.map((b) => b.code_snippet).join("\n\n");
     navigator.clipboard.writeText(pureCode);
+    track("translation_action", { action: "copy_code", target_language: targetLanguage });
     toast.success("Copied code to clipboard");
-  }, [outputBlocks]);
+  }, [outputBlocks, targetLanguage]);
 
   const handleExportCode = useCallback(() => {
     if (!outputBlocks || !outputBlocks.length) return;
@@ -196,6 +202,7 @@ export function useTranslationSession({
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+    track("translation_action", { action: "export_code", target_language: targetLanguage });
     toast.success(`Exported ${filename}`);
   }, [outputBlocks, targetLanguage]);
 

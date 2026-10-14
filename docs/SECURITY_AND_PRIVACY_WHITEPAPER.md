@@ -1,91 +1,34 @@
-# Anuvaad Security & Privacy Whitepaper: Architectural Zero Code Retention (ZCR)
+# Anuvaad data processing and security notes
 
-**Document Version**: 2.4  
-**Date**: September 2026  
-**Classification**: Public Architecture Whitepaper  
-**Target Audience**: Enterprise Security Auditors, Chief Information Security Officers (CISOs), Lead Compliance Engineers, DevOps & Infrastructure Architects  
+**Status:** implementation overview, October 2026
 
----
+**Audience:** users evaluating how the current web app handles code
 
-## Executive Summary
+This document describes the current application behavior visible in this repository. It is not a certification, penetration-test report, or guarantee about hosting and AI-provider retention. For user-facing terms, see [/privacy](/privacy).
 
-Software enterprises and regulated engineering organizations often face severe compliance barriers when adopting AI-powered code translation and comprehension platforms. Standard cloud developer tools persist developer code snippets to relational databases, object storage buckets, telemetry logs, or training corpuses.
+## Code processing
 
-**Anuvaad** eliminates this risk by introducing **Architectural Zero Code Retention (ZCR)**. When operating in ephemeral mode (`X-Anuvaad-Privacy-Mode: ephemeral` or anonymous live workbench), developer code operates strictly in volatile memory (RAM) and is guaranteed never to touch persistent disk, cache stores, or secondary log files.
+- Translation requests send the code or prompt to the Anuvaad API and to an AI provider selected for the request. Provider routing can vary; each provider has its own data handling terms.
+- Translation workspace runs are not written to Anuvaad history or translation cache unless a signed-in user enables “Save runs to my Anuvaad history and translation cache.” Users can delete individual runs or clear all history from the History page.
+- A user can explicitly create a share link for a saved translation after reviewing a preview. Links may be configured to expire after 1, 7, or 30 days, or remain active until made private or deleted. Shared content is retrievable by anyone with the link while it is public and unexpired.
+- The API recognizes `X-Anuvaad-Privacy-Mode: ephemeral` and skips application-level history and translation-cache writes on supported endpoints. The translation workspace exposes this as an opt-in for translation and sync requests. This does not establish that edge, hosting, provider, or diagnostic logs never retain request data.
+- Analytics are configured not to receive source or generated code. Error reports and request metadata still require operational controls and periodic verification.
 
----
+## Syntax validation
 
-## 1. Zero Code Retention Architecture
+Generated code is validated in memory. Python uses `compile()` without executing the submitted code. Other supported languages use Tree-sitter in a worker thread. If a grammar is unavailable, validation reports that it could not validate the language; it does not treat the output as valid. These checks detect syntax errors only and do not prove compilation, semantic equivalence, correctness, or safety.
 
-```
-                                    ┌────────────────────────────────────────────────────────┐
-                                    │               Anuvaad Zero-Retention Runtime           │
-                                    │                                                        │
-[Developer Client]                  │  [FastAPI Ingestion] ──► [Volatile RAM Buffer]         │
-        │                           │         │                         │                    │
-        │ TLS 1.3 / Perfect Forward │         │ Memory-Only Token       │ Direct TLS Stream  │
-        │ Secrecy (PFS)             │         ▼ Stream                  ▼                    │
-        ▼                           │  [Response Egress]     [Groq LPU / vLLM Engine]        │
-[Nginx Reverse Proxy]               │         ▲                         │                    │
-        │                           │         └─────────────────────────┘                    │
-        ▼                           │                        │                               │
-[FastAPI Backend Endpoint]          │                        ▼                               │
-(X-Anuvaad-Privacy-Mode: ephemeral) │          [Explicit Dereference & GC Sweep]             │
-                                    │          - del input_tokens                            │
-                                    │          - del response_text                           │
-                                    │          - bypass Redis cache                          │
-                                    │          - bypass PostgreSQL history                   │
-                                    └────────────────────────────────────────────────────────┘
-```
+## Authentication and database
 
-### 1.1 Memory-Only Execution Path
-1. **Direct Stream Ingestion**: Code payloads sent with the header `X-Anuvaad-Privacy-Mode: ephemeral` are parsed directly from the incoming HTTP/2 stream into ephemeral Python string buffers.
-2. **Cache Bypass**: The application bypasses Redis key-value stores entirely (`cache.get` and `cache.put` are skipped), ensuring neither plaintext code nor AST representations reside in volatile shared caches.
-3. **Storage Decoupling**: Database record writes (`save_translation_history_task` and relational `translation_history` insertions) are omitted from the execution graph. Only non-identifying completion counters are incremented for rate-limiting.
-4. **Volatile Dereferencing Sweeps**: Upon stream completion, local variable pointers (`user_prompt`, `response_text`, `raw`, and `result`) are explicitly dereferenced with `del` statements, releasing memory buffers for immediate operating system garbage reclamation.
+The application uses Supabase for authentication and PostgreSQL. The project audit on 2026-10-04 observed row-level security enabled on the reviewed public tables. Continue to review access policies whenever schema or sharing behavior changes. Supabase Auth's leaked-password protection was reported disabled during that audit and remains a dashboard configuration item until verified as enabled.
 
----
+## Deployment
 
-## 2. Cryptographic Transit Security
+The API is deployed on Render and the web frontend on Vercel. Render free instances can sleep and have resource limits; they are suitable for evaluation, not a production availability commitment. Schema changes must be applied through the reviewed database migration process before deploying code that depends on them.
 
-| Layer | Standard / Implementation | Security Guarantee |
-| :--- | :--- | :--- |
-| **Transport Layer** | TLS 1.3 (RFC 8446) / TLS 1.2 minimum | Encrypts all data in flight between client and edge. |
-| **Cipher Suites** | `ECDHE-ECDSA-AES128-GCM-SHA256`, `ECDHE-RSA-AES256-GCM-SHA384`, `CHACHA20-POLY1305` | Perfect Forward Secrecy (PFS) ensures past sessions cannot be decrypted if server private key is compromised. |
-| **HSTS Enforcement** | `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload` | Mandates HTTPS across all subdomains for 2 years with HSTS preload list eligibility. |
-| **Content Security** | CSP Level 3 with strict script/frame white-lists | Prevents cross-site scripting (XSS), inline script injection, and unauthorized frame embedding. |
-| **Frame & Object Protections** | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` | Eliminates clickjacking and MIME-type sniffing exploits. |
+## Security follow-up
 
----
-
-## 3. High-Speed Streaming Demo & Rate Limiting
-
-The landing page live interactive workbench (`POST /api/v1/demo/translate-stream`) allows prospective teams to verify model performance on custom code snippets without requiring account creation:
-- **Maximum Payload Size**: 1,000 characters per demo request.
-- **Sliding-Window Rate Limiting**: Enforced via Redis atomic counter (`demo_stream_rate:<ip>`) with a strict ceiling of 10 requests per client IP per 24-hour rolling window.
-- **LPU Sub-Second Token Egress**: Streamed directly via Groq LPU (`llama-3.3-70b-versatile`), delivering token-by-token Server-Sent Events (SSE) at sub-800ms P50 latency.
-- **Zero Storage by Default**: Anonymous demo streams operate under automatic Zero Code Retention with no database records created.
-
----
-
-## 4. Background Task Queue Decoupling
-
-In enterprise and production deployments:
-- **Worker Isolation**: Celery workers run as decoupled, isolated operating system processes (`celery -A app.queue.celery_config.celery_app worker`).
-- **Broker Durability**: Redis is configured with Append-Only File (`--appendonly yes`), guaranteeing zero loss of asynchronous audit logs and webhook dispatches across system restarts.
-- **Fail-Safe Processing**: In environments where Celery workers are undergoing scheduled maintenance, the platform provides graceful fallback without terminating client connections.
-
----
-
-## 5. Auditability & Verifiable Compliance
-
-Anuvaad maintains 100% automated regression suites testing all privacy pathways:
-- **`tests/test_zero_code_retention.py`**: Validates that requests bearing `X-Anuvaad-Privacy-Mode: ephemeral` emit the required `X-Anuvaad-Privacy: ephemeral; zero-retention` header and verify zero invocations of Redis translation caching or database history persistence.
-- **`tests/test_demo_stream.py`**: Verifies anonymous demo streaming SSE structure, sliding-window IP rate limiting, and length bounds.
-- **`tests/test_security.py`**: Comprehensive adversarial suite verifying SQL injection prevention, authentication boundary validation, and CSRF protection.
-
----
-
-## 6. Conclusion
-
-By combining **Architectural Zero Code Retention**, **Memory Dereferencing Sweeps**, **TLS 1.3 Perfect Forward Secrecy**, and **Decoupled Asynchronous Workers**, Anuvaad provides an enterprise-ready code intelligence runtime with zero code retention risk.
+- Verify log redaction and retention across Vercel, Render, Supabase, analytics, and each AI provider.
+- Keep credentials in service environment settings and rotate them if exposure is suspected.
+- Review authentication, row-level policies, public-share access, rate limits, and deletion behavior after material changes.
+- Do not submit secrets or code you are not authorized to share with Anuvaad and its configured AI providers.

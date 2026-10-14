@@ -174,6 +174,19 @@ async def delete_history_item(item_id: str, email: str = Depends(get_user_email)
     return {"status": "success"}
 
 
+@router.delete("/history")
+async def delete_all_history(email: str = Depends(get_user_email)):
+    """Hard-delete all saved translations for the authenticated user."""
+    try:
+        deleted_count = await translation_repo.delete_all_for_user(email, raise_on_error=True)
+    except Exception as exc:
+        logger.error("Failed to delete all translation history for authenticated user: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to delete translation history.") from exc
+    await cache.delete(f"user_stats:{email}")
+    await cache.delete_prefix(f"user_history:{email}")
+    return {"status": "success", "deleted_count": deleted_count}
+
+
 @router.patch("/history/{item_id}/share")
 async def share_history_item(
     item_id: str,
@@ -185,12 +198,26 @@ async def share_history_item(
     FIX-26 (P2-01): Migrated from supabase_request() to ORM translation_repo.
     FIX-30 (P3-04): Removed redundant `if not email` guard.
     """
-    updated = await translation_repo.update_share_status(item_id, email, payload.is_public)
+    share_expires_at = (
+        datetime.now(UTC) + timedelta(days=payload.expires_in_days)
+        if payload.is_public and payload.expires_in_days is not None
+        else None
+    )
+    updated = await translation_repo.update_share_status(
+        item_id,
+        email,
+        payload.is_public,
+        share_expires_at=share_expires_at,
+    )
     if not updated:
         raise HTTPException(status_code=404, detail="History item not found or not owned")
 
     await cache.delete_prefix(f"user_history:{email}")
-    return {"status": "success", "is_public": payload.is_public}
+    return {
+        "status": "success",
+        "is_public": payload.is_public,
+        "share_expires_at": share_expires_at,
+    }
 
 
 @router.get("/share/{item_id}")
@@ -208,6 +235,10 @@ async def get_shared_item(item_id: str):
     # BUG#7: Check visibility BEFORE touching any item data
     if not item.get("is_public"):
         raise HTTPException(status_code=403, detail="This snippet is private")
+
+    share_expires_at = item.get("share_expires_at")
+    if share_expires_at and share_expires_at <= datetime.now(UTC):
+        raise HTTPException(status_code=404, detail="This share link has expired")
 
     blocks = item.get("blocks")
     if not blocks:
@@ -229,6 +260,7 @@ async def get_shared_item(item_id: str):
         "result_blocks": blocks,
         "model_used": item.get("model_used") or "standard",
         "created_at": item.get("created_at"),
+        "share_expires_at": share_expires_at,
     }
 
 

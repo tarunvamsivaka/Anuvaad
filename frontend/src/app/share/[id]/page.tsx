@@ -46,22 +46,20 @@ export async function generateMetadata({
 
   const src = (item.source_language as string) ?? "Code";
   const tgt = (item.target_language as string) ?? "English";
-  const preview = ((item.input_preview as string) ?? "").slice(0, 120);
-
   return {
     title: `${src} → ${tgt} | Anuvaad`,
-    description: `Code translation shared with Anuvaad AI: ${preview}`,
+    description: `A ${src} to ${tgt} code translation shared with Anuvaad AI.`,
     openGraph: {
       title: `Code Translation: ${src} → ${tgt}`,
-      description: `Translated with Anuvaad AI — ${preview}`,
-      url: `${process.env.NEXT_PUBLIC_FRONTEND_URL ?? "https://anuvaad.dev"}/share/${id}`,
+      description: `A ${src} to ${tgt} code translation shared with Anuvaad AI.`,
+      url: `${process.env.NEXT_PUBLIC_FRONTEND_URL ?? "https://getanuvaad.vercel.app"}/share/${id}`,
       siteName: "Anuvaad",
       type: "article",
     },
     twitter: {
       card: "summary",
       title: `Code Translation: ${src} → ${tgt}`,
-      description: `Translated with Anuvaad AI — ${preview}`,
+      description: `A ${src} to ${tgt} code translation shared with Anuvaad AI.`,
     },
   };
 }

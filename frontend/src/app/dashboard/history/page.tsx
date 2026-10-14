@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar, Hash, Filter, Share2, Check, ExternalLink } from "lucide-react";
+import { Search, Code2, FileText, ArrowLeftRight, Trash2, Calendar, Hash, Filter, Share2, Check, ExternalLink, EyeOff } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -14,6 +14,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const modeIcons = {
   "Code → English": FileText,
@@ -37,6 +38,7 @@ interface HistoryItem {
   created_at: string;
   model_used: string;
   is_public?: boolean;
+  share_expires_at?: string | null;
   session_id?: string | null;
   repository_name?: string | null;
   file_path?: string | null;
@@ -92,6 +94,10 @@ export default function HistoryPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [shareCandidate, setShareCandidate] = useState<HistoryItem | null>(null);
+  const [shareExpiryDays, setShareExpiryDays] = useState<"1" | "7" | "30" | "never">("7");
+  const [sharing, setSharing] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -201,6 +207,33 @@ export default function HistoryPage() {
       toast.error("Failed to delete translation. Please try again.");
     }
   };
+
+  const handleDeleteAll = async () => {
+    if (!session?.access_token || deletingAll || history.length === 0) return;
+    const confirmed = window.confirm(
+      "Delete all saved translations? This cannot be undone, and any public share links for those translations will stop working.",
+    );
+    if (!confirmed) return;
+
+    const previousHistory = history;
+    setDeletingAll(true);
+    setHistory([]);
+    setNextCursor(null);
+    setHasMore(false);
+    try {
+      const res = await fetch("/api/history", {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error("Delete all failed");
+      toast.success("All saved translations were deleted.");
+    } catch {
+      setHistory(previousHistory);
+      toast.error("Failed to delete translation history. Please try again.");
+    } finally {
+      setDeletingAll(false);
+    }
+  };
   
   const handleShare = async (e: React.MouseEvent, id: string, is_public?: boolean) => {
     e.stopPropagation();
@@ -212,24 +245,63 @@ export default function HistoryPage() {
       return;
     }
     
+    const item = history.find((entry) => entry.id === id);
+    if (item) {
+      setShareCandidate(item);
+      setShareExpiryDays("7");
+    }
+  };
+
+  const confirmShare = async () => {
+    if (!shareCandidate) return;
+    setSharing(true);
     try {
-      // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
-      const res = await fetch(`/api/history/${id}/share`, {
+      const res = await fetch(`/api/history/${encodeURIComponent(shareCandidate.id)}/share`, {
         method: "PATCH",
-        headers: { 
+        headers: {
           "Authorization": `Bearer ${session?.access_token}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ is_public: true })
+        body: JSON.stringify({
+          is_public: true,
+          expires_in_days: shareExpiryDays === "never" ? null : Number(shareExpiryDays),
+        })
       });
       if (!res.ok) throw new Error("Share failed");
-      
-      setHistory(prev => prev.map(item => item.id === id ? { ...item, is_public: true } : item));
-      const url = `${window.location.origin}/share/${id}`;
-      navigator.clipboard.writeText(url);
-      toast.success("Made public! Link copied to clipboard!");
+      const data = await res.json();
+      setHistory(prev => prev.map(item => item.id === shareCandidate.id ? { ...item, is_public: true, share_expires_at: data.share_expires_at } : item));
+      const url = `${window.location.origin}/share/${encodeURIComponent(shareCandidate.id)}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("Public link created and copied.");
+      } catch {
+        toast.success("Public link created. Use the Copy public share link button to copy it.");
+      }
+      setShareCandidate(null);
     } catch {
       toast.error("Failed to share translation. Please try again.");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleMakePrivate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      const res = await fetch(`/api/history/${id}/share`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${session?.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_public: false }),
+      });
+      if (!res.ok) throw new Error("Unshare failed");
+      setHistory((prev) => prev.map((item) => item.id === id ? { ...item, is_public: false, share_expires_at: null } : item));
+      toast.success("Share link disabled. The translation is private again.");
+    } catch {
+      toast.error("Could not disable the share link. Please try again.");
     }
   };
 
@@ -280,6 +352,18 @@ export default function HistoryPage() {
               ))}
             </div>
           </div>
+          {history.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDeleteAll}
+              disabled={deletingAll}
+              className="h-10 shrink-0 gap-2 border-red-500/30 text-red-600 hover:bg-red-500/10 dark:text-red-400"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deletingAll ? "Deleting…" : "Delete all history"}
+            </Button>
+          )}
         </div>
 
         <div aria-live="polite" className="sr-only">
@@ -393,12 +477,24 @@ export default function HistoryPage() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  aria-label="Share translation"
+                                  aria-label={item.is_public ? "Copy public share link" : "Share translation"}
                                   className={cn("h-8 w-8 shrink-0 hover:bg-blue-500/10 transition-all rounded-lg", item.is_public ? "text-blue-500 opacity-100" : "text-text-muted hover:text-blue-400 opacity-100 sm:opacity-0 group-hover:opacity-100 focus:opacity-100")}
                                   onClick={e => handleShare(e, item.id, item.is_public)}
                                 >
                                   {item.is_public ? <Check className="h-3.5 w-3.5" /> : <Share2 className="h-3.5 w-3.5" />}
                                 </Button>
+                                {item.is_public && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    aria-label="Make translation private and disable share link"
+                                    title="Disable public link"
+                                    className="h-8 w-8 shrink-0 text-text-muted hover:text-amber-600 hover:bg-amber-500/10 rounded-lg"
+                                    onClick={e => handleMakePrivate(e, item.id)}
+                                  >
+                                    <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -450,6 +546,35 @@ export default function HistoryPage() {
           </div>
         )}
       </div>
+      <Dialog open={!!shareCandidate} onOpenChange={(open) => { if (!open && !sharing) setShareCandidate(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a public link?</DialogTitle>
+            <DialogDescription>Anyone with the link can view this saved translation. Review the stored input preview before publishing; you can disable the link from History.</DialogDescription>
+          </DialogHeader>
+          {shareCandidate && (
+            <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-3">
+              <div>
+                <p className="mb-1 text-xs font-semibold text-foreground">Saved input preview</p>
+                <pre className="max-h-32 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{shareCandidate.input_preview?.slice(0, 500) || "No input preview available."}</pre>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="history-share-expiry" className="text-xs font-semibold text-foreground">Link expires</label>
+                <select id="history-share-expiry" value={shareExpiryDays} onChange={(event) => setShareExpiryDays(event.target.value as typeof shareExpiryDays)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <option value="1">After 1 day</option>
+                  <option value="7">After 7 days</option>
+                  <option value="30">After 30 days</option>
+                  <option value="never">Never</option>
+                </select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShareCandidate(null)} disabled={sharing}>Cancel</Button>
+            <Button type="button" onClick={confirmShare} disabled={sharing || !shareCandidate}>{sharing ? "Creating link…" : "Make public and create link"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

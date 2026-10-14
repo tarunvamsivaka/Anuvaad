@@ -135,8 +135,8 @@ function SidebarContent({
               <Link
                 href="/dashboard/billing"
                 className="flex items-center justify-center w-full h-full text-amber-500 hover:text-amber-400 py-2.5"
-                aria-label="Upgrade to Pro"
-                title="Upgrade to Pro"
+                aria-label="View billing status"
+                title="View billing status"
               >
                 <Zap className="h-4 w-4 fill-current" />
               </Link>
@@ -144,13 +144,13 @@ function SidebarContent({
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-amber-500 fill-current" />
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Upgrade to Pro</span>
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Plans paused</span>
                 </div>
                 <Link
                   href="/dashboard/billing"
                   className="block w-full text-center text-[11px] font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg py-1.5 transition-colors shadow-xs"
                 >
-                  Upgrade Now
+                  Billing status
                 </Link>
               </div>
             )}

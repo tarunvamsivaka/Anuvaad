@@ -31,6 +31,7 @@
 | 3 | M3: Startup User Onboarding & Usage Transparency UX | Header credits badge, HTTP 429 quota modal with countdown, guest translation & Gist import sign-up prompts | M1 | DONE |
 | 4 | M4: Product Polish & Zero-Budget Deployment Guide | Landing page, FAQ, pricing update (5 guest / 25 free), ZERO_BUDGET_DEPLOYMENT.md, DEEP_DIVE_REPORT.md update | M3 | DONE |
 | 5 | M5: Test Verification & Zero Regression | Pytest, Vitest, npm run build, and ruff checks all pass with 0 failures | M1, M2, M3, M4 | DONE |
+| 6 | M6: Corporate Hardening, rAF Streaming & Public Release | 60 FPS rAF buffer, L1/L2 cache, AST deduplication, BYOK vault, split health, GSC SEO, release v1.0.0-prod | M1-M5 | DONE |
 
 ## Code Layout
 - `app/`: FastAPI backend application

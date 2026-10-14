@@ -99,6 +99,6 @@ export const PR_FILES: PrFileEntry[] = [
     assert res.status_code == 200
     assert "data:" in res.text`,
     plainEnglishExplanation:
-      "This adds live streaming for code translations so developers see results word-by-word instantly in under 3 seconds, rather than waiting for the entire translation to finish before anything appears on screen.",
+      "This adds streamed code translation so developers can review output as it arrives when the selected route supports streaming.",
   },
 ];

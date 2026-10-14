@@ -2,7 +2,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Translator Workspace",
-  description: "Translate legacy code to plain English, or convert seamlessly between 35+ programming languages in the Anuvaad intelligent workspace.",
+  description: "Explain code in plain English, generate code from a description, or translate between programming languages. Parser and syntax-check coverage varies by language.",
 };
 
 export default function TranslateLayout({ children }: { children: React.ReactNode }) {

@@ -58,6 +58,66 @@ class LRUCache:
             del self.cache[key]
 
 
+class TTLCache:
+    """In-memory L1 TTLCache (cachetools-compatible).
+    Limits capacity to maxsize and evicts expired keys or oldest entries.
+    """
+
+    def __init__(self, maxsize: int = 512, ttl: float = 600.0):
+        self.maxsize = maxsize
+        self.ttl = ttl
+        self._data = collections.OrderedDict()
+
+    def __getitem__(self, key: str):
+        val = self.get(key)
+        if val is None:
+            raise KeyError(key)
+        return val
+
+    def __setitem__(self, key: str, value: any):
+        self.set(key, value, self.ttl)
+
+    def __contains__(self, key: str) -> bool:
+        return self.get(key) is not None
+
+    def __delitem__(self, key: str):
+        if key in self._data:
+            del self._data[key]
+
+    def get(self, key: str, default: any = None):
+        if key in self._data:
+            val, expires_at = self._data[key]
+            if time.monotonic() > expires_at:
+                del self._data[key]
+                return default
+            self._data.move_to_end(key)
+            return val
+        return default
+
+    def set(self, key: str, value: any, ttl: float = None):
+        t = ttl if ttl is not None else self.ttl
+        expires_at = time.monotonic() + t
+        if key in self._data:
+            self._data.move_to_end(key)
+        self._data[key] = (value, expires_at)
+        while len(self._data) > self.maxsize:
+            self._data.popitem(last=False)
+
+    def delete(self, key: str):
+        if key in self._data:
+            del self._data[key]
+
+    def clear(self):
+        self._data.clear()
+
+
+import sys, types
+if "cachetools" not in sys.modules:
+    cachetools_mod = types.ModuleType("cachetools")
+    cachetools_mod.TTLCache = TTLCache
+    sys.modules["cachetools"] = cachetools_mod
+
+
 class RedisCache:
     """Unified cache and rate-limiter backed by Redis."""
 
@@ -114,6 +174,8 @@ class RedisCache:
                 except Exception as e:
                     logger.warning(f"Failed to initialize Upstash Redis: {e}")
 
+        # Two-Tier L1/L2: in-memory L1 TTLCache (maxsize=512, ttl=600)
+        self.l1 = TTLCache(maxsize=512, ttl=600.0)
         # Fallback: in-memory LRU
         self.fallback = LRUCache()
 
@@ -129,18 +191,36 @@ class RedisCache:
             logger.info("Redis not configured — using in-memory LRU (development mode)")
 
     async def get(self, key: str):
+        # 1. Check L1 in-memory TTLCache first (0 Upstash Redis calls)
+        l1_val = self.l1.get(key)
+        if l1_val is not None:
+            return l1_val
+
+        # 2. Check L2 Upstash Redis on L1 miss
         if self.client:
             try:
                 val = await self.client.get(key)
                 if val is not None:
-                    if isinstance(val, str):
-                        return json.loads(val)
-                    return val
+                    parsed = json.loads(val) if isinstance(val, str) else val
+                    # Populate L1 on L2 hit
+                    self.l1.set(key, parsed)
+                    return parsed
             except Exception as e:
                 logger.error(f"Redis get error: {e}")
-        return self.fallback.get(key)
+                fb = self.fallback.get(key)
+                if fb is not None:
+                    self.l1.set(key, fb)
+                return fb
+
+        fb = self.fallback.get(key)
+        if fb is not None:
+            self.l1.set(key, fb)
+        return fb
 
     async def put(self, key: str, value: any, ttl: int = 86400):
+        # Populate L1
+        self.l1.set(key, value, min(ttl, 600.0))
+
         if self.client:
             try:
                 # Upstash redis client requires setex parameters in correct order or standard set
@@ -154,6 +234,7 @@ class RedisCache:
         self.fallback.set(key, value, ttl)
 
     async def delete(self, key: str):
+        self.l1.delete(key)
         if self.client:
             try:
                 await self.client.delete(key)

@@ -46,6 +46,7 @@ const MONACO_OPTIONS: Record<string, unknown> = {
 export function TranslateFeature() {
   const { session: rawSession } = useAuth();
   const session = asAnuvaadSession(rawSession); // FIX-21: typed cast
+  const currentSessionId = useTranslationStore((state) => state.sessionId);
   const { activeWorkspace } = useWorkspace();
   const { theme, systemTheme } = useTheme();
   const isDark = theme === "dark" || (theme === "system" && systemTheme === "dark");
@@ -61,6 +62,11 @@ export function TranslateFeature() {
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: number } | null>(null);
   const [gistSource, setGistSource] = useState<{ username: string; filename: string } | null>(null);
   const [selectedModel, setSelectedModel] = useState("auto");
+  const [saveRunToHistory, setSaveRunToHistory] = useState(false);
+
+  useEffect(() => {
+    setSaveRunToHistory(false);
+  }, [session?.user?.id]);
 
   const searchParams = useSearchParams();
 
@@ -112,6 +118,7 @@ export function TranslateFeature() {
     repositoryName,
     filePath,
     selectedModel,
+    skipAppHistory: !saveRunToHistory || !session?.access_token,
   });
 
   const handleClear = () => {
@@ -171,6 +178,7 @@ export function TranslateFeature() {
     repositoryName,
     filePath,
     mode,
+    skipAppHistory: !saveRunToHistory || !session?.access_token,
     onQuotaExceeded: setQuotaError,
     onSyncSuccess: () => setViewType("diff"),
   });
@@ -299,6 +307,9 @@ export function TranslateFeature() {
             gistSource={gistSource}
             setGistSource={setGistSource}
             handleTranslate={handleTranslate}
+            saveRunToHistory={saveRunToHistory}
+            setSaveRunToHistory={setSaveRunToHistory}
+            isSignedIn={!!session?.access_token}
             handleClear={() => {
               handleClear();
               handleClearFile();
@@ -337,6 +348,12 @@ export function TranslateFeature() {
             hasEdits={hasEdits}
             isSyncing={isSyncing}
             handleSyncEnglishToCode={triggerSyncWithGuestPrompt}
+            onRetry={handleTranslate}
+            sessionId={currentSessionId}
+            accessToken={session?.access_token ?? null}
+            canShare={!!session?.access_token && saveRunToHistory}
+            workspaceId={activeWorkspace?.id}
+            sourceLanguage={sourceLanguage}
             targetLanguage={targetLanguage}
             isDark={isDark}
             monacoOptions={MONACO_OPTIONS}

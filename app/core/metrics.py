@@ -11,6 +11,7 @@ synchronously so snapshot() always has fresh local data.
 """
 
 import asyncio
+import math
 import sys
 import time
 from collections import deque
@@ -216,6 +217,19 @@ class MetricsCollector:
         return {ep: round(sum(dq) / len(dq), 2) if dq else 0.0 for ep, dq in self._latencies.items()}
 
     @property
+    def p95_latency_ms(self) -> dict[str, float]:
+        """Nearest-rank p95 from each process's most recent 100 requests."""
+        result: dict[str, float] = {}
+        for endpoint, samples in self._latencies.items():
+            if not samples:
+                result[endpoint] = 0.0
+                continue
+            ordered = sorted(samples)
+            rank = max(1, math.ceil(0.95 * len(ordered)))
+            result[endpoint] = round(ordered[rank - 1], 2)
+        return result
+
+    @property
     def uptime_seconds(self) -> int:
         return int(time.time() - self.start_time)
 
@@ -262,6 +276,7 @@ class MetricsCollector:
                     "memory_watermark_mb": mem_watermark,
                     "historical_peak_memory_watermark_mb": historical_peak,
                     "average_latency_ms": self.average_latency_ms,
+                    "p95_latency_ms_per_process_last_100": self.p95_latency_ms,
                 }
             except Exception as e:
                 import logging
@@ -282,6 +297,7 @@ class MetricsCollector:
             "memory_watermark_mb": mem_watermark,
             "historical_peak_memory_watermark_mb": historical_peak,
             "average_latency_ms": self.average_latency_ms,
+            "p95_latency_ms_per_process_last_100": self.p95_latency_ms,
         }
 
     async def get_telemetry_history(self, limit: int = 10) -> list[dict]:

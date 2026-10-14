@@ -83,5 +83,11 @@
   "_comments": {
     "fill-range": "Directly installed to satisfy the local braces security fork's range-expansion dependency when npm links the fork as an override.",
     "overrides.serialize-javascript": "Security patch: forces all transitive dependents to use serialize-javascript >=7.0.5 which fixes CVE-2020-7660 (XSS via prototype pollution). This override should be periodically reviewed and removed once all direct dependencies have updated."
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,json,css}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

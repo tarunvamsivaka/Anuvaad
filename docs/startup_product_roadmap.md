@@ -1,5 +1,7 @@
 # Anuvaad: 4-Week Startup Product Development Plan
 
+> **Superseded:** This older roadmap contains unverified performance, privacy, accuracy, and enterprise-service claims. Use [the consumer product strategy](CONSUMER_PRODUCT_DEVELOPMENT_STRATEGY.md) for current priorities; do not publish claims from this document without fresh evidence.
+
 > **Timeline**: 4 Weeks (28 Days) | **Operating Model**: Solo Founder + Frugal Contractors  
 > **Infrastructure Cost**: $0.00 / month | **Target**: Public Launch + 2 Signed Paid B2B Pilots
 

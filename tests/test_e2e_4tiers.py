@@ -606,7 +606,7 @@ class TestTier1Feature13EnvTemplateAndDX:
             os.environ,
             {
                 "ENV": "production",
-                "SUPABASE_JWT_SECRET": "valid_secret_key_12345",
+                "SUPABASE_JWT_SECRET": "test_supabase_jwt_secret_32bytes_minimum_length",
                 "TOKEN_ENCRYPTION_KEY": "valid_base64_fernet_key",
             },
         ):

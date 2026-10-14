@@ -162,21 +162,40 @@ class MockCompletions:
         elif self.mock_client.empty_mode:
             content = json.dumps([{"id": "b1", "code_snippet": "", "english_translation": ""}])
         elif self.mock_client.multi_mode:
+            user_prompt = "\n".join(
+                message.get("content", "") for message in kwargs.get("messages", []) if message.get("role") == "user"
+            )
+            target_language = next(
+                (language for language in ("go", "javascript") if f"Target Language: {language}" in user_prompt),
+                None,
+            )
             if not is_json:
-                content = "def add(a, b):\n    return a + b"
+                if target_language == "go":
+                    content = "package main\n\nfunc add(a int, b int) int {\n    return a + b\n}"
+                elif target_language == "javascript":
+                    content = "function add(a, b) {\n  return a + b;\n}"
+                else:
+                    content = "def add(a, b):\n    return a + b"
             else:
+                if target_language == "go":
+                    code_blocks = [
+                        ("package main\n\nfunc add(a int, b int) int {", "Defines a Go function named add."),
+                        ("\n    return a + b\n}", "Returns the sum of the arguments."),
+                    ]
+                elif target_language == "javascript":
+                    code_blocks = [
+                        ("function add(a, b) {", "Defines a JavaScript function named add."),
+                        ("\n  return a + b;\n}", "Returns the sum of the arguments."),
+                    ]
+                else:
+                    code_blocks = [
+                        ("def add(a, b):", "Defines a function named add that takes two parameters."),
+                        ("\n    return a + b", "Returns the sum of a and b."),
+                    ]
                 content = json.dumps(
                     [
-                        {
-                            "id": "block_1",
-                            "code_snippet": "def add(a, b):",
-                            "english_translation": "Defines a function named add that takes two parameters.",
-                        },
-                        {
-                            "id": "block_2",
-                            "code_snippet": "    return a + b",
-                            "english_translation": "Returns the sum of a and b.",
-                        },
+                        {"id": f"block_{index}", "code_snippet": snippet, "english_translation": description}
+                        for index, (snippet, description) in enumerate(code_blocks, start=1)
                     ]
                 )
         else:

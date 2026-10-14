@@ -166,18 +166,18 @@ export function GitPrWorkflowDemo({
             >
               <ShieldCheck className={cn("h-3.5 w-3.5", ciStatus === "verified" ? "text-emerald-500" : "text-amber-500")} />
               <span>
-                {ciStatus === "running" ? "Running SAST..." : ciStatus === "verified" ? "CI 100% Passed" : "Run CI/CD"}
+                {ciStatus === "running" ? "Running sample..." : ciStatus === "verified" ? "Sample complete" : "Run sample"}
               </span>
             </button>
             <button
               type="button"
               onClick={handleApprove}
               disabled={prStatus === "Approved"}
-              aria-label="Approve PR"
+              aria-label="Preview approval state"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer disabled:opacity-60"
             >
               <Check className="h-3.5 w-3.5" />
-              <span>{prStatus === "Approved" ? "Approved" : "Approve PR"}</span>
+              <span>{prStatus === "Approved" ? "Sample approved" : "Preview approval"}</span>
             </button>
             <button
               type="button"

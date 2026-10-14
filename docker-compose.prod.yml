@@ -1,3 +1,7 @@
+# LEGACY / UNSUPPORTED PRODUCTION TEMPLATE
+# The image names below are placeholders and this topology includes the
+# unwired LiteLLM/Ollama stack. Do not use it for releases without a separately
+# reviewed image, provider-routing, migration, and rollback plan.
 services:
   redis:
     image: redis:7-alpine

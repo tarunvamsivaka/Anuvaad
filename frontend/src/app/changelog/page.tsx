@@ -15,10 +15,9 @@ const CHANGELOG = [
     items: [
       { type: "🆕 New", text: "DeepSeek R1 reasoning model integration for complex architectural analysis" },
       { type: "🆕 New", text: "AI-powered PR review: architectural impact, risk badges, and breaking change detection" },
-      { type: "🆕 New", text: "Live Interactive Playground with 35+ language presets and typewriter streaming" },
-      { type: "🆕 New", text: "Benchmark Explorer: latency and accuracy matrix for Groq, DeepSeek, Claude, GPT-4o" },
-      { type: "⚡ Perf", text: "Median inference latency reduced to <1.9s (P50) via Groq LPU acceleration" },
-      { type: "⚡ Perf", text: "Upstash Redis caching cuts repeated translation latency to <200ms" },
+      { type: "🆕 New", text: "Interactive Playground with language presets and streamed responses" },
+      { type: "🆕 New", text: "Language Explorer with examples; parser coverage varies by language" },
+      { type: "⚡ Perf", text: "Added translation caching for eligible repeated requests" },
     ],
   },
   {
@@ -29,7 +28,7 @@ const CHANGELOG = [
     items: [
       { type: "🆕 New", text: "Complete frontend redesign — product-first Wispr Flow-inspired neutral aesthetic" },
       { type: "🆕 New", text: "Floating pill navigation with active section tracking" },
-      { type: "🆕 New", text: "Enterprise Security section: ZDR cryptographic receipts, GDPR-aligned architecture" },
+      { type: "🆕 New", text: "Enterprise information page with audit-digest and current security-scope details" },
       { type: "⚡ Perf", text: "Performance-optimized WebGL particle canvas with automatic off-screen pause" },
       { type: "🐛 Fix", text: "WCAG 2.1 AA accessibility: full keyboard navigation, ARIA landmarks, skip links" },
     ],
@@ -59,7 +58,7 @@ const CHANGELOG = [
       { type: "🆕 New", text: "Real-time SSE streaming translation output" },
       { type: "🆕 New", text: "Supabase Auth (Google + GitHub OAuth)" },
       { type: "🆕 New", text: "Razorpay billing with Pro plan and translation credits" },
-      { type: "🆕 New", text: "Zero code storage architecture — privacy by default" },
+      { type: "🛡️ Privacy", text: "Privacy details now explain saved history, explicit share links, provider processing, and current retention limits" },
     ],
   },
 ];

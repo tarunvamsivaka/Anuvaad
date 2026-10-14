@@ -70,8 +70,8 @@ class TestCronPruneEndpoint:
         """Verify /api/v1/cron/prune executes prune_database_footprint_async when token matches."""
         mock_prune.return_value = {"deleted_history": 12, "deleted_vectors": 5}
 
-        with patch("app.core.config.CRON_SECRET", "valid-secret-123"):
-            res = client.post("/api/v1/cron/prune", headers={"Authorization": "Bearer valid-secret-123"})
+        with patch("app.core.config.CRON_SECRET", "fixture"):
+            res = client.post("/api/v1/cron/prune", headers={"Authorization": "Bearer fixture"})
             assert res.status_code == 200
             data = res.json()
             assert data["success"] is True
@@ -84,8 +84,8 @@ class TestCronPruneEndpoint:
         """Verify /api/v1/cron/prune works with X-Cron-Secret header."""
         mock_prune.return_value = {"deleted_history": 0, "deleted_vectors": 0}
 
-        with patch("app.core.config.CRON_SECRET", "valid-secret-123"):
-            res = client.post("/api/v1/cron/prune", headers={"X-Cron-Secret": "valid-secret-123"})
+        with patch("app.core.config.CRON_SECRET", "fixture"):
+            res = client.post("/api/v1/cron/prune", headers={"X-Cron-Secret": "fixture"})
             assert res.status_code == 200
             assert res.json()["success"] is True
             mock_prune.assert_awaited_once()

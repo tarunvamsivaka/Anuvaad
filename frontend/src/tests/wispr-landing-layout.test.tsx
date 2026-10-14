@@ -102,7 +102,7 @@ describe("Wispr Flow Landing Architecture & Components", () => {
       render(<HeroControlBar />);
       expect(screen.getByText("Code Intelligence in Motion")).toBeInTheDocument();
       expect(
-        screen.getByRole("heading", { name: /Your codebase speaks every language/i })
+        screen.getByRole("heading", { name: /Understand and translate code/i })
       ).toBeInTheDocument();
       expect(
         screen.getByText(/Explore code explanations and translations/i)
@@ -111,7 +111,7 @@ describe("Wispr Flow Landing Architecture & Components", () => {
 
     it("renders 4 fluid value badges", () => {
       render(<HeroControlBar />);
-      expect(screen.getByText("35+ Languages")).toBeInTheDocument();
+      expect(screen.getByText("Multiple Languages")).toBeInTheDocument();
       expect(screen.getAllByText("Latency varies by request")).toHaveLength(2);
       expect(screen.getByText("Audit receipt on supported routes")).toBeInTheDocument();
       expect(screen.queryByText("ZDR Certified")).not.toBeInTheDocument();
@@ -263,10 +263,12 @@ describe("Wispr Flow Landing Architecture & Components", () => {
 
     it("renders trust checklist items", () => {
       render(<ActionDeck />);
-      expect(screen.getByText("10 Free Translations / Day")).toBeInTheDocument();
+      expect(
+        screen.getByText("Daily translation limits apply")
+      ).toBeInTheDocument();
       expect(screen.getByText("No Credit Card Required")).toBeInTheDocument();
       expect(
-        screen.getByText("HMAC-SHA256 Audit Receipts")
+        screen.getByText("Review privacy details before using sensitive code")
       ).toBeInTheDocument();
     });
   });

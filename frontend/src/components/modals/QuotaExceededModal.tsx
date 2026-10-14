@@ -5,7 +5,7 @@
  * Displays:
  *   - Current tier name and limit
  *   - Live countdown timer to UTC midnight reset
- *   - CTA buttons: "Upgrade to Pro" and "Dismiss"
+ *   - Daily limit reset countdown and dismiss action
  *
  * Usage:
  *   const { quotaError, dismissQuotaError } = useTranslationStream(...)
@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, Zap, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { usePublicQuotaLimits } from "@/lib/use-public-quota-limits";
 
 export interface QuotaError {
   detail: string;
@@ -107,6 +108,7 @@ function useCountdown(totalSeconds: number) {
 }
 
 export function QuotaExceededModal({ error, onClose }: QuotaExceededModalProps) {
+  const { data: quotaLimits } = usePublicQuotaLimits(Boolean(error));
   const backdropRef = useRef<HTMLDivElement>(null);
   const countdown = useCountdown(error?.retry_after_seconds ?? 0);
 
@@ -192,21 +194,18 @@ export function QuotaExceededModal({ error, onClose }: QuotaExceededModalProps) 
 
           {/* CTAs */}
           <div className="flex flex-col gap-2">
-            <Link
-              href="/signup?plan=pro"
-              onClick={onClose}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-semibold text-black shadow-sm hover:bg-amber-400 transition-colors"
-            >
-              <Zap className="h-4 w-4" />
-              Upgrade to Pro — Unlimited translations
-            </Link>
+            {!isGuestLimit && (
+              <p className="rounded-xl border border-border-subtle bg-white/5 px-4 py-3 text-center text-sm text-text-secondary">
+                Paid plans are unavailable during launch. Your daily limit will reset automatically.
+              </p>
+            )}
             {isGuestLimit && (
               <Link
                 href="/signup"
                 onClick={onClose}
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-border-subtle bg-white/5 px-4 py-2.5 text-sm font-medium text-text-primary hover:bg-white/10 transition-colors"
               >
-                Create a free account (25/day)
+                Create a free account ({quotaLimits ? `${quotaLimits.free_daily_limit}/day` : "daily limit"})
               </Link>
             )}
             <button

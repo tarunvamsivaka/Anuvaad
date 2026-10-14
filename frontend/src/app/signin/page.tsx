@@ -73,13 +73,13 @@ function SignInPageContent() {
 
   async function handleGoogle() {
     track("signin_attempted", { method: "google" });
-    const { error: err } = await signInWithGoogle();
+    const { error: err } = await signInWithGoogle(redirectTo);
     if (err) setError(err);
   }
 
   async function handleGitHub() {
     track("signin_attempted", { method: "github" });
-    const { error: err } = await signInWithGitHub();
+    const { error: err } = await signInWithGitHub(redirectTo);
     if (err) setError(err);
   }
 
@@ -332,7 +332,7 @@ function SignInPageContent() {
           <p className="mt-4 text-center text-[10px] font-mono text-slate-600">
             Encrypted session conforming to RFC 8446 (TLS 1.3).{" "}
             <Link href="/privacy" className="underline hover:text-slate-400">
-              Zero Code Retention RFC
+              Privacy and processing details
             </Link>
             .
           </p>

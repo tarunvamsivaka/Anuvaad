@@ -1,6 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { Settings, Zap, ChevronLeft, ChevronRight, Key, ShieldCheck, Trash2 } from "lucide-react";
+import { saveByokKey, clearByokKey, hasByokKey } from "@/lib/byok-vault";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,33 @@ export function Sidebar({
   collapsed,
   setCollapsed,
 }: SidebarProps) {
+  const [byokInput, setByokInput] = React.useState("");
+  const [hasKey, setHasKey] = React.useState(false);
+  const [byokStatus, setByokStatus] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    hasByokKey().then((exists) => setHasKey(exists));
+  }, []);
+
+  const handleSaveByok = async () => {
+    if (!byokInput.trim()) return;
+    try {
+      await saveByokKey(byokInput.trim());
+      setHasKey(true);
+      setByokInput("");
+      setByokStatus("Key securely encrypted in local vault.");
+      setTimeout(() => setByokStatus(null), 3000);
+    } catch {
+      setByokStatus("Failed to encrypt key.");
+    }
+  };
+
+  const handleClearByok = async () => {
+    await clearByokKey();
+    setHasKey(false);
+    setByokStatus("Key removed from vault.");
+    setTimeout(() => setByokStatus(null), 3000);
+  };
   return (
     <motion.div
       initial={false}
@@ -121,6 +149,61 @@ export function Sidebar({
                     placeholder="e.g. src/app/page.tsx"
                     className="text-sm bg-background/50 border-input"
                   />
+                </div>
+
+                {/* BYOK Encrypted Vault Section (Milestone 4) */}
+                <div className="pt-2 border-t border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Key className="h-3.5 w-3.5 text-amber-500" /> BYOK API Vault
+                    </label>
+                    {hasKey && (
+                      <Badge variant="outline" className="text-[9px] font-mono bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                        <ShieldCheck className="h-3 w-3 mr-1 inline" /> Active (AES-256)
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
+                    Zero-cost Bring-Your-Own-Key. Encrypted in browser storage with AES-GCM 256-bit.
+                  </p>
+                  {hasKey ? (
+                    <div className="flex items-center gap-2">
+                      <div className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-md px-2.5 py-1.5 flex-1">
+                        •••••••••••••••• (Encrypted)
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearByok}
+                        className="h-8 px-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                        title="Remove key from vault"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <Input
+                        type="password"
+                        value={byokInput}
+                        onChange={(e) => setByokInput(e.target.value)}
+                        placeholder="Paste Gemini API Key..."
+                        className="text-xs font-mono bg-background/50 border-input"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleSaveByok}
+                        disabled={!byokInput.trim()}
+                        className="h-7 text-xs border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
+                      >
+                        Encrypt & Save to Vault
+                      </Button>
+                    </div>
+                  )}
+                  {byokStatus && (
+                    <p className="text-[10px] text-amber-400 mt-1.5">{byokStatus}</p>
+                  )}
                 </div>
               </div>
             </motion.div>

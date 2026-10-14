@@ -1,6 +1,6 @@
 ################################################################################
-# Anuvaad LiteLLM Gateway Configuration
-# Sprint 6: Oracle Always Free Infrastructure
+# ARCHIVED REFERENCE — NOT USED BY THE APPLICATION RUNTIME
+# Anuvaad LiteLLM Gateway Configuration (historical proposal)
 # ─────────────────────────────────────────────────────────────────────────────
 # Deploy: docker run -p 4000:4000 -v $(pwd)/litellm_config.yaml:/app/config.yaml \
 #           -e CEREBRAS_API_KEY=$CEREBRAS_API_KEY \
@@ -11,8 +11,9 @@
 #           ghcr.io/berriai/litellm:main-latest \
 #           --config /app/config.yaml
 #
-# Backend AI service (app/services/ai.py) connects to:
-#   LITELLM_PROXY_URL=http://localhost:4000 (or http://litellm:4000 in Docker)
+# The application currently calls Groq directly and uses OpenRouter as an
+# optional streaming/fallback provider. This file is retained for reference;
+# configuring it does not change runtime routing.
 #
 # Pricing: $0.00/month — all Tier 1-4 APIs have free tiers; Tier 5 is local.
 ################################################################################

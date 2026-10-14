@@ -16,17 +16,15 @@ SEC-GH-03: Added repo_name format validation to prevent path traversal / injecti
 SEC-GH-04: Added OAuth state parameter to login URL to prevent CSRF on OAuth flow.
 """
 
-import base64
 import hashlib
 import hmac
 import os
 import re
-import secrets
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
-from app.core.auth import get_optional_user_email_from_request, get_user_email
+from app.core.auth import get_user_email
 from app.core.logging import logger
 from app.core.rate_limit import rate_limiter
 from app.queue.tasks import process_github_pr_review_task, process_github_repo_task
@@ -45,9 +43,7 @@ _REPO_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$")
 def _verify_github_signature(payload_body: bytes, signature_header: str | None) -> bool:
     """Verify HMAC-SHA256 signature from GitHub webhook header."""
     secret = (os.environ.get("GITHUB_WEBHOOK_SECRET") or GITHUB_WEBHOOK_SECRET or "").strip()
-    if not secret:
-        return True
-    if not signature_header:
+    if not secret or not signature_header:
         return False
     parts = signature_header.split("=", 1)
     if len(parts) != 2 or parts[0] != "sha256":
@@ -70,15 +66,18 @@ def _validate_repo_name(repo_name: str) -> None:
 
 
 @router.get("/oauth/github/login")
-async def github_login(request: Request):
+async def github_login(state: str):
     """Initiates GitHub OAuth flow.
 
     SEC-GH-04: Includes a random state parameter in the authorization URL to
     prevent CSRF attacks on the OAuth callback. The state is a URL-safe random
     token; the frontend must store and verify it on callback.
     """
+    if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="GitHub connection is not configured")
+    if len(state) < 32 or len(state) > 256 or not re.fullmatch(r"[A-Za-z0-9_-]+", state):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
     redirect_uri = f"{FRONTEND_URL}/api/auth/github/callback"
-    state = secrets.token_urlsafe(32)
     auth_url = (
         f"https://github.com/login/oauth/authorize"
         f"?client_id={GITHUB_CLIENT_ID}"
@@ -90,7 +89,7 @@ async def github_login(request: Request):
 
 
 @router.post("/oauth/github/callback", dependencies=[Depends(rate_limiter(5, 60))])
-async def github_callback(code: str, user_email: str = Depends(get_user_email)):
+async def github_callback(code: str, state: str, user_email: str = Depends(get_user_email)):
     """Handle GitHub OAuth callback — exchange code for token.
 
     FIX-01: Token is Fernet-encrypted before DB storage.
@@ -100,6 +99,10 @@ async def github_callback(code: str, user_email: str = Depends(get_user_email)):
                (e.g. GET /github/repos) transparently use the stored token.
     SEC-GH-02: Rate-limited to 5 requests/min per token to prevent abuse.
     """
+    if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
+        raise HTTPException(status_code=503, detail="GitHub connection is not configured")
+    if len(state) < 32 or len(state) > 256 or not re.fullmatch(r"[A-Za-z0-9_-]+", state):
+        raise HTTPException(status_code=400, detail="Invalid OAuth state")
     try:
         # FIX-25: follow_redirects=False prevents SSRF via redirect chains
         async with httpx.AsyncClient(follow_redirects=False) as client:
@@ -264,67 +267,17 @@ async def github_webhook(request: Request):
     return {"status": "ignored", "event": event_type}
 
 
-class PrRefactorRequest(dict):
-    pass
-
-
 @router.post("/github/pr/{owner}/{repo}/{pr_number}/apply-refactor", dependencies=[Depends(rate_limiter(10, 60))])
 async def apply_pr_refactor(
     owner: str,
     repo: str,
     pr_number: int,
     payload: dict,
-    user_email: str | None = Depends(get_optional_user_email_from_request),
+    user_email: str = Depends(get_user_email),
 ):
     """Apply an AI refactor suggestion directly to the Pull Request branch."""
-    file_path = payload.get("file_path", "")
-    refactored_code = payload.get("refactored_code", "")
-    commit_message = payload.get("commit_message", f"refactor: apply Anuvaad modernization on {file_path}")
-
-    if not file_path or not refactored_code:
-        raise HTTPException(status_code=400, detail="file_path and refactored_code are required")
-
-    # If GitHub token is present, attempt commit via GitHub API
-    token = None
-    if user_email:
-        try:
-            token = await _get_github_token(user_email)
-        except Exception:
-            token = None
-
-    if token:
-        try:
-            async with httpx.AsyncClient(follow_redirects=False) as client:
-                # 1. Get file SHA
-                get_url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
-                headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json"}
-                f_resp = await client.get(get_url, headers=headers)
-                sha = f_resp.json().get("sha") if f_resp.status_code == 200 else None
-
-                # 2. Update file content
-                put_body = {
-                    "message": commit_message,
-                    "content": base64.b64encode(refactored_code.encode()).decode(),
-                }
-                if sha:
-                    put_body["sha"] = sha
-                put_resp = await client.put(get_url, headers=headers, json=put_body)
-                if put_resp.status_code in (200, 201):
-                    return {"status": "applied", "committed": True, "sha": put_resp.json().get("commit", {}).get("sha")}
-        except Exception as e:
-            logger.warning(f"GitHub direct commit failed, returning preview: {e}")
-
-    # Fallback to simulated/preview response for local or demo mode
-    return {
-        "status": "applied",
-        "committed": False,
-        "mode": "preview",
-        "owner": owner,
-        "repo": repo,
-        "pr_number": pr_number,
-        "file_path": file_path,
-        "diff_preview": f"Applied {len(refactored_code.splitlines())} lines to {file_path}",
-    }
+    del owner, repo, pr_number, payload, user_email
+    raise HTTPException(status_code=501, detail="GitHub pull request writes are not enabled")
 
 
 @router.post("/github/pr/{owner}/{repo}/{pr_number}/generate-tests", dependencies=[Depends(rate_limiter(15, 60))])
@@ -333,28 +286,11 @@ async def generate_pr_tests(
     repo: str,
     pr_number: int,
     payload: dict,
+    user_email: str = Depends(get_user_email),
 ):
     """Generate target test suite for PR diff using EquivalenceHarness."""
-    from app.services.ast_parser import analyze
-    from app.services.verification.equivalence_harness import EquivalenceHarness
-
-    code = payload.get("code", "")
-    language = payload.get("language", "python")
-
-    if not code:
-        raise HTTPException(status_code=400, detail="code is required")
-
-    ast_res = analyze(code, language)
-    test_code = EquivalenceHarness.synthesize_test_suite(language, ast_res.functions)
-
-    return {
-        "owner": owner,
-        "repo": repo,
-        "pr_number": pr_number,
-        "language": language,
-        "functions_covered": len(ast_res.functions),
-        "generated_test_suite": test_code,
-    }
+    del owner, repo, pr_number, payload, user_email
+    raise HTTPException(status_code=501, detail="GitHub pull request tools are not enabled")
 
 
 @router.post("/github/pr/{owner}/{repo}/{pr_number}/approve", dependencies=[Depends(rate_limiter(10, 60))])
@@ -363,33 +299,8 @@ async def approve_pr_review(
     repo: str,
     pr_number: int,
     payload: dict | None = None,
-    user_email: str | None = Depends(get_optional_user_email_from_request),
+    user_email: str = Depends(get_user_email),
 ):
     """Submit approval review to GitHub PR."""
-    body_comment = (payload or {}).get("comment", "LGTM! Verified by Anuvaad AST & Equivalence Harness.")
-    token = None
-    if user_email:
-        try:
-            token = await _get_github_token(user_email)
-        except Exception:
-            token = None
-
-    if token:
-        try:
-            async with httpx.AsyncClient(follow_redirects=False) as client:
-                url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
-                headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3+json"}
-                resp = await client.post(url, headers=headers, json={"event": "APPROVE", "body": body_comment})
-                if resp.status_code in (200, 201):
-                    return {"status": "approved", "github_status": "submitted"}
-        except Exception as e:
-            logger.warning(f"GitHub PR approval failed: {e}")
-
-    return {
-        "status": "approved",
-        "mode": "preview",
-        "owner": owner,
-        "repo": repo,
-        "pr_number": pr_number,
-        "badge": "Approved by Anuvaad",
-    }
+    del owner, repo, pr_number, payload, user_email
+    raise HTTPException(status_code=501, detail="GitHub pull request approvals are not enabled")

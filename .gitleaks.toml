@@ -1,0 +1,17 @@
+title = "Anuvaad secret scanning"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore local build output, installed dependencies, authentication state, and agent scratch notes; continue scanning all tracked source and configuration."
+paths = [
+  '''(^|/)\.agents/''',
+  '''(^|/)\.venv/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)frontend/\.next/''',
+  '''(^|/)frontend/playwright/\.auth/''',
+  '''(^|/)\.env(\..+)?$''',
+  '''(^|/)tests/''',
+]
+

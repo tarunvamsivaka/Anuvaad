@@ -42,7 +42,7 @@ export default async function Image() {
         </div>
         <p style={{ fontSize: 36, color: '#a1a1aa', maxWidth: '80%', textAlign: 'center', lineHeight: 1.4 }}>
           Translate complex logic into plain English.<br/>
-          <span style={{ color: '#d97706' }}>35+ Languages Supported.</span>
+          <span style={{ color: '#d97706' }}>Multiple Languages Supported.</span>
         </p>
       </div>
     ),

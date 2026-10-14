@@ -7,7 +7,8 @@ Invariants (AGENTS.md):
    external training pools.
 2. Audit Verification: Every translation must compute a deterministic
    HMAC-SHA256 audit digest (`sha256(secret, user_id + timestamp + code_hash)`)
-   proving the zero-retention guarantee.
+   identifying application-level history/cache bypass; it does not prove provider,
+   infrastructure, or diagnostic-log retention behavior.
 """
 
 from __future__ import annotations
@@ -21,9 +22,16 @@ from app.core.config import SUPABASE_JWT_SECRET, TOKEN_ENCRYPTION_KEY
 AUDIT_DIGEST_HEADER = "X-Anuvaad-Audit-Digest"
 PRIVACY_HEADER = "X-Anuvaad-Privacy"
 PRIVACY_MODE_HEADER = "X-Anuvaad-Privacy-Mode"
-EPHEMERAL_VALUE = "ephemeral; zero-retention"
+EPHEMERAL_VALUE = "ephemeral; application-history-and-cache-skipped"
 
-_DEFAULT_SECRET = SUPABASE_JWT_SECRET or TOKEN_ENCRYPTION_KEY or "anuvaad-ephemeral-zdr-cryptographic-audit-key-v1"
+_DEFAULT_SECRET = SUPABASE_JWT_SECRET or TOKEN_ENCRYPTION_KEY
+
+
+def _signing_secret(secret: str | None) -> str:
+    signing_secret = secret or _DEFAULT_SECRET
+    if not signing_secret:
+        raise RuntimeError("An audit signing secret must be configured to issue verifiable receipts.")
+    return signing_secret
 
 
 def compute_code_hash(code: str) -> str:
@@ -62,7 +70,7 @@ def generate_audit_receipt(
       - retention_policy: 'RAM_ONLY_EPHEMERAL'
       - audit_digest: HMAC-SHA256 signature
     """
-    signing_secret = secret or _DEFAULT_SECRET
+    signing_secret = _signing_secret(secret)
     ts = timestamp.astimezone(UTC).isoformat() if timestamp else datetime.now(UTC).isoformat()
     code_hash = compute_code_hash(code)
     digest = compute_audit_digest(signing_secret, user_id, ts, code_hash)
@@ -84,6 +92,9 @@ def verify_audit_receipt(
     secret: str | None = None,
 ) -> bool:
     """Verify that a given audit digest is cryptographically valid and matches the input."""
-    signing_secret = secret or _DEFAULT_SECRET
+    try:
+        signing_secret = _signing_secret(secret)
+    except RuntimeError:
+        return False
     expected_digest = compute_audit_digest(signing_secret, user_id, timestamp_utc, code_hash)
     return hmac.compare_digest(expected_digest, audit_digest)

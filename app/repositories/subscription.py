@@ -36,7 +36,8 @@ async def get_subscription(email: str) -> dict | None:
                 return None
             return {c.key: getattr(row, c.key) for c in row.__mapper__.columns}
         except Exception as e:
-            logger.error(f"subscription.get_subscription({email}): {e}")
+            # Database exceptions can include SQL parameters; keep PII out of logs.
+            logger.error("subscription.get_subscription failed (%s)", type(e).__name__)
             return None
 
 
@@ -70,7 +71,7 @@ async def atomic_deduct_credit(email: str) -> bool:
             await session.commit()
             return (result.rowcount or 0) > 0
         except Exception as e:
-            logger.error(f"subscription.atomic_deduct_credit({email}): {e}")
+            logger.error("subscription.atomic_deduct_credit failed (%s)", type(e).__name__)
             await session.rollback()
             return False
 
@@ -93,7 +94,7 @@ async def upsert_subscription(email: str, data: dict) -> bool:
             await session.commit()
             return True
         except Exception as e:
-            logger.error(f"subscription.upsert_subscription({email}): {e}")
+            logger.error("subscription.upsert_subscription failed (%s)", type(e).__name__)
             await session.rollback()
             return False
 
@@ -137,7 +138,7 @@ async def add_credits(email: str, amount: int) -> bool:
             await session.commit()
             return True
         except Exception as e:
-            logger.error(f"subscription.add_credits({email}, {amount}): {e}")
+            logger.error("subscription.add_credits failed (%s)", type(e).__name__)
             await session.rollback()
             return False
 
@@ -164,7 +165,7 @@ async def mark_onboarded(email: str) -> bool:
             await session.commit()
             return True
         except Exception as e:
-            logger.error(f"subscription.mark_onboarded({email}): {e}")
+            logger.error("subscription.mark_onboarded failed (%s)", type(e).__name__)
             await session.rollback()
             return False
 
@@ -211,6 +212,6 @@ async def delete_by_email(email: str) -> bool:
             await session.commit()
             return deleted is not None
         except Exception as e:
-            logger.error(f"subscription.delete_by_email({email}): {e}")
+            logger.error("subscription.delete_by_email failed (%s)", type(e).__name__)
             await session.rollback()
             return False

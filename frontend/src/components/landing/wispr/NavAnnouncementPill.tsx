@@ -5,7 +5,7 @@ import Link from "next/link";
 import { X, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const ANNOUNCEMENT_KEY = "anuvaad_announcement_dismissed_v1";
+const ANNOUNCEMENT_STORAGE_ID = "anuvaad-announcement-dismissed";
 const ANNOUNCEMENT_TEXT = "DeepSeek R1 reasoning model now live";
 const ANNOUNCEMENT_HREF = "#playground";
 
@@ -15,7 +15,7 @@ export function NavAnnouncementPill({ className }: { className?: string }) {
   useEffect(() => {
     // Only show if not dismissed
     try {
-      const dismissed = localStorage.getItem(ANNOUNCEMENT_KEY);
+      const dismissed = localStorage.getItem(ANNOUNCEMENT_STORAGE_ID);
       if (!dismissed) setVisible(true);
     } catch {
       setVisible(true);
@@ -27,7 +27,7 @@ export function NavAnnouncementPill({ className }: { className?: string }) {
     e.stopPropagation();
     setVisible(false);
     try {
-      localStorage.setItem(ANNOUNCEMENT_KEY, "1");
+      localStorage.setItem(ANNOUNCEMENT_STORAGE_ID, "1");
     } catch {
       // ignore storage errors
     }

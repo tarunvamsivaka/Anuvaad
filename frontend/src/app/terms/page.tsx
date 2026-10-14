@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Logo } from "@/components/landing/Logo";
+import { CurrentQuotaRows } from "@/components/legal/CurrentQuotaRows";
 
 export const metadata: Metadata = {
   title: "Terms of Service — Anuvaad",
@@ -20,7 +21,7 @@ export default function TermsPage() {
 
       <main className="mx-auto max-w-3xl px-6 py-16">
         <h1 className="text-3xl font-bold tracking-tight">Terms of Service</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Last updated: April 2026</p>
+        <p className="mt-2 text-sm text-muted-foreground">Last updated: October 2026</p>
 
         <div className="mt-12 space-y-10 text-sm leading-relaxed text-muted-foreground">
           <section>
@@ -36,11 +37,7 @@ export default function TermsPage() {
             <div className="mt-3 overflow-hidden rounded-lg border border-border">
               <table className="w-full text-left">
                 <thead><tr className="border-b border-border bg-muted/50"><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Plan</th><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Price</th><th className="px-4 py-2.5 text-xs font-semibold text-foreground">Limit</th></tr></thead>
-                <tbody>
-                  <tr className="border-b border-border"><td className="px-4 py-2.5">Free</td><td className="px-4 py-2.5">₹0</td><td className="px-4 py-2.5">10/day</td></tr>
-                  <tr className="border-b border-border"><td className="px-4 py-2.5">Pro</td><td className="px-4 py-2.5">₹499/mo or ₹3,999/yr</td><td className="px-4 py-2.5">Unlimited</td></tr>
-                  <tr><td className="px-4 py-2.5">Team</td><td className="px-4 py-2.5">₹1,200/mo or ₹9,999/yr</td><td className="px-4 py-2.5">Unlimited + 5 seats</td></tr>
-                </tbody>
+                <CurrentQuotaRows />
               </table>
             </div>
           </section>
@@ -63,7 +60,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="mb-3 text-lg font-semibold text-foreground">5. Refund Policy</h2>
-            <p>Pro subscriptions can be cancelled at any time. We offer a 7-day refund window from the date of first payment. Contact us via GitHub to request a refund.</p>
+            <p>Paid subscriptions and payment registration are currently paused, so no subscription charges or refunds are being processed. If paid plans become available, the applicable billing and refund terms will be shown before purchase.</p>
           </section>
 
           <section>

@@ -64,7 +64,7 @@ def test_alembic_single_head_and_no_branches():
 
     heads = script.get_heads()
     assert len(heads) == 1, f"Expected exactly 1 head, found {len(heads)}: {heads}"
-    assert heads[0] == "014_fix_supabase_security_and_indexes"  # Supabase security & RLS fix
+    assert heads[0] == "016_share_link_expiry"
 
     bases = script.get_bases()
     assert len(bases) == 1, f"Expected exactly 1 base, found {len(bases)}: {bases}"
@@ -77,6 +77,8 @@ def test_alembic_linear_dag_traversal():
     script = ScriptDirectory.from_config(config)
 
     expected_chain = [
+        "016_share_link_expiry",
+        "015_revoke_public_table_grants",
         "014_fix_supabase_security_and_indexes",  # Supabase security & RLS fix
         "b2e4f8a1c3d7",  # Sprint 3: add input_hash for ZDR compliance
         "013_halfvec_and_ivfflat",

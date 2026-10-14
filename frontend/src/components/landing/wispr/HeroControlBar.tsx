@@ -548,7 +548,7 @@ export function HeroControlBar({
 
           {/* Main Headline */}
           <h1 className="font-display text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-black tracking-tighter text-slate-900 dark:text-white leading-[1.08] mb-5 [text-wrap:balance]">
-            <AnimatedHeadline>Your codebase speaks every language.</AnimatedHeadline>{" "}
+            <AnimatedHeadline>Understand and translate code.</AnimatedHeadline>{" "}
             <span className="text-amber-500 block sm:inline">
               Does&nbsp;yours?
             </span>
@@ -569,7 +569,7 @@ export function HeroControlBar({
           >
             <div className="telemetry-item">
               <Code className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
-              <span className="text-slate-200 font-medium">35+ Languages</span>
+              <span className="text-slate-200 font-medium">Multiple Languages</span>
             </div>
             <div className="telemetry-item">
               <span className="led-indicator led-amber" aria-hidden="true" />

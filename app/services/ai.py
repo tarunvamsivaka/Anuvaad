@@ -309,7 +309,7 @@ async def find_stale_translation(
     return None
 
 
-def _inject_symbol_contract(system_instruction: str, code: str, language: str) -> str:
+async def _inject_symbol_contract(system_instruction: str, code: str, language: str) -> str:
     """Augment the LLM system prompt with an AST-derived symbol contract.
 
     Extracts function names, class names, and top-level exports from the source
@@ -344,7 +344,7 @@ def _inject_symbol_contract(system_instruction: str, code: str, language: str) -
     try:
         from app.services.ast_parser import build_symbol_contract
 
-        contract = build_symbol_contract(actual_code, language)
+        contract = await asyncio.to_thread(build_symbol_contract, actual_code, language)
         if not contract:
             return system_instruction  # Unsupported language — skip silently
 
@@ -366,7 +366,7 @@ def _inject_symbol_contract(system_instruction: str, code: str, language: str) -
         )
         return system_instruction + contract_block
     except Exception as e:
-        logger.debug(f"_inject_symbol_contract skipped ({language!r}): {e}")
+        logger.debug("_inject_symbol_contract skipped for %s (%s)", language, type(e).__name__)
         return system_instruction  # Never block the LLM call
 
 
@@ -378,6 +378,7 @@ async def get_completion(
     use_r1: bool = False,
     max_tokens: int = 1500,
     source_language: str = "",
+    ephemeral: bool = False,
 ) -> tuple[str, str]:
     """
     Router for Groq models.
@@ -424,7 +425,7 @@ async def get_completion(
     # supported source languages. This constrains the LLM to preserve function
     # and class names from the original code — reducing hallucinations.
     # source_language="" → graceful skip (code-to-code w/o lang, sync paths, etc.)
-    augmented_system = _inject_symbol_contract(system_instruction, prompt, source_language)
+    augmented_system = await _inject_symbol_contract(system_instruction, prompt, source_language)
 
     messages = [
         {"role": "system", "content": augmented_system},
@@ -456,7 +457,9 @@ async def get_completion(
         return _clean_json_response(response.choices[0].message.content), primary["name"]
     except Exception as e:
         await metrics.record_model_call(primary["model"], is_error=True)
-        logger.warning(f"Error on {primary['name']}, falling back to {fallback['name']}. Error: {e}")
+        logger.warning(
+            "Provider %s failed (%s); trying fallback %s", primary["name"], type(e).__name__, fallback["name"]
+        )
         fallback_kwargs = {"max_tokens": max_tokens}
         if response_format == "json_object":
             fallback_kwargs["response_format"] = {"type": "json_object"}
@@ -488,7 +491,7 @@ async def get_completion(
             logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}")
         except Exception as fallback_e:
             await metrics.record_model_call(fallback["model"], is_error=True)
-            logger.error(f"Fallback {fallback['name']} Error: {fallback_e!s}")
+            logger.error("Fallback %s failed (%s)", fallback["name"], type(fallback_e).__name__)
 
         # FIX-24 (P1-03): Third-level fallback — OpenRouter (external, different infra).
         openrouter_client = _get_openrouter_client()
@@ -520,12 +523,13 @@ async def get_completion(
                 return _clean_json_response(response.choices[0].message.content), "OpenRouter Llama 3.3"
             except Exception as or_e:
                 await metrics.record_model_call("openrouter-llama", is_error=True)
-                logger.error(f"OpenRouter fallback Error: {or_e!s}")
+                logger.error("OpenRouter fallback failed (%s)", type(or_e).__name__)
 
-        stale_result = await find_stale_translation(None, prompt, "code", mode, mode)
-        if stale_result:
-            logger.info("get_completion fallback: returning stale recovery result")
-            return json.dumps({"blocks": stale_result}), "stale_recovery"
+        if not ephemeral:
+            stale_result = await find_stale_translation(None, prompt, "code", mode, mode)
+            if stale_result:
+                logger.info("get_completion fallback: returning stale recovery result")
+                return json.dumps({"blocks": stale_result}), "stale_recovery"
 
         raise HTTPException(
             status_code=500,
@@ -662,6 +666,7 @@ async def stream_code_to_english(
     deduct_credit_flag: bool = False,
     cooldown: int = 0,
     ephemeral: bool = False,
+    user_llm_key: str | None = None,
 ):
     try:
         # ZDR: compute hash once, never log raw_code
@@ -677,6 +682,34 @@ async def stream_code_to_english(
         )
 
         if not ephemeral:
+            # Check Semantic AST Cache first (deduplicates identical code with different comments/formatting)
+            try:
+                from app.services.ast_cache import get_cached_ast_translation
+                ast_cached = await get_cached_ast_translation(payload.raw_code, payload.language)
+                if ast_cached and isinstance(ast_cached, dict) and "blocks" in ast_cached:
+                    await metrics.record_cache_hit()
+                    yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'blocks': ast_cached['blocks'], 'model_used': ast_cached.get('model_used', model)})}\n\n"
+                    if email:
+                        await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                        save_translation_history_task.delay(
+                            user_email=email,
+                            mode="Code → English",
+                            source_language=payload.language,
+                            target_language="english",
+                            input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                            input_hash=_code_hash,
+                            blocks=ast_cached['blocks'],
+                            model_used=model_name,
+                            workspace_id=payload.workspace_id,
+                            session_id=payload.session_id,
+                            repository_name=payload.repository_name,
+                            file_path=payload.file_path,
+                        )
+                    return
+            except Exception as _ast_err:
+                logger.debug(f"AST cache lookup bypassed: {_ast_err}")
+
             # Check Cache
             cached = await cache.get(key)
 
@@ -707,8 +740,17 @@ async def stream_code_to_english(
         await check_and_track_groq_limits(payload.raw_code, expected_output_tokens=1500)
 
         providers = _build_streaming_providers(requested_model, use_r1)
+        if user_llm_key and user_llm_key.strip():
+            redacted_key = f"{user_llm_key[:4]}...{user_llm_key[-4:]}" if len(user_llm_key) > 8 else "***"
+            logger.info("Using client BYOK API key: %s (credit deduction bypassed)", redacted_key)
+            deduct_credit_flag = False
+            byok_client = AsyncOpenAI(
+                api_key=user_llm_key.strip(),
+                base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+            )
+            providers.insert(0, (byok_client, "gemini-2.5-flash", "BYOK Gemini 2.5 Flash"))
 
-        augmented_system = _inject_symbol_contract(SYSTEM_INSTRUCTION, payload.raw_code, payload.language)
+        augmented_system = await _inject_symbol_contract(SYSTEM_INSTRUCTION, payload.raw_code, payload.language)
 
         messages = [
             {"role": "system", "content": augmented_system},
@@ -758,7 +800,7 @@ async def stream_code_to_english(
                         break
                 except Exception as stream_err:
                     await metrics.record_model_call(p_model, is_error=True)
-                    logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
+                    logger.warning("Streaming provider %s (%s) failed (%s)", p_name, p_model, type(stream_err).__name__)
                     full_content = ""
                     continue
         finally:
@@ -766,12 +808,16 @@ async def stream_code_to_english(
                 sem.release()
 
         if not full_content.strip():
-            stale_result = await find_stale_translation(
-                email,
-                payload.raw_code,
-                payload.language,
-                "code-to-english",
-                "Code → English",
+            stale_result = (
+                None
+                if ephemeral
+                else await find_stale_translation(
+                    email,
+                    payload.raw_code,
+                    payload.language,
+                    "code-to-english",
+                    "Code → English",
+                )
             )
             if stale_result:
                 logger.info("Streaming fallback: returning stale recovery result")
@@ -808,6 +854,11 @@ async def stream_code_to_english(
 
         if not ephemeral:
             await cache.put(key, result, 86400 * 7)
+            try:
+                from app.services.ast_cache import set_cached_ast_translation
+                await set_cached_ast_translation(payload.raw_code, payload.language, {"blocks": result, "model_used": used_model})
+            except Exception as _ast_save_err:
+                logger.debug(f"AST cache store bypassed: {_ast_save_err}")
 
         done_payload = {"done": True, "blocks": result, "model_used": used_model}
         if ephemeral:
@@ -842,7 +893,7 @@ async def stream_code_to_english(
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        logger.error(f"Streaming error: {e!s}")
+        logger.error("Streaming error (%s)", type(e).__name__)
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"
 
 
@@ -873,6 +924,34 @@ async def stream_code_to_code(
         )
 
         if not ephemeral:
+            # Check Semantic AST Cache first (deduplicates identical code with different comments/formatting)
+            try:
+                from app.services.ast_cache import get_cached_ast_translation
+                ast_cached = await get_cached_ast_translation(payload.raw_code, payload.language)
+                if ast_cached and isinstance(ast_cached, dict) and "blocks" in ast_cached:
+                    await metrics.record_cache_hit()
+                    yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
+                    yield f"data: {json.dumps({'done': True, 'blocks': ast_cached['blocks'], 'model_used': ast_cached.get('model_used', model)})}\n\n"
+                    if email:
+                        await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
+                        save_translation_history_task.delay(
+                            user_email=email,
+                            mode="Code → English",
+                            source_language=payload.language,
+                            target_language="english",
+                            input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
+                            input_hash=_code_hash,
+                            blocks=ast_cached['blocks'],
+                            model_used=model_name,
+                            workspace_id=payload.workspace_id,
+                            session_id=payload.session_id,
+                            repository_name=payload.repository_name,
+                            file_path=payload.file_path,
+                        )
+                    return
+            except Exception as _ast_err:
+                logger.debug(f"AST cache lookup bypassed: {_ast_err}")
+
             # Check Cache
             cached = await cache.get(key)
 
@@ -908,7 +987,7 @@ async def stream_code_to_code(
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.
 Return a JSON object with a single key 'blocks' containing an array of objects where each object has: id (e.g. 'block_1'), code_snippet (the translated code for that block), and english_translation (a brief explanation of what this block does)."""
 
-        augmented_system = _inject_symbol_contract(system, payload.raw_code, payload.source_language)
+        augmented_system = await _inject_symbol_contract(system, payload.raw_code, payload.source_language)
 
         user_prompt = f"Source Language: {payload.source_language}\nTarget Language: {payload.target_language}\n\nCode to Translate:\n{payload.raw_code}"
 
@@ -932,6 +1011,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             yield f"data: {json.dumps({'error': 'Streaming server is currently at maximum capacity. Please retry shortly.', 'done': True})}\n\n"
             return
 
+        stream_chunks: list[str] = []
         try:
             for p_client, p_model, p_name in providers:
                 try:
@@ -947,31 +1027,62 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                     )
 
                     full_content = ""
+                    candidate_chunks: list[str] = []
                     async for content in smooth_stream_chunks(candidate_stream):
                         full_content += content
-                        yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
+                        candidate_chunks.append(content)
 
                     if full_content.strip():
                         used_model = p_model
+                        stream_chunks = candidate_chunks
                         await metrics.record_model_call(p_model)
                         break
                 except Exception as stream_err:
                     await metrics.record_model_call(p_model, is_error=True)
-                    logger.warning(f"Streaming provider {p_name} ({p_model}) failed: {stream_err}")
+                    logger.warning("Streaming provider %s (%s) failed (%s)", p_name, p_model, type(stream_err).__name__)
                     full_content = ""
+                    stream_chunks = []
                     continue
         finally:
             if acquired:
                 sem.release()
 
         if not full_content.strip():
-            stale_result = await find_stale_translation(
-                email,
-                payload.raw_code,
-                f"{payload.source_language}->{payload.target_language}",
-                "code-to-code",
-                "Code → Code",
+            stale_result = (
+                None
+                if ephemeral
+                else await find_stale_translation(
+                    email,
+                    payload.raw_code,
+                    f"{payload.source_language}->{payload.target_language}",
+                    "code-to-code",
+                    "Code → Code",
+                )
             )
+            if stale_result:
+                try:
+                    from app.services.ast_parser import is_language_supported, verify_translation
+
+                    supported = await asyncio.to_thread(is_language_supported, payload.target_language)
+                    if not supported:
+                        stale_result = None
+                        raise ValueError("No AST parser is available for the target language.")
+
+                    stale_code = "\n".join(
+                        block.get("code_snippet", "") for block in stale_result if isinstance(block, dict)
+                    )
+                    stale_verification = await asyncio.to_thread(
+                        verify_translation,
+                        "",
+                        "english",
+                        stale_code,
+                        payload.target_language,
+                    )
+                    if stale_verification.has_parse_errors_in_target:
+                        stale_result = None
+                except Exception as validation_error:
+                    logger.warning("Stale code result failed AST validation: %s", validation_error)
+                    stale_result = None
             if stale_result:
                 logger.info("Streaming fallback: returning stale recovery result")
                 yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
@@ -1007,7 +1118,11 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
 
         # Deterministic Tree-Sitter AST Boundary Validation
         try:
-            from app.services.ast_parser import verify_translation
+            from app.services.ast_parser import is_language_supported, verify_translation
+
+            supported = await asyncio.to_thread(is_language_supported, payload.target_language)
+            if not supported:
+                raise ValueError("No AST parser is available for the target language.")
 
             combined_code = "\n".join(b.get("code_snippet", "") for b in result if isinstance(b, dict))
             verification = await asyncio.to_thread(
@@ -1021,11 +1136,24 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 logger.warning(
                     f"AST verification flagged parse errors in target code ({payload.target_language}): {verification.warnings}"
                 )
+                yield f"data: {json.dumps({'error': 'Generated code did not pass syntax validation. Please retry.', 'done': True})}\n\n"
+                return
         except Exception as ve:
-            logger.debug(f"AST verification skipped: {ve}")
+            logger.warning("AST verification failed; refusing to return unvalidated code (%s)", type(ve).__name__)
+            yield f"data: {json.dumps({'error': 'Generated code could not be validated. Please retry.', 'done': True})}\n\n"
+            return
+
+        # Hold generated text until deterministic syntax validation succeeds.
+        for content in stream_chunks:
+            yield f"data: {json.dumps({'chunk': content, 'done': False})}\n\n"
 
         if not ephemeral:
             await cache.put(key, result, 86400 * 7)
+            try:
+                from app.services.ast_cache import set_cached_ast_translation
+                await set_cached_ast_translation(payload.raw_code, payload.language, {"blocks": result, "model_used": used_model})
+            except Exception as _ast_save_err:
+                logger.debug(f"AST cache store bypassed: {_ast_save_err}")
 
         done_payload = {"done": True, "blocks": result, "model_used": used_model}
         if ephemeral:
@@ -1045,7 +1173,7 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
                 )
                 done_payload["equivalence"] = eq_report.to_dict()
             except Exception as eq_err:
-                logger.warning(f"Equivalence evaluation skipped: {eq_err}")
+                logger.warning("Equivalence evaluation skipped (%s)", type(eq_err).__name__)
 
         yield f"data: {json.dumps(done_payload)}\n\n"
 
@@ -1076,5 +1204,5 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
     except Exception as e:
         if isinstance(e, HTTPException):
             raise e
-        logger.error(f"Streaming error: {e!s}")
+        logger.error("Streaming error (%s)", type(e).__name__)
         yield f"data: {json.dumps({'error': 'Translation engine encountered an error. Please try again.', 'done': True})}\n\n"

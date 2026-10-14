@@ -49,8 +49,8 @@ export const metadata: Metadata = {
     default: "Anuvaad — AI Code Translator & Explainer",
   },
   description:
-    "AI-powered code explanations, reverse engineering, and code translation. Supports 35+ languages including Python, JavaScript, Java, C++, TypeScript, Rust, Go, Swift, Kotlin, SQL, and more.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_FRONTEND_URL || "https://anuvaad.dev"),
+    "AI-powered code explanations and translations across multiple programming languages. Syntax validation depends on language parser availability.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_FRONTEND_URL || "https://getanuvaad.vercel.app"),
   keywords: [
     "code translator",
     "code to english",
@@ -82,9 +82,9 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Anuvaad — AI Code Translator",
     description:
-      "Translate code to plain English and back. 35+ languages supported. Understand any codebase instantly.",
+      "Translate code to plain English and back across multiple programming languages. Review AI-generated output before use.",
     type: "website",
-    url: "https://anuvaad.dev",
+    url: "https://getanuvaad.vercel.app",
     siteName: "Anuvaad",
     images: [
       {
@@ -99,8 +99,11 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Anuvaad — AI Code Translator",
     description:
-      "Translate code to plain English and back. 35+ languages including Python, JavaScript, Java, C++, and more.",
+      "Translate code to plain English and back across multiple programming languages. Review AI-generated output before use.",
     images: ["/opengraph-image"],
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "googlee89e0239cf2e8f19",
   },
 };
 

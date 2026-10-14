@@ -1,4 +1,10 @@
-# 🚀 Anuvaad Public Launch: The Zero-Budget Real Startup Web Application
+# Superseded launch draft — do not use as current product or performance claims
+
+This historical launch draft contains claims that were not verified against current source or deployment evidence. The current scope, launch gates, and privacy language are in [the consumer product strategy](CONSUMER_PRODUCT_DEVELOPMENT_STRATEGY.md). In particular, enterprise SSO and GitHub PR write/approval features are unavailable, and no zero-retention, uptime, latency, accuracy, adoption, or $0 operating-cost guarantee is made by this document.
+
+---
+
+# Historical Anuvaad Launch Draft
 
 > **Project Milestone**: Master 8‑Week Phased Implementation Complete  
 > **Status**: Production Verified & Publicly Released  

@@ -36,6 +36,7 @@ class TestRedisCache:
             "block_id": "block_1",
             "modified_english": "Print goodbye",
             "full_context": "print('hello')",
+            "language": "python",
         }
         res1 = client.post("/api/english-to-code", json=payload)
         res2 = client.post("/api/english-to-code", json=payload)

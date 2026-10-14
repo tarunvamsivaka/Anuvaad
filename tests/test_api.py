@@ -134,6 +134,7 @@ class TestEnglishToCode:
                 "block_id": "block_1",
                 "modified_english": "Print goodbye instead",
                 "full_context": "print('hello')",
+                "language": "python",
             },
         )
         assert res.status_code == 200

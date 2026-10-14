@@ -43,6 +43,9 @@ interface InputPanelProps {
   gistSource: { username: string; filename: string } | null;
   setGistSource: (source: { username: string; filename: string } | null) => void;
   handleTranslate: () => void;
+  saveRunToHistory: boolean;
+  setSaveRunToHistory: (value: boolean) => void;
+  isSignedIn: boolean;
   handleClear: () => void;
   sourceLanguage: string;
   setSourceLanguage: (lang: string) => void;
@@ -72,6 +75,9 @@ export function InputPanel({
   gistSource,
   setGistSource,
   handleTranslate,
+  saveRunToHistory,
+  setSaveRunToHistory,
+  isSignedIn,
   handleClear,
   sourceLanguage,
   setSourceLanguage,
@@ -323,13 +329,30 @@ export function InputPanel({
         </div>
       )}
       
-      <div className="border-t border-border bg-transparent px-4 py-2.5 flex justify-between items-center text-[10px] text-muted-foreground font-medium">
+      <div className="border-t border-border bg-transparent px-4 py-2.5 flex flex-wrap justify-between items-center gap-3 text-[10px] text-muted-foreground font-medium">
         <div className="flex gap-4">
           <span><kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Alt</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">C</kbd> Clear</span>
           {hasOutputBlocks && (
             <span><kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Ctrl</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Shift</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">C</kbd> Copy Markdown</span>
           )}
         </div>
+        <label className="flex items-start gap-2 max-w-[28rem] cursor-pointer">
+          <input
+            type="checkbox"
+            checked={isSignedIn && saveRunToHistory}
+            onChange={(event) => setSaveRunToHistory(event.target.checked)}
+            disabled={isStreaming || !isSignedIn}
+            className="mt-0.5 accent-amber-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
+          />
+          <span>
+            <span className="block text-foreground">Save runs to my Anuvaad history and translation cache</span>
+            <span className="block font-normal">
+              {isSignedIn
+                ? "While checked, new runs are saved by Anuvaad. The AI provider still processes your request; provider, hosting, and diagnostic logs are separate."
+                : "Sign in to save runs. Your request is still sent to the selected AI provider."}
+            </span>
+          </span>
+        </label>
         <span>Press <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Ctrl/⌘</kbd> + <kbd className="px-1 py-0.5 bg-slate-100 dark:bg-surface-high rounded border border-slate-200 dark:border-amber-500/20 text-[9px] font-mono">Enter</kbd></span>
       </div>
     </div>

@@ -14,6 +14,7 @@ import {
   Shield,
 } from "lucide-react";
 import { Logo } from "@/components/landing/Logo";
+import { usePublicQuotaLimits } from "@/lib/use-public-quota-limits";
 
 const SPEC_CAPABILITIES = [
   {
@@ -50,6 +51,7 @@ function getSafeRedirectUrl(target: string | null): string {
 
 function SignUpPageContent() {
   const { signUpWithEmail, signInWithGoogle, signInWithGitHub } = useAuth();
+  const { data: quotaLimits } = usePublicQuotaLimits();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -95,13 +97,13 @@ function SignUpPageContent() {
 
   async function handleGoogle() {
     track("signup_completed", { method: "google" });
-    const { error: err } = await signInWithGoogle();
+    const { error: err } = await signInWithGoogle(redirectTo);
     if (err) setError(err);
   }
 
   async function handleGitHub() {
     track("signup_completed", { method: "github" });
-    const { error: err } = await signInWithGitHub();
+    const { error: err } = await signInWithGitHub(redirectTo);
     if (err) setError(err);
   }
 
@@ -162,7 +164,7 @@ function SignUpPageContent() {
           <div className="flex items-center gap-2 font-mono text-xs text-slate-500">
             <span className="text-emerald-500 font-bold">GET STARTED</span>
             <span>·</span>
-            <span>10 FREE TRANSLATIONS PER DAY</span>
+            <span>{quotaLimits ? `UP TO ${quotaLimits.free_daily_limit} TRANSLATIONS PER DAY` : "DAILY FREE USAGE LIMIT"}</span>
           </div>
         </div>
 
@@ -176,7 +178,7 @@ function SignUpPageContent() {
               </span>
             </h2>
             <p className="text-xs text-slate-400 leading-relaxed font-sans">
-              Create an account to save your place and try the translation workspace. Free accounts include 10 translations per day.
+              Create an account to save translation history and see your daily usage limit.
             </p>
           </div>
 
@@ -240,7 +242,7 @@ function SignUpPageContent() {
               Create an account
             </h1>
             <p className="mt-1.5 text-xs text-slate-400">
-              10 free translations per day · no credit card required
+              {quotaLimits ? `Up to ${quotaLimits.free_daily_limit} free translations per day` : "Free daily usage"} · no credit card required
             </p>
           </div>
 

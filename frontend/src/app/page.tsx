@@ -47,9 +47,9 @@ const BenchmarkExplorer = dynamic(
 );
 
 export const metadata: Metadata = {
-  title: "Anuvaad — The AI Code Translator for Modern Teams",
+  title: "Anuvaad — Understand and Translate Code",
   description:
-    "Stop struggling with legacy code. Anuvaad instantly translates obscure logic into plain English or generates perfect code from your human specifications.",
+    "Use AI to explain code in plain English, generate code from a description, or translate between programming languages. Review generated output before using it.",
 };
 
 const jsonLd = {
@@ -59,7 +59,7 @@ const jsonLd = {
   applicationCategory: "DeveloperApplication",
   operatingSystem: "Web",
   description:
-    "AI-powered code translator that converts code to plain English and back. Supports 35+ programming languages.",
+    "AI-assisted code explanation and translation, with language and parser coverage that varies by task.",
   url: "https://anuvaad.dev",
   offers: [
     {
@@ -67,14 +67,7 @@ const jsonLd = {
       price: "0",
       priceCurrency: "INR",
       name: "Free Plan",
-      description: "10 translations per day, 35+ languages",
-    },
-    {
-      "@type": "Offer",
-      price: "499",
-      priceCurrency: "INR",
-      name: "Pro Plan",
-      description: "Unlimited translations, priority processing",
+      description: "A daily translation allowance for free accounts, configured by the service",
     },
   ],
 };

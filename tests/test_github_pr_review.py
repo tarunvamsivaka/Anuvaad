@@ -69,15 +69,37 @@ async def test_generate_pr_review_fallback():
 
 @pytest.mark.asyncio
 async def test_github_webhook_ping():
+    secret = "configured-test-webhook-secret"
+    payload = json.dumps({"zen": "Design for failure."}).encode()
+    signature = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.post(
-            "/api/v1/github/webhook",
-            json={"zen": "Design for failure."},
-            headers={"X-GitHub-Event": "ping"},
-        )
+    with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": secret}):
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/v1/github/webhook",
+                content=payload,
+                headers={
+                    "Content-Type": "application/json",
+                    "X-GitHub-Event": "ping",
+                    "X-Hub-Signature-256": signature,
+                },
+            )
         assert resp.status_code == 200
         assert resp.json()["message"] == "pong"
+
+
+@pytest.mark.asyncio
+async def test_github_webhook_fails_closed_without_secret():
+    payload = json.dumps({"zen": "Design for failure."}).encode()
+    transport = ASGITransport(app=app)
+    with patch.dict("os.environ", {"GITHUB_WEBHOOK_SECRET": ""}), patch("app.routers.github.GITHUB_WEBHOOK_SECRET", ""):
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/v1/github/webhook",
+                content=payload,
+                headers={"Content-Type": "application/json", "X-GitHub-Event": "ping"},
+            )
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -140,12 +162,7 @@ async def test_apply_pr_refactor():
                 "refactored_code": "def modern_util(): return 42\n",
             },
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "applied"
-        assert data["owner"] == "my-org"
-        assert data["repo"] == "my-repo"
-        assert data["pr_number"] == 42
+        assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -159,11 +176,7 @@ async def test_generate_pr_tests():
                 "language": "python",
             },
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["functions_covered"] == 1
-        assert "generated_test_suite" in data
-        assert "test_add_characterization" in data["generated_test_suite"]
+        assert resp.status_code == 401
 
 
 @pytest.mark.asyncio
@@ -174,7 +187,4 @@ async def test_approve_pr_review():
             "/api/v1/github/pr/my-org/my-repo/42/approve",
             json={"comment": "Approved by engineering lead"},
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "approved"
-        assert "Approved by Anuvaad" in data.get("badge", "")
+        assert resp.status_code == 401

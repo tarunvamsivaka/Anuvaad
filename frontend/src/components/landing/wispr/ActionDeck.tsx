@@ -3,9 +3,8 @@
 /**
  * ActionDeck — The final conversion surface.
  *
- * Pricing is intentionally simple: Free, Pro (₹499), Enterprise (custom).
- * The billing toggle saves 20% on annual and is the only interactive pricing
- * element — no per-seat or feature-matrix complexity that buries the signal.
+ * Paid plans are not available during the launch phase. Keep this surface
+ * aligned with the current free quotas until billing is enabled.
  *
  * The CLI command `npx anuvaad-cli init` is the secondary CTA for developers
  * who'd rather install than sign up through a browser. Keep it in sync with
@@ -21,6 +20,7 @@ import Link from "next/link";
 import { Zap, ArrowRight, Copy, CheckCheck, Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScrollReveal } from "@/lib/use-scroll-reveal";
+import { usePublicQuotaLimits } from "@/lib/use-public-quota-limits";
 
 export interface ActionDeckProps {
   onGetStarted?: () => void;
@@ -35,10 +35,8 @@ export function ActionDeck({
 }: ActionDeckProps) {
   const [copied, setCopied] = useState(false);
   const [checkmarks, setCheckmarks] = useState(false);
-  const [isAnnual, setIsAnnual] = useState(false);
-  const proPrice = isAnnual ? 399 : 499;
-  const proSavings = isAnnual ? "Save 20%" : null;
   const cliCommand = "npx anuvaad-cli init";
+  const { data: quotaLimits } = usePublicQuotaLimits();
 
   const [sectionRef, isVisible] = useScrollReveal<HTMLElement>({ threshold: 0.2 });
 
@@ -58,10 +56,11 @@ export function ActionDeck({
   };
 
   const TRUST_ITEMS = [
-    "10 Free Translations / Day",
+    quotaLimits
+      ? `${quotaLimits.guest_daily_limit} translations/day as a guest · up to ${quotaLimits.free_daily_limit}/day with an account`
+      : "Daily translation limits apply",
     "No Credit Card Required",
-    "HMAC-SHA256 Audit Receipts",
-    "CLI package available",
+    "Review privacy details before using sensitive code",
   ];
 
   return (
@@ -95,42 +94,8 @@ export function ActionDeck({
             className={cn("text-base sm:text-lg text-slate-400 leading-relaxed mb-8 sr-fade-up", isVisible && "is-visible")}
             style={{ "--sr-delay": "200ms" } as React.CSSProperties}
           >
-            Paste any code — Python, Rust, Go, SQL, whatever — and get a plain-English explanation in under 2 seconds. Free to start, no card needed.
+            Paste code to get a plain-English explanation, generate code from a description, or translate between supported languages. Free to start, no card needed.
           </p>
-
-          {/* Billing Toggle */}
-          <div
-            className={cn("flex items-center justify-center gap-3 mb-6 sr-fade-up", isVisible && "is-visible")}
-            style={{ "--sr-delay": "220ms" } as React.CSSProperties}
-          >
-            <span className={cn("text-sm font-medium", !isAnnual ? "text-white" : "text-slate-400")}>Monthly</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isAnnual}
-              aria-label="Toggle annual billing"
-              onClick={() => setIsAnnual((v) => !v)}
-              className={cn(
-                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 cursor-pointer",
-                isAnnual ? "bg-amber-500" : "bg-slate-800"
-              )}
-            >
-              <span
-                className={cn(
-                  "inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200",
-                  isAnnual ? "translate-x-6" : "translate-x-1"
-                )}
-              />
-            </button>
-            <span className={cn("text-sm font-medium", isAnnual ? "text-white" : "text-slate-400")}>
-              Annual
-              {isAnnual && (
-                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  Save 20%
-                </span>
-              )}
-            </span>
-          </div>
 
           {/* Pricing Tier Grid */}
           <div
@@ -142,40 +107,26 @@ export function ActionDeck({
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">Free</div>
               <div className="text-2xl font-extrabold text-white font-mono">₹0<span className="text-sm font-normal text-slate-500">/mo</span></div>
               <ul className="space-y-1.5 text-xs text-slate-400 mt-1">
-                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> 10 translations/day</li>
-                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> 35+ languages</li>
-                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Zero code storage</li>
-                <li className="flex items-center gap-1.5"><span className="text-slate-600">○</span> No PR review</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> {quotaLimits ? `${quotaLimits.guest_daily_limit} translations/day without an account` : "Daily guest usage limit"}</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> {quotaLimits ? `Up to ${quotaLimits.free_daily_limit}/day with a free account` : "Daily free-account usage limit"}</li>
+                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Optional saved history when signed in</li>
+                <li className="flex items-center gap-1.5"><Link href="/privacy" className="underline underline-offset-2">Read how code is processed</Link></li>
               </ul>
             </div>
 
             {/* Pro Tier — highlighted */}
             <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 flex flex-col gap-2 relative hover:border-amber-500/60 transition-colors">
-              <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-slate-950 font-mono">
-                RECOMMENDED
-              </span>
-              <div className="text-xs font-bold uppercase tracking-wider text-amber-400 font-mono">Pro</div>
-              <div className="text-2xl font-extrabold text-white font-mono">
-                ₹{proPrice}
-                <span className="text-sm font-normal text-slate-500">/mo</span>
-                {proSavings && (
-                  <span className="ml-2 text-xs font-bold text-emerald-400 font-sans">{proSavings}</span>
-                )}
-              </div>
-              <ul className="space-y-1.5 text-xs text-slate-300 mt-1">
-                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Unlimited translations</li>
-                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> More room for larger projects</li>
-                <li className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Workspace access</li>
-              </ul>
+              <div className="text-xs font-bold uppercase tracking-wider text-amber-400 font-mono">Paid plans</div>
+              <div className="text-2xl font-extrabold text-white font-mono">Unavailable</div>
+              <p className="text-xs text-slate-300 mt-1">Billing is paused during launch. No subscription is required to use the free tier.</p>
             </div>
 
             {/* Enterprise Tier */}
             <div className="rounded-xl border border-white/10 bg-slate-900/70 p-4 flex flex-col gap-2 hover:border-white/20 transition-colors">
               <div className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono">Enterprise</div>
-              <div className="text-2xl font-extrabold text-white font-mono">Custom</div>
+              <div className="text-2xl font-extrabold text-white font-mono">Unavailable</div>
               <ul className="space-y-1.5 text-xs text-slate-400 mt-1">
-                <li className="flex items-center gap-1.5"><span className="text-slate-500">•</span> Ask about current availability</li>
-                <li className="flex items-center gap-1.5"><span className="text-slate-500">•</span> Share your workspace needs</li>
+                <li className="flex items-center gap-1.5"><span className="text-slate-500">•</span> Business plans are not offered yet</li>
               </ul>
             </div>
           </div>

@@ -55,11 +55,15 @@ async def function_translate_to_english_stream(
         "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
     }
     if is_ephemeral:
-        headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
+        headers["X-Anuvaad-Privacy"] = "ephemeral; application-history-and-cache-skipped"
+
+    user_llm_key = request.headers.get("X-User-LLM-Key")
+    if user_llm_key and user_llm_key.strip():
+        deduct_credit_flag = False
 
     return StreamingResponse(
         stream_code_to_english(
-            payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown, ephemeral=is_ephemeral
+            payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown, ephemeral=is_ephemeral, user_llm_key=user_llm_key
         ),
         media_type="text/event-stream",
         headers=headers,
@@ -93,7 +97,7 @@ async def function_translate_to_english(
         "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
     }
     if is_ephemeral:
-        response_headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
+        response_headers["X-Anuvaad-Privacy"] = "ephemeral; application-history-and-cache-skipped"
 
     if not is_ephemeral:
         cached = await cache.get(key)
@@ -130,6 +134,7 @@ async def function_translate_to_english(
             response_format="json_object",
             use_r1=use_r1,
             source_language=payload.language,
+            ephemeral=is_ephemeral,
         )
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
@@ -166,7 +171,8 @@ async def function_translate_to_english(
                 )
 
         if is_ephemeral:
-            # Memory dereferencing sweep for RAM-only ephemeral privacy
+            # Drop local references promptly; this does not guarantee provider,
+            # host, diagnostic, or browser-side data erasure.
             del user_prompt
             del response_text
             del raw
@@ -176,7 +182,11 @@ async def function_translate_to_english(
             headers=response_headers,
         )
     except Exception as e:
-        logger.error(f"Code to English failed: {e!s}")
+        logger.error("Code to English failed", error_type=type(e).__name__)
+        if is_ephemeral:
+            if isinstance(e, HTTPException):
+                raise e
+            raise HTTPException(status_code=503, detail="Translation is temporarily unavailable. Please retry.") from e
         stale_result = await find_stale_translation(
             email,
             payload.raw_code,
@@ -203,11 +213,6 @@ async def function_translate_to_english(
                         repository_name=payload.repository_name,
                         file_path=payload.file_path,
                     )
-            if is_ephemeral:
-                return JSONResponse(
-                    content=stale_result,
-                    headers={"X-Anuvaad-Privacy": "ephemeral; zero-retention"},
-                )
             return stale_result
 
         if isinstance(e, HTTPException):

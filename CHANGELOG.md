@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Consumer Product Transformation & Resilience Architecture (2026-10-14)
+
+#### Frontend & Build System (Milestone 1)
+- **TypeScript Build Isolation:** Excluded test files, specs, Vitest, and Playwright from production `tsconfig.json` to eliminate Next.js typecheck pollution. Created dedicated `tsconfig.test.json`.
+- **Next.js 16 & Sentry Hardening:** Added Turbopack optimization, `optimizePackageImports: ["lucide-react", "@radix-ui/react-icons"]`, and conditionally wrapped `withSentryConfig` to prevent credential errors during preview and local builds.
+- **Deterministic E2E Mocking:** Implemented `e2e/mock-api.ts` intercepting SSE translation streams (`/api/code-to-english`, `/api/generate-from-english`) and health probes.
+
+#### UX & Streaming Performance (Milestone 2)
+- **`requestAnimationFrame` Stream Buffer:** Created `src/lib/stream-consumer.ts` scheduling Zustand updates at at most 60 FPS (16.6ms intervals) with guaranteed zero-drop synchronous final flush.
+- **Dual-Pane BlockCard Memoization:** Normalized block state in `useTranslationStore` (`blockIds` array + `blocksById` dictionary). Memoized `BlockCard` with `useShallow`, `overflowAnchor: "auto"`, and min-h skeleton to prevent Cumulative Layout Shift (CLS).
+
+#### Performance, Cache & Pre-Warming (Milestone 3)
+- **Cold-Start Pre-Warming:** Added `use-backend-prewarm.ts` firing non-blocking `/health/live` requests on mount with a 2500ms watchdog status banner and exponential backoff retry.
+- **Two-Tier L1/L2 Cache:** Implemented in-process `TTLCache(maxsize=512, ttl=600)` in `app/core/cache.py` fronting Upstash Redis (L2) to cut Redis command consumption by ~80%.
+- **Semantic AST Hash Deduplication:** Added `app/services/ast_cache.py` stripping comments, docstrings, and whitespace before computing SHA-256 digests to bypass LLM inference on identical AST structures.
+
+#### Product Access & Security (Milestone 4)
+- **OAuth Draft Persistence:** Wrapped `useTranslationStore` with Zustand `persist` in `sessionStorage` (`anuvaad-active-draft`), preserving draft code across Google OAuth login loops.
+- **Guest Sandbox:** Implemented client-side 3-translation per 24-hour limit tracker (`anuvaad_guest_usage`) before showing auth modal.
+- **Encrypted Client-Side BYOK Vault:** Built `src/lib/byok-vault.ts` with AES-GCM 256-bit encryption in IndexedDB for personal Gemini API keys.
+- **BYOK Backend Routing:** Added `X-User-LLM-Key` header consumption in `/api/code-to-english` and `/api/generate-from-english`, routing directly through user's key without quota deductions, strictly redacting key in logs.
+
+#### Responsive UX & SEO (Milestone 5)
+- **Mobile Segmented Switcher:** Built accessible 3-way toggle `[ Code | English | Split ]` with 44px touch targets and full keyboard navigation.
+- **Dynamic SEO & Social Sharing:** Implemented Next.js App Router `robots.ts`, `sitemap.ts`, OpenGraph metadata, and social preview cards for `/share/[id]`.
+
+#### Health Probes & Security Invariants (Milestone 6)
+- **Split Health Probes:** Added sub-10ms `/health/live` liveness endpoint and dependency-checking `/health/ready` endpoint.
+- **Prometheus Metrics Proxy:** Added root `/metrics` proxy with HTTP Basic Auth.
+- **Automated Regression Suite:** Added comprehensive test coverage in `tests/test_security_boundaries.py`, `tests/test_health.py`, `tests/test_byok.py`, `tests/test_ast_cache.py`, and `tests/test_streaming.py` validating all 7 architectural security invariants.
+
 ### Startup Transformation Audit Remediation (2026-08-12)
 
 #### Security

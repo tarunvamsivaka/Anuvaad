@@ -242,8 +242,7 @@ export function LivePlayground({
           Explore Bi-Directional AI Code Comprehension
         </h2>
         <p className="text-sm sm:text-base text-slate-600 dark:text-slate-400 max-w-2xl text-center mb-8">
-          Translate obscure code blocks into crystal-clear plain English, generate
-          production-grade code from specifications, or transpile between stacks across 35+ languages.
+          Get plain-language explanations, generate code from a description, or translate code between supported languages. Review generated output before using it.
         </p>
       </div>
 

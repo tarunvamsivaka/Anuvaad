@@ -2,8 +2,9 @@ import json
 import os
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 
-from app.core.audit import compute_code_hash
+from app.core.audit import compute_code_hash, generate_audit_receipt
 from app.core.auth import get_optional_user_email_from_request, get_user_pro_status
 from app.core.cache import cache, cache_key
 from app.core.config import (
@@ -48,6 +49,7 @@ async def upload_file_translate(
     email: str | None = Depends(get_optional_user_email_from_request),
 ):
     filename = file.filename or ""
+    is_ephemeral = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower() == "ephemeral"
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -69,6 +71,11 @@ async def upload_file_translate(
 
     if not raw_code.strip():
         raise HTTPException(status_code=422, detail="File is empty.")
+
+    audit_receipt = generate_audit_receipt(email or "anonymous", raw_code)
+    response_headers = {"X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"]}
+    if is_ephemeral:
+        response_headers["X-Anuvaad-Privacy"] = "ephemeral; application-history-and-cache-skipped"
 
     is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(raw_code)
@@ -93,7 +100,7 @@ async def upload_file_translate(
     model_name = "deepseek-reasoner" if use_r1 else "standard"
     key = cache_key(raw_code, detected_language, mode, model_name)
 
-    cached = await cache.get(key)
+    cached = None if is_ephemeral else await cache.get(key)
     if cached:
         await metrics.record_cache_hit()
         if email:
@@ -112,7 +119,7 @@ async def upload_file_translate(
                 repository_name=repository_name,
                 file_path=file_path,
             )
-        return cached
+        return JSONResponse(content=cached, headers=response_headers)
 
     await metrics.record_cache_miss()
 
@@ -134,32 +141,39 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             mode=completion_mode,
             response_format="json_object",
             use_r1=use_r1,
+            ephemeral=is_ephemeral,
         )
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
-        await cache.put(key, result, 86400 * 7)
+        if not is_ephemeral:
+            await cache.put(key, result, 86400 * 7)
 
         if email:
             await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
-            save_translation_history_task.delay(
-                user_email=email,
-                mode=f"File Upload ({mode})",
-                source_language=detected_language,
-                target_language=target_language or "english",
-                input_text=f"[ZDR-PROTECTED: {len(raw_code)} chars | {detected_language}]",
-                input_hash=compute_code_hash(raw_code),
-                blocks=result,
-                model_used=model_name,
-                workspace_id=None,
-                session_id=session_id,
-                repository_name=repository_name,
-                file_path=file_path,
-            )
-        return result
+            if not is_ephemeral:
+                save_translation_history_task.delay(
+                    user_email=email,
+                    mode=f"File Upload ({mode})",
+                    source_language=detected_language,
+                    target_language=target_language or "english",
+                    input_text=f"[ZDR-PROTECTED: {len(raw_code)} chars | {detected_language}]",
+                    input_hash=compute_code_hash(raw_code),
+                    blocks=result,
+                    model_used=model_name,
+                    workspace_id=None,
+                    session_id=session_id,
+                    repository_name=repository_name,
+                    file_path=file_path,
+                )
+        return JSONResponse(content=result, headers=response_headers)
 
     except Exception as e:
-        logger.error(f"Upload translation failed: {e!s}")
-        stale_result = await find_stale_translation(email, raw_code, detected_language, mode, f"File Upload ({mode})")
+        logger.error("Upload translation failed (%s)", type(e).__name__)
+        stale_result = (
+            None
+            if is_ephemeral
+            else await find_stale_translation(email, raw_code, detected_language, mode, f"File Upload ({mode})")
+        )
         if stale_result:
             if email:
                 await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)

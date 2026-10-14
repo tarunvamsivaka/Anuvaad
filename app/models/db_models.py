@@ -77,6 +77,7 @@ class TranslationHistory(Base):
     workspace_id = Column(UUID(as_uuid=True), nullable=True)
     user_email = Column(Text, nullable=True)
     is_public = Column(Boolean, default=False)
+    share_expires_at = Column(DateTime(timezone=True), nullable=True)
     character_count = Column(Integer, default=0)
     block_count = Column(Integer, default=0)
     blocks = Column(JSONB, nullable=True)

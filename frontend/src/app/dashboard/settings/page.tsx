@@ -27,6 +27,7 @@ import {
   Palette
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useCredits } from "@/lib/hooks";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
@@ -45,6 +46,8 @@ interface ApiKey {
 
 export default function SettingsPage() {
   const { user, session, isPro, signOut } = useAuth();
+  const { dailyLimit } = useCredits(session?.access_token);
+  const quotaLabel = dailyLimit === undefined ? "daily limit loading" : dailyLimit === -1 ? "no daily cap" : `${dailyLimit} translations/day`;
   const router = useRouter();
   const { activeWorkspace } = useWorkspace();
   const { theme, setTheme } = useTheme();
@@ -461,7 +464,7 @@ export default function SettingsPage() {
                     Active License
                   </h3>
                   <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400 leading-tight">
-                    {isPro ? "Pro Subscription Pack · Unlimited weight runs" : "Developer Sandbox Tier · 10 runs/day"}
+                    {isPro ? `Pro subscription · ${quotaLabel}` : `Free account · ${quotaLabel}`}
                   </p>
                 </div>
                 <Badge className={cn("text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 shrink-0 ml-3", isPro ? "bg-amber-500 text-slate-950" : "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200")}>

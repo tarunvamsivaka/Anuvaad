@@ -36,13 +36,13 @@ const STEPS = [
     content: (
       <div className="space-y-4 text-sm text-zinc-400">
         <p>
-          Anuvaad helps you understand, translate, and convert code across <strong className="text-zinc-200">35+ programming languages</strong> using state-of-the-art AI.
+          Anuvaad helps you understand, translate, and convert code across supported programming languages. Syntax validation is available only for languages with an installed parser.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
           {[
-            { label: "Code → English", desc: "Understand any codebase instantly" },
-            { label: "English → Code", desc: "Describe it, get working code" },
-            { label: "Code → Code", desc: "Port across languages in seconds" },
+            { label: "Code → English", desc: "Ask for a plain-language explanation" },
+            { label: "English → Code", desc: "Generate a starting point from a description" },
+            { label: "Code → Code", desc: "Translate code between programming languages" },
           ].map((item) => (
             <div key={item.label} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
               <p className="font-semibold text-amber-400 text-xs mb-1">{item.label}</p>
@@ -60,12 +60,12 @@ const STEPS = [
     subtitle: "Understand your usage limits",
     content: (
       <div className="space-y-4 text-sm text-zinc-400">
-        <p>You start with <strong className="text-zinc-200">10 free translations per day</strong>. Need more?</p>
+        <p>Your account has a daily translation limit. The current allowance is shown on the workspace and adjusts to service settings.</p>
         <ul className="space-y-2 mt-4">
           {[
-            "Upgrade to Pro for unlimited translations",
-            "Buy credit packs for occasional heavy use",
-            "Credits roll over — they never expire",
+            "Daily limits reset automatically",
+            "Review saved runs in your translation history",
+            "Create a share link only when you choose to share a run",
           ].map((item) => (
             <li key={item} className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />

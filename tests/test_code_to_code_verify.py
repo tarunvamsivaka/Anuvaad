@@ -3,13 +3,13 @@
 import json
 
 
-def test_code_to_code_with_verification(client):
+def test_code_to_code_with_verification(client_multi_block):
 
     py_code = """def add(a: int, b: int) -> int:
     return a + b
 """
 
-    resp = client.post(
+    resp = client_multi_block.post(
         "/api/v1/code-to-code",
         json={
             "raw_code": py_code,

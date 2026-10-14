@@ -223,7 +223,7 @@ class TestWireContract429Response:
 
             data = response.json()
             assert isinstance(data, dict)
-            assert "Daily translation limit reached for user tier" in data.get("detail", "")
+            assert "Daily translation limit reached for free tier" in data.get("detail", "")
             assert data.get("limit_type") == "user_daily_limit"
             assert data.get("retry_after_seconds") == 86400
             assert data.get("tier_limit") == 25

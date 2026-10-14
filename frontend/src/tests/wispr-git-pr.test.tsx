@@ -110,30 +110,30 @@ describe("Wispr GitPrWorkflowDemo Component Suite", () => {
       const ciBtn = screen.getByLabelText("Run CI simulation");
       fireEvent.click(ciBtn);
 
-      expect(screen.getByText("Running SAST...")).toBeInTheDocument();
+      expect(screen.getByText("Running sample...")).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(700);
       });
 
-      expect(screen.getByText("CI 100% Passed")).toBeInTheDocument();
+      expect(screen.getByText("Sample complete")).toBeInTheDocument();
       vi.useRealTimers();
     });
 
     it("approves PR and changes status badge to Approved", () => {
       render(<GitPrWorkflowDemo />);
-      const approveBtn = screen.getByLabelText("Approve PR");
+      const approveBtn = screen.getByLabelText("Preview approval state");
       fireEvent.click(approveBtn);
 
-      const approvedElements = screen.getAllByText("Approved");
+      const approvedElements = screen.getAllByText("Sample approved");
       expect(approvedElements.length).toBeGreaterThanOrEqual(1);
     });
 
     it("resets PR workflow state cleanly on reset button click", () => {
       render(<GitPrWorkflowDemo />);
-      const approveBtn = screen.getByLabelText("Approve PR");
+      const approveBtn = screen.getByLabelText("Preview approval state");
       fireEvent.click(approveBtn);
-      expect(screen.getAllByText("Approved").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("Sample approved").length).toBeGreaterThanOrEqual(1);
 
       const resetBtn = screen.getByLabelText("Reset PR demo");
       fireEvent.click(resetBtn);

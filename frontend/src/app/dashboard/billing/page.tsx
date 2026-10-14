@@ -14,6 +14,7 @@ import { track } from "@/lib/analytics";
 import { useSubscriptionStatus, useTranslationStats } from "@/lib/hooks";
 import Script from "next/script";
 import { mutate } from "swr";
+import { usePublicQuotaLimits } from "@/lib/use-public-quota-limits";
 
 function BillingPageContent() {
   const router = useRouter();
@@ -22,6 +23,7 @@ function BillingPageContent() {
   const [portalLoading, setPortalLoading] = useState(false);
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
+  const { data: quotaLimits } = usePublicQuotaLimits();
 
   const { subscription } = useSubscriptionStatus(session?.access_token);
   const { stats, isLoading: statsLoading } = useTranslationStats(session?.user?.email, session?.access_token);
@@ -211,7 +213,7 @@ function BillingPageContent() {
                 <PartyPopper className="h-5 w-5 shrink-0 text-emerald-500" />
                 <div className="flex-1">
                   <p className="font-extrabold text-emerald-600 dark:text-emerald-400">Payment Verified!</p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 lowercase mt-0.5">Welcome to Pro. Unlimited translations unlocked.</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 lowercase mt-0.5">Your account currently has Pro status. Usage remains subject to service limits.</p>
                 </div>
               </>
             ) : (
@@ -245,10 +247,11 @@ function BillingPageContent() {
                 </Badge>
               </div>
               <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed max-w-lg">
-                {isActuallyPro 
-                  ? "Infinite code compilations, prioritized CPU routing, 50,000 character buffer capacity, and early release features." 
-                  : "Standard sandbox plan loaded with 10 translations daily, full programming dictionary access, and 3 code translation modes."
-                }
+                {isActuallyPro
+                  ? "Your account currently has Pro status. Usage remains subject to service limits."
+                  : quotaLimits
+                    ? `Free plan includes up to ${quotaLimits.free_daily_limit} translations per day and the available translation modes.`
+                    : "Free plan includes a service-configured daily usage limit and the available translation modes."}
               </p>
               {subscription?.current_period_end && (
                 <p className="mt-3 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
@@ -298,23 +301,13 @@ function BillingPageContent() {
             </div>
             
             <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-              Break past limits. Deploy a continuous translation harness using on-demand remote pipelines.
+              Paid subscriptions are paused during launch. Your free account limit is {quotaLimits ? `${quotaLimits.free_daily_limit} translations per day` : "set by service configuration"}.
             </p>
             
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
-              {[
-                "Unlimited compiler pipelines",
-                "Prioritized pipeline routing (<3s)",
-                "Expanded 50,000 char capacity",
-                "Persistent history cache integration",
-                "Advanced AI models selection",
-                "Direct continuous support"
-              ].map((f) => (
-                <div key={f} className="flex items-center gap-2.5 text-xs text-slate-700 dark:text-slate-300 font-medium">
-                  <Check className="h-4 w-4 text-amber-500 shrink-0" />
-                  <span>{f}</span>
-                </div>
-              ))}
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
+                No subscription purchase is available while checkout is paused. Existing subscription status and management remain available to eligible accounts.
+              </p>
             </div>
             
             <div className="mt-8 space-y-3">
@@ -328,7 +321,7 @@ function BillingPageContent() {
               </Button>
               {!enableBilling && (
                 <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 italic font-medium leading-relaxed max-w-md">
-                  * Live subscription checkout is offline. All pro functions are enabled natively for testing cycles.
+                  * Checkout availability is controlled by the service configuration. Review the current status here before attempting to subscribe.
                 </p>
               )}
             </div>
@@ -343,7 +336,7 @@ function BillingPageContent() {
               <h2 className="text-sm font-bold uppercase tracking-wider text-emerald-400">Pro Pipeline Active</h2>
             </div>
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 leading-relaxed max-w-xl">
-              Your profile is authenticated to run unlimited model queries, with direct GPU allocation and cloud history archiving active.
+              Your account currently has Pro status. Model availability, request limits, and saved history follow the current service configuration.
             </p>
             <div className="mt-4">
               <Button

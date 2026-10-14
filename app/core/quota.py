@@ -390,7 +390,7 @@ async def enforce_quotas_and_protection(
             credits = await get_user_credits(email)
             if credits <= 0:
                 raise_quota_429(
-                    detail=f"Daily translation limit reached for user tier ({daily_limit}/{daily_limit}). Upgrade to Pro for unlimited access.",
+                    detail=f"Daily translation limit reached for free tier ({daily_limit}/{daily_limit}). Your limit resets daily.",
                     limit_type="user_daily_limit",
                     retry_after_seconds=86400,
                     tier_limit=daily_limit,
@@ -424,7 +424,7 @@ async def enforce_workspace_quota(
     )
     if workspace_today >= daily_limit:
         raise_quota_429(
-            detail=f"Workspace daily limit reached ({daily_limit} translations/day). Upgrade the workspace owner to Pro for unlimited access.",
+            detail=f"Workspace daily limit reached ({daily_limit} translations/day). The limit resets daily.",
             limit_type="user_daily_limit",
             retry_after_seconds=86400,
             tier_limit=daily_limit,

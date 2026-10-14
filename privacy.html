@@ -113,7 +113,7 @@
     <header class="legal-header">
         <a href="/">Anuvaad</a>
         <h1>Privacy Policy</h1>
-        <p class="date">Last updated: April 26, 2026</p>
+        <p class="date">Last updated: October 4, 2026</p>
     </header>
 
     <main class="legal-content">
@@ -130,15 +130,14 @@
 
         <h3>Usage Data</h3>
         <ul>
-            <li>Code snippets submitted for translation (processed in real-time, not stored permanently)</li>
+            <li>Code and prompts submitted to translation providers</li>
             <li>Translation history (stored server-side in your account)</li>
             <li>Feature usage metrics (translation count, modes used)</li>
         </ul>
 
         <h3>Payment Information</h3>
         <ul>
-            <li>Razorpay handles all payment processing. We never see or store your full credit card number.</li>
-            <li>We store your subscription status (plan type, active/cancelled) in our database.</li>
+            <li>Paid plans and payment registration are currently paused.</li>
         </ul>
 
         <h3>Technical Data</h3>
@@ -151,21 +150,18 @@
         <h2>3. How We Use Your Information</h2>
         <ul>
             <li><strong>Provide the service:</strong> Translate code, generate code, and manage your account.</li>
-            <li><strong>Process payments:</strong> Manage Pro subscriptions via Razorpay.</li>
             <li><strong>Rate limiting:</strong> Prevent abuse and ensure fair usage for all users.</li>
             <li><strong>Improve the service:</strong> Analyze usage patterns to enhance features.</li>
             <li><strong>Communication:</strong> Send account-related emails (e.g., payment receipts, subscription changes).</li>
         </ul>
 
         <h2>4. Code Data Processing</h2>
-        <p><strong>Your code is not stored on our servers.</strong> Code submitted for translation is sent to Groq and DeepSeek AI for processing. The translated response is returned to your browser immediately. We do not maintain a database of submitted code.</p>
-        <p>Translation history is stored <strong>securely in your account database</strong>.</p>
+        <p>Code or prompts are sent to the Anuvaad API and to an AI provider selected for the request. In the translation workspace, runs are not written to Anuvaad history or translation cache unless you sign in and enable “Save runs to my Anuvaad history and translation cache.” Users can delete one or all saved runs from the History page. A saved translation becomes accessible by link only after you explicitly create a share link. Providers, hosting platforms, and operational logs have their own retention practices; Anuvaad does not promise zero retention across those services.</p>
 
         <h2>5. Third-Party Services</h2>
         <ul>
-            <li><strong>Groq (Llama 3.3 70B) and DeepSeek (V3/R1)</strong> — Processes code translations.</li>
+            <li><strong>AI providers, including Groq and DeepSeek</strong> — Process code translations; the provider may vary by request.</li>
             <li><strong>Supabase</strong> — Authentication and database. Subject to <a href="https://supabase.com/privacy" target="_blank">Supabase Privacy Policy</a>.</li>
-            <li><strong>Razorpay</strong> — Payment processing. Subject to <a href="https://razorpay.com/privacy" target="_blank">Razorpay's Privacy Policy</a>.</li>
             <li><strong>PostHog</strong> — Product usage and behavior analytics. Subject to <a href="https://posthog.com/privacy" target="_blank">PostHog Privacy Policy</a>.</li>
             <li><strong>Sentry</strong> — Error monitoring and diagnostic log capture. Subject to <a href="https://sentry.io/privacy" target="_blank">Sentry Privacy Policy</a>.</li>
         </ul>
@@ -173,9 +169,9 @@
         <h2>6. Data Retention</h2>
         <ul>
             <li>Account data is retained while your account is active.</li>
-            <li>Subscription, payment, and transaction records are retained for a minimum of 7 years in accordance with Indian tax (GST) and accounting compliance laws.</li>
+            <li>Retention periods for infrastructure, security, and provider logs depend on those services and their configuration.</li>
             <li>Rate limiting data is stored in Redis with configurable retention.</li>
-            <li>You may request account deletion at any time by contacting us.</li>
+            <li>Account deletion can be requested from Settings.</li>
         </ul>
 
         <h2>7. Data Security</h2>
@@ -202,10 +198,9 @@
         <ul>
             <li><strong>Authentication tokens</strong> (Supabase session) — required for sign-in</li>
             <li><strong>Theme preference</strong> (localStorage) — dark/light mode choice</li>
-            <li><strong>Translation history</strong> (localStorage) — your saved translations</li>
             <li><strong>Usage counter</strong> (server-side) — daily translation count</li>
         </ul>
-        <p>We do not use third-party tracking cookies.</p>
+        <p>Analytics and diagnostics may use browser storage and collect usage or session information. They are configured not to receive source code or generated code.</p>
 
         <h2>10. Children's Privacy</h2>
         <p>Anuvaad is not directed at children under 13. We do not knowingly collect personal information from children under 13.</p>

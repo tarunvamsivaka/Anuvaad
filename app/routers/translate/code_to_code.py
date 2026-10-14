@@ -38,7 +38,7 @@ async def function_code_to_code(
         "X-Anuvaad-Audit-Digest": audit_receipt["audit_digest"],
     }
     if is_ephemeral:
-        headers["X-Anuvaad-Privacy"] = "ephemeral; zero-retention"
+        headers["X-Anuvaad-Privacy"] = "ephemeral; application-history-and-cache-skipped"
 
     return StreamingResponse(
         stream_code_to_code(payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown, ephemeral=is_ephemeral),

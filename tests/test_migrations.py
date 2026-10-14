@@ -12,7 +12,7 @@ import os
 
 import pytest
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Engine
 
 from alembic import command
@@ -145,3 +145,36 @@ def test_phase_1b_upgrade_and_downgrade(migration_engine: Engine) -> None:
     table_names = set(inspector.get_table_names())
     assert phase_1a_tables <= table_names
     assert {"desired_index_states", "index_runs"}.isdisjoint(table_names)
+
+
+def test_full_chain_upgrades_from_phase_1a_to_head(migration_engine: Engine) -> None:
+    """The complete checked-in chain must apply after the isolated 006 baseline."""
+    config = _alembic_config()
+    command.upgrade(config, "006_phase_1a")
+    command.upgrade(config, "head")
+
+    with migration_engine.connect() as connection:
+        applied_revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+
+    assert applied_revision == "016_share_link_expiry"
+    share_expiry_columns = {
+        column["name"]: column for column in inspect(migration_engine).get_columns("translation_history")
+    }
+    assert share_expiry_columns["share_expires_at"]["nullable"]
+
+    with migration_engine.connect() as connection:
+        assert not connection.execute(
+            text("SELECT has_table_privilege('anon', 'public.api_keys', 'SELECT')")
+        ).scalar_one()
+        assert not connection.execute(
+            text("SELECT has_table_privilege('authenticated', 'public.translation_history', 'SELECT')")
+        ).scalar_one()
+        assert not connection.execute(
+            text("SELECT has_table_privilege('anon', 'public.user_translation_stats', 'SELECT')")
+        ).scalar_one()
+        assert connection.execute(
+            text("SELECT has_column_privilege('anon', 'public.landing_leads', 'email', 'INSERT')")
+        ).scalar_one()
+        assert connection.execute(
+            text("SELECT has_column_privilege('anon', 'public.landing_leads', 'source', 'INSERT')")
+        ).scalar_one()

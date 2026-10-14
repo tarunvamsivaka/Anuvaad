@@ -6,7 +6,7 @@ Retroactively redacts any existing `input_text` rows that contain raw source cod
 (i.e., rows that do NOT already start with the [ZDR-PROTECTED] marker).
 
 Revision ID: b2e4f8a1c3d7
-Revises: 8d3045f704c7
+Revises: 013_halfvec_and_ivfflat
 Create Date: 2026-09-28
 """
 

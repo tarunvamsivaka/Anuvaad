@@ -40,7 +40,6 @@ from app.routers.history import router as history_router
 from app.routers.modernize import router as modernize_router
 from app.routers.onboarding import router as onboarding_router  # FIX-35 (P3-08)
 from app.routers.repo_search import router as repo_search_router
-from app.routers.sso import router as sso_router
 
 # ── Routers ──
 from app.routers.translate import router as translate_router
@@ -88,22 +87,8 @@ def validate_production_env() -> None:
 
     import os
 
-    # Warn if fewer than 2 AI tiers are configured
-    _tier_keys_present = sum(
-        [
-            bool(os.getenv("CEREBRAS_API_KEY")),
-            bool(os.getenv("GEMINI_API_KEY")),
-            bool(os.getenv("DEEPSEEK_API_KEY")),
-            bool(os.getenv("OPENROUTER_API_KEY")),
-            bool(os.getenv("GROQ_API_KEY")),
-        ]
-    )
-    if _tier_keys_present < 2:
-        logger.warning(
-            f"[AI Gateway] Only {_tier_keys_present} of 5 AI tier key(s) configured. "
-            "The 5-tier fallback requires at least 2 live providers for resilience. "
-            "Set CEREBRAS_API_KEY and/or GEMINI_API_KEY for proper failover."
-        )
+    if os.getenv("GROQ_API_KEY") and not os.getenv("OPENROUTER_API_KEY"):
+        logger.info("AI routing uses Groq; OpenRouter fallback is not configured")
 
 
 # ── Lifespan ──
@@ -140,7 +125,7 @@ app = FastAPI(
     version="3.0.0",
     description=(
         "**Anuvaad** — AI-powered code translation platform.\n\n"
-        "Translate code to plain English, English to code, and between 35+ languages.\n\n"
+        "Translate code to plain English, English to code, and between supported programming languages.\n\n"
         "All new clients should use the `/api/v1/` prefix. "
         "Legacy `/api/` routes are deprecated and will be removed on **2027-01-01**."
     ),
@@ -230,7 +215,6 @@ app.include_router(repo_search_router, prefix="/api/v1")
 app.include_router(utility_router, prefix="/api/v1")
 app.include_router(demo_router, prefix="/api/v1")
 app.include_router(onboarding_router, prefix="/api/v1")  # FIX-35 (P3-08)
-app.include_router(sso_router, prefix="/api/v1")
 app.include_router(modernize_router, prefix="/api/v1")
 
 # Legacy aliases — api_deprecation_middleware emits Deprecation header
@@ -239,7 +223,6 @@ app.include_router(history_router, prefix="/api")
 app.include_router(workspace_router, prefix="/api")
 app.include_router(billing_router, prefix="/api")
 app.include_router(github_router, prefix="/api")
-app.include_router(sso_router, prefix="/api")
 app.include_router(utility_router, prefix="/api")
 app.include_router(demo_router, prefix="/api")
 app.include_router(modernize_router, prefix="/api")
@@ -251,6 +234,27 @@ async def root_health_probe(request: Request):
     from app.routers.utility import health_check
 
     return await health_check(request)
+
+
+@app.api_route("/health/live", methods=["GET", "HEAD"], include_in_schema=False)
+async def root_health_live(request: Request):
+    from app.routers.utility import health_live
+
+    return await health_live(request)
+
+
+@app.api_route("/health/ready", methods=["GET", "HEAD"], include_in_schema=False)
+async def root_health_ready(request: Request):
+    from app.routers.utility import health_ready
+
+    return await health_ready(request)
+
+
+@app.get("/metrics", include_in_schema=False)
+async def root_metrics(request: Request):
+    from app.routers.utility import get_metrics_json
+
+    return await get_metrics_json(request)
 
 
 logger.info("Anuvaad API Initialized")

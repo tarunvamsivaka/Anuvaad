@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://anuvaad.dev';
+  const baseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || 'https://getanuvaad.vercel.app';
 
   return [
     {

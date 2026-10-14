@@ -45,7 +45,7 @@ export function TranslateShell({
   protectionMode,
 }: TranslateShellProps) {
   const [zenMode, setZenMode] = React.useState(false);
-  const [activePane, setActivePane] = React.useState<"input" | "output">("input");
+  const [activePane, setActivePane] = React.useState<"input" | "output" | "split">("input");
   // Re-using showSettings as sidebar collapsed state, inverted
   const sidebarCollapsed = !showSettings;
   const setSidebarCollapsed = (collapsed: boolean) => setShowSettings(!collapsed);
@@ -152,17 +152,93 @@ export function TranslateShell({
               </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-1 border-b border-border p-2 lg:hidden" role="tablist" aria-label="Translation panes">
-              <button type="button" role="tab" id="input-pane-tab" aria-controls="input-pane" aria-selected={activePane === "input"} onClick={() => setActivePane("input")} className={cn("min-h-10 flex-1 rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500", activePane === "input" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950" : "text-muted-foreground hover:bg-muted")}>Input</button>
-              <button type="button" role="tab" id="output-pane-tab" aria-controls="output-pane" aria-selected={activePane === "output"} onClick={() => setActivePane("output")} className={cn("min-h-10 flex-1 rounded-lg px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500", activePane === "output" ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950" : "text-muted-foreground hover:bg-muted")}>Output</button>
+            <div className="flex shrink-0 items-center gap-1 border-b border-border p-2 lg:hidden bg-surface-base" role="tablist" aria-label="Translation panes">
+              <button
+                type="button"
+                role="tab"
+                id="input-pane-tab"
+                aria-label="Input"
+                aria-controls="input-pane"
+                aria-selected={activePane === "input"}
+                onClick={() => setActivePane("input")}
+                className={cn(
+                  "min-h-[44px] flex-1 rounded-lg px-2 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                  activePane === "input"
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 shadow-sm"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                Code
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="output-pane-tab"
+                aria-label="Output"
+                aria-controls="output-pane"
+                aria-selected={activePane === "output"}
+                onClick={() => setActivePane("output")}
+                className={cn(
+                  "min-h-[44px] flex-1 rounded-lg px-2 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                  activePane === "output"
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 shadow-sm"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                English
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="split-pane-tab"
+                aria-label="Split"
+                aria-controls="split-pane"
+                aria-selected={activePane === "split"}
+                onClick={() => setActivePane("split")}
+                className={cn(
+                  "min-h-[44px] flex-1 rounded-lg px-2 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500",
+                  activePane === "split"
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 shadow-sm"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                Split
+              </button>
             </div>
 
-            {/* Mobile uses one editor pane at a time; wide screens show both. */}
-            <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden grid grid-cols-1 grid-rows-1 lg:grid-cols-2 lg:divide-x divide-border">
-              <div id="input-pane" role="tabpanel" aria-labelledby="input-pane-tab" className={cn("h-full min-h-0 [grid-area:1/1] lg:[grid-area:auto]", activePane === "input" ? "" : "hidden lg:block")}>
+            {/* Mobile uses segmented pane selection or vertical split; wide screens show dual-pane columns. */}
+            <div className={cn(
+              "flex-1 min-h-0 overflow-y-auto lg:overflow-hidden grid lg:grid-cols-2 lg:divide-x divide-border",
+              activePane === "split" ? "grid-cols-1 grid-rows-2 divide-y lg:divide-y-0" : "grid-cols-1 grid-rows-1"
+            )}>
+              <div
+                id="input-pane"
+                role="tabpanel"
+                aria-labelledby="input-pane-tab"
+                className={cn(
+                  "h-full min-h-0",
+                  activePane === "split"
+                    ? "block"
+                    : activePane === "input"
+                      ? "[grid-area:1/1] lg:[grid-area:auto]"
+                      : "hidden lg:block lg:[grid-area:auto]"
+                )}
+              >
                 {inputPanel}
               </div>
-              <div id="output-pane" role="tabpanel" aria-labelledby="output-pane-tab" className={cn("h-full min-h-0 [grid-area:1/1] lg:[grid-area:auto]", activePane === "output" ? "" : "hidden lg:block")}>
+              <div
+                id="output-pane"
+                role="tabpanel"
+                aria-labelledby="output-pane-tab"
+                className={cn(
+                  "h-full min-h-0",
+                  activePane === "split"
+                    ? "block"
+                    : activePane === "output"
+                      ? "[grid-area:1/1] lg:[grid-area:auto]"
+                      : "hidden lg:block lg:[grid-area:auto]"
+                )}
+              >
                 {outputPanel}
               </div>
             </div>

@@ -181,7 +181,7 @@ print(fibonacci(10))`;
                 </div>
                 <h3 className="font-bold uppercase tracking-wider text-slate-200 text-xs mb-2">Code ➔ Code</h3>
                 <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-                  Cross-compile raw scripts between 35+ supported syntactic frameworks instantly.
+                  Translate code between languages. Parser and syntax-check coverage varies by language.
                 </p>
                 <Link
                   href="/dashboard/translate?mode=code-to-code"

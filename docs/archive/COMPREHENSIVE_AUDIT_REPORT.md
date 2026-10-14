@@ -770,7 +770,7 @@ app.include_router(onboarding_router, prefix="/api/v1")
 - **Affected File & Lines**: `alembic/versions/001_encrypt_github_tokens.py:44`
 - **Verbatim Code Snippet**:
   ```python
-  encryption_key = os.environ.get("TOKEN_ENCRYPTION_KEY", "JfX9caIefFRe2LJmq5TnRtEgg8KD4opOEZOXK4qbIww=")
+   encryption_key = os.environ["TOKEN_ENCRYPTION_KEY"]  # Configure through the secret store; never commit a fallback.
   ```
 - **Technical Impact**: Hardcodes a static fallback encryption key in version control. If migrated without `TOKEN_ENCRYPTION_KEY` in environment, all GitHub OAuth tokens are encrypted with a publicly exposed key.
 - **Remediation Action**: Remove the hardcoded fallback string and raise `RuntimeError("TOKEN_ENCRYPTION_KEY must be set")`.

@@ -588,6 +588,38 @@ run_repository_indexing_task = HybridTask(_run_repository_indexing_celery_task)
 # ── FIX-11 (P1-04): Celery Beat scheduled tasks ──────────────────────────────
 
 
+def _reset_stats_column(stat_column: str, label: str) -> None:
+    """Reset legacy counter tables, but leave timestamp-derived views alone."""
+    from sqlalchemy import text as sa_text
+    from sqlalchemy import update as sa_update
+
+    from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import UserTranslationStats
+
+    # Callers pass fixed internal column names, not request data.
+    if stat_column not in {"today_count", "this_week_count"}:
+        raise ValueError("Unsupported translation stats column")
+
+    async def _reset():
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                sa_text("SELECT relkind FROM pg_class WHERE oid = to_regclass('public.user_translation_stats')")
+            )
+            relation_kind = result.scalar_one_or_none()
+            if relation_kind not in {"r", "p"}:
+                logger.info(
+                    "Celery Beat: Skipping %s stats reset; user_translation_stats is not a writable table",
+                    label,
+                )
+                return
+
+            await session.execute(sa_update(UserTranslationStats).values({stat_column: 0}))
+            await session.commit()
+        logger.info("Celery Beat: %s stats reset complete", label)
+
+    run_async(_reset())
+
+
 @celery_app.task(name="reset_daily_stats")
 def reset_daily_stats():
     """Reset today_count for ALL users at midnight UTC.
@@ -596,19 +628,7 @@ def reset_daily_stats():
     """
     logger.info("Celery Beat: Resetting daily translation stats for all users")
 
-    from sqlalchemy import update as sa_update
-
-    from app.core.database_session import AsyncSessionLocal
-    from app.models.db_models import UserTranslationStats
-
-    async def _reset():
-
-        async with AsyncSessionLocal() as session:
-            await session.execute(sa_update(UserTranslationStats).values(today_count=0))
-            await session.commit()
-        logger.info("Celery Beat: Daily stats reset complete")
-
-    run_async(_reset())
+    _reset_stats_column("today_count", "daily")
 
 
 @celery_app.task(name="reset_weekly_stats")
@@ -616,19 +636,7 @@ def reset_weekly_stats():
     """Reset this_week_count for ALL users every Monday at midnight UTC."""
     logger.info("Celery Beat: Resetting weekly translation stats for all users")
 
-    from sqlalchemy import update as sa_update
-
-    from app.core.database_session import AsyncSessionLocal
-    from app.models.db_models import UserTranslationStats
-
-    async def _reset():
-
-        async with AsyncSessionLocal() as session:
-            await session.execute(sa_update(UserTranslationStats).values(this_week_count=0))
-            await session.commit()
-        logger.info("Celery Beat: Weekly stats reset complete")
-
-    run_async(_reset())
+    _reset_stats_column("this_week_count", "weekly")
 
 
 @celery_app.task(name="prune_old_translation_history")

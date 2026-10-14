@@ -111,12 +111,47 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest
 
-      - name: Verify Phase 1B migration upgrade and downgrade
+      - name: Verify Alembic has a single migration head
+        shell: bash
+        run: |
+          heads="$(alembic heads)"
+          printf '%s\n' "$heads"
+          head_count="$(printf '%s\n' "$heads" | grep -c '(head)' || true)"
+          test "$head_count" -eq 1
+
+      - name: Create Supabase roles for migration verification
+        env:
+          MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
+        run: |
+          psql "$MIGRATION_DATABASE_URL" <<'SQL'
+          DO $$
+          BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+              CREATE ROLE anon NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+              CREATE ROLE authenticated NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+              CREATE ROLE service_role NOLOGIN;
+            END IF;
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'postgres') THEN
+              CREATE ROLE postgres NOLOGIN SUPERUSER;
+            END IF;
+          END
+          $$;
+          SQL
+
+      - name: Generate an ephemeral test encryption key
+        shell: bash
+        run: |
+          key="$(python -c 'import base64,secrets; print(base64.urlsafe_b64encode(secrets.token_bytes(32)).decode())')"
+          echo "TOKEN_ENCRYPTION_KEY=$key" >> "$GITHUB_ENV"
+
+      - name: Verify migration upgrade and downgrade paths
         env:
           DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
           MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
-          # SEC-CI-01: TOKEN_ENCRYPTION_KEY moved from hardcoded value to GitHub Actions secret with test fallback
-          TOKEN_ENCRYPTION_KEY: ${{ secrets.CI_TOKEN_ENCRYPTION_KEY || 'GdBdzxEDtOeI20E-5p7tzdkKr4An81VQ6oHcw8Og60U=' }}
         run: pytest tests/test_migrations.py -v
 
   lint:

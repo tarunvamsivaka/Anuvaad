@@ -226,7 +226,7 @@ describe("Frontend Features & E2E Tiers Test Suite", () => {
       expect(screen.getByText("25 daily translations used")).toBeInTheDocument();
     });
 
-    it("TC-F10-2: renders modal title 'Guest limit reached' and secondary signup CTA for guest_daily_limit", () => {
+    it("TC-F10-2: renders modal title 'Guest limit reached' and a dynamic secondary signup CTA", () => {
       const error: QuotaError = {
         detail: "Guest tier allows 5 translations per day.",
         limit_type: "guest_daily_limit",
@@ -236,7 +236,8 @@ describe("Frontend Features & E2E Tiers Test Suite", () => {
       render(<QuotaExceededModal error={error} onClose={() => {}} />);
       expect(screen.getByText("Guest limit reached")).toBeInTheDocument();
       expect(screen.getByText("5 free guest translations used")).toBeInTheDocument();
-      expect(screen.getByText("Create a free account (25/day)")).toBeInTheDocument();
+      const signupLink = screen.getByRole("link", { name: "Create a free account (daily limit)" });
+      expect(signupLink).toHaveAttribute("href", "/signup");
     });
 
     it("TC-F10-3: renders live countdown timer in HH:MM:SS format", () => {
@@ -250,7 +251,7 @@ describe("Frontend Features & E2E Tiers Test Suite", () => {
       expect(screen.getByText("01:01:05")).toBeInTheDocument();
     });
 
-    it("TC-F10-4: links primary CTA 'Upgrade to Pro' to /signup?plan=pro", () => {
+    it("TC-F10-4: explains paid plans are paused rather than linking to unavailable checkout", () => {
       const error: QuotaError = {
         detail: "Quota exceeded",
         limit_type: "user_daily_limit",
@@ -258,8 +259,8 @@ describe("Frontend Features & E2E Tiers Test Suite", () => {
         tier_limit: 25,
       };
       render(<QuotaExceededModal error={error} onClose={() => {}} />);
-      const proLink = screen.getByText(/Upgrade to Pro/i).closest("a");
-      expect(proLink).toHaveAttribute("href", "/signup?plan=pro");
+      expect(screen.getByText(/Paid plans are unavailable during launch/i)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Upgrade to Pro/i })).not.toBeInTheDocument();
     });
 
     it("TC-F10-5: closes modal when Dismiss button or close icon is clicked", () => {

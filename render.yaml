@@ -1,7 +1,8 @@
 # =============================================================================
-# render.yaml — Anuvaad Infrastructure-as-Code Blueprint for Render.com
+# render.yaml — Anuvaad FastAPI API service Blueprint for Render.com
 # =============================================================================
-# This file defines the complete Render deployment for Anuvaad.
+# This file defines the API service only; it does not provision the frontend,
+# database, or cache. Those services require their own reviewed configuration.
 # Changes here are automatically picked up when you connect this repo in Render.
 #
 # Documentation: https://render.com/docs/blueprint-spec
@@ -14,15 +15,13 @@ services:
   - type: web
     name: anuvaad-api
     runtime: python
-    plan: starter
+    plan: free
     region: oregon
     branch: master
     buildCommand: pip install -r requirements.txt
-    # Run Alembic migrations before each deployment starts accepting traffic.
-    # This guarantees schema consistency across all deployment stages and prevents
-    # startup failures when new columns/tables are required by the app version.
-    preDeployCommand: alembic upgrade head
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers ${WEB_CONCURRENCY:-2}
+    # Free Render services do not support pre-deploy commands. Apply reviewed
+    # database changes through the Supabase migration workflow before deploying.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
 
     healthCheckPath: /api/health
 

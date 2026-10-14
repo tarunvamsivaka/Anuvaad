@@ -10,7 +10,7 @@ import {
   BarChart3, Sparkles, Clock
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { useTranslationStats } from "@/lib/hooks";
+import { useCredits, useTranslationStats } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useState, useEffect } from "react";
 import { TopBar } from "@/components/dashboard/TopBar";
@@ -59,17 +59,17 @@ function ActivityBar({ value, max, label, index, mounted }: {
 }
 
 // Animated SVG quota ring — draws in on mount
-function QuotaRing({ used, total, isPro, animated }: {
+function QuotaRing({ used, total, isUnlimited, animated }: {
   used: number;
-  total: number;
-  isPro: boolean;
+  total?: number;
+  isUnlimited: boolean;
   animated: boolean;
 }) {
-  const pct = isPro ? 100 : Math.min((used / total) * 100, 100);
+  const pct = isUnlimited ? 100 : total && total > 0 ? Math.min((used / total) * 100, 100) : 0;
   const r = 28;
   const circ = 2 * Math.PI * r;
   const targetOffset = circ - (pct / 100) * circ;
-  const status = isPro ? "success" : pct >= 90 ? "danger" : pct >= 70 ? "warning" : "success";
+  const status = isUnlimited ? "success" : pct >= 90 ? "danger" : pct >= 70 ? "warning" : "success";
 
   // Animate from full offset → target offset
   const [currentOffset, setCurrentOffset] = useState(circ);
@@ -86,7 +86,7 @@ function QuotaRing({ used, total, isPro, animated }: {
         width="72"
         height="72"
         className="-rotate-90"
-        aria-label={isPro ? "Quota: Unlimited (Pro plan)" : `Quota used: ${used} of ${total} translations today`}
+        aria-label={isUnlimited ? "No daily translation cap" : total !== undefined ? `Quota used: ${used} of ${total} translations today` : "Daily translation limit loading"}
         role="img"
       >
         <circle cx="36" cy="36" r={r} fill="none" strokeWidth="5" className="quota-ring-track" />
@@ -105,9 +105,9 @@ function QuotaRing({ used, total, isPro, animated }: {
       </svg>
       <div className="absolute flex flex-col items-center">
         <span className="text-sm font-black text-text-primary leading-none">
-          {isPro ? "∞" : used}
+          {isUnlimited ? "∞" : used}
         </span>
-        {!isPro && <span className="text-[9px] text-text-muted font-medium">/{total}</span>}
+        {!isUnlimited && <span className="text-[9px] text-text-muted font-medium">{total === undefined ? "/…" : `/${total}`}</span>}
       </div>
     </div>
   );
@@ -142,6 +142,8 @@ export default function DashboardPage() {
   const { user, session, isPro } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] || user?.email?.split("@")[0] || "there";
   const { stats, recentTranslations, isLoading } = useTranslationStats(user?.email, session?.access_token);
+  const { dailyLimit, remaining } = useCredits(session?.access_token);
+  const hasNoDailyCap = dailyLimit === -1;
 
   const [mounted, setMounted] = useState(false);
   const [statsTriggered, setStatsTriggered] = useState(false);
@@ -167,11 +169,11 @@ export default function DashboardPage() {
   const statCards = [
     {
       label: "Today's Translations",
-      value: isPro ? "∞" : stats.today.toString(),
-      limit: isPro ? undefined : " / 25",
+      value: hasNoDailyCap ? "∞" : stats.today.toString(),
+      limit: hasNoDailyCap || dailyLimit === undefined ? undefined : ` / ${dailyLimit}`,
       icon: Code2,
       accent: "text-amber-500",
-      detail: isPro ? "Unlimited" : `${Math.max(0, 25 - stats.today)} remaining`,
+      detail: hasNoDailyCap ? "No daily cap" : remaining === undefined ? "Loading daily limit" : `${remaining} remaining`,
     },
     {
       label: "This Week",
@@ -192,7 +194,7 @@ export default function DashboardPage() {
       value: isPro ? "Pro" : "Free",
       icon: Zap,
       accent: isPro ? "text-amber-500" : "text-text-muted",
-      detail: isPro ? "Unlimited access" : "25 / day",
+      detail: hasNoDailyCap ? "No daily cap" : dailyLimit === undefined ? "Daily limit loading" : `${dailyLimit} / day`,
     },
   ];
 
@@ -367,24 +369,28 @@ export default function DashboardPage() {
             </Card>
 
             {/* Daily Quota */}
-            {!isPro && mounted && (
+            {!hasNoDailyCap && mounted && (
               <Card className="dashboard-card p-5 border-border-subtle">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="h-4 w-4 text-amber-500" />
                   <h2 className="text-xs font-bold uppercase tracking-[0.15em] text-text-secondary">Daily Quota</h2>
                 </div>
                 <div className="flex items-center gap-5">
-                  <QuotaRing used={stats.today} total={25} isPro={isPro} animated={mounted} />
+                  <QuotaRing used={stats.today} total={dailyLimit === undefined || dailyLimit < 0 ? undefined : dailyLimit} isUnlimited={hasNoDailyCap} animated={mounted} />
                   <div>
                     <p className="text-sm font-bold text-text-primary">
-                      {stats.today >= 25 ? "Limit reached" : `${25 - stats.today} remaining`}
+                      {dailyLimit === undefined
+                        ? "Loading daily limit"
+                        : remaining === 0
+                          ? "Limit reached"
+                          : `${remaining ?? Math.max(0, dailyLimit - stats.today)} remaining`}
                     </p>
                     <p className="text-[11px] text-text-muted mt-1">Resets at midnight UTC</p>
                     <Link
                       href="/dashboard/billing"
                       className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-500 hover:text-amber-400 transition-colors bg-amber-500/10 hover:bg-amber-500/15 px-2 py-1 rounded-md"
                     >
-                      <Sparkles className="h-3 w-3" /> Get unlimited
+                      <Sparkles className="h-3 w-3" /> Billing status
                     </Link>
                   </div>
                 </div>
@@ -401,10 +407,10 @@ export default function DashboardPage() {
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-5 w-5 text-amber-400" />
-                  <h3 className="text-base font-bold text-text-primary">Upgrade to Pro</h3>
+                  <h3 className="text-base font-bold text-text-primary">Paid plans are paused</h3>
                 </div>
                 <p className="text-sm text-text-muted leading-relaxed max-w-xl">
-                  Remove the daily limit, unlock priority processing, team workspaces, and translate entire codebases with higher context windows.
+                  Subscription purchases are unavailable during launch. Review your current plan and usage limit on the billing page.
                 </p>
               </div>
               <Link
@@ -415,7 +421,7 @@ export default function DashboardPage() {
                 )}
               >
                 <Zap className="h-4 w-4" />
-                Upgrade Now
+                View billing status
               </Link>
             </div>
             {/* Shimmer sweep on hover — now with group properly on Card */}

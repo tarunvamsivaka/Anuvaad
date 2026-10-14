@@ -3,15 +3,16 @@ Tests for Zero Code Retention (RAM-Only Ephemeral Mode).
 
 Implementation Phase: Master 8-Week Phased Implementation — Week 2 (Phase 1B).
 Validates:
-1. 'X-Anuvaad-Privacy-Mode: ephemeral' returns 'X-Anuvaad-Privacy: ephemeral; zero-retention' header
+1. 'X-Anuvaad-Privacy-Mode: ephemeral' returns an application-history/cache exclusion header
 2. Ephemeral mode skips writing to Redis cache
 3. Ephemeral mode skips enqueuing translation history to Celery/PostgreSQL
 4. Normal mode retains caching and history persistence
 """
 
 from datetime import UTC
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -23,7 +24,7 @@ def test_ephemeral_header_attached_to_stream(client: TestClient):
         headers={"X-Anuvaad-Privacy-Mode": "ephemeral"},
     )
     assert resp.status_code == 200
-    assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; zero-retention"
+    assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; application-history-and-cache-skipped"
 
 
 def test_ephemeral_sync_bypasses_cache_and_history(client: TestClient):
@@ -39,7 +40,7 @@ def test_ephemeral_sync_bypasses_cache_and_history(client: TestClient):
         )
 
         assert resp.status_code == 200
-        assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; zero-retention"
+        assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; application-history-and-cache-skipped"
         # Translation result should never be cached in Redis
         translation_cached = any(
             "code-to-english" in str(call_args) or "secret_token" in str(call_args)
@@ -62,11 +63,11 @@ def test_non_ephemeral_invokes_history_and_cache(client: TestClient):
 
 
 def test_ephemeral_stale_recovery_skips_history(client: TestClient):
-    """When stale translation recovery occurs, ephemeral mode strictly suppresses history dispatch."""
+    """An ephemeral request must not read and return a saved fallback after provider failure."""
     stale_sample = [{"id": "block_1", "code_snippet": "val secret = 1", "english_translation": "Sets secret to 1"}]
     with (
         patch("app.routers.translate.code_to_english.get_completion", side_effect=Exception("LLM down")),
-        patch("app.routers.translate.code_to_english.find_stale_translation", return_value=stale_sample),
+        patch("app.routers.translate.code_to_english.find_stale_translation", return_value=stale_sample) as mock_stale,
         patch("app.routers.translate.code_to_english._dispatch_history") as mock_dispatch,
     ):
         resp = client.post(
@@ -74,9 +75,46 @@ def test_ephemeral_stale_recovery_skips_history(client: TestClient):
             json={"raw_code": "val secret = 1", "language": "scala"},
             headers={"X-Anuvaad-Privacy-Mode": "ephemeral"},
         )
-        assert resp.status_code == 200
-        assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; zero-retention"
+        assert resp.status_code == 503
+        assert "temporarily unavailable" in resp.json()["detail"]
+        assert "X-Anuvaad-Privacy" not in resp.headers
+        mock_stale.assert_not_called()
         mock_dispatch.assert_not_called()
+
+
+def test_ephemeral_generation_does_not_read_saved_fallback(client: TestClient):
+    with (
+        patch("app.routers.translate.english_to_code.get_completion", side_effect=Exception("provider failed")),
+        patch("app.routers.translate.english_to_code.find_stale_translation") as mock_stale,
+    ):
+        resp = client.post(
+            "/api/v1/generate-from-english",
+            json={"prompt": "write a function that adds two numbers", "language": "python"},
+            headers={"X-Anuvaad-Privacy-Mode": "ephemeral"},
+        )
+    assert resp.status_code == 503
+    mock_stale.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_ai_service_ephemeral_failure_does_not_read_stale_translation():
+    from fastapi import HTTPException
+
+    from app.services.ai import get_completion
+
+    client = AsyncMock()
+    client.chat.completions.create.side_effect = RuntimeError("provider unavailable")
+    with (
+        patch("app.services.ai.check_and_track_groq_limits", new_callable=AsyncMock),
+        patch("app.services.ai._get_groq_client", return_value=client),
+        patch("app.services.ai._get_openrouter_client", return_value=None),
+        patch("app.services.ai.metrics.record_model_call", new_callable=AsyncMock),
+        patch("app.services.ai.find_stale_translation", new_callable=AsyncMock) as mock_stale,
+    ):
+        with pytest.raises(HTTPException):
+            await get_completion("private prompt", "system", "translation", ephemeral=True)
+
+    mock_stale.assert_not_awaited()
 
 
 def test_audit_digest_header_returned_on_all_modes(client: TestClient):
@@ -119,7 +157,7 @@ def test_code_to_code_ephemeral_headers(client: TestClient):
         headers={"X-Anuvaad-Privacy-Mode": "ephemeral"},
     )
     assert resp.status_code == 200
-    assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; zero-retention"
+    assert resp.headers.get("X-Anuvaad-Privacy") == "ephemeral; application-history-and-cache-skipped"
     assert "X-Anuvaad-Audit-Digest" in resp.headers
 
 

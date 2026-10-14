@@ -311,8 +311,13 @@ async def delete_by_id(item_id: str, email: str) -> bool:
             return False
 
 
-async def update_share_status(item_id: str, email: str, is_public: bool) -> bool:
-    """Toggle the is_public flag on a translation_history row.
+async def update_share_status(
+    item_id: str,
+    email: str,
+    is_public: bool,
+    share_expires_at: datetime | None = None,
+) -> bool:
+    """Update public visibility and optional expiry on an owned history row.
 
     Verifies ownership before updating. Returns True on success.
     """
@@ -326,7 +331,10 @@ async def update_share_status(item_id: str, email: str, is_public: bool) -> bool
                 update(TranslationHistory)
                 .where(TranslationHistory.id == item_uuid)
                 .where(TranslationHistory.user_email == email)
-                .values(is_public=is_public)
+                .values(
+                    is_public=is_public,
+                    share_expires_at=share_expires_at if is_public else None,
+                )
                 .returning(TranslationHistory.id)
             )
             updated = result.fetchone()
@@ -338,7 +346,7 @@ async def update_share_status(item_id: str, email: str, is_public: bool) -> bool
             return False
 
 
-async def delete_all_for_user(email: str) -> int:
+async def delete_all_for_user(email: str, *, raise_on_error: bool = False) -> int:
     """M-01: Hard-delete all translation_history rows for a user.
 
     Used during account deletion to prevent data leakage after the user's
@@ -357,4 +365,6 @@ async def delete_all_for_user(email: str) -> int:
         except Exception as e:
             logger.error(f"translation.delete_all_for_user({email}): {e}")
             await session.rollback()
+            if raise_on_error:
+                raise
             return 0

@@ -1,7 +1,9 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput, Share2, Link } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { Check, Copy, Download, Sparkles, ArrowLeftRight, Loader2, Diff, Code2, FileCode, Clock, Zap, FileOutput, Share2, Link, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { languages } from "../../_constants/languages";
@@ -32,6 +34,12 @@ interface OutputPanelProps {
   hasEdits: boolean;
   isSyncing: boolean;
   handleSyncEnglishToCode: () => void;
+  onRetry: () => void;
+  sessionId: string;
+  accessToken: string | null;
+  canShare: boolean;
+  workspaceId?: string;
+  sourceLanguage: string;
   targetLanguage: string;
   isDark: boolean;
   monacoOptions: Record<string, unknown>;
@@ -52,6 +60,12 @@ export function OutputPanel({
   hasEdits,
   isSyncing,
   handleSyncEnglishToCode,
+  onRetry,
+  sessionId,
+  accessToken,
+  canShare,
+  workspaceId,
+  sourceLanguage,
   targetLanguage,
   isDark,
   monacoOptions,
@@ -71,6 +85,7 @@ export function OutputPanel({
     diffOriginalCode,
     setDiffOriginalCode,
   } = useTranslationStore();
+  const [feedbackRating, setFeedbackRating] = useState<"useful" | "incorrect" | "unsupported" | null>(null);
 
   const fullCodeText = useMemo(() => {
     return outputBlocks
@@ -86,6 +101,21 @@ export function OutputPanel({
 
   const monacoLang = languages.find((l) => l.value === targetLanguage)?.monacoId || targetLanguage;
 
+  useEffect(() => {
+    setFeedbackRating(null);
+  }, [outputBlocks]);
+
+  const submitFeedback = (rating: "useful" | "incorrect" | "unsupported") => {
+    setFeedbackRating(rating);
+    track("translation_feedback", {
+      rating,
+      mode,
+      source_language: sourceLanguage,
+      target_language: targetLanguage,
+      model_used: modelUsed || "unknown",
+    });
+  };
+
   const handleEditBlock = useCallback(
     (index: number, newEnglish: string) => {
       setOutputBlocks((prev) => {
@@ -98,26 +128,72 @@ export function OutputPanel({
     [setOutputBlocks]
   );
 
-  // Share state: 'idle' | 'sharing' | 'copied'
-  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "sharing" | "shared">("idle");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareExpiryDays, setShareExpiryDays] = useState<"1" | "7" | "30" | "never">("7");
 
-  const handleShare = useCallback(async () => {
-    if (!outputBlocks || outputBlocks.length === 0) return;
+  const handleShare = useCallback(() => {
+    if (!outputBlocks?.length) return;
+    if (!accessToken) {
+      toast.error("Sign in and save this run to create a share link.");
+      return;
+    }
+    if (!canShare) {
+      toast.error("Turn on saved history for this run before sharing it.");
+      return;
+    }
+    setShareUrl(null);
+    setShareState("idle");
+    setShareDialogOpen(true);
+  }, [accessToken, canShare, outputBlocks]);
+
+  const makeSharePublic = useCallback(async () => {
+    if (!accessToken || !sessionId) return;
     setShareState("sharing");
     try {
-      // Use the most recent history item share endpoint
-      // Falls back to copying a deep-link if no server history item exists
-      const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL || window.location.origin;
-      // Attempt to share the last item from history via query param
-      const currentUrl = `${frontendUrl}/dashboard/translate`;
-      await navigator.clipboard.writeText(currentUrl);
-      setShareState("copied");
+      const historyUrl = new URL("/api/history", window.location.origin);
+      historyUrl.searchParams.set("limit", "20");
+      if (workspaceId) historyUrl.searchParams.set("workspace_id", workspaceId);
+      const historyResponse = await fetch(`${historyUrl.pathname}${historyUrl.search}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!historyResponse.ok) throw new Error("History lookup failed");
+      const historyData = await historyResponse.json();
+      const item = historyData.items?.find((entry: { session_id?: string; id?: string }) => entry.session_id === sessionId && entry.id);
+      if (!item?.id) throw new Error("Saved run not found");
+
+      const shareResponse = await fetch(`/api/history/${encodeURIComponent(item.id)}/share`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          is_public: true,
+          expires_in_days: shareExpiryDays === "never" ? null : Number(shareExpiryDays),
+        }),
+      });
+      if (!shareResponse.ok) throw new Error("Could not make run public");
+
+      setShareUrl(`${window.location.origin}/share/${encodeURIComponent(item.id)}`);
+      setShareState("shared");
       track("share_link_created", { mode });
-      setTimeout(() => setShareState("idle"), 2500);
     } catch {
       setShareState("idle");
+      toast.error("Could not create a share link. Confirm this run is saved, then try again.");
     }
-  }, [outputBlocks, mode]);
+  }, [accessToken, mode, sessionId, shareExpiryDays, workspaceId]);
+
+  const copyShareUrl = useCallback(async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success("Public link copied.");
+    } catch {
+      toast.error("Copy failed. Select and copy the link shown here.");
+    }
+  }, [shareUrl]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden relative">
@@ -212,20 +288,20 @@ export function OutputPanel({
               disabled={shareState === "sharing"}
               className={cn(
                 "h-7 gap-1.5 px-2.5 text-[10px] bg-background border-border font-bold transition-colors",
-                shareState === "copied"
+                shareState === "shared"
                   ? "border-emerald-500/30 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
                   : "hover:bg-muted"
               )}
-              title="Copy share link to clipboard"
+              title="Review and create a public share link"
             >
               {shareState === "sharing" ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
-              ) : shareState === "copied" ? (
+              ) : shareState === "shared" ? (
                 <Link className="h-3 w-3 text-emerald-600" />
               ) : (
                 <Share2 className="h-3 w-3 text-amber-500" />
               )}
-              {shareState === "copied" ? "Copied!" : "Share"}
+              {shareState === "shared" ? "Share link" : "Share"}
             </Button>
             <Button
               variant="outline"
@@ -374,9 +450,16 @@ export function OutputPanel({
               {rawError && (
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                  className="text-sm text-red-500 whitespace-pre-wrap font-mono mb-3 p-3 bg-red-500/10 rounded-lg border border-red-500/20"
+                  role="alert"
+                  className="flex flex-wrap items-center justify-between gap-3 text-sm text-red-700 dark:text-red-300 mb-3 p-3 bg-red-500/10 rounded-lg border border-red-500/20"
                 >
-                  {rawError}
+                  <span>{rawError}</span>
+                  {!isStreaming && (
+                    <Button type="button" variant="outline" size="sm" onClick={onRetry} aria-label="Try translation again">
+                      <RefreshCw aria-hidden="true" />
+                      Try again
+                    </Button>
+                  )}
                 </motion.div>
               )}
 
@@ -400,9 +483,14 @@ export function OutputPanel({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="p-6 text-sm text-red-500 whitespace-pre-wrap font-mono bg-red-500/5 m-4 rounded-xl border border-red-500/30 shadow-md"
+              role="alert"
+              className="m-4 flex flex-col items-start gap-4 p-6 text-sm text-red-700 dark:text-red-300 bg-red-500/5 rounded-xl border border-red-500/30 shadow-md"
             >
               {rawError}
+              <Button type="button" variant="outline" onClick={onRetry} aria-label="Try translation again">
+                <RefreshCw aria-hidden="true" />
+                Try again
+              </Button>
             </motion.div>
           ) : outputBlocks ? (
             <motion.div
@@ -471,15 +559,22 @@ export function OutputPanel({
                 </div>
               ) : (
                 /* Structured Blocks View */
-                <div className="p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar">
-                  {outputBlocks.map((block, idx) => (
-                    <BlockCard
-                      key={block.id || idx}
-                      block={block}
-                      index={idx}
-                      onEditBlock={handleEditBlock}
-                    />
-                  ))}
+                <div
+                  className="p-4 flex flex-col gap-3 overflow-y-auto custom-scrollbar"
+                  style={{ overflowAnchor: "auto" }}
+                >
+                  {outputBlocks.map((block, idx) => {
+                    const blockId = block.id || `block-${idx}`;
+                    return (
+                      <BlockCard
+                        key={blockId}
+                        blockId={blockId}
+                        block={block}
+                        index={idx}
+                        onEditBlock={handleEditBlock}
+                      />
+                    );
+                  })}
 
                   {modelUsed && (
                     <div className="mt-4 flex items-center justify-center">
@@ -514,6 +609,100 @@ export function OutputPanel({
           )}
         </AnimatePresence>
       </div>
+      {outputBlocks && outputBlocks.length > 0 && !isStreaming && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2 text-xs">
+          {mode !== "code-to-english" && (
+            <p className="w-full text-[10px] text-muted-foreground">
+              Anuvaad checks syntax when a parser is available. A syntax check does not confirm that code runs or preserves behavior.
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Rate this result">
+            <span className="text-muted-foreground">Was this result useful?</span>
+            {(["useful", "incorrect", "unsupported"] as const).map((rating) => (
+              <Button
+                key={rating}
+                type="button"
+                variant={feedbackRating === rating ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={feedbackRating === rating}
+                onClick={() => submitFeedback(rating)}
+                className="h-7 px-2 text-xs capitalize"
+              >
+                {rating}
+              </Button>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted-foreground" aria-live="polite">
+            {feedbackRating
+              ? "Thanks. Only result metadata is sent, and only with analytics consent."
+              : "Feedback never includes your code or prompt."}
+          </span>
+        </div>
+      )}
+      <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{shareUrl ? "Public link ready" : "Create a public link?"}</DialogTitle>
+            <DialogDescription>
+              Anyone with this link can view the saved translation. You can make it private from History at any time.
+            </DialogDescription>
+          </DialogHeader>
+          {!shareUrl && outputBlocks?.length ? (
+            <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-3">
+              <div>
+                <p className="mb-1 text-xs font-semibold text-foreground">Input preview (first 80 characters)</p>
+                <pre className="max-h-24 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">{input.slice(0, 80)}</pre>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-semibold text-foreground">Result preview (first 320 characters)</p>
+                <pre className="max-h-28 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
+                  {(mode === "code-to-english" ? outputBlocks[0]?.english_translation : outputBlocks[0]?.code_snippet)?.slice(0, 320) || "No preview available."}
+                </pre>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="translation-share-expiry" className="text-xs font-semibold text-foreground">Link expires</label>
+                <select
+                  id="translation-share-expiry"
+                  value={shareExpiryDays}
+                  onChange={(event) => setShareExpiryDays(event.target.value as typeof shareExpiryDays)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="1">After 1 day</option>
+                  <option value="7">After 7 days</option>
+                  <option value="30">After 30 days</option>
+                  <option value="never">Never</option>
+                </select>
+              </div>
+            </div>
+          ) : null}
+          {shareUrl ? (
+            <div className="space-y-2">
+              <input
+                aria-label="Public share link"
+                readOnly
+                value={shareUrl}
+                onFocus={(event) => event.currentTarget.select()}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+              <Button type="button" variant="outline" onClick={copyShareUrl} className="w-full">
+                <Copy aria-hidden="true" />
+                Copy link
+              </Button>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShareDialogOpen(false)} disabled={shareState === "sharing"}>
+              {shareUrl ? "Close" : "Cancel"}
+            </Button>
+            {!shareUrl && (
+              <Button type="button" onClick={makeSharePublic} disabled={shareState === "sharing"}>
+                {shareState === "sharing" ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Share2 aria-hidden="true" />}
+                {shareState === "sharing" ? "Creating link…" : "Make public and create link"}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

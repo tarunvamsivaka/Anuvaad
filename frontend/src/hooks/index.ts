@@ -97,5 +97,12 @@ export function useCredits(accessToken: string | undefined) {
     }
   };
 
-  return { credits, isLoading: !!accessToken && isLoading, setCredits };
+  return {
+    credits,
+    dailyLimit: typeof data?.limit === "number" ? data.limit : undefined,
+    remaining: typeof data?.remaining === "number" ? data.remaining : undefined,
+    tier: data?.tier as "guest" | "free" | "pro" | "admin" | undefined,
+    isLoading: !!accessToken && isLoading,
+    setCredits,
+  };
 }

@@ -1,35 +1,71 @@
-import { useState, memo } from "react";
+import { useState, memo, useCallback } from "react";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TypographyProse } from "@/design/primitives/TypographyProse";
 import { ChevronDown, ChevronUp, Copy, Check, Pencil, GripVertical, Sparkles } from "lucide-react";
 import { EnglishEditor } from "./EnglishEditor";
 import { TranslationBlock } from "../../_types";
+import { useTranslationStore } from "../../_store/useTranslationStore";
 
-interface BlockCardProps {
-  block: TranslationBlock;
+export interface BlockCardProps {
+  blockId?: string;
+  block?: TranslationBlock;
   index: number;
   onEditBlock?: (index: number, newEnglish: string) => void;
+  isStreaming?: boolean;
 }
 
-export const BlockCard = memo(function BlockCard({ block, index, onEditBlock }: BlockCardProps) {
+export const BlockCard = memo(function BlockCard({
+  blockId,
+  block: propBlock,
+  index,
+  onEditBlock,
+  isStreaming: propIsStreaming,
+}: BlockCardProps) {
+  // Granular subscription: Only re-render when this specific card's slice changes
+  const storeBlock = useTranslationStore(
+    useShallow((state) => (blockId ? state.blocksById[blockId] : undefined))
+  );
+  const updateBlockEnglish = useTranslationStore((state) => state.updateBlockEnglish);
+
+  const block = propBlock ?? storeBlock;
+  const isStreaming = propIsStreaming ?? false;
+
   const [collapsed, setCollapsed] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
-  const copyCode = () => {
+  const copyCode = useCallback(() => {
+    if (!block?.code_snippet) return;
     navigator.clipboard.writeText(block.code_snippet);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
-  };
+  }, [block?.code_snippet]);
 
-  const copyText = () => {
+  const copyText = useCallback(() => {
+    if (!block?.english_translation) return;
     navigator.clipboard.writeText(block.english_translation);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2000);
-  };
+  }, [block?.english_translation]);
+
+  // If the block is not yet available during initial mount, render a min-h-[120px] transition skeleton
+  if (!block) {
+    return (
+      <div
+        className="w-full mb-6 rounded-xl border border-border/50 bg-card/40 p-5 animate-pulse min-h-[120px] flex flex-col justify-center gap-2"
+        style={{ overflowAnchor: "auto" }}
+      >
+        <div className="h-4 w-24 bg-muted rounded" />
+        <div className="h-3 w-3/4 bg-muted/60 rounded" />
+        <div className="h-3 w-1/2 bg-muted/40 rounded" />
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -44,7 +80,8 @@ export const BlockCard = memo(function BlockCard({ block, index, onEditBlock }: 
         ease: [0.22, 1, 0.36, 1],
         y: { type: "spring", stiffness: 300, damping: 30 },
       }}
-      className="group relative flex w-full mb-6 items-start"
+      className={cn("group relative flex w-full mb-6 items-start min-h-[120px]", isStreaming && "opacity-90")}
+      style={{ overflowAnchor: "auto" }}
     >
       {/* Notion-style drag handle & block indicator */}
       <div className="absolute -left-10 top-3 flex items-center justify-center w-8 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -96,6 +133,9 @@ export const BlockCard = memo(function BlockCard({ block, index, onEditBlock }: 
                   <EnglishEditor
                     initialText={block.english_translation}
                     onSave={(newText) => {
+                      if (blockId) {
+                        updateBlockEnglish(blockId, newText);
+                      }
                       onEditBlock?.(index, newText);
                       setIsEditing(false);
                     }}
@@ -136,5 +176,13 @@ export const BlockCard = memo(function BlockCard({ block, index, onEditBlock }: 
         </AnimatePresence>
       </div>
     </motion.div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.blockId === nextProps.blockId &&
+    prevProps.index === nextProps.index &&
+    prevProps.isStreaming === nextProps.isStreaming &&
+    prevProps.onEditBlock === nextProps.onEditBlock &&
+    prevProps.block === nextProps.block
   );
 });
