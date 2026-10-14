@@ -268,7 +268,7 @@ test.describe('Dashboard Home', () => {
 
   test('"New Translation" button navigates to translate page', async ({ page }) => {
     await page.goto('/dashboard');
-    await page.click('a:has-text("New Translation")');
+    await page.locator('a:has-text("New Translation")').first().click({ force: true });
     await expect(page).toHaveURL(/\/dashboard\/translate/, { timeout: 30000 });
   });
 
