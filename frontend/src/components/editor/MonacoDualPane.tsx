@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useTranslationStore, LanguageOption } from "@/stores/translationStore";
 import { translateCode } from "@/lib/api";
+import { useShallow } from "zustand/react/shallow";
 
 // Dynamically import Monaco Editor to avoid SSR hydration issues and optimize bundle size
 const Editor = dynamic(() => import("@monaco-editor/react"), {
@@ -55,7 +56,25 @@ export function MonacoDualPane() {
     setError,
     setLastResponse,
     openReceiptModal,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      sourceLanguage: state.sourceLanguage,
+      targetLanguage: state.targetLanguage,
+      sourceCode: state.sourceCode,
+      translatedCode: state.translatedCode,
+      isLoading: state.isLoading,
+      error: state.error,
+      lastResponse: state.lastResponse,
+      setSourceLanguage: state.setSourceLanguage,
+      setTargetLanguage: state.setTargetLanguage,
+      setSourceCode: state.setSourceCode,
+      setTranslatedCode: state.setTranslatedCode,
+      setLoading: state.setLoading,
+      setError: state.setError,
+      setLastResponse: state.setLastResponse,
+      openReceiptModal: state.openReceiptModal,
+    }))
+  );
 
   const [copied, setCopied] = useState(false);
 

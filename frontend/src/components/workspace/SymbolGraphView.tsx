@@ -1,12 +1,23 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { Network, Layers, FileCode, CheckCircle2, ArrowRight } from "lucide-react";
 import { useTranslationStore } from "@/stores/translationStore";
+import { useShallow } from "zustand/react/shallow";
 
 export function SymbolGraphView() {
-  const { repoName, repoFiles, selectFile, setActiveView } = useTranslationStore();
-  const fileEntries = Object.entries(repoFiles);
+  // Optimization: Use `useShallow` with specific selectors to prevent re-renders when other unrelated states in the store change.
+  const { repoName, repoFiles, selectFile, setActiveView } = useTranslationStore(
+    useShallow((state) => ({
+      repoName: state.repoName,
+      repoFiles: state.repoFiles,
+      selectFile: state.selectFile,
+      setActiveView: state.setActiveView,
+    }))
+  );
+
+  // Optimization: Memoize the object entries conversion so it's not recalculated on every render.
+  const fileEntries = useMemo(() => Object.entries(repoFiles), [repoFiles]);
 
   const handleNodeClick = (path: string) => {
     selectFile(path);

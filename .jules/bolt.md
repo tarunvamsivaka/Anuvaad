@@ -1,0 +1,3 @@
+## 2024-03-22 - [Zustand Architecture Bottleneck]
+**Learning:** Components subscribing to the entire Zustand store without providing selectors (e.g. destructuring `const { x, y } = useStore()`) re-render whenever *any* state in the store updates. In an application with rapidly changing state (like a code editor updating text or translation progress), this causes massive performance degradation and unnecessary rendering cycles across the entire tree.
+**Action:** Always use selectors wrapped with `useShallow` from `zustand/react/shallow` (e.g. `useStore(useShallow(state => ({ x: state.x, y: state.y })))`) when subscribing to specific states in Zustand, and ensure heavy derived operations (e.g. `.map()` and `.filter()`) are wrapped in `useMemo`.
