@@ -685,6 +685,7 @@ async def stream_code_to_english(
             # Check Semantic AST Cache first (deduplicates identical code with different comments/formatting)
             try:
                 from app.services.ast_cache import get_cached_ast_translation
+
                 ast_cached = await get_cached_ast_translation(payload.raw_code, payload.language)
                 if ast_cached and isinstance(ast_cached, dict) and "blocks" in ast_cached:
                     await metrics.record_cache_hit()
@@ -699,7 +700,7 @@ async def stream_code_to_english(
                             target_language="english",
                             input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
                             input_hash=_code_hash,
-                            blocks=ast_cached['blocks'],
+                            blocks=ast_cached["blocks"],
                             model_used=model_name,
                             workspace_id=payload.workspace_id,
                             session_id=payload.session_id,
@@ -745,8 +746,7 @@ async def stream_code_to_english(
             logger.info("Using client BYOK API key: %s (credit deduction bypassed)", redacted_key)
             deduct_credit_flag = False
             byok_client = AsyncOpenAI(
-                api_key=user_llm_key.strip(),
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+                api_key=user_llm_key.strip(), base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
             )
             providers.insert(0, (byok_client, "gemini-2.5-flash", "BYOK Gemini 2.5 Flash"))
 
@@ -856,7 +856,10 @@ async def stream_code_to_english(
             await cache.put(key, result, 86400 * 7)
             try:
                 from app.services.ast_cache import set_cached_ast_translation
-                await set_cached_ast_translation(payload.raw_code, payload.language, {"blocks": result, "model_used": used_model})
+
+                await set_cached_ast_translation(
+                    payload.raw_code, payload.language, {"blocks": result, "model_used": used_model}
+                )
             except Exception as _ast_save_err:
                 logger.debug(f"AST cache store bypassed: {_ast_save_err}")
 
@@ -927,6 +930,7 @@ async def stream_code_to_code(
             # Check Semantic AST Cache first (deduplicates identical code with different comments/formatting)
             try:
                 from app.services.ast_cache import get_cached_ast_translation
+
                 ast_cached = await get_cached_ast_translation(payload.raw_code, payload.language)
                 if ast_cached and isinstance(ast_cached, dict) and "blocks" in ast_cached:
                     await metrics.record_cache_hit()
@@ -941,7 +945,7 @@ async def stream_code_to_code(
                             target_language="english",
                             input_text=f"[ZDR-PROTECTED: {len(payload.raw_code)} chars | {payload.language}]",
                             input_hash=_code_hash,
-                            blocks=ast_cached['blocks'],
+                            blocks=ast_cached["blocks"],
                             model_used=model_name,
                             workspace_id=payload.workspace_id,
                             session_id=payload.session_id,
@@ -1151,7 +1155,10 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
             await cache.put(key, result, 86400 * 7)
             try:
                 from app.services.ast_cache import set_cached_ast_translation
-                await set_cached_ast_translation(payload.raw_code, payload.language, {"blocks": result, "model_used": used_model})
+
+                await set_cached_ast_translation(
+                    payload.raw_code, payload.language, {"blocks": result, "model_used": used_model}
+                )
             except Exception as _ast_save_err:
                 logger.debug(f"AST cache store bypassed: {_ast_save_err}")
 

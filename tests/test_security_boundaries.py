@@ -1,17 +1,16 @@
 import base64
-import hmac
-import hashlib
-import time
 import os
-import pytest
-from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+
 from fastapi import Request
-from app.main import app
+from fastapi.testclient import TestClient
+
+from app.core.audit import generate_audit_receipt, verify_audit_receipt
 from app.core.auth import get_client_ip
-from app.core.audit import verify_audit_receipt, generate_audit_receipt
+from app.main import app
 
 client = TestClient(app)
+
 
 class TestSecurityBoundaries:
     """Rigorous security regression tests verifying the 7 hardened security controls."""
@@ -31,8 +30,7 @@ class TestSecurityBoundaries:
         user = "test_metrics_user"
         pw = "test_metrics_pass_secret"
         valid_auth = base64.b64encode(f"{user}:{pw}".encode()).decode("utf-8")
-        with patch("app.routers.utility.METRICS_USERNAME", user), \
-             patch("app.routers.utility.METRICS_PASSWORD", pw):
+        with patch("app.routers.utility.METRICS_USERNAME", user), patch("app.routers.utility.METRICS_PASSWORD", pw):
             resp = client.get("/metrics", headers={"Authorization": f"Basic {valid_auth}"})
             assert resp.status_code == 200
             data = resp.json()
@@ -68,23 +66,31 @@ class TestSecurityBoundaries:
 
     def test_stripe_webhook_rejects_forged_signature(self):
         import stripe
-        with patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"), \
-             patch("app.routers.billing.stripe.Webhook.construct_event", side_effect=stripe.SignatureVerificationError("invalid sig", "sig")):
+
+        with (
+            patch("app.routers.billing.STRIPE_WEBHOOK_SECRET", "whsec_test_123"),
+            patch(
+                "app.routers.billing.stripe.Webhook.construct_event",
+                side_effect=stripe.SignatureVerificationError("invalid sig", "sig"),
+            ),
+        ):
             resp = client.post(
                 "/api/v1/billing/webhook/stripe",
                 content=b'{"id":"evt_invalid"}',
-                headers={"stripe-signature": "forged_signature"}
+                headers={"stripe-signature": "forged_signature"},
             )
             assert resp.status_code == 400
 
     def test_razorpay_webhook_rejects_forged_signature(self):
-        with patch("app.routers.billing.RAZORPAY_WEBHOOK_SECRET", "secret_123"), \
-             patch("app.routers.billing.razorpay_client") as mock_rz:
+        with (
+            patch("app.routers.billing.RAZORPAY_WEBHOOK_SECRET", "secret_123"),
+            patch("app.routers.billing.razorpay_client") as mock_rz,
+        ):
             mock_rz.utility.verify_webhook_signature.side_effect = Exception("Signature verification failed")
             resp = client.post(
                 "/api/v1/webhook/razorpay",
                 content=b'{"event": "payment.captured"}',
-                headers={"x-razorpay-signature": "forged_invalid_signature_hex"}
+                headers={"x-razorpay-signature": "forged_invalid_signature_hex"},
             )
             assert resp.status_code == 400
 
@@ -99,24 +105,31 @@ class TestSecurityBoundaries:
         assert receipt["retention_policy"] == "RAM_ONLY_EPHEMERAL"
 
         # Valid verification
-        assert verify_audit_receipt(
-            user_id=receipt["user_id"],
-            timestamp_utc=receipt["timestamp_utc"],
-            code_hash=receipt["sha256_input_hash"],
-            audit_digest=receipt["audit_digest"]
-        ) is True
+        assert (
+            verify_audit_receipt(
+                user_id=receipt["user_id"],
+                timestamp_utc=receipt["timestamp_utc"],
+                code_hash=receipt["sha256_input_hash"],
+                audit_digest=receipt["audit_digest"],
+            )
+            is True
+        )
 
         # Tampered code_hash must be rejected
-        assert verify_audit_receipt(
-            user_id=receipt["user_id"],
-            timestamp_utc=receipt["timestamp_utc"],
-            code_hash="tampered_hash_value_12345",
-            audit_digest=receipt["audit_digest"]
-        ) is False
+        assert (
+            verify_audit_receipt(
+                user_id=receipt["user_id"],
+                timestamp_utc=receipt["timestamp_utc"],
+                code_hash="tampered_hash_value_12345",
+                audit_digest=receipt["audit_digest"],
+            )
+            is False
+        )
 
     # 5. Tenant Isolation on Semantic Search / Workspaces
     def test_tenant_scoping_isolation(self):
         from app.models.schemas import CodePayload
+
         payload_tenant_a = CodePayload(raw_code="x = 1", language="python", workspace_id="workspace-aaa")
         payload_tenant_b = CodePayload(raw_code="x = 1", language="python", workspace_id="workspace-bbb")
 

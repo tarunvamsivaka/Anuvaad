@@ -1,7 +1,10 @@
-import pytest
-from app.services.ast_cache import compute_ast_cache_key, normalize_code_ast
-from app.core.cache import TTLCache, RedisCache
 import time
+
+import pytest
+
+from app.core.cache import RedisCache, TTLCache
+from app.services.ast_cache import compute_ast_cache_key
+
 
 def test_ast_hash_normalization_equivalence():
     """Verify that identical Python functions with different comments and formatting

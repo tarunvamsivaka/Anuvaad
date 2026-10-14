@@ -83,8 +83,8 @@ def test_alembic_linear_dag_traversal():
         "b2e4f8a1c3d7",  # Sprint 3: add input_hash for ZDR compliance
         "013_halfvec_and_ivfflat",
         "012_grant_anon_translation_count",
-        "011_add_indexed_by_to_repo_embeddings",
-        "010_add_performance_and_fk_indexes",
+        "011_indexed_by_repo_embed",
+        "010_perf_and_fk_indexes",
         "009_phase_2a",
         "008_phase_1c",
         "007_phase_1b",

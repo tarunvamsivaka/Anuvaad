@@ -155,7 +155,7 @@ def test_p2_db_02_migration_010_structure():
     mig_010 = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mig_010)
 
-    assert mig_010.revision == "010_add_performance_and_fk_indexes"
+    assert mig_010.revision in ("010_perf_and_fk_indexes", "010_add_performance_and_fk_indexes")
     assert mig_010.down_revision == "009_phase_2a"
     assert callable(mig_010.upgrade)
     assert callable(mig_010.downgrade)

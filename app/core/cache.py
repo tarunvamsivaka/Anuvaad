@@ -2,7 +2,9 @@ import collections
 import hashlib
 import json
 import os
+import sys
 import time
+import types
 from urllib.parse import urlparse
 
 from app.core.config import logger
@@ -111,7 +113,6 @@ class TTLCache:
         self._data.clear()
 
 
-import sys, types
 if "cachetools" not in sys.modules:
     cachetools_mod = types.ModuleType("cachetools")
     cachetools_mod.TTLCache = TTLCache

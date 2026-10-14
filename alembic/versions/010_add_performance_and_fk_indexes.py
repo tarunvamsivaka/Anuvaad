@@ -1,6 +1,6 @@
 """Add performance and foreign key indexes on high-traffic tables.
 
-Revision ID: 010_add_performance_and_fk_indexes
+Revision ID: 010_perf_and_fk_indexes
 Revises: 009_phase_2a
 Create Date: 2026-08-15 12:00:00.000000
 
@@ -9,7 +9,7 @@ Create Date: 2026-08-15 12:00:00.000000
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "010_add_performance_and_fk_indexes"
+revision = "010_perf_and_fk_indexes"
 down_revision = "009_phase_2a"
 branch_labels = None
 depends_on = None

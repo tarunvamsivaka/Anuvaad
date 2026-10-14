@@ -1,7 +1,10 @@
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from app.models.schemas import CodePayload
 from app.services.ai import stream_code_to_english
+
 
 @pytest.mark.asyncio
 async def test_byok_key_redaction_and_injection():
@@ -11,19 +14,21 @@ async def test_byok_key_redaction_and_injection():
 
     # Verify that stream_code_to_english accepts user_llm_key without crashing
     # We mock _build_streaming_providers and AsyncOpenAI to avoid real network calls
-    with patch("app.services.ai.logger") as mock_logger, \
-         patch("app.services.ai.AsyncOpenAI") as mock_openai, \
-         patch("app.services.ai._inject_symbol_contract", new_callable=AsyncMock) as mock_sym:
-
+    with (
+        patch("app.services.ai.logger") as mock_logger,
+        patch("app.services.ai.AsyncOpenAI") as mock_openai,
+        patch("app.services.ai._inject_symbol_contract", new_callable=AsyncMock) as mock_sym,
+    ):
         mock_sym.return_value = "System Instruction"
         mock_client = MagicMock()
         mock_openai.return_value = mock_client
 
         # Fake streaming completion
         mock_stream = AsyncMock()
+
         async def mock_chunks():
             yield '{"chunk": "test", "done": false}'
-        
+
         mock_client.chat.completions.create = AsyncMock(return_value=mock_stream)
 
         # Run stream generator

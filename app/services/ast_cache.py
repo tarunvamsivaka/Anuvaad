@@ -119,7 +119,7 @@ def compute_ast_cache_key(code: str, language: str) -> str:
     """Compute deterministic SHA-256 digest of normalized AST."""
     lang = language.lower().strip()
     normalized = normalize_code_ast(code, lang)
-    digest = hashlib.sha256(f"{lang}:{normalized}".encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(f"{lang}:{normalized}".encode()).hexdigest()
     return f"ast_cache:{digest}"
 
 
@@ -129,9 +129,7 @@ async def get_cached_ast_translation(code: str, language: str) -> dict[str, Any]
     return await cache.get(cache_key)
 
 
-async def set_cached_ast_translation(
-    code: str, language: str, data: dict[str, Any], ttl: int = 86400
-) -> None:
+async def set_cached_ast_translation(code: str, language: str, data: dict[str, Any], ttl: int = 86400) -> None:
     """Store AST translation in L1/L2 cache."""
     cache_key = compute_ast_cache_key(code, language)
     await cache.put(cache_key, data, ttl=ttl)

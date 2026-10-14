@@ -63,7 +63,15 @@ async def function_translate_to_english_stream(
 
     return StreamingResponse(
         stream_code_to_english(
-            payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown, ephemeral=is_ephemeral, user_llm_key=user_llm_key
+            payload,
+            email,
+            is_pro,
+            use_r1,
+            tier,
+            deduct_credit_flag,
+            cooldown,
+            ephemeral=is_ephemeral,
+            user_llm_key=user_llm_key,
         ),
         media_type="text/event-stream",
         headers=headers,

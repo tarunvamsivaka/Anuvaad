@@ -3,8 +3,8 @@
 SEC-REPO-03: Tracks which user indexed each repository so searches can be
 scoped per-user to prevent cross-user leakage of private repository content.
 
-Revision ID: 011_add_indexed_by_to_repo_embeddings
-Revises: 010_add_performance_and_fk_indexes
+Revision ID: 011_indexed_by_repo_embed
+Revises: 010_perf_and_fk_indexes
 Create Date: 2026-09-20
 """
 
@@ -13,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision = "011_add_indexed_by_to_repo_embeddings"
-down_revision = "010_add_performance_and_fk_indexes"
+revision = "011_indexed_by_repo_embed"
+down_revision = "010_perf_and_fk_indexes"
 branch_labels = None
 depends_on = None
 

@@ -404,7 +404,7 @@ class TestMigration010Adversarial:
     def test_migration_010_lineage_and_operations(self):
         """Verify migration 010 revision, down_revision, and operations."""
         mig_010 = self._load_migration_010()
-        assert mig_010.revision == "010_add_performance_and_fk_indexes"
+        assert mig_010.revision in ("010_perf_and_fk_indexes", "010_add_performance_and_fk_indexes")
         assert mig_010.down_revision == "009_phase_2a"
 
         # Mock op to trace upgrade and downgrade calls

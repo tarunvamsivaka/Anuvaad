@@ -82,8 +82,7 @@ def _extract_origin(url_string: str) -> str | None:
             return None
         # Include port only when non-standard
         if parsed.port and (
-            (parsed.scheme == "https" and parsed.port != 443)
-            or (parsed.scheme == "http" and parsed.port != 80)
+            (parsed.scheme == "https" and parsed.port != 443) or (parsed.scheme == "http" and parsed.port != 80)
         ):
             return f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"
         return f"{parsed.scheme}://{parsed.hostname}"

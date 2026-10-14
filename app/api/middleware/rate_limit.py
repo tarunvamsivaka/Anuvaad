@@ -74,7 +74,7 @@ async def rate_limit_middleware(request: Request, call_next):
     auth_header = request.headers.get("Authorization")
     token_hash = None
     if auth_header and auth_header.startswith("Bearer "):
-        raw_token = auth_header[len("Bearer "):].strip()
+        raw_token = auth_header[len("Bearer ") :].strip()
         if raw_token:
             token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
 

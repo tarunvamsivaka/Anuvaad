@@ -349,6 +349,7 @@ async def health_ready(request: Request = None):
     db_ok = True
     try:
         from app.core.database import check_db_health
+
         db_ok = await check_db_health()
     except Exception:
         db_ok = True

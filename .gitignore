@@ -22,6 +22,7 @@ env/
 node_modules/
 
 # Next.js build output
+.next/
 frontend/.next/
 frontend/test-results/
 frontend/playwright-report/
@@ -64,6 +65,7 @@ vscode-extension/out/
 vscode-extension/*.vsix
 vscode-extension/.vscode-test/
 .agents/
+.gsd/
 
 # Certificates, private keys, and credential stores
 *.pem

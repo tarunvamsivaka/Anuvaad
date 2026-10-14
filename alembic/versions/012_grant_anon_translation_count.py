@@ -11,7 +11,7 @@ The function uses SECURITY DEFINER so it runs as the defining role,
 preventing direct table access while exposing only the aggregate count.
 
 Revision ID: 012_grant_anon_translation_count
-Revises: 011_add_indexed_by_to_repo_embeddings
+Revises: 011_indexed_by_repo_embed
 Create Date: 2026-09-20
 """
 
@@ -19,7 +19,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "012_grant_anon_translation_count"
-down_revision = "011_add_indexed_by_to_repo_embeddings"
+down_revision = "011_indexed_by_repo_embed"
 branch_labels = None
 depends_on = None
 
