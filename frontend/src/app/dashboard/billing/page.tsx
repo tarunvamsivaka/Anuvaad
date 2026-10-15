@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, Zap, CreditCard, Loader2, X, PartyPopper } from "lucide-react";
+import { Check, Zap, CreditCard, Loader2, X, PartyPopper, Key } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -15,6 +15,8 @@ import { useSubscriptionStatus, useTranslationStats } from "@/lib/hooks";
 import Script from "next/script";
 import { mutate } from "swr";
 import { usePublicQuotaLimits } from "@/lib/use-public-quota-limits";
+import { hasByokKey } from "@/lib/byok-vault";
+import { ByokVaultModal } from "@/components/modals/ByokVaultModal";
 
 function BillingPageContent() {
   const router = useRouter();
@@ -24,6 +26,17 @@ function BillingPageContent() {
   const searchParams = useSearchParams();
   const [paymentStatus, setPaymentStatus] = useState<"success" | "cancel" | null>(null);
   const { data: quotaLimits } = usePublicQuotaLimits();
+  const [hasByok, setHasByok] = useState(false);
+  const [isByokOpen, setIsByokOpen] = useState(false);
+
+  useEffect(() => {
+    const checkByok = () => {
+      hasByokKey().then(setHasByok).catch(() => setHasByok(false));
+    };
+    checkByok();
+    window.addEventListener("byok-vault-updated", checkByok);
+    return () => window.removeEventListener("byok-vault-updated", checkByok);
+  }, []);
 
   const { subscription } = useSubscriptionStatus(session?.access_token);
   const { stats, isLoading: statsLoading } = useTranslationStats(session?.user?.email, session?.access_token);
@@ -311,14 +324,25 @@ function BillingPageContent() {
             </div>
             
             <div className="mt-8 space-y-3">
-              <Button 
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-2 h-11 px-6 shadow-md shadow-amber-500/20 rounded-xl cursor-pointer" 
-                onClick={handleUpgrade} 
-                disabled={loading || !enableBilling}
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                {loading ? "Allocating Gateway..." : enableBilling ? "Activate Pro — $19/Month" : "Subscriptions Paused"}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button 
+                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 hover:text-slate-950 font-bold uppercase tracking-wider text-xs gap-2 h-11 px-6 shadow-md shadow-amber-500/20 rounded-xl cursor-pointer" 
+                  onClick={handleUpgrade} 
+                  disabled={loading || !enableBilling}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                  {loading ? "Allocating Gateway..." : enableBilling ? "Activate Pro — $19/Month" : "Subscriptions Paused"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsByokOpen(true)}
+                  className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-bold uppercase tracking-wider text-xs gap-2 h-11 px-6 rounded-xl cursor-pointer"
+                >
+                  <Key className="h-4 w-4" />
+                  {hasByok ? "BYOK Active (Configure Vault)" : "Use Own API Key (Unlimited · $0)"}
+                </Button>
+              </div>
               {!enableBilling && (
                 <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 italic font-medium leading-relaxed max-w-md">
                   * Checkout availability is controlled by the service configuration. Review the current status here before attempting to subscribe.
@@ -327,6 +351,7 @@ function BillingPageContent() {
             </div>
           </Card>
         )}
+        <ByokVaultModal isOpen={isByokOpen} onClose={() => setIsByokOpen(false)} />
 
         {/* Pro success card */}
         {isActuallyPro && (

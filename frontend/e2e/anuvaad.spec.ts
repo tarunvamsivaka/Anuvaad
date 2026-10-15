@@ -277,6 +277,7 @@ test.describe('Dashboard Home', () => {
     await page.goto('/dashboard');
     const sidebar = desktopSidebar(page);
     await expect(sidebar.locator('text=Plans paused')).toBeVisible({ timeout: 8000 });
+    await expect(sidebar.locator('button:has-text("Use Own API Key")')).toBeVisible();
     await expect(sidebar.locator('a:has-text("Billing status")')).toBeVisible();
   });
 

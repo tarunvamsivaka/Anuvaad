@@ -1,0 +1,32 @@
+name: Production Backend Keep-Warm Heartbeat
+
+on:
+  schedule:
+    # Ping every 14 minutes to prevent Render free container sleep
+    - cron: '*/14 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: keep-warm-heartbeat
+  cancel-in-progress: true
+
+jobs:
+  heartbeat:
+    name: Ping Render Live Health
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Keep-Warm Heartbeat
+        run: |
+          echo "Pinging production backend live health endpoint..."
+          START_TIME=$(date +%s%N)
+          HTTP_STATUS=$(curl -fsS -o /dev/null -w "%{http_code}" --max-time 10 "https://anuvaad-fb93.onrender.com/health/live")
+          END_TIME=$(date +%s%N)
+          LATENCY_MS=$(( (END_TIME - START_TIME) / 1000000 ))
+          
+          echo "Endpoint responded with HTTP ${HTTP_STATUS} in ${LATENCY_MS}ms"
+          if [ "${HTTP_STATUS}" -ne 200 ]; then
+            echo "::warning::Health check returned unexpected status: ${HTTP_STATUS}"
+            exit 1
+          fi

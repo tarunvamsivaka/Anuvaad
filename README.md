@@ -1,12 +1,41 @@
 # Anuvaad — AI Code Translation & Architectural Intelligence Platform
 
-[![Version](https://img.shields.io/badge/version-v1.0.0--prod-blue.svg)](https://github.com/tarunvamsivaka/Anuvaad/releases)
+[![Version](https://img.shields.io/badge/version-v1.1.0--prod-blue.svg)](https://github.com/tarunvamsivaka/Anuvaad/releases)
 [![CI Status](https://github.com/tarunvamsivaka/Anuvaad/actions/workflows/ci.yml/badge.svg)](https://github.com/tarunvamsivaka/Anuvaad/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Infrastructure Budget](https://img.shields.io/badge/Infrastructure-%240.00%2Fmonth-brightgreen.svg)](#)
 [![Live Platform](https://img.shields.io/badge/Live-getanuvaad.vercel.app-blueviolet.svg)](https://getanuvaad.vercel.app)
 
-Anuvaad is a high-performance web workspace for explaining code, generating code from plain English, and translating between programming languages. Operating strictly on a **$0.00/month infrastructure budget**, Anuvaad provides real-time dual-pane AST-validated translation, 60 FPS stream buffering, two-tier in-memory/Redis caching, and client-side encrypted Bring-Your-Own-Key (BYOK) privacy.
+Anuvaad is a high-performance web workspace for explaining code, generating code from plain English, and translating between programming languages. Operating strictly on a **$0.00/month infrastructure budget**, Anuvaad provides real-time dual-pane AST-validated translation, 60 FPS stream buffering, two-tier in-memory/Redis caching, client-side encrypted Bring-Your-Own-Key (BYOK) privacy, and client-side AST codemod modernization.
+
+---
+
+## Ecosystem: CLI & VS Code Extension
+
+Anuvaad is available across the web, your command line, and your IDE. Direct installation commands:
+
+### 1. Anuvaad CLI (`@anuvaad/cli`)
+Translate, review, and modernize code directly from your terminal:
+```bash
+# Install globally from GitHub Release tarball
+npm i -g https://github.com/tarunvamsivaka/Anuvaad/releases/download/v1.1.0-prod/anuvaad-cli-1.1.0.tgz
+
+# Verify installation
+anuvaad --version
+anuvaad translate ./src/LegacyComponent.jsx --to typescript
+```
+
+### 2. Anuvaad VS Code Extension (`anuvaad-vscode`)
+Instant inline code translation and explainers right inside VS Code:
+```bash
+# Install via VS Code CLI
+code --install-extension https://github.com/tarunvamsivaka/Anuvaad/releases/download/v1.1.0-prod/anuvaad-vscode-1.1.0.vsix
+
+# Or install locally if downloaded:
+code --install-extension anuvaad-vscode-0.1.0.vsix
+```
+
+---
 
 ---
 

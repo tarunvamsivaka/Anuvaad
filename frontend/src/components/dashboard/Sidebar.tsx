@@ -5,7 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Code2, History, Settings, CreditCard,
   LayoutDashboard, Menu, X, Users,
-  Zap, GitPullRequest, PanelLeftClose, PanelLeftOpen
+  Zap, GitPullRequest, PanelLeftClose, PanelLeftOpen,
+  Key, ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/landing/Logo";
@@ -15,6 +16,8 @@ import { useState, useEffect, Suspense } from "react";
 import { WorkspaceSwitcher } from "@/components/dashboard/TopBar";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { ErrorCard } from "@/components/ui/error-card";
+import { hasByokKey } from "@/lib/byok-vault";
+import { ByokVaultModal } from "@/components/modals/ByokVaultModal";
 
 const sidebarLinks = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, desc: "Overview" },
@@ -41,6 +44,18 @@ function SidebarContent({
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }) {
+  const [hasByok, setHasByok] = useState(false);
+  const [isByokOpen, setIsByokOpen] = useState(false);
+
+  useEffect(() => {
+    const checkByok = () => {
+      hasByokKey().then(setHasByok).catch(() => setHasByok(false));
+    };
+    checkByok();
+    window.addEventListener("byok-vault-updated", checkByok);
+    return () => window.removeEventListener("byok-vault-updated", checkByok);
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       {/* Logo and Collapse Toggle Header */}
@@ -125,30 +140,47 @@ function SidebarContent({
 
       {/* Bottom section */}
       <div className="shrink-0 p-2.5 space-y-2">
-        {/* Upgrade CTA for free users */}
+        {/* Upgrade / BYOK CTA for free users */}
         {!isPro && (
           <div className={cn(
             "relative overflow-hidden rounded-xl border border-border-medium bg-gradient-to-br from-amber-500/10 to-orange-500/5 transition-all duration-200 p-2.5",
             isCollapsed ? "flex items-center justify-center h-10 p-0" : "block"
           )}>
             {isCollapsed ? (
-              <Link
-                href="/dashboard/billing"
+              <button
+                type="button"
+                onClick={() => setIsByokOpen(true)}
                 className="flex items-center justify-center w-full h-full text-amber-500 hover:text-amber-400 py-2.5"
-                aria-label="View billing status"
-                title="View billing status"
+                aria-label="Configure BYOK Vault"
+                title="Configure BYOK Vault"
               >
-                <Zap className="h-4 w-4 fill-current" />
-              </Link>
+                <Key className="h-4 w-4" />
+              </button>
             ) : (
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-amber-500 fill-current" />
-                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Plans paused</span>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-amber-500 fill-current" />
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Plans paused</span>
+                  </div>
+                  {hasByok && (
+                    <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">
+                      <ShieldCheck className="h-3 w-3 text-emerald-400" />
+                      BYOK Active · Unlimited
+                    </span>
+                  )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIsByokOpen(true)}
+                  className="w-full text-center text-[11px] font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-lg py-1.5 transition-colors shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Key className="h-3.5 w-3.5" />
+                  Use Own API Key (Unlimited · $0)
+                </button>
                 <Link
                   href="/dashboard/billing"
-                  className="block w-full text-center text-[11px] font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-lg py-1.5 transition-colors shadow-xs"
+                  className="block w-full text-center text-[10px] font-medium text-slate-400 hover:text-slate-200 underline decoration-slate-600 transition-colors"
                 >
                   Billing status
                 </Link>
@@ -156,6 +188,7 @@ function SidebarContent({
             )}
           </div>
         )}
+        <ByokVaultModal isOpen={isByokOpen} onClose={() => setIsByokOpen(false)} />
         {!isCollapsed && (
           <div className="px-2 py-1.5 font-mono text-[10px] text-slate-500 border-t border-border-faint flex items-center justify-between">
             <span className="flex items-center gap-1.5">
