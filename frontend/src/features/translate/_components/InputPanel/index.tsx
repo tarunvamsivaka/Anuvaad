@@ -8,6 +8,7 @@ import { FileDropZone } from "./FileDropZone";
 import { languages } from "../../_constants/languages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useShallow } from "zustand/react/shallow";
 import { useTranslationStore } from "../../_store/useTranslationStore";
 import { detectLanguage } from "../../_hooks/useLanguageDetection";
 
@@ -99,7 +100,7 @@ export function InputPanel({
   handleSelectFile,
   setFileList,
 }: InputPanelProps) {
-  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks } = useTranslationStore();
+  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks } = useTranslationStore(useShallow(state => ({ input: state.input, setInput: state.setInput, isStreaming: state.isStreaming, detectedLang: state.detectedLang, setDetectedLang: state.setDetectedLang, outputBlocks: state.outputBlocks })));
   const hasOutputBlocks = !!outputBlocks && outputBlocks.length > 0;
 
   useEffect(() => {
