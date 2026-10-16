@@ -23,7 +23,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [],
   },
   experimental: {
-    optimizeCss: true,
     optimizePackageImports: ["lucide-react", "@radix-ui/react-icons", "framer-motion", "@monaco-editor/react"],
   },
   turbopack: {},
