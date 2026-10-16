@@ -4,6 +4,7 @@ import { mutate } from "swr";
 import { track } from "@/lib/analytics";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
 import { useTranslationStore } from "../_store/useTranslationStore";
+import { useShallow } from "zustand/react/shallow";
 
 import type { Workspace } from "@/context/WorkspaceContext";
 import type { AnuvaadSession } from "@/lib/supabase-types";
@@ -46,7 +47,21 @@ export function useTranslationSession({
     setRawError,
     sessionId,
     setDiffOriginalCode,
-  } = useTranslationStore();
+  } = useTranslationStore(useShallow((state) => ({
+    input: state.input,
+    outputBlocks: state.outputBlocks,
+    originalBlocks: state.originalBlocks,
+    setInput: state.setInput,
+    setOriginalBlocks: state.setOriginalBlocks,
+    setOutputBlocks: state.setOutputBlocks,
+    setStreamText: state.setStreamText,
+    setRawError: state.setRawError,
+    setModelUsed: state.setModelUsed,
+    sessionId: state.sessionId,
+    setSessionId: state.setSessionId,
+    setIsStreaming: state.setIsStreaming,
+    setDiffOriginalCode: state.setDiffOriginalCode,
+  })));
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [copied, setCopied] = useState(false);

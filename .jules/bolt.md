@@ -1,0 +1,3 @@
+## 2024-05-30 - [Optimize Zustand subscriptions]
+**Learning:** React components subscribing to Zustand stores without specific selectors or `useShallow` re-render on any store update. `useShallow` hook from `zustand/react/shallow` should be used when subscribing to multiple state variables to prevent $O(N)$ calculations and redundant evaluations on every render.
+**Action:** Used `useShallow` hook to optimize component rerenders for `InputPanel`, `OutputPanel`, `useTranslationStream` and `useTranslationSession`. Also used a specific state selector in `useFileImport` because we were only using `setInput` from the store.
