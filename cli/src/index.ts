@@ -68,7 +68,13 @@ function getFilesRecursively(dir: string, baseDir = dir): Array<{ file_path: str
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (args.includes("--version") || args.includes("-v")) {
-    console.log("1.0.0");
+    try {
+      const pkgPath = path.join(__dirname, "../package.json");
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+      console.log(pkg.version || "1.2.0");
+    } catch {
+      console.log("1.2.0");
+    }
     return;
   }
   if (args.length === 0 || args.includes("--help") || args.includes("-h") || args[0] === "help") {

@@ -1,6 +1,6 @@
 {
   "name": "@anuvaad/cli",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AI-powered code translation CLI — translate, explain, and review code from your terminal",
   "homepage": "https://getanuvaad.vercel.app",
   "repository": {

@@ -1,10 +1,11 @@
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, RotateCcw, Sparkles, X, FileCode, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FileDropZone } from "./FileDropZone";
+import { AstToolbar } from "./AstToolbar";
 import { languages } from "../../_constants/languages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -99,8 +100,45 @@ export function InputPanel({
   handleSelectFile,
   setFileList,
 }: InputPanelProps) {
-  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks } = useTranslationStore();
+  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } = useTranslationStore();
   const hasOutputBlocks = !!outputBlocks && outputBlocks.length > 0;
+  const decorationsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const editor = (window as unknown as Record<string, any>).__monacoEditor;
+    if (!editor || typeof editor.deltaDecorations !== "function") return;
+
+    if (!activeHoveredBlockId || !outputBlocks) {
+      decorationsRef.current = editor.deltaDecorations(decorationsRef.current, []);
+      return;
+    }
+
+    const targetBlock = outputBlocks.find((b) => b.id === activeHoveredBlockId);
+    if (!targetBlock || targetBlock.startLine === undefined || targetBlock.endLine === undefined) {
+      decorationsRef.current = editor.deltaDecorations(decorationsRef.current, []);
+      return;
+    }
+
+    decorationsRef.current = editor.deltaDecorations(decorationsRef.current, [
+      {
+        range: {
+          startLineNumber: targetBlock.startLine,
+          startColumn: 1,
+          endLineNumber: targetBlock.endLine,
+          endColumn: 1000,
+        },
+        options: {
+          isWholeLine: true,
+          className: "bg-amber-500/15 border-l-2 border-amber-500",
+        },
+      },
+    ]);
+
+    if (typeof editor.revealLineInCenterIfOutsideViewport === "function") {
+      editor.revealLineInCenterIfOutsideViewport(targetBlock.startLine);
+    }
+  }, [activeHoveredBlockId, outputBlocks]);
 
   useEffect(() => {
     if (isStreaming || !input) return;
@@ -141,7 +179,8 @@ export function InputPanel({
             </Badge>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {mode !== "english-to-code" && <AstToolbar sourceLanguage={sourceLanguage} />}
           <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{input.length.toLocaleString()} chars</span>
           <Button variant="ghost" size="sm" aria-label="Clear" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
           <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} 

@@ -96,3 +96,34 @@ async def test_two_tier_cache_l1_l2_flow():
     # Cleanup
     await cache.delete(test_key)
     assert cache.l1.get(test_key) is None
+
+
+def test_depth_produces_distinct_cache_keys():
+    """TL;DR and Audit depths produce different cache keys for same code."""
+    code = "def hello(): return 'world'"
+    key_tldr = compute_ast_cache_key(code, "python", "tldr")
+    key_dev = compute_ast_cache_key(code, "python", "dev")
+    key_audit = compute_ast_cache_key(code, "python", "audit")
+
+    assert key_tldr != key_dev, "tldr and dev must produce different keys"
+    assert key_dev != key_audit, "dev and audit must produce different keys"
+    assert key_tldr != key_audit, "tldr and audit must produce different keys"
+
+
+def test_depth_default_equals_dev():
+    """Omitting depth produces same cache key as explicit depth='dev'."""
+    code = "def hello(): return 'world'"
+    key_default = compute_ast_cache_key(code, "python")
+    key_dev = compute_ast_cache_key(code, "python", "dev")
+
+    assert key_default == key_dev, f"Default depth must equal explicit 'dev'. Got {key_default} vs {key_dev}"
+
+
+def test_backward_compatibility_unknown_depth_falls_back_to_dev():
+    """Invalid depth values fall back to 'dev' — backward-compat for old callers."""
+    code = "x = 1"
+    key_invalid = compute_ast_cache_key(code, "python", "unknown-depth-xyz")
+    key_dev = compute_ast_cache_key(code, "python", "dev")
+
+    assert key_invalid == key_dev, "Unknown depth must fall back to 'dev'"
+    assert key_invalid.startswith("ast_cache:")

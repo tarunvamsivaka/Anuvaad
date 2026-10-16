@@ -3,4 +3,6 @@ export interface TranslationBlock {
   code_snippet: string;
   english_translation: string;
   model_used?: string;
+  startLine?: number;
+  endLine?: number;
 }

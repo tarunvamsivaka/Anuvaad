@@ -14,10 +14,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Zap, Clock } from "lucide-react";
+import { X, Zap, Clock, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { toast } from "sonner";
 import { usePublicQuotaLimits } from "@/lib/use-public-quota-limits";
+import { useTranslationStore } from "@/features/translate/_store/useTranslationStore";
 
 export interface QuotaError {
   detail: string;
@@ -208,6 +210,24 @@ export function QuotaExceededModal({ error, onClose }: QuotaExceededModalProps) 
                 Create a free account ({quotaLimits ? `${quotaLimits.free_daily_limit}/day` : "daily limit"})
               </Link>
             )}
+            {/* Instant Local AST Breakdown (Offline · $0) */}
+            <button
+              onClick={async () => {
+                const { executeLocalOfflineEngine } = await import('@/lib/local-engine');
+                const store = useTranslationStore.getState();
+                const result = await executeLocalOfflineEngine(store.input, {
+                  language: store.detectedLang || 'typescript',
+                });
+                store.setOutputBlocks(result.blocks);
+                onClose();
+                toast.success('Offline AST analysis complete!');
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
+            >
+              <Cpu className="h-4 w-4" />
+              Instant Local AST Breakdown (Offline · $0)
+            </button>
+
             <button
               onClick={onClose}
               className="w-full rounded-xl px-4 py-2 text-sm text-text-muted hover:text-text-secondary transition-colors"

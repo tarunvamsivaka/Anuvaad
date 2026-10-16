@@ -172,6 +172,19 @@ Example for Python code `import os\\npath = os.getcwd()\\nprint(path)`:
 }
 """
 
+DEPTH_PREFIXES: dict[str, str] = {
+    "tldr": (
+        "IMPORTANT: Give an extremely concise TL;DR for each code block — "
+        "ONE sentence maximum per block. Do not elaborate."
+    ),
+    "dev": "",  # Default — no additional instructions
+    "audit": (
+        "IMPORTANT: Perform a security and complexity audit for each block. "
+        "Note cyclomatic complexity, potential injection points (SQL, XSS, SSRF), "
+        "OWASP Top-10 risks, and any data-flow concerns. Be thorough."
+    ),
+}
+
 SYNC_SYSTEM_INSTRUCTION = """
 You are an expert code synchronizer. You are given a program broken down into logical blocks. The user has modified some of the English translations/explanations of these blocks.
 
@@ -667,6 +680,7 @@ async def stream_code_to_english(
     cooldown: int = 0,
     ephemeral: bool = False,
     user_llm_key: str | None = None,
+    depth: str = "dev",
 ):
     try:
         # ZDR: compute hash once, never log raw_code
@@ -686,7 +700,7 @@ async def stream_code_to_english(
             try:
                 from app.services.ast_cache import get_cached_ast_translation
 
-                ast_cached = await get_cached_ast_translation(payload.raw_code, payload.language)
+                ast_cached = await get_cached_ast_translation(payload.raw_code, payload.language, depth)
                 if ast_cached and isinstance(ast_cached, dict) and "blocks" in ast_cached:
                     await metrics.record_cache_hit()
                     yield f"data: {json.dumps({'chunk': '', 'done': False})}\n\n"
@@ -750,7 +764,9 @@ async def stream_code_to_english(
             )
             providers.insert(0, (byok_client, "gemini-2.5-flash", "BYOK Gemini 2.5 Flash"))
 
-        augmented_system = await _inject_symbol_contract(SYSTEM_INSTRUCTION, payload.raw_code, payload.language)
+        depth_prefix = DEPTH_PREFIXES.get(depth, "")
+        base_instruction = f"{depth_prefix}\n\n{SYSTEM_INSTRUCTION}".lstrip() if depth_prefix else SYSTEM_INSTRUCTION
+        augmented_system = await _inject_symbol_contract(base_instruction, payload.raw_code, payload.language)
 
         messages = [
             {"role": "system", "content": augmented_system},
@@ -858,7 +874,7 @@ async def stream_code_to_english(
                 from app.services.ast_cache import set_cached_ast_translation
 
                 await set_cached_ast_translation(
-                    payload.raw_code, payload.language, {"blocks": result, "model_used": used_model}
+                    payload.raw_code, payload.language, {"blocks": result, "model_used": used_model}, depth=depth
                 )
             except Exception as _ast_save_err:
                 logger.debug(f"AST cache store bypassed: {_ast_save_err}")

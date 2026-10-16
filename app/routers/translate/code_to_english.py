@@ -61,6 +61,8 @@ async def function_translate_to_english_stream(
     if user_llm_key and user_llm_key.strip():
         deduct_credit_flag = False
 
+    depth = payload.depth or "dev"
+
     return StreamingResponse(
         stream_code_to_english(
             payload,
@@ -72,6 +74,7 @@ async def function_translate_to_english_stream(
             cooldown,
             ephemeral=is_ephemeral,
             user_llm_key=user_llm_key,
+            depth=depth,
         ),
         media_type="text/event-stream",
         headers=headers,

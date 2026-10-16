@@ -16,6 +16,7 @@ import type { Workspace } from "@/context/WorkspaceContext";
 import type { AnuvaadSession } from "@/lib/supabase-types";
 import { getByokKey } from "@/lib/byok-vault";
 import { isGuestLimitReached, incrementGuestUsage, getGuestRemainingSeconds } from "@/lib/guest-sandbox";
+import { executeLocalOfflineEngine } from "@/lib/local-engine";
 
 // M-3: Cache the canvas-confetti dynamic import at module level.
 // Previously imported inside handleTranslate on every success call,
@@ -80,7 +81,9 @@ export function useTranslationStream({
     setOutputBlocks,
     setOriginalBlocks,
     setModelUsed,
-    sessionId, setSessionId
+    sessionId, setSessionId,
+    executionEngine,
+    explanationDepth,
   } = useTranslationStore();
 
   // M3 Feature #7: Structured 429 quota error — consumed by QuotaExceededModal.
@@ -112,11 +115,13 @@ export function useTranslationStream({
       return;
     }
 
-    // Guest Sandbox Rate Limit Check (Milestone 4)
-    if (!session?.access_token && isGuestLimitReached()) {
+    const isOffline = executionEngine === "offline" || (typeof navigator !== "undefined" && !navigator.onLine);
+
+    // Guest Sandbox Rate Limit Check (Milestone 4) - only applies to remote cloud execution
+    if (!isOffline && !session?.access_token && isGuestLimitReached()) {
       const remainingSeconds = getGuestRemainingSeconds();
       setQuotaError({
-        detail: "You have used your 3 free guest translations for today. Sign up for free to unlock 25 daily translations!",
+        detail: "You have used your 3 free guest translations for today. Switch to 'Offline Local' mode for unlimited free translations or sign up!",
         limit_type: "guest_daily_limit",
         retry_after_seconds: remainingSeconds,
         tier_limit: 3,
@@ -137,7 +142,43 @@ export function useTranslationStream({
       target_language: targetLanguage,
       char_count: input.length,
       is_pro: isPro,
+      offline: isOffline,
     });
+
+    if (isOffline) {
+      try {
+        const localResult = await executeLocalOfflineEngine(input, {
+          language: sourceLanguage,
+          mode,
+          onChunk: (chunk) => {
+            setStreamText((prev) => prev + chunk);
+          },
+        });
+
+        setOutputBlocks(localResult.blocks);
+        setOriginalBlocks(JSON.parse(JSON.stringify(localResult.blocks)));
+        setModelUsed(localResult.model_used);
+        setIsStreaming(false);
+
+        track("translation_completed", {
+          mode,
+          source_language: sourceLanguage,
+          target_language: targetLanguage,
+          block_count: localResult.blocks.length,
+          model_used: localResult.model_used,
+          latency_ms: localResult.execution_time_ms,
+          offline: true,
+        });
+        toast.success(`Completed via On-Device AST Engine in ${localResult.execution_time_ms}ms ($0)`);
+        return;
+      } catch (err: unknown) {
+        setIsStreaming(false);
+        const msg = err instanceof Error ? err.message : "Offline engine error";
+        setRawError(msg);
+        toast.error(`Local engine failed: ${msg}`);
+        return;
+      }
+    }
 
     try {
       // Use relative /api/... paths — routed through Next.js proxy (next.config.ts rewrites).
@@ -148,7 +189,7 @@ export function useTranslationStream({
 
       if (mode === "code-to-english") {
         endpoint = "/api/code-to-english";
-        body = { raw_code: input, language: sourceLanguage };
+        body = { raw_code: input, language: sourceLanguage, depth: explanationDepth };
       } else if (mode === "english-to-code") {
         endpoint = "/api/generate-from-english";
         body = { prompt: input + promptSuffix, language: targetLanguage };

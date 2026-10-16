@@ -5,6 +5,7 @@ import { track } from "@/lib/analytics";
 import { EXT_TO_LANGUAGE, ACCEPTED_EXTENSIONS } from "../_constants/languages";
 import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/QuotaExceededModal";
 import { useTranslationStore } from "../_store/useTranslationStore";
+import { parseGithubUrl, detectLanguageFromFilename, fetchGithubFileContent } from "@/lib/github-import";
 
 interface UseFileImportProps {
   mode: string;
@@ -67,6 +68,26 @@ export function useFileImport({
     if (!gistUrl.trim()) return;
     setGistLoading(true);
     try {
+      // Direct GitHub file import optimization: bypass backend proxy if direct blob URL
+      if (gistUrl.includes("/blob/") || gistUrl.includes("raw.githubusercontent.com")) {
+        try {
+          const parsed = parseGithubUrl(gistUrl);
+          const { content } = await fetchGithubFileContent(parsed.rawUrl);
+          const lang = detectLanguageFromFilename(parsed.filename);
+          setInput(content);
+          setSourceLanguage(lang);
+          setGistSource({ username: parsed.owner, filename: parsed.filename });
+          setFilePath(parsed.filePath);
+          setUploadedFile(null);
+          setShowGistInput(false);
+          toast.success(`Imported ${parsed.filename} (${content.length.toLocaleString()} chars) from GitHub!`);
+          track("gist_imported", { language: lang, char_count: content.length, username: parsed.owner, direct: true });
+          return;
+        } catch {
+          // Fall through to backend /api/import-gist if direct fetch encounters issues
+        }
+      }
+
       // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).
       const headers: Record<string, string> = {};
       if (accessToken) {

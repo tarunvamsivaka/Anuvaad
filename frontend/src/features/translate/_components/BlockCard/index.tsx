@@ -34,6 +34,11 @@ export const BlockCard = memo(function BlockCard({
   const block = propBlock ?? storeBlock;
   const isStreaming = propIsStreaming ?? false;
 
+  const setActiveHoveredBlockId = useTranslationStore((state) => state.setActiveHoveredBlockId);
+  const activeHoveredBlockId = useTranslationStore((state) => state.activeHoveredBlockId);
+  const currentBlockId = block?.id || blockId || `block-${index}`;
+  const isHovered = activeHoveredBlockId === currentBlockId;
+
   const [collapsed, setCollapsed] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedText, setCopiedText] = useState(false);
@@ -74,6 +79,10 @@ export const BlockCard = memo(function BlockCard({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96, y: -10 }}
       whileHover={{ y: -2 }}
+      onMouseEnter={() => setActiveHoveredBlockId(currentBlockId)}
+      onMouseLeave={() => setActiveHoveredBlockId(null)}
+      onFocus={() => setActiveHoveredBlockId(currentBlockId)}
+      onBlur={() => setActiveHoveredBlockId(null)}
       transition={{ 
         duration: 0.45, 
         delay: index * 0.08, 
@@ -90,12 +99,28 @@ export const BlockCard = memo(function BlockCard({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden rounded-xl border border-border bg-card/70 shadow-sm backdrop-blur-md transition-all duration-300 hover:shadow-md hover:border-amber-500/30">
+      <div className={cn(
+        "flex-1 overflow-hidden rounded-xl border border-border bg-card/70 shadow-sm backdrop-blur-md transition-all duration-300 hover:shadow-md hover:border-amber-500/30",
+        isHovered && "ring-2 ring-amber-500/80 border-amber-500 shadow-md scale-[1.005]"
+      )}>
         <div className="flex items-center justify-between border-b border-border bg-muted/50 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 font-mono text-[10px] uppercase tracking-wider">
               <Sparkles className="mr-1 h-3 w-3" /> Block {index + 1}
             </Badge>
+            {block.startLine !== undefined && block.endLine !== undefined && (
+              <span
+                className={cn(
+                  'text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors select-none',
+                  isHovered
+                    ? 'text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10'
+                    : 'text-muted-foreground/60 border-border/30'
+                )}
+                title={`Source lines ${block.startLine}–${block.endLine}`}
+              >
+                L{block.startLine}–{block.endLine}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1 opacity-50 hover:opacity-100 transition-opacity">
             <Button variant="ghost" size="icon" aria-label={collapsed ? "Expand block" : "Collapse block"} className="h-6 w-6" onClick={() => setCollapsed(!collapsed)}>

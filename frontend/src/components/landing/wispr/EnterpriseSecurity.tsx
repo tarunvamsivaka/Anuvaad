@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { ArrowRight, Code2, Fingerprint, KeyRound, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -78,9 +79,9 @@ export function EnterpriseSecurity({ className }: EnterpriseSecurityProps) {
             <h3 className="font-semibold text-white">Need a security detail?</h3>
             <p className="mt-1 text-sm text-slate-400">Review the current processing model and available controls in the privacy and security documentation.</p>
           </div>
-          <a href="/privacy" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
+          <Link href="/privacy" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
             Read the privacy page <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </a>
+          </Link>
         </div>
       </div>
     </section>

@@ -2,6 +2,7 @@
 
 import { useEffect, Suspense, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { initPostHog, posthog, optInPostHog, optOutPostHog } from "@/lib/analytics";
 import { ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -64,9 +65,9 @@ function ConsentBanner() {
           </div>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             We use anonymous product analytics cookies to improve our code translations. Read our{" "}
-            <a href="/privacy" className="underline hover:text-amber-600">
+            <Link href="/privacy" className="underline hover:text-amber-600">
               Privacy Policy
-            </a>
+            </Link>
             .
           </p>
           <div className="mt-3.5 flex items-center justify-end gap-2 text-xs">

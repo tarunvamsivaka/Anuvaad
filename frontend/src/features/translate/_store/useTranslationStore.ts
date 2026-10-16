@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TranslationBlock } from '../_types';
+import { annotateBlocksWithLineRanges } from '@/lib/ast-line-mapper';
+import { ExplanationDepth } from '../_components/Toolbar/DepthSlider';
 
 interface TranslationState {
   input: string;
@@ -35,6 +37,15 @@ interface TranslationState {
 
   diffOriginalCode: string | null;
   setDiffOriginalCode: (code: string | null) => void;
+
+  activeHoveredBlockId: string | null;
+  setActiveHoveredBlockId: (id: string | null) => void;
+
+  executionEngine: "cloud" | "byok" | "offline";
+  setExecutionEngine: (engine: "cloud" | "byok" | "offline") => void;
+
+  explanationDepth: ExplanationDepth;
+  setExplanationDepth: (depth: ExplanationDepth) => void;
 }
 
 function normalizeBlocks(blocks: TranslationBlock[] | null) {
@@ -70,7 +81,10 @@ export const useTranslationStore = create<TranslationState>()(
   blockIds: [],
   blocksById: {},
   setOutputBlocks: (outputBlocks) => set((state) => {
-    const nextBlocks = typeof outputBlocks === 'function' ? outputBlocks(state.outputBlocks) : outputBlocks;
+    const rawNext = typeof outputBlocks === 'function' ? outputBlocks(state.outputBlocks) : outputBlocks;
+    const nextBlocks = rawNext && Array.isArray(rawNext) && state.input
+      ? annotateBlocksWithLineRanges(state.input, rawNext, state.detectedLang || "typescript")
+      : rawNext;
     const { blockIds, blocksById } = normalizeBlocks(nextBlocks);
     return { outputBlocks: nextBlocks, blockIds, blocksById };
   }),
@@ -104,6 +118,15 @@ export const useTranslationStore = create<TranslationState>()(
 
   diffOriginalCode: null,
   setDiffOriginalCode: (diffOriginalCode) => set({ diffOriginalCode }),
+
+  activeHoveredBlockId: null,
+  setActiveHoveredBlockId: (activeHoveredBlockId) => set({ activeHoveredBlockId }),
+
+  executionEngine: "cloud",
+  setExecutionEngine: (executionEngine) => set({ executionEngine }),
+
+  explanationDepth: "dev",
+  setExplanationDepth: (explanationDepth) => set({ explanationDepth }),
     }),
     {
       name: "anuvaad-active-draft",
@@ -119,6 +142,7 @@ export const useTranslationStore = create<TranslationState>()(
         outputBlocks: state.outputBlocks,
         originalBlocks: state.originalBlocks,
         diffOriginalCode: state.diffOriginalCode,
+        explanationDepth: state.explanationDepth,
       }),
       onRehydrateStorage: () => (state) => {
         if (state && state.outputBlocks) {

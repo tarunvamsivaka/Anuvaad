@@ -19,11 +19,15 @@ import { InputPanel } from "./_components/InputPanel";
 import { OutputPanel } from "./_components/OutputPanel";
 import { QuotaExceededModal } from "@/components/modals/QuotaExceededModal";
 import { GuestOnboardingModal } from "@/components/modals/GuestOnboardingModal";
+import { SmartPasteListener } from "./_components/SmartPasteListener";
+import { ArtifactExportBar } from "@/components/editor/ArtifactExportBar";
 
 // Hooks
 import { useTranslationStream } from "./_hooks/useTranslationStream";
 import { useFileImport } from "./_hooks/useFileImport";
 import { useTranslationSession } from "./_hooks/useTranslationSession";
+import { toast } from "sonner";
+import { parseGithubUrl, detectLanguageFromFilename, fetchGithubFileContent } from "@/lib/github-import";
 
 // ── M-1: Lifted to module scope so the object is never re-created on render ──
 const MONACO_OPTIONS: Record<string, unknown> = {
@@ -75,6 +79,7 @@ export function TranslateFeature() {
     const paramCode = searchParams.get("code");
     const paramLang = searchParams.get("lang");
     const paramMode = searchParams.get("mode");
+    const paramFile = searchParams.get("file") || searchParams.get("github");
 
     if (paramCode) {
       useTranslationStore.getState().setInput(paramCode);
@@ -84,6 +89,29 @@ export function TranslateFeature() {
     }
     if (paramMode) {
       setMode(paramMode);
+    }
+    if (paramFile) {
+      try {
+        const parsed = parseGithubUrl(paramFile);
+        const detected = detectLanguageFromFilename(parsed.filename);
+        setSourceLanguage(detected);
+        setRepositoryName(`${parsed.owner}/${parsed.repo}`);
+        setFilePath(parsed.filePath);
+        setGistSource({ username: parsed.owner, filename: parsed.filename });
+        toast.loading(`Importing ${parsed.filename} from GitHub...`, { id: "gh-deep-link" });
+        fetchGithubFileContent(parsed.rawUrl)
+          .then(({ content }) => {
+            useTranslationStore.getState().setInput(content);
+            toast.success(`Loaded ${parsed.filename} (${detected}) from GitHub!`, { id: "gh-deep-link" });
+          })
+          .catch((err) => {
+            const msg = err instanceof Error ? err.message : "Network error";
+            toast.error(`GitHub Import Failed: ${msg}`, { id: "gh-deep-link" });
+          });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Invalid GitHub URL";
+        toast.error(`GitHub URL error: ${msg}`);
+      }
     }
   }, [searchParams]);
 
@@ -269,6 +297,7 @@ export function TranslateFeature() {
 
   return (
     <>
+      <SmartPasteListener />
       <TranslateShell
         currentModeLabel={currentModeLabel}
         showSettings={showSettings}
@@ -336,28 +365,33 @@ export function TranslateFeature() {
           />
         }
         outputPanel={
-          <OutputPanel
-            mode={mode}
-            viewType={viewType}
-            setViewType={setViewType}
-            handleCopyMarkdown={handleCopyMarkdown}
-            handleCopyCode={handleCopyCode}
-            handleExportCode={handleExportCode}
-            copied={copied}
-            handleDownloadJson={triggerExportWithGuestPrompt}
-            hasEdits={hasEdits}
-            isSyncing={isSyncing}
-            handleSyncEnglishToCode={triggerSyncWithGuestPrompt}
-            onRetry={handleTranslate}
-            sessionId={currentSessionId}
-            accessToken={session?.access_token ?? null}
-            canShare={!!session?.access_token && saveRunToHistory}
-            workspaceId={activeWorkspace?.id}
-            sourceLanguage={sourceLanguage}
-            targetLanguage={targetLanguage}
-            isDark={isDark}
-            monacoOptions={MONACO_OPTIONS}
-          />
+          <div className="flex flex-col h-full min-h-0">
+            <ArtifactExportBar sourceLanguage={sourceLanguage} />
+            <div className="flex-1 min-h-0">
+              <OutputPanel
+                mode={mode}
+                viewType={viewType}
+                setViewType={setViewType}
+                handleCopyMarkdown={handleCopyMarkdown}
+                handleCopyCode={handleCopyCode}
+                handleExportCode={handleExportCode}
+                copied={copied}
+                handleDownloadJson={triggerExportWithGuestPrompt}
+                hasEdits={hasEdits}
+                isSyncing={isSyncing}
+                handleSyncEnglishToCode={triggerSyncWithGuestPrompt}
+                onRetry={handleTranslate}
+                sessionId={currentSessionId}
+                accessToken={session?.access_token ?? null}
+                canShare={!!session?.access_token && saveRunToHistory}
+                workspaceId={activeWorkspace?.id}
+                sourceLanguage={sourceLanguage}
+                targetLanguage={targetLanguage}
+                isDark={isDark}
+                monacoOptions={MONACO_OPTIONS}
+              />
+            </div>
+          </div>
         }
       />
       {/* M3 Feature #7: Quota Exceeded Modal — renders on top of everything when 429 fires */}

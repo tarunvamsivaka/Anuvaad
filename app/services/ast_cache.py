@@ -115,21 +115,32 @@ def normalize_code_ast(code: str, language: str) -> str:
     return _normalize_tree_sitter(code, lang)
 
 
-def compute_ast_cache_key(code: str, language: str) -> str:
-    """Compute deterministic SHA-256 digest of normalized AST."""
+def compute_ast_cache_key(code: str, language: str, depth: str = "dev") -> str:
+    """Compute deterministic SHA-256 digest of normalized AST + explanation depth.
+
+    The depth parameter partitions cache entries by persona:
+      - 'tldr'  → concise 1-sentence summaries
+      - 'dev'   → standard developer explanation (default)
+      - 'audit' → security & complexity-focused analysis
+
+    Backward-compatible: callers omitting depth default to 'dev'.
+    """
     lang = language.lower().strip()
+    effective_depth = depth if depth in ("tldr", "dev", "audit") else "dev"
     normalized = normalize_code_ast(code, lang)
-    digest = hashlib.sha256(f"{lang}:{normalized}".encode()).hexdigest()
+    digest = hashlib.sha256(f"{lang}:{effective_depth}:{normalized}".encode()).hexdigest()
     return f"ast_cache:{digest}"
 
 
-async def get_cached_ast_translation(code: str, language: str) -> dict[str, Any] | None:
+async def get_cached_ast_translation(code: str, language: str, depth: str = "dev") -> dict[str, Any] | None:
     """Check L1/L2 cache for an existing AST translation."""
-    cache_key = compute_ast_cache_key(code, language)
+    cache_key = compute_ast_cache_key(code, language, depth)
     return await cache.get(cache_key)
 
 
-async def set_cached_ast_translation(code: str, language: str, data: dict[str, Any], ttl: int = 86400) -> None:
+async def set_cached_ast_translation(
+    code: str, language: str, data: dict[str, Any], ttl: int = 86400, depth: str = "dev"
+) -> None:
     """Store AST translation in L1/L2 cache."""
-    cache_key = compute_ast_cache_key(code, language)
+    cache_key = compute_ast_cache_key(code, language, depth)
     await cache.put(cache_key, data, ttl=ttl)

@@ -12,6 +12,7 @@ class CodePayload(BaseModel):
     repository_name: str | None = None
     file_path: str | None = None
     model: str | None = None
+    depth: Literal["tldr", "dev", "audit"] | None = None
 
     @field_validator("raw_code")
     @classmethod

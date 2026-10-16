@@ -2,7 +2,7 @@
   "name": "anuvaad-vscode",
   "displayName": "Anuvaad",
   "description": "AI Code Translator & Explainer inline in your IDE",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "anuvaad",
   "engines": {
     "vscode": "^1.80.0"

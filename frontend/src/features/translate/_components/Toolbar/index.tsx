@@ -5,6 +5,8 @@ import { languages } from "../../_constants/languages";
 import { SearchableLanguageSelect } from "./SearchableLanguageSelect";
 import { RepositorySelector } from "./RepositorySelector";
 import { ModelSelect } from "./ModelSelect";
+import { EngineModeSelector } from "./EngineModeSelector";
+import { DepthSlider } from "./DepthSlider";
 import { ArrowLeftRight, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -110,8 +112,11 @@ export function Toolbar({
         })}
       </div>
 
-      {/* Controls: Model Select, Language Selectors, Swap Button & Repo Selector */}
+      {/* Controls: Model Select, Engine Mode Selector, Language Selectors, Swap Button & Repo Selector */}
       <div className="flex flex-wrap items-center gap-2.5">
+        <EngineModeSelector />
+        <div className="h-6 w-px bg-border hidden sm:block mx-0.5" />
+        <DepthSlider />
         <ModelSelect selectedModel={selectedModel} onModelChange={onModelChange} />
 
         <div className="h-6 w-px bg-border hidden sm:block mx-0.5" />

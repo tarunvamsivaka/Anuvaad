@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -83,9 +84,9 @@ export function TranslateShell({
                 {protectionMode} Mode
               </span>
             ) : (
-              <a href="/privacy" className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 underline decoration-amber-500 underline-offset-4 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white">
+              <Link href="/privacy" className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-medium text-slate-500 underline decoration-amber-500 underline-offset-4 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white">
                 Privacy details
-              </a>
+              </Link>
             )}
 
             {/* Topbar Pro Badge moved here instead of old places */}
