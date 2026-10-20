@@ -1,38 +1,28 @@
-import { beforeAll, describe, it, expect } from "vitest";
-import * as fs from "fs";
-import * as path from "path";
+/**
+ * Developer Ecosystem Distribution Suite (CLI & Homebrew & VS Code)
+ * Phase 4 Feature 14 Verification: Confirms package structure, executables, and manifests.
+ */
+import { describe, it, expect } from "vitest";
+import fs from "fs";
+import path from "path";
 import { execSync } from "child_process";
 
 describe("Developer Ecosystem Distribution Suite (CLI & Homebrew & VS Code)", () => {
-  const cliRoot = path.resolve(__dirname, "../../../cli");
-  const vscodeRoot = path.resolve(__dirname, "../../../vscode-extension");
-  const formulaFile = path.resolve(__dirname, "../../../Formula/anuvaad.rb");
-
-  beforeAll(() => {
-    const cliEntry = path.join(cliRoot, "dist/index.js");
-    if (!fs.existsSync(cliEntry)) {
-      try {
-        execSync("npx tsc -p tsconfig.json", { cwd: cliRoot, stdio: "pipe" });
-      } catch {
-        try {
-          execSync("npx tsc -p ../cli/tsconfig.json", { cwd: path.resolve(__dirname, "../.."), stdio: "pipe" });
-        } catch (e) {
-          console.warn("Could not precompile CLI binary in test:", e);
-        }
-      }
-    }
-  });
+  const repoRoot = path.resolve(__dirname, "../../..");
+  const cliRoot = path.join(repoRoot, "cli");
+  const vscodeRoot = path.join(repoRoot, "vscode-extension");
+  const formulaFile = path.join(repoRoot, "Formula/anuvaad.rb");
+  const cliPkg = JSON.parse(fs.readFileSync(path.join(cliRoot, "package.json"), "utf-8"));
 
   it("CLI package.json has valid bin executables and MIT license", () => {
     const pkgPath = path.join(cliRoot, "package.json");
     expect(fs.existsSync(pkgPath)).toBe(true);
 
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
-    expect(pkg.name).toBe("@anuvaad/cli");
-    expect(pkg.bin).toBeDefined();
-    expect(pkg.bin["anuvaad"]).toBe("./dist/index.js");
-    expect(pkg.bin["anuvaad-cli"]).toBe("./dist/index.js");
-    expect(pkg.license).toBe("MIT");
+    expect(cliPkg.name).toBe("@anuvaad/cli");
+    expect(cliPkg.bin).toBeDefined();
+    expect(cliPkg.bin["anuvaad"]).toBe("./dist/index.js");
+    expect(cliPkg.bin["anuvaad-cli"]).toBe("./dist/index.js");
+    expect(cliPkg.license).toBe("MIT");
   });
 
   it("CLI executes and outputs version", () => {
@@ -40,7 +30,7 @@ describe("Developer Ecosystem Distribution Suite (CLI & Homebrew & VS Code)", ()
     expect(fs.existsSync(cliEntry)).toBe(true);
 
     const versionOutput = execSync(`node "${cliEntry}" --version`).toString().trim();
-    expect(versionOutput).toBe("1.0.0");
+    expect(versionOutput).toBe(cliPkg.version);
   });
 
   it("CLI executes and outputs help commands", () => {

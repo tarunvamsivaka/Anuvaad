@@ -1,4 +1,5 @@
 """Quick verification of tree-sitter-language-pack universal fallback in ast_parser.py."""
+
 import sys
 
 sys.path.insert(0, ".")
@@ -17,8 +18,24 @@ for lang in fallback_langs:
 print()
 
 # Core languages with dedicated packages
-core_langs = ["python", "go", "typescript", "javascript", "rust", "java",
-              "ruby", "php", "csharp", "kotlin", "swift", "scala", "lua", "c", "cpp", "sql"]
+core_langs = [
+    "python",
+    "go",
+    "typescript",
+    "javascript",
+    "rust",
+    "java",
+    "ruby",
+    "php",
+    "csharp",
+    "kotlin",
+    "swift",
+    "scala",
+    "lua",
+    "c",
+    "cpp",
+    "sql",
+]
 for lang in core_langs:
     p = _get_parser(lang)
     status = "OK (dedicated)" if p else "MISSING"
@@ -40,8 +57,10 @@ end
 """
 
 ruby_result = analyze(ruby_code, "ruby")
-print(f"Ruby AST analysis: has_parse_errors={ruby_result.has_parse_errors}, "
-      f"functions={len(ruby_result.functions)}, classes={len(ruby_result.classes)}")
+print(
+    f"Ruby AST analysis: has_parse_errors={ruby_result.has_parse_errors}, "
+    f"functions={len(ruby_result.functions)}, classes={len(ruby_result.classes)}"
+)
 
 # Real AST analysis on Elixir (via pack fallback)
 elixir_code = """

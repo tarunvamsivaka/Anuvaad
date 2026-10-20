@@ -195,13 +195,14 @@ async def create_portal_session(
             logger.error(f"Stripe portal session creation error: {e}")
 
     return {
-        "subscription_id": sub.get("razorpay_subscription_id") or sub.get("stripe_subscription_id", ""),
+        "subscription_id": sub.get("razorpay_subscription_id") or sub.get("razorpay_subscription_id", ""),
         "plan": "pro",
         "status": "active",
         "message": "Self-service billing management portal available for active subscriptions.",
     }
 
 
+@router.post("/billing/create-credit-checkout")
 @router.post("/create-credit-checkout")
 async def create_credit_checkout(
     user_email: str = Depends(get_user_email),
@@ -236,6 +237,7 @@ async def create_credit_checkout(
 # ── Payment Verification ──
 
 
+@router.post("/billing/verify-payment")
 @router.post("/verify-payment")
 async def verify_payment(
     payload: VerifyPaymentPayload,
@@ -276,6 +278,7 @@ async def verify_payment(
 # ── Subscription Status & Credits ──
 
 
+@router.get("/billing/subscription-status")
 @router.get("/subscription-status")
 async def get_subscription_status(
     email: str = Depends(get_user_email),
@@ -289,6 +292,7 @@ async def get_subscription_status(
     return {"plan": "pro" if is_pro else "free", "status": "active", "isPro": is_pro}
 
 
+@router.get("/billing/check-credits")
 @router.get("/check-credits")
 async def get_check_credits(
     request: Request,
@@ -339,6 +343,7 @@ async def get_check_credits(
 # ── Webhook ──
 
 
+@router.post("/billing/webhook/razorpay")
 @router.post("/webhook/razorpay")
 async def razorpay_webhook(request: Request):
     """Handle Razorpay webhook events — validates signature, dispatches to Celery.
@@ -508,7 +513,7 @@ async def stripe_webhook(request: Request):
             sub_id = event_data.get("subscription") or event_data.get("id")
             await subscription_repo.upsert_subscription(
                 email=user_email,
-                data={"is_pro": True, "stripe_subscription_id": sub_id},
+                data={"is_pro": True, "razorpay_subscription_id": sub_id},
             )
             logger.info(f"Activated Pro tier for {user_email} via Stripe event {event_type}")
             try:
@@ -524,7 +529,7 @@ async def stripe_webhook(request: Request):
             is_active = stripe_status in ("active", "trialing")
             await subscription_repo.upsert_subscription(
                 email=user_email,
-                data={"is_pro": is_active, "stripe_subscription_id": sub_id},
+                data={"is_pro": is_active, "razorpay_subscription_id": sub_id},
             )
             logger.info(f"Subscription updated for {user_email} — status={stripe_status}, is_pro={is_active}")
 
@@ -541,7 +546,7 @@ async def stripe_webhook(request: Request):
             sub_id = event_data.get("subscription")
             await subscription_repo.upsert_subscription(
                 email=user_email,
-                data={"is_pro": True, "stripe_subscription_id": sub_id},
+                data={"is_pro": True, "razorpay_subscription_id": sub_id},
             )
             logger.info(f"Invoice payment succeeded — Pro tier confirmed for {user_email}")
 
