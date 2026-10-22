@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import * as parser from "@babel/parser";
+import { useShallow } from "zustand/react/shallow";
 import generate from "@babel/generator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Cpu, CheckCircle2, Wand2, Undo2 } from "lucide-react";
@@ -15,7 +16,12 @@ interface AstToolbarProps {
 }
 
 export function AstToolbar({ sourceLanguage }: AstToolbarProps) {
-  const { input, setInput } = useTranslationStore();
+  const { input, setInput } = useTranslationStore(
+    useShallow((state) => ({
+      input: state.input,
+      setInput: state.setInput,
+    }))
+  );
   const [previousCode, setPreviousCode] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 

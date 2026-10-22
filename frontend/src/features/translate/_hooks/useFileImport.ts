@@ -7,6 +7,7 @@ import { parseQuotaErrorPayload, type QuotaError } from "@/components/modals/Quo
 import { useTranslationStore } from "../_store/useTranslationStore";
 import { parseGithubUrl, detectLanguageFromFilename, fetchGithubFileContent } from "@/lib/github-import";
 
+import { useShallow } from "zustand/react/shallow";
 interface UseFileImportProps {
   mode: string;
   setUploadedFile: (file: { name: string; size: number } | null) => void;
@@ -26,7 +27,11 @@ export function useFileImport({
   onQuotaExceeded,
   accessToken,
 }: UseFileImportProps) {
-  const { setInput } = useTranslationStore();
+  const { setInput } = useTranslationStore(
+    useShallow((state) => ({
+      setInput: state.setInput,
+    }))
+  );
   const [showGistInput, setShowGistInput] = useState(false);
   const [gistUrl, setGistUrl] = useState("");
   const [gistLoading, setGistLoading] = useState(false);
