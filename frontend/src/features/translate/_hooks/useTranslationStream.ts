@@ -17,6 +17,7 @@ import type { AnuvaadSession } from "@/lib/supabase-types";
 import { getByokKey } from "@/lib/byok-vault";
 import { isGuestLimitReached, incrementGuestUsage, getGuestRemainingSeconds } from "@/lib/guest-sandbox";
 import { executeLocalOfflineEngine } from "@/lib/local-engine";
+import { useShallow } from "zustand/react/shallow";
 
 // M-3: Cache the canvas-confetti dynamic import at module level.
 // Previously imported inside handleTranslate on every success call,
@@ -73,8 +74,7 @@ export function useTranslationStream({
   selectedModel,
   skipAppHistory = false,
 }: UseTranslationStreamProps) {
-  const {
-    input,
+  const { input,
     isStreaming, setIsStreaming,
     setStreamText,
     setRawError,
@@ -83,8 +83,7 @@ export function useTranslationStream({
     setModelUsed,
     sessionId, setSessionId,
     executionEngine,
-    explanationDepth,
-  } = useTranslationStore();
+    explanationDepth, } = useTranslationStore(useShallow((state) => ({ input: state.input, isStreaming: state.isStreaming, setIsStreaming: state.setIsStreaming, setStreamText: state.setStreamText, setRawError: state.setRawError, setOutputBlocks: state.setOutputBlocks, setOriginalBlocks: state.setOriginalBlocks, setModelUsed: state.setModelUsed, sessionId: state.sessionId, setSessionId: state.setSessionId, executionEngine: state.executionEngine, explanationDepth: state.explanationDepth })));
 
   // M3 Feature #7: Structured 429 quota error — consumed by QuotaExceededModal.
   const [quotaError, setQuotaError] = useState<QuotaError | null>(null);

@@ -13,6 +13,7 @@ import { useTranslationStore } from "../../_store/useTranslationStore";
 import { detectLanguage } from "../../_hooks/useLanguageDetection";
 
 import type { DropzoneRootProps, DropzoneInputProps } from "react-dropzone";
+import { useShallow } from "zustand/react/shallow";
 
 const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
@@ -100,7 +101,7 @@ export function InputPanel({
   handleSelectFile,
   setFileList,
 }: InputPanelProps) {
-  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } = useTranslationStore();
+  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } = useTranslationStore(useShallow((state) => ({ input: state.input, setInput: state.setInput, isStreaming: state.isStreaming, detectedLang: state.detectedLang, setDetectedLang: state.setDetectedLang, outputBlocks: state.outputBlocks, activeHoveredBlockId: state.activeHoveredBlockId })));
   const hasOutputBlocks = !!outputBlocks && outputBlocks.length > 0;
   const decorationsRef = useRef<string[]>([]);
 

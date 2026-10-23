@@ -7,6 +7,7 @@ import { useTranslationStore } from "../_store/useTranslationStore";
 
 import type { Workspace } from "@/context/WorkspaceContext";
 import type { AnuvaadSession } from "@/lib/supabase-types";
+import { useShallow } from "zustand/react/shallow";
 
 interface UseTranslationSessionProps {
   sourceLanguage: string;
@@ -35,8 +36,7 @@ export function useTranslationSession({
   onQuotaExceeded,
   onSyncSuccess,
 }: UseTranslationSessionProps) {
-  const {
-    input,
+  const { input,
     outputBlocks,
     setOutputBlocks,
     originalBlocks,
@@ -45,8 +45,7 @@ export function useTranslationSession({
     setModelUsed,
     setRawError,
     sessionId,
-    setDiffOriginalCode,
-  } = useTranslationStore();
+    setDiffOriginalCode, } = useTranslationStore(useShallow((state) => ({ input: state.input, outputBlocks: state.outputBlocks, setOutputBlocks: state.setOutputBlocks, originalBlocks: state.originalBlocks, setOriginalBlocks: state.setOriginalBlocks, setInput: state.setInput, setModelUsed: state.setModelUsed, setRawError: state.setRawError, sessionId: state.sessionId, setDiffOriginalCode: state.setDiffOriginalCode })));
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
