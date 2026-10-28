@@ -79,7 +79,7 @@
     "brace-expansion": "^2.1.7",
     "fast-uri": "^3.0.3",
     "body-parser": "^2.2.3",
-    "dompurify": "^3.4.16",
+    "dompurify": "^3.4.17",
     "js-yaml": "^4.1.0",
     "hono": "^4.12.34",
     "ip-address": "^10.4.0",
