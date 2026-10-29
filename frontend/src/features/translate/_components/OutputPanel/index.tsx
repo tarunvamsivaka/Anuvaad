@@ -9,6 +9,7 @@ import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
 import { motion, AnimatePresence } from "framer-motion";
+import { useShallow } from "zustand/react/shallow";
 import { useTranslationStore } from "../../_store/useTranslationStore";
 import { track } from "@/lib/analytics";
 
@@ -73,6 +74,9 @@ export function OutputPanel({
   tokenCount = 0,
   throughput = "0.0",
 }: OutputPanelProps) {
+  // ⚡ Bolt Performance Optimization:
+  // Using useShallow to prevent unnecessary re-renders when unrelated properties in useTranslationStore change.
+  // This is especially critical during streaming since other fields update rapidly.
   const {
     input,
     streamText,
@@ -84,7 +88,20 @@ export function OutputPanel({
     setOutputBlocks,
     diffOriginalCode,
     setDiffOriginalCode,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      input: state.input,
+      streamText: state.streamText,
+      isStreaming: state.isStreaming,
+      outputBlocks: state.outputBlocks,
+      originalBlocks: state.originalBlocks,
+      rawError: state.rawError,
+      modelUsed: state.modelUsed,
+      setOutputBlocks: state.setOutputBlocks,
+      diffOriginalCode: state.diffOriginalCode,
+      setDiffOriginalCode: state.setDiffOriginalCode,
+    }))
+  );
   const [feedbackRating, setFeedbackRating] = useState<"useful" | "incorrect" | "unsupported" | null>(null);
 
   const fullCodeText = useMemo(() => {
