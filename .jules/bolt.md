@@ -1,0 +1,3 @@
+## 2024-05-24 - Zustand Re-renders with Unbound Store Subscriptions
+**Learning:** Components calling `useTranslationStore()` without a selector or `useShallow` re-render on *every* store mutation. In an app with streaming text (SSE) updating a store variable 20+ times a second, this causes massive UI lag and computationally expensive re-renders in heavy components like Monaco editors and Framer Motion wrappers.
+**Action:** Always use `useShallow` from `zustand/react/shallow` when subscribing to multiple state variables in Zustand, especially in high-frequency update scenarios like SSE streaming.
