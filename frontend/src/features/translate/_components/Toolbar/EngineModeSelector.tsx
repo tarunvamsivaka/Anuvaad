@@ -4,11 +4,15 @@ import React, { useEffect, useState } from "react";
 import { Cloud, KeyRound, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslationStore } from "../../_store/useTranslationStore";
+import { useShallow } from "zustand/react/shallow";
 import { getByokKey } from "@/lib/byok-vault";
 import { toast } from "sonner";
 
 export function EngineModeSelector() {
-  const { executionEngine, setExecutionEngine } = useTranslationStore();
+  const { executionEngine, setExecutionEngine } = useTranslationStore(useShallow(state => ({
+    executionEngine: state.executionEngine,
+    setExecutionEngine: state.setExecutionEngine,
+  })));
   const [hasByok, setHasByok] = useState(false);
 
   useEffect(() => {

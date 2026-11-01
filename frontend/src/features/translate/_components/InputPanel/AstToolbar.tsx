@@ -9,13 +9,17 @@ import { toast } from "sonner";
 import { useTranslationStore } from "../../_store/useTranslationStore";
 import { modernizeReactCode } from "@/engine";
 import { extractAstLineRanges } from "@/lib/ast-line-mapper";
+import { useShallow } from "zustand/react/shallow";
 
 interface AstToolbarProps {
   sourceLanguage: string;
 }
 
 export function AstToolbar({ sourceLanguage }: AstToolbarProps) {
-  const { input, setInput } = useTranslationStore();
+  const { input, setInput } = useTranslationStore(useShallow(state => ({
+    input: state.input,
+    setInput: state.setInput,
+  })));
   const [previousCode, setPreviousCode] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
