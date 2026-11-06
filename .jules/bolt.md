@@ -1,0 +1,3 @@
+## 2024-10-08 - [Shallow Zustand Subscription for OutputPanel Re-renders]
+**Learning:** Components subscribing to full Zustand stores re-render whenever *any* value changes. In `OutputPanel` and `InputPanel`, this causes expensive re-renders (including Monaco Editors) every time `isStreaming` or `streamText` changes, even if the component only needed a subset of state.
+**Action:** Use `useShallow` with an explicit mapped object (`useTranslationStore(useShallow(state => ({ prop: state.prop })))`) for components subscribing to multiple properties, preventing re-renders when unrelated properties change.
