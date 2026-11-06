@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,18 @@ export function OutputPanel({
     setOutputBlocks,
     diffOriginalCode,
     setDiffOriginalCode,
-  } = useTranslationStore();
+  } = useTranslationStore(useShallow((state) => ({
+    input: state.input,
+    streamText: state.streamText,
+    isStreaming: state.isStreaming,
+    outputBlocks: state.outputBlocks,
+    originalBlocks: state.originalBlocks,
+    rawError: state.rawError,
+    modelUsed: state.modelUsed,
+    setOutputBlocks: state.setOutputBlocks,
+    diffOriginalCode: state.diffOriginalCode,
+    setDiffOriginalCode: state.setDiffOriginalCode,
+  })));
   const [feedbackRating, setFeedbackRating] = useState<"useful" | "incorrect" | "unsupported" | null>(null);
 
   const fullCodeText = useMemo(() => {
