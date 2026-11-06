@@ -17,6 +17,7 @@ def mock_session():
 
     return session, ctx_manager
 
+
 @pytest.mark.asyncio
 @patch("app.repositories.api_key.AsyncSessionLocal")
 async def test_get_by_raw_key_exception_handling(mock_local, mock_session):
