@@ -1,0 +1,3 @@
+## 2025-01-20 - Optimize Zustand re-renders with useShallow
+**Learning:** In React components subscribing to Zustand stores without specific selectors or wrapped in `useShallow`, the component will re-render on any store update (such as rapidly changing streaming text). Using `useTranslationStore()` without `useShallow` causes `OutputPanel` and `InputPanel` to re-render constantly during SSE streaming, tanking performance.
+**Action:** Always use `useShallow` from `zustand/react/shallow` when subscribing to multiple state variables from a Zustand store, especially in components near the top of the tree or those rendering expensive children (like Monaco editors).

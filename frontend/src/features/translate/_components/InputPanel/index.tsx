@@ -1,3 +1,4 @@
+import { useShallow } from "zustand/react/shallow";
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -100,7 +101,7 @@ export function InputPanel({
   handleSelectFile,
   setFileList,
 }: InputPanelProps) {
-  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } = useTranslationStore();
+  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } = useTranslationStore(useShallow((state) => ({ input: state.input, setInput: state.setInput, isStreaming: state.isStreaming, detectedLang: state.detectedLang, setDetectedLang: state.setDetectedLang, outputBlocks: state.outputBlocks, activeHoveredBlockId: state.activeHoveredBlockId })));
   const hasOutputBlocks = !!outputBlocks && outputBlocks.length > 0;
   const decorationsRef = useRef<string[]>([]);
 
