@@ -9,6 +9,8 @@ import os
 
 from fastapi import Request
 
+from app.core.logging import logger
+
 _IS_PRODUCTION = os.getenv("ENV", "development").lower() == "production"
 
 
@@ -36,6 +38,6 @@ async def security_headers_middleware(request: Request, call_next):
         mode = await get_active_protection_mode()
         response.headers["X-Protection-Mode"] = mode
     except Exception:
-        pass
+        logger.warning("Failed to retrieve active protection mode", exc_info=True)
 
     return response
