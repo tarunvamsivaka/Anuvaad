@@ -11,6 +11,7 @@ synchronously so snapshot() always has fresh local data.
 """
 
 import asyncio
+import contextlib
 import math
 import sys
 import time
@@ -24,7 +25,7 @@ def get_memory_watermark_mb() -> float:
     resource.getrusage on Unix, ctypes Win32 API on Windows, or 0.0 fallback.
     """
     # 1. Linux /proc/self/status (most accurate for Linux / Docker / Render containers)
-    try:
+    with contextlib.suppress(FileNotFoundError, PermissionError, ValueError, OSError):
         with open("/proc/self/status") as f:
             for line in f:
                 if line.startswith("VmHWM:"):
@@ -35,11 +36,9 @@ def get_memory_watermark_mb() -> float:
                     parts = line.split()
                     if len(parts) >= 2:
                         return round(float(parts[1]) / 1024.0, 2)
-    except (FileNotFoundError, PermissionError, ValueError, OSError):
-        pass
 
     # 2. Unix resource module
-    try:
+    with contextlib.suppress(ImportError, AttributeError, ValueError, OSError):
         import resource
 
         rusage = resource.getrusage(resource.RUSAGE_SELF)
@@ -47,11 +46,9 @@ def get_memory_watermark_mb() -> float:
         if sys.platform == "darwin":
             return round(max_rss / (1024.0 * 1024.0), 2)
         return round(max_rss / 1024.0, 2)
-    except (ImportError, AttributeError, ValueError, OSError):
-        pass
 
     # 3. Windows ctypes
-    try:
+    with contextlib.suppress(Exception):
         import ctypes
         from ctypes import wintypes
 
@@ -80,8 +77,6 @@ def get_memory_watermark_mb() -> float:
         handle = kernel32.GetCurrentProcess()
         if get_proc_mem(handle, ctypes.byref(counters), counters.cb):
             return round(counters.PeakWorkingSetSize / (1024.0 * 1024.0), 2)
-    except Exception:
-        pass
 
     return 0.0
 
@@ -90,12 +85,12 @@ def _fire_and_forget(coro) -> None:
     """Schedule a coroutine as a background task, ignoring all exceptions.
     H-5: Prevents Redis write latency from adding to p50/p95 response time.
     """
-    try:
+    with contextlib.suppress(RuntimeError):
         loop = asyncio.get_running_loop()
         task = loop.create_task(coro)
-        task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
-    except RuntimeError:
-        pass  # No running event loop (startup/test) — skip fire-and-forget safely
+        task.add_done_callback(
+            lambda t: t.exception() if not t.cancelled() else None
+        )  # No running event loop (startup/test) — skip fire-and-forget safely
 
 
 class MetricsCollector:
@@ -123,20 +118,16 @@ class MetricsCollector:
         from app.core.cache import cache  # lazy import avoids circular at module init
 
         if cache.client:
-            try:
+            with contextlib.suppress(Exception):
                 await cache.client.hincrby(key, field, amount)
-            except Exception:
-                pass
 
     @staticmethod
     async def _redis_incr(key: str) -> None:
         from app.core.cache import cache
 
         if cache.client:
-            try:
+            with contextlib.suppress(Exception):
                 await cache.client.incr(key)
-            except Exception:
-                pass
 
     @staticmethod
     async def _redis_set_max_memory(val: float) -> None:
@@ -144,12 +135,10 @@ class MetricsCollector:
         from app.core.cache import cache
 
         if cache.client:
-            try:
+            with contextlib.suppress(Exception):
                 current = await cache.client.get("metrics:peak_memory_watermark_mb")
                 if current is None or val > float(current):
                     await cache.client.set("metrics:peak_memory_watermark_mb", str(val))
-            except Exception:
-                pass
 
     @staticmethod
     async def _redis_push_snapshot(snap: dict) -> None:
@@ -159,7 +148,7 @@ class MetricsCollector:
         from app.core.cache import cache
 
         if cache.client:
-            try:
+            with contextlib.suppress(Exception):
                 entry = json.dumps(
                     {
                         "timestamp": int(time.time()),
@@ -173,8 +162,6 @@ class MetricsCollector:
                 )
                 await cache.client.lpush("metrics:history", entry)
                 await cache.client.ltrim("metrics:history", 0, 49)
-            except Exception:
-                pass
 
     # ---- Public recording API -------------------------------------------
 
@@ -308,14 +295,12 @@ class MetricsCollector:
 
         history: list[dict] = []
         if cache.client:
-            try:
+            with contextlib.suppress(Exception):
                 entries = await cache.client.lrange("metrics:history", 0, limit - 1)
                 for item in entries:
                     if isinstance(item, bytes):
                         item = item.decode("utf-8")
                     history.append(json.loads(item))
-            except Exception:
-                pass
         return history
 
     async def record_telemetry_checkpoint(self) -> dict:
