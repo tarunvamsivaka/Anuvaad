@@ -3,7 +3,7 @@ import time
 import pytest
 
 from app.core.cache import RedisCache, TTLCache
-from app.services.ast_cache import compute_ast_cache_key
+from app.services.ast_cache import compute_ast_cache_key, normalize_code_ast
 
 
 def test_ast_hash_normalization_equivalence():
@@ -127,3 +127,80 @@ def test_backward_compatibility_unknown_depth_falls_back_to_dev():
 
     assert key_invalid == key_dev, "Unknown depth must fall back to 'dev'"
     assert key_invalid.startswith("ast_cache:")
+
+
+def test_normalize_code_ast_python():
+    """Verify that normalize_code_ast handles python correctly by stripping comments/docstrings."""
+    code_v1 = """
+def calculate_metrics(items: list[int]) -> int:
+    # First version of comment: compute sum
+    total = sum(items)
+    return total
+"""
+
+    code_v2 = """
+def calculate_metrics(items: list[int]) -> int:
+    # Completely different author comment here
+    # Extra whitespace and explanation
+    total = sum(items)
+
+    return total
+"""
+
+    code_v3 = """
+def calculate_metrics(items: list[int]) -> int:
+    '''Calculates the sum of items.'''
+    total = sum(items)
+    return total
+"""
+    norm1 = normalize_code_ast(code_v1, "python")
+    norm2 = normalize_code_ast(code_v2, "python")
+    norm3 = normalize_code_ast(code_v3, "python")
+
+    assert norm1 == norm2
+    assert norm1 == norm3
+    assert norm1 == "def calculate_metrics(items: list[int]) -> int:\n    total = sum(items)\n    return total"
+
+
+def test_normalize_code_ast_javascript():
+    """Verify that normalize_code_ast handles non-python (like javascript) correctly by using tree-sitter or fallback."""
+    code_v1 = """
+function calculateMetrics(items) {
+    // First version of comment: compute sum
+    const total = items.reduce((a, b) => a + b, 0);
+    return total;
+}
+"""
+
+    code_v2 = """
+function calculateMetrics(items) {
+    /*
+     * Completely different author comment here
+     * Extra whitespace and explanation
+     */
+    const total = items.reduce((a, b) => a + b, 0);
+
+    return total;
+}
+"""
+
+    norm1 = normalize_code_ast(code_v1, "javascript")
+    norm2 = normalize_code_ast(code_v2, "javascript")
+
+    assert norm1 == norm2
+    assert (
+        norm1
+        == "function calculateMetrics ( items ) { const total = items . reduce ( ( a , b ) => a + b , 0 ) ; return total ; }"
+    )
+
+
+def test_normalize_code_ast_fallback():
+    """Verify that normalize_code_ast uses fallback regex when language is unknown."""
+    code = """
+def calculate_metrics(items: list[int]) -> int:
+    # Fallback comment
+    total = sum(items) /* block */
+    return total
+"""
+    norm = normalize_code_ast(code, "unknown_lang")
+    assert norm == "def calculate_metrics(items: list[int]) -> int: total = sum(items) return total"
