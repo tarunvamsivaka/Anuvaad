@@ -9,6 +9,7 @@ import { AstToolbar } from "./AstToolbar";
 import { languages } from "../../_constants/languages";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useShallow } from "zustand/react/shallow";
 import { useTranslationStore } from "../../_store/useTranslationStore";
 import { detectLanguage } from "../../_hooks/useLanguageDetection";
 
@@ -100,7 +101,19 @@ export function InputPanel({
   handleSelectFile,
   setFileList,
 }: InputPanelProps) {
-  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } = useTranslationStore();
+  // PERF: Subscribe with useShallow to avoid unnecessary re-renders when other translation store slices change (e.g. streaming tokens, rawError, etc.)
+  const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } =
+    useTranslationStore(
+      useShallow((state) => ({
+        input: state.input,
+        setInput: state.setInput,
+        isStreaming: state.isStreaming,
+        detectedLang: state.detectedLang,
+        setDetectedLang: state.setDetectedLang,
+        outputBlocks: state.outputBlocks,
+        activeHoveredBlockId: state.activeHoveredBlockId,
+      }))
+    );
   const hasOutputBlocks = !!outputBlocks && outputBlocks.length > 0;
   const decorationsRef = useRef<string[]>([]);
 
