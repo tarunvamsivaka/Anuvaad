@@ -47,7 +47,7 @@ export function useTranslationSession({
     setRawError,
     sessionId,
     setDiffOriginalCode,
-  } = useTranslationStore(useShallow(state => ({ input: state.input, outputBlocks: state.outputBlocks, setOutputBlocks: state.setOutputBlocks, originalBlocks: state.originalBlocks, setOriginalBlocks: state.setOriginalBlocks, sessionId: state.sessionId, setSessionId: state.setSessionId, setDiffOriginalCode: state.setDiffOriginalCode, setRawError: state.setRawError })));
+  } = useTranslationStore(useShallow(state => ({ input: state.input, outputBlocks: state.outputBlocks, setOutputBlocks: state.setOutputBlocks, originalBlocks: state.originalBlocks, setOriginalBlocks: state.setOriginalBlocks, sessionId: state.sessionId, setSessionId: state.setSessionId, setDiffOriginalCode: state.setDiffOriginalCode, setRawError: state.setRawError, setInput: state.setInput, setModelUsed: state.setModelUsed })));
 
   const [isSyncing, setIsSyncing] = useState(false);
   const [copied, setCopied] = useState(false);
