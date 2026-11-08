@@ -1,0 +1,3 @@
+## 2024-05-19 - Zustand Store Partial Subscription Optimization
+**Learning:** Using `useTranslationStore()` directly in functional components without a selector causes the component to re-render on every state update, which is a massive performance bottleneck for high-frequency operations like Server-Sent Events (SSE) streaming state (`streamText`). Destructuring the whole state means any change triggers a re-render.
+**Action:** Always use `useShallow` from `zustand/react/shallow` to subscribe to only the specific properties needed by the component to prevent unnecessary re-renders during state mutations.
