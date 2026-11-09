@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Cpu, CheckCircle2, Wand2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslationStore } from "../../_store/useTranslationStore";
+import { useShallow } from "zustand/react/shallow";
 import { modernizeReactCode } from "@/engine";
 import { extractAstLineRanges } from "@/lib/ast-line-mapper";
 
@@ -15,7 +16,11 @@ interface AstToolbarProps {
 }
 
 export function AstToolbar({ sourceLanguage }: AstToolbarProps) {
-  const { input, setInput } = useTranslationStore();
+  // Optimization: Use `useShallow` to prevent O(N) cascading re-renders when other state like streamText changes rapidly
+  const { input, setInput } = useTranslationStore(useShallow((state) => ({
+    input: state.input,
+    setInput: state.setInput
+  })));
   const [previousCode, setPreviousCode] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
