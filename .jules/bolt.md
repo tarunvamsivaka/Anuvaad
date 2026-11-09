@@ -1,0 +1,3 @@
+## 2024-11-09 - [Performance] Prevent cascading re-renders in Zustand with useShallow
+**Learning:** Components subscribing to rapidly updating global states (like `streamText` during SSE streaming) without specific selectors or `useShallow` cause expensive and cascading application re-renders due to Zustand's default reference equality checks on the destructured returned objects. The issue is especially critical when expensive child components (like MonacoEditors) are repeatedly updated.
+**Action:** When subscribing to multiple Zustand state variables, always wrap the selector in the `useShallow` hook from `zustand/react/shallow`. Ensure every destructured variable is explicitly mapped in the returned object to prevent critical undefined state bugs.
