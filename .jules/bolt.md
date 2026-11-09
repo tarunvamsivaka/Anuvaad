@@ -1,0 +1,3 @@
+## 2024-05-24 - Zustand store subscription optimization
+**Learning:** By default, calling `const state = useTranslationStore()` subscribes the component to the entire store. Any change to any property in the store (like rapid updates to streaming text) will trigger a re-render of all components using this pattern, even if they only need unrelated properties.
+**Action:** When subscribing to multiple state variables, always use `useShallow` from `zustand/react/shallow` to only re-render when the specific selected properties change. Explicitly map the destructured variables in the returned object.
