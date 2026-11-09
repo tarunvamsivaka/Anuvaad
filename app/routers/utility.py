@@ -534,8 +534,9 @@ async def import_gist(
         if isinstance(contents, dict) and contents.get("type") == "file":
             download_url = contents.get("download_url")
             filename = contents.get("name", "code.txt")
-            if not download_url:
-                raise HTTPException(status_code=400, detail="Could not get download URL for selected file.")
+            # SEC: Validate download_url to prevent SSRF via untrusted or spoofed redirect endpoints
+            if not download_url or not download_url.startswith("https://raw.githubusercontent.com/"):
+                raise HTTPException(status_code=400, detail="Invalid download URL provided for selected file.")
 
             client = await get_http_client()
             content = await fetch_raw_content(client, download_url)
