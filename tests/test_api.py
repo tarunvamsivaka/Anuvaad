@@ -364,6 +364,21 @@ class TestImportGist:
         assert data["language"] == "python"
         assert data["content"] == "print('hello from specific file')"
 
+    @patch("httpx.AsyncClient.get")
+    def test_import_repo_untrusted_download_url_rejected(self, mock_get, client):
+        mock_contents_response = MagicMock()
+        mock_contents_response.status_code = 200
+        mock_contents_response.json.return_value = {
+            "name": "main.py",
+            "type": "file",
+            "download_url": "http://169.254.169.254/latest/meta-data/",
+        }
+        mock_get.return_value = mock_contents_response
+
+        res = client.get("/api/import-gist?url=https://github.com/owner/repo&file_path=main.py")
+        assert res.status_code == 400
+        assert "Invalid download URL" in res.json()["detail"]
+
     def test_invalid_url_rejected(self, client):
         res = client.get("/api/import-gist?url=https://google.com")
         assert res.status_code == 400
