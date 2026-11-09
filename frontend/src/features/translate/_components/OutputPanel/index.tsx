@@ -10,6 +10,7 @@ import { languages } from "../../_constants/languages";
 import { BlockCard } from "../BlockCard";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslationStore } from "../../_store/useTranslationStore";
+import { useShallow } from "zustand/react/shallow";
 import { track } from "@/lib/analytics";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
@@ -84,7 +85,20 @@ export function OutputPanel({
     setOutputBlocks,
     diffOriginalCode,
     setDiffOriginalCode,
-  } = useTranslationStore();
+  } = useTranslationStore(
+    useShallow((state) => ({
+      input: state.input,
+      streamText: state.streamText,
+      isStreaming: state.isStreaming,
+      outputBlocks: state.outputBlocks,
+      originalBlocks: state.originalBlocks,
+      rawError: state.rawError,
+      modelUsed: state.modelUsed,
+      setOutputBlocks: state.setOutputBlocks,
+      diffOriginalCode: state.diffOriginalCode,
+      setDiffOriginalCode: state.setDiffOriginalCode,
+    }))
+  );
   const [feedbackRating, setFeedbackRating] = useState<"useful" | "incorrect" | "unsupported" | null>(null);
 
   const fullCodeText = useMemo(() => {
