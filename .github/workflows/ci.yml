@@ -12,7 +12,7 @@ permissions:
 jobs:
   test-matrix:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -70,7 +70,7 @@ jobs:
   # Status check aggregator for required branch protection 'test'
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test-matrix]
     steps:
       - name: Verify test suite status
@@ -80,7 +80,7 @@ jobs:
   # against PostgreSQL with pgvector.  SQLite cannot validate these PostgreSQL
   # schema details or the Alembic upgrade/downgrade path.
   migration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
       postgres:
@@ -166,7 +166,7 @@ jobs:
         run: pytest tests/test_migrations.py -v
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -200,7 +200,7 @@ jobs:
         run: cd frontend && npx tsc --noEmit
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
@@ -240,7 +240,7 @@ jobs:
         run: npm run lint
 
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: [frontend]
     defaults:
@@ -295,7 +295,7 @@ jobs:
           retention-days: 30
 
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [test, migration, lint, frontend, e2e, cli, vscode-extension]
     if: github.ref == 'refs/heads/master'
 
@@ -335,7 +335,7 @@ jobs:
 
   # CLI package CI — typecheck + build + verification
   cli:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: cli
@@ -360,7 +360,7 @@ jobs:
 
   # L-03: VSCode extension CI — typecheck + lint + test (P2-RISK-01)
   vscode-extension:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: vscode-extension
