@@ -201,6 +201,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -225,7 +226,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key_for_ci_build
           NEXT_PUBLIC_API_URL: http://localhost:8000
-        run: npm run build
+        run: npm run build -- --webpack
 
       - name: Run Vitest unit tests
         run: npx vitest run
@@ -266,7 +267,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder_anon_key_for_ci_build
           NEXT_PUBLIC_API_URL: http://localhost:8000
-        run: npm run build
+        run: npm run build -- --webpack
 
       - name: Copy static assets for standalone server
         # `node .next/standalone/server.js` does NOT auto-include .next/static or public.
