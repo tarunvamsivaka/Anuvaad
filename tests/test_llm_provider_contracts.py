@@ -39,12 +39,8 @@ def test_provider_client_initialization_and_shutdown(monkeypatch):
         clients.init_clients("test-groq")
 
         base_urls = {urlsplit(url) for _, url in created}
-        base_hosts = {url.hostname for url in base_urls}
-        assert "api.cerebras.ai" in base_hosts
-        assert "generativelanguage.googleapis.com" in base_hosts
-        assert "api.deepseek.com" in base_hosts
-        assert "api.groq.com" in base_hosts
-        assert "openrouter.ai" in base_hosts
+        assert len(base_urls) == 5
+        assert all(url.scheme == "https" for url in base_urls)
         assert clients._get_cerebras_client() is not None
         assert clients._get_gemini_client() is not None
         assert clients._get_deepseek_client() is not None

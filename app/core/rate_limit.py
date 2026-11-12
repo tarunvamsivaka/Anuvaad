@@ -1,4 +1,3 @@
-import hashlib
 import hmac
 
 from fastapi import HTTPException, Request
@@ -11,7 +10,7 @@ from app.core.config import AUDIT_HMAC_KEY
 def hash_rate_limit_identity(identity: str) -> str:
     """Return a keyed pseudonym so cache keys do not expose account emails."""
     normalized_identity = identity.strip().lower().encode()
-    return hmac.new(AUDIT_HMAC_KEY.encode(), normalized_identity, hashlib.sha256).hexdigest()
+    return hmac.digest(AUDIT_HMAC_KEY.encode(), b"rate-limit:user:" + normalized_identity, "sha256").hex()
 
 
 def rate_limiter(calls: int, window: int):
