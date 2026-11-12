@@ -1,9 +1,17 @@
 import hashlib
+import hmac
 
 from fastapi import HTTPException, Request
 
 from app.core.auth import get_client_ip, get_optional_user_email_from_request, security
 from app.core.cache import cache
+from app.core.config import AUDIT_HMAC_KEY
+
+
+def hash_rate_limit_identity(identity: str) -> str:
+    """Return a keyed pseudonym so cache keys do not expose account emails."""
+    normalized_identity = identity.strip().lower().encode()
+    return hmac.new(AUDIT_HMAC_KEY.encode(), normalized_identity, hashlib.sha256).hexdigest()
 
 
 def rate_limiter(calls: int, window: int):
@@ -16,8 +24,8 @@ def rate_limiter(calls: int, window: int):
         user_email = await get_optional_user_email_from_request(request, credentials=credentials)
 
         if user_email:
-            identity = hashlib.sha256(user_email.strip().lower().encode()).hexdigest()
-            redis_key = f"rate_limit:specific:{request.url.path}:user:{identity}"
+            identity_hash = hash_rate_limit_identity(user_email)
+            redis_key = f"rate_limit:specific:{request.url.path}:user:{identity_hash}"
         else:
             redis_key = f"rate_limit:specific:{request.url.path}:{client_ip}"
 

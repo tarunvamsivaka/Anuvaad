@@ -5,12 +5,17 @@ Generates auto-generatable production secrets for Render, Vercel, Supabase, and 
 Never commit the generated values to source control.
 """
 
+import argparse
+import os
 import secrets
 import string
+from pathlib import Path
 
-print("\n==========================================")
-print(" Anuvaad — Production Secret Generator")
-print("==========================================\n")
+parser = argparse.ArgumentParser(description="Generate production secrets into a private local file.")
+parser.add_argument(
+    "--output", default="Anuvaad.secrets.env", help="Output path (created exclusively, never overwritten)"
+)
+args = parser.parse_args()
 
 try:
     from cryptography.fernet import Fernet
@@ -24,11 +29,15 @@ cron_secret = secrets.token_urlsafe(32)
 alphabet = string.ascii_letters + string.digits + "!@#%^&*"
 metrics_pass = "".join(secrets.choice(alphabet) for _ in range(24))
 
-print("Copy these generated values into your Render / Vercel Environment Dashboards:")
-print("-------------------------------------------------------------------------")
-print(f"TOKEN_ENCRYPTION_KEY={fernet_key}")
-print(f"REDIS_PASSWORD={redis_pass}")
-print(f"CRON_SECRET={cron_secret}")
-print(f"METRICS_PASSWORD={metrics_pass}")
-print("-------------------------------------------------------------------------")
-print("WARNING: NEVER COMMIT THESE GENERATED VALUES TO GIT.\n")
+output_path = Path(args.output).expanduser()
+flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+file_descriptor = os.open(output_path, flags, 0o600)
+with os.fdopen(file_descriptor, "w", encoding="utf-8") as output_file:
+    output_file.write(f"TOKEN_ENCRYPTION_KEY={fernet_key}\n")
+    output_file.write(f"REDIS_PASSWORD={redis_pass}\n")
+    output_file.write(f"CRON_SECRET={cron_secret}\n")
+    output_file.write(f"METRICS_PASSWORD={metrics_pass}\n")
+
+print(
+    f"Generated secrets were saved to {output_path}. Move them to your service settings securely, then delete this file."
+)

@@ -27,7 +27,6 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 
-import hashlib  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
 from unittest.mock import MagicMock, patch  # noqa: E402
@@ -341,8 +340,9 @@ def client_rate_limited():
     import app.main as app_module
     import app.services.ai as ai_module
     from app.api.middleware.rate_limit import RATE_LIMIT_USER_MAX
+    from app.core.rate_limit import hash_rate_limit_identity
 
-    user_hash = hashlib.sha256(b"testuser@example.com").hexdigest()
+    user_hash = hash_rate_limit_identity("testuser@example.com")
     fake_redis_async = MockRedisCache({f"rate_limit:user:{user_hash}": RATE_LIMIT_USER_MAX})
     mock_groq = MockAsyncOpenAI()
 

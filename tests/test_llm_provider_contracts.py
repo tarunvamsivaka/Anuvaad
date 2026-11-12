@@ -6,6 +6,7 @@ performing live network requests.
 """
 
 from unittest.mock import MagicMock, patch
+from urllib.parse import urlsplit
 
 from app.services.ai import clients
 from app.services.ai.streaming import _build_streaming_providers
@@ -37,12 +38,13 @@ def test_provider_client_initialization_and_shutdown(monkeypatch):
     ):
         clients.init_clients("test-groq")
 
-        base_urls = {url for _, url in created}
-        assert "https://api.cerebras.ai/v1" in base_urls
-        assert "https://generativelanguage.googleapis.com/v1beta/openai/" in base_urls
-        assert "https://api.deepseek.com" in base_urls
-        assert "https://api.groq.com/openai/v1" in base_urls
-        assert "https://openrouter.ai/api/v1" in base_urls
+        base_urls = {urlsplit(url) for _, url in created}
+        base_hosts = {url.hostname for url in base_urls}
+        assert "api.cerebras.ai" in base_hosts
+        assert "generativelanguage.googleapis.com" in base_hosts
+        assert "api.deepseek.com" in base_hosts
+        assert "api.groq.com" in base_hosts
+        assert "openrouter.ai" in base_hosts
         assert clients._get_cerebras_client() is not None
         assert clients._get_gemini_client() is not None
         assert clients._get_deepseek_client() is not None

@@ -1,5 +1,7 @@
 # Environments
 .env
+.secrets.env
+Anuvaad.secrets.env
 .env.*
 !.env.example
 

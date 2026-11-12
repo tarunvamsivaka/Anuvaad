@@ -1,6 +1,5 @@
 """Global rate limiting using verified user identity or the client IP."""
 
-import hashlib
 import os
 
 from fastapi import Request
@@ -9,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.core.auth import get_client_ip, get_optional_user_email_from_request, security
 from app.core.cache import cache
 from app.core.config import IS_PRODUCTION
+from app.core.rate_limit import hash_rate_limit_identity
 
 RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_IP_MAX = int(os.getenv("RATE_LIMIT_IP_MAX", "50"))
@@ -36,8 +36,8 @@ async def rate_limit_middleware(request: Request, call_next):
         return await call_next(request)
     if user_email:
         request.state.authenticated_email = user_email
-        identity = hashlib.sha256(user_email.strip().lower().encode()).hexdigest()
-        bucket_key = f"rate_limit:user:{identity}"
+        identity_hash = hash_rate_limit_identity(user_email)
+        bucket_key = f"rate_limit:user:{identity_hash}"
         limit = RATE_LIMIT_USER_MAX
         limit_type = "user_daily_limit"
     else:
