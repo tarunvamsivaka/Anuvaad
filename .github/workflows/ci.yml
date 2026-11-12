@@ -249,7 +249,8 @@ jobs:
         run: npm run lint -- --max-warnings=0
 
   e2e:
-    runs-on: ubuntu-latest
+    # Playwright's pinned browser build does not yet support Ubuntu 26 runners.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     needs: [frontend]
     defaults:
