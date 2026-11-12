@@ -293,8 +293,8 @@ jobs:
           SUPABASE_JWT_SECRET: test_supabase_jwt_secret_32bytes_minimum_length
           AUDIT_HMAC_KEY: test_audit_hmac_key_for_ci_only
           HISTORY_ENCRYPTION_KEYS: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
-          REDIS_URL: redis://127.0.0.1:6379
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          REDIS_URL: "redis://127.0.0.1:6379"
         run: |
           python -m uvicorn main:app --host 127.0.0.1 --port 8000 > /tmp/anuvaad-api.log 2>&1 &
           for attempt in {1..30}; do
