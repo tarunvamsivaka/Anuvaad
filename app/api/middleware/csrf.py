@@ -19,6 +19,12 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import FRONTEND_URL, IS_PRODUCTION
 
+# SEC-03: CSRF enforcement applies to production AND staging environments.
+# Staging environments are actively protected against cross-origin forgery attacks.
+_CURRENT_ENV = os.getenv("ENV", "development").lower()
+_ENFORCE_CSRF = IS_PRODUCTION or _CURRENT_ENV == "staging"
+
+
 # Build the full set of allowed origins once at import time
 _extra_origins: list[str] = [o.strip().rstrip("/") for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 
@@ -41,7 +47,7 @@ allowed_origins: list[str] = list(
                 "http://localhost:5500",
                 "http://127.0.0.1:5500",
             }
-            if not IS_PRODUCTION
+            if not _ENFORCE_CSRF
             else set()
         ),
     }
@@ -62,7 +68,10 @@ _WEBHOOK_PREFIXES: tuple[str, ...] = (
     "/api/webhooks/",
     "/api/v1/github/webhook",
     "/api/github/webhook",
+    "/api/v1/oauth/github/callback",
+    "/api/oauth/github/callback",
 )
+_NON_BROWSER_PATHS: frozenset[str] = frozenset({"/api/v1/cron/prune", "/api/cron/prune"})
 
 
 def _extract_origin(url_string: str) -> str | None:
@@ -97,11 +106,16 @@ async def csrf_origin_middleware(request: Request, call_next):
     SEC-CSRF-02: Referer fallback now uses exact URL-parsed origin comparison
                  instead of startswith(), preventing subdomain spoofing.
     """
-    if IS_PRODUCTION and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+    enforce_csrf = _ENFORCE_CSRF or IS_PRODUCTION or os.getenv("ENV", "").lower() in ("production", "staging")
+    if enforce_csrf and request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        # Machine clients authenticate with explicit credentials, not browser cookies.
+        if request.headers.get("X-API-Key") or request.headers.get("Authorization", "").startswith("Bearer "):
+            return await call_next(request)
+
         # Server-to-server webhooks authenticate via HMAC signatures; exempt them.
         # Using an explicit prefix allowlist instead of a substring check.
         path = request.url.path
-        is_webhook = any(path.startswith(prefix) for prefix in _WEBHOOK_PREFIXES)
+        is_webhook = path in _NON_BROWSER_PATHS or any(path.startswith(prefix) for prefix in _WEBHOOK_PREFIXES)
         if not is_webhook:
             origin = request.headers.get("Origin")
             referer = request.headers.get("Referer")

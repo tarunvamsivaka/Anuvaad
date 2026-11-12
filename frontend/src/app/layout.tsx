@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, DM_Sans } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -20,15 +20,6 @@ const jetbrains = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",  // Prevent FOIT
   preload: true,    // Critical path — Monaco editor uses this font
-});
-
-// Display font: DM Sans — clean geometric humanist for hero headlines and section headings
-// Loaded with variable weight axis for flexibility (300-900)
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  display: "swap",
-  axes: ["opsz"],  // optical size axis
 });
 
 export const viewport: Viewport = {
@@ -84,7 +75,7 @@ export const metadata: Metadata = {
     description:
       "Translate code to plain English and back across multiple programming languages. Review AI-generated output before use.",
     type: "website",
-    url: "https://getanuvaad.vercel.app",
+    url: process.env.NEXT_PUBLIC_FRONTEND_URL || "https://getanuvaad.vercel.app",
     siteName: "Anuvaad",
     images: [
       {
@@ -103,6 +94,7 @@ export const metadata: Metadata = {
     images: ["/opengraph-image"],
   },
   verification: {
+    // Note: fallback is production GSC tag. Set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION="" in .env.local to disable in preview.
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "googlee89e0239cf2e8f19",
   },
 };
@@ -118,7 +110,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrains.variable} ${dmSans.variable} h-full antialiased`}
+      className={`${inter.variable} ${jetbrains.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>
@@ -132,13 +124,13 @@ export default function RootLayout({
           <PostHogProvider>
             <TooltipProvider>
               <AuthProvider>
+                <EdgeWarmup />
                 {children}
                 <CommandPalette />
                 <KeyboardShortcutsModal />
               </AuthProvider>
             </TooltipProvider>
           </PostHogProvider>
-          <EdgeWarmup />
           <Toaster
             position="bottom-right"
             toastOptions={{

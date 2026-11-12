@@ -1,3 +1,20 @@
+// FE-02: Validate public Supabase configuration on production release builds
+const sUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const sKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const isMissingSupabase = !sUrl || sUrl.includes("placeholder.supabase.co") || sUrl.includes("your-") || !sKey || sKey.includes("placeholder_anon_key") || sKey.includes("your-");
+
+if (process.env.NODE_ENV === "production" && process.env.STRICT_SUPABASE_CHECK === "true") {
+  if (isMissingSupabase) {
+    throw new Error(
+      "[next.config] Production build failed: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be valid."
+    );
+  }
+} else if (isMissingSupabase) {
+  console.warn(
+    "[next.config] Warning: NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY is missing or configured with placeholder values."
+  );
+}
+
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
 
@@ -22,7 +39,6 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "@radix-ui/react-icons", "framer-motion", "@monaco-editor/react"],
   },
-  turbopack: {},
   compiler: {
     removeConsole: process.env.NODE_ENV === "production" ? { exclude: ["error"] } : false,
   },

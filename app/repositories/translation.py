@@ -15,7 +15,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import HISTORY_LIMIT_FREE, HISTORY_LIMIT_PRO, logger
 from app.core.database_session import AsyncSessionLocal
+from app.core.history_encryption import decrypt_blocks, encrypt_blocks
 from app.models.db_models import TranslationHistory, Workspace, WorkspaceMember
+
+
+def _row_dict(row: TranslationHistory, *, decrypt: bool) -> dict:
+    data = {column.key: getattr(row, column.key) for column in row.__mapper__.columns}
+    if decrypt and data.get("encrypted_blocks"):
+        data["blocks"] = decrypt_blocks(data["encrypted_blocks"])
+    return data
 
 
 async def _is_workspace_member_or_owner(session, workspace_id: str, email: str) -> bool:
@@ -98,7 +106,7 @@ async def get_history(
                 .offset(offset if not after_id else 0)
             )
             rows = result.scalars().all()
-            return [{c.key: getattr(r, c.key) for c in r.__mapper__.columns} for r in rows]
+            return [_row_dict(r, decrypt=True) for r in rows]
         except Exception as e:
             logger.error(f"translation.get_history({email}): {e}")
             return []
@@ -145,6 +153,8 @@ async def save(
     model_used: str,
     workspace_id: str | None = None,
     session_id: str | None = None,
+    repository_name: str | None = None,
+    file_path: str | None = None,
     is_public: bool = False,
     # ZDR audit trail: HMAC-SHA256 hash of source code bytes.
     # Accepted here for API compatibility; stored when DB column is added via migration.
@@ -159,17 +169,22 @@ async def save(
                 source_language=source_language,
                 target_language=target_language,
                 input_preview=input_preview,
-                blocks=blocks,
+                blocks=None,
+                encrypted_blocks=encrypt_blocks(blocks),
+                history_key_version=1,
                 model_used=model_used,
+                input_hash=input_hash,
                 workspace_id=workspace_id,
                 session_id=session_id,
+                repository_name=repository_name,
+                file_path=file_path,
                 is_public=is_public,
                 created_at=datetime.now(UTC),
             )
             session.add(row)
             await session.commit()
             await session.refresh(row)
-            return {c.key: getattr(row, c.key) for c in row.__mapper__.columns}
+            return _row_dict(row, decrypt=True)
         except Exception as e:
             logger.error(f"translation.save({email}): {e}")
             await session.rollback()
@@ -260,7 +275,7 @@ async def prune_anonymous_history(session: AsyncSession | None = None, days: int
 # ── FIX-26 (P2-01): ORM replacements for remaining supabase_request() calls ──
 
 
-async def get_by_id(item_id: str, email: str | None = None) -> dict | None:
+async def get_by_id(item_id: str, email: str | None = None, *, decrypt_public: bool = False) -> dict | None:
     """Return a single translation_history row by id.
 
     If *email* is provided the query also checks ownership (prevents IDOR).
@@ -279,7 +294,12 @@ async def get_by_id(item_id: str, email: str | None = None) -> dict | None:
             row = result.scalars().first()
             if row is None:
                 return None
-            return {c.key: getattr(row, c.key) for c in row.__mapper__.columns}
+            public_share_is_live = bool(
+                decrypt_public
+                and row.is_public
+                and (row.share_expires_at is None or row.share_expires_at > datetime.now(UTC))
+            )
+            return _row_dict(row, decrypt=email is not None or public_share_is_live)
         except Exception as e:
             logger.error(f"translation.get_by_id({item_id}): {e}")
             return None

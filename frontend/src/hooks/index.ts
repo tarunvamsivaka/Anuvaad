@@ -61,10 +61,17 @@ export function useTranslationStats(_userEmail: string | undefined, accessToken:
 }
 
 export function useSubscriptionStatus(accessToken: string | undefined) {
-  const { data, isLoading } = useSWR(
+  // PERF-05: Deduplicate subscription status checks and prevent excessive network requests
+  // on routine Supabase auth state / token refresh events.
+  const { data, isLoading, mutate } = useSWR(
     accessToken ? ['/api/subscription-status', accessToken] : null,
     getFetcher,
-    { dedupingInterval: 30000, revalidateOnFocus: false }
+    {
+      dedupingInterval: 60000,
+      revalidateOnFocus: false,
+      revalidateIfStale: false,
+      revalidateOnReconnect: false,
+    }
   );
 
   const subscription = data ? {
@@ -73,7 +80,7 @@ export function useSubscriptionStatus(accessToken: string | undefined) {
     current_period_end: data.current_period_end
   } : null;
 
-  return { subscription, isLoading: !!accessToken && isLoading };
+  return { subscription, isLoading: !!accessToken && isLoading, mutate };
 }
 
 export function useCredits(accessToken: string | undefined) {

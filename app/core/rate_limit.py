@@ -1,9 +1,26 @@
+import asyncio
 import hashlib
 
 from fastapi import HTTPException, Request
 
-from app.core.auth import get_client_ip
+from app.core.auth import get_client_ip, get_optional_user_email_from_request, security
 from app.core.cache import cache
+from app.core.config import AUDIT_HMAC_KEY
+
+
+def hash_rate_limit_identity(identity: str) -> str:
+    """Return a keyed pseudonym so cache keys do not expose account emails."""
+    normalized_identity = identity.strip().lower().encode()
+    # scrypt prevents recovery of account emails from leaked Redis key names.
+    return hashlib.scrypt(
+        normalized_identity,
+        salt=b"rate-limit:user:" + AUDIT_HMAC_KEY.encode(),
+        n=2**12,
+        r=8,
+        p=1,
+        dklen=32,
+        maxmem=16 * 1024 * 1024,
+    ).hex()
 
 
 def rate_limiter(calls: int, window: int):
@@ -12,17 +29,12 @@ def rate_limiter(calls: int, window: int):
         # request.client.host is the raw socket IP (always Render's proxy IP in
         # production), which buckets ALL users together under one rate-limit key.
         client_ip = get_client_ip(request)
-        auth_header = request.headers.get("Authorization")
+        credentials = await security(request)
+        user_email = await get_optional_user_email_from_request(request, credentials=credentials)
 
-        token = None
-        if auth_header and auth_header.startswith("Bearer "):
-            parts = auth_header.split(" ")
-            if len(parts) > 1:
-                token = parts[1]
-
-        if token:
-            token_hash = hashlib.sha256(token.encode()).hexdigest()
-            redis_key = f"rate_limit:specific:{request.url.path}:{token_hash}"
+        if user_email:
+            identity_hash = await asyncio.to_thread(hash_rate_limit_identity, user_email)
+            redis_key = f"rate_limit:specific:{request.url.path}:user:{identity_hash}"
         else:
             redis_key = f"rate_limit:specific:{request.url.path}:{client_ip}"
 

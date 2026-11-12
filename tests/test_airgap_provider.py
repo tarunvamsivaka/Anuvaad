@@ -1,5 +1,6 @@
 """Tests for AirgapInferenceProvider and local egress validation."""
 
+import httpx
 import pytest
 
 from app.services.ai_gateway.airgap_provider import (
@@ -26,8 +27,24 @@ def test_airgap_provider_private_ip_allowed():
 
 
 @pytest.mark.asyncio
-async def test_airgap_provider_availability_check():
-    # Loopback port that is likely closed should return False gracefully, not raise
+async def test_airgap_provider_availability_check(monkeypatch):
+    # Do not probe a real port: local firewall policy can turn a refused
+    # connection into an unbounded test. The provider only needs to convert a
+    # transport failure into an unavailable result.
+    class RefusedClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url):
+            raise httpx.ConnectError("connection refused")
+
+    monkeypatch.setattr("app.services.ai_gateway.airgap_provider.httpx.Client", RefusedClient)
     config = LocalModelConfig(base_url="http://127.0.0.1:59999/v1")
     provider = AirgapInferenceProvider(config)
     available = await provider.is_available()

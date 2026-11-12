@@ -68,24 +68,22 @@ export function useFileImport({
     if (!gistUrl.trim()) return;
     setGistLoading(true);
     try {
-      // Direct GitHub file import optimization: bypass backend proxy if direct blob URL
-      if (gistUrl.includes("/blob/") || gistUrl.includes("raw.githubusercontent.com")) {
-        try {
-          const parsed = parseGithubUrl(gistUrl);
-          const { content } = await fetchGithubFileContent(parsed.rawUrl);
-          const lang = detectLanguageFromFilename(parsed.filename);
-          setInput(content);
-          setSourceLanguage(lang);
-          setGistSource({ username: parsed.owner, filename: parsed.filename });
-          setFilePath(parsed.filePath);
-          setUploadedFile(null);
-          setShowGistInput(false);
-          toast.success(`Imported ${parsed.filename} (${content.length.toLocaleString()} chars) from GitHub!`);
-          track("gist_imported", { language: lang, char_count: content.length, username: parsed.owner, direct: true });
-          return;
-        } catch {
-          // Fall through to backend /api/import-gist if direct fetch encounters issues
-        }
+      // Validate file URLs structurally before attempting a direct GitHub fetch.
+      try {
+        const parsed = parseGithubUrl(gistUrl);
+        const { content } = await fetchGithubFileContent(parsed.rawUrl);
+        const lang = detectLanguageFromFilename(parsed.filename);
+        setInput(content);
+        setSourceLanguage(lang);
+        setGistSource({ username: parsed.owner, filename: parsed.filename });
+        setFilePath(parsed.filePath);
+        setUploadedFile(null);
+        setShowGistInput(false);
+        toast.success(`Imported ${parsed.filename} (${content.length.toLocaleString()} chars) from GitHub!`);
+        track("gist_imported", { language: lang, char_count: content.length, username: parsed.owner, direct: true });
+        return;
+      } catch {
+        // Gist URLs and direct fetch failures fall through to the backend importer.
       }
 
       // Use relative /api/... path — routed through Next.js proxy (next.config.ts rewrites).

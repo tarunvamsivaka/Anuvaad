@@ -1,3 +1,5 @@
+"""Enterprise SSO remains unavailable until a real SAML/OIDC verifier is configured."""
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 

@@ -16,9 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
-# Copy backend source
+# Copy backend source & migration tooling
 COPY main.py .
 COPY app/ ./app
+COPY alembic.ini .
+COPY alembic/ ./alembic
+COPY scripts/preflight_check.py ./scripts/preflight_check.py
 
 # Copy static files served by FastAPI
 COPY robots.txt .

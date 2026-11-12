@@ -17,6 +17,7 @@ from app.core.config import (
 )
 from app.core.quota import enforce_quotas_and_protection, record_successful_completion
 from app.queue.tasks import save_translation_history_task
+from app.repositories.privacy import may_store_code_history
 from app.services.ai import (
     SYSTEM_INSTRUCTION,
     find_stale_translation,
@@ -25,6 +26,7 @@ from app.services.ai import (
 )
 
 from .dependencies import (
+    require_valid_generated_blocks,
     sanitise_input,
     validate_code_input,
 )
@@ -49,7 +51,9 @@ async def upload_file_translate(
     email: str | None = Depends(get_optional_user_email_from_request),
 ):
     filename = file.filename or ""
-    is_ephemeral = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower() == "ephemeral"
+    is_ephemeral = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower() == "ephemeral" or not (
+        email and await may_store_code_history(email)
+    )
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -63,7 +67,18 @@ async def upload_file_translate(
     # SEC-UPL-01: Removed access_token form-body fallback. Pro status is now
     # determined exclusively from the authenticated user's subscription record.
 
-    contents = await file.read()
+    # Bound the in-memory read so oversized multipart uploads cannot force an
+    # unbounded allocation before the tier-specific limit is checked.
+    max_size = PRO_MAX_FILE_SIZE if is_pro else FREE_MAX_FILE_SIZE
+    contents = await file.read(max_size + 1)
+    if len(contents) > max_size:
+        limit_kb = max_size // 1024
+        tier = "pro" if is_pro else "free"
+        raise HTTPException(
+            status_code=422,
+            detail=f"File exceeds the {limit_kb}KB maximum for {tier} users.",
+        )
+
     try:
         raw_code = contents.decode("utf-8")
     except UnicodeDecodeError:
@@ -81,16 +96,8 @@ async def upload_file_translate(
         request, email, len(raw_code)
     )
 
-    max_size = PRO_MAX_FILE_SIZE if is_pro else FREE_MAX_FILE_SIZE
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
-
-    if len(contents) > max_size:
-        limit_kb = max_size // 1024
-        raise HTTPException(
-            status_code=422,
-            detail=f"File too large ({len(contents) // 1024}KB). Maximum is {limit_kb}KB for {tier} users.",
-        )
 
     detected_language = language or EXTENSION_TO_LANGUAGE.get(ext, "python")
 
@@ -145,6 +152,13 @@ Return a JSON object with a single key 'blocks' containing an array of objects w
         )
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
+        validation_language = target_language if mode == "code-to-code" and target_language else detected_language
+        await require_valid_generated_blocks(
+            result,
+            source_code=raw_code,
+            source_language=detected_language,
+            target_language=validation_language,
+        )
         if not is_ephemeral:
             await cache.put(key, result, 86400 * 7)
 

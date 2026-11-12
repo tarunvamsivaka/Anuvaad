@@ -35,6 +35,7 @@ describe("Empirical Challenge: Streaming UI States & Console Error Regressions",
       originalWarn(...args);
     });
     vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal("confirm", vi.fn(() => true));
   });
 
   afterEach(() => {

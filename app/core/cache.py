@@ -10,6 +10,15 @@ from urllib.parse import urlparse
 from app.core.config import logger
 
 
+def _extract_redis_password(url: str) -> str | None:
+    """Extract Redis password using proper URL parsing (SEC-07)."""
+    try:
+        parsed = urlparse(url)
+        return parsed.password or None
+    except Exception:
+        return None
+
+
 class LRUCache:
     """In-memory LRU cache for development fallback.
     No threading.Lock needed — asyncio is single-threaded cooperative;
@@ -135,11 +144,13 @@ class RedisCache:
                 # SEC-REDIS-01: Warn in production when Redis URL has no password.
                 # Redis without AUTH is accessible to all processes on the same network.
                 _is_prod = os.getenv("ENV", "development").lower() == "production"
-                _url_has_auth = ("@" in redis_url) or ("://:@" not in redis_url and "password" in redis_url.lower())
+                # SEC-07: Parse Redis URL properly with urlparse to validate actual password
+                _parsed_redis = urlparse(redis_url)
+                _url_has_auth = bool(_parsed_redis.password)
                 if _is_prod and not _url_has_auth:
                     logger.warning(
-                        "⚠ SECURITY: REDIS_URL has no password (no '@' in URL). "
-                        "In production, Redis should require AUTH to prevent unauthorized access. "
+                        "⚠ SECURITY: REDIS_URL has no password configured. "
+                        "In production, Redis must require AUTH to prevent unauthorized access. "
                         "Include the password in the URL: redis://:password@host:port or "
                         "use Upstash (UPSTASH_REDIS_URL/UPSTASH_REDIS_TOKEN) which is TLS-secured."
                     )
@@ -247,6 +258,10 @@ class RedisCache:
         """Delete all keys with the given prefix using SCAN (non-blocking, O(1) per iteration).
         Replaces the previous O(N) blocking KEYS command.
         """
+        for key in tuple(self.l1._data):
+            if key.startswith(prefix):
+                self.l1.delete(key)
+
         if self.client:
             try:
                 cursor = 0
@@ -285,7 +300,40 @@ class RedisCache:
         val = self.fallback.get(key) or 0
         val += 1
         self.fallback.set(key, val, window)
+        self.l1.set(key, val, min(float(window), 600.0))
         return val
+
+    async def set_int_max(self, key: str, value: int, ttl: int) -> int:
+        """Reconcile an integer cache value monotonically to its DB authority."""
+        value = int(value)
+        if self.client:
+            try:
+                if self._backend == "upstash":
+                    current_raw = await self.client.get(key)
+                    current = int(current_raw or 0)
+                    if current < value or current_raw is None:
+                        await self.client.set(key, value, ex=ttl)
+                        current = value
+                else:
+                    script = (
+                        "local current = tonumber(redis.call('GET', KEYS[1]) or '0') "
+                        "local incoming = tonumber(ARGV[1]) "
+                        "if redis.call('EXISTS', KEYS[1]) == 0 or incoming > current then "
+                        "redis.call('SET', KEYS[1], incoming, 'EX', ARGV[2]); current = incoming end "
+                        "return current"
+                    )
+                    current = int(await self.client.eval(script, 1, key, value, ttl))
+                self.fallback.set(key, current, ttl)
+                self.l1.set(key, current, min(float(ttl), 600.0))
+                return current
+            except Exception as exc:
+                logger.warning("Redis integer reconciliation failed: %s", type(exc).__name__)
+
+        fallback_value = int(self.fallback.get(key) or 0)
+        reconciled = max(fallback_value, value)
+        self.fallback.set(key, reconciled, ttl)
+        self.l1.set(key, reconciled, min(float(ttl), 600.0))
+        return reconciled
 
     async def incr_rate_limit_by(self, key: str, amount: int, window: int) -> int:
         """Atomically increment a rate-limit counter by `amount` and set TTL via pipeline."""
@@ -304,6 +352,7 @@ class RedisCache:
         val = self.fallback.get(key) or 0
         val += amount
         self.fallback.set(key, val, window)
+        self.l1.set(key, val, min(float(window), 600.0))
         return val
 
     # Lua script: atomically INCRBY key1 by 1 and INCRBY key2 by amount2,

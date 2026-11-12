@@ -12,6 +12,7 @@ FIX-23 (P1-01): Strengthened prompt injection detection:
 FIX-25 (P1-10/A10): Added URL-in-code SSRF hardening in validate_code_input.
 """
 
+import asyncio
 import base64
 import re
 import unicodedata
@@ -193,6 +194,40 @@ def validate_code_input(raw_code: str):
                 "Input contains a potentially dangerous URL scheme (file://, ftp://, etc). Use https:// links only."
             ),
         )
+
+
+async def require_valid_generated_blocks(
+    blocks: list[dict], *, source_code: str, source_language: str, target_language: str
+) -> None:
+    """Enforce Tree-sitter validation before generated code crosses a boundary.
+
+    This is deliberately shared by non-streaming translation routes so callers
+    cannot cache or persist output which the target parser cannot understand.
+    """
+    generated_code = "\n".join(block.get("code_snippet", "") for block in blocks if isinstance(block, dict))
+    if not generated_code.strip():
+        raise HTTPException(status_code=422, detail="Generated response did not contain code to validate.")
+
+    try:
+        from app.services.ast_parser import is_language_supported, verify_translation
+
+        if not await asyncio.to_thread(is_language_supported, target_language):
+            raise HTTPException(status_code=422, detail="Syntax validation is unavailable for this language.")
+        verification = await asyncio.to_thread(
+            verify_translation,
+            source_code,
+            source_language,
+            generated_code,
+            target_language,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Generated code validation failed for %s: %s", target_language, type(exc).__name__)
+        raise HTTPException(status_code=422, detail="Generated code could not be validated. Please retry.") from exc
+
+    if verification.has_parse_errors_in_target:
+        raise HTTPException(status_code=422, detail="Generated code did not pass syntax validation. Please retry.")
 
 
 # EXTENSION_TO_LANGUAGE, ALLOWED_EXTENSIONS, FREE_MAX_FILE_SIZE, PRO_MAX_FILE_SIZE

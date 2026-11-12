@@ -77,7 +77,8 @@ def _get_service() -> BillingService:
 
 
 def enforce_billing_enabled():
-    if os.getenv("ENABLE_BILLING", "false").lower() != "true":
+    enabled = os.getenv("ENABLE_BILLING", "false").lower() in ("true", "1", "yes")
+    if not enabled:
         raise HTTPException(
             status_code=503,
             detail="Billing and payment registration are temporarily paused. Enjoy the complimentary free tier!",

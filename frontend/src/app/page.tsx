@@ -1,6 +1,14 @@
 import { Metadata } from "next";
 import Script from "next/script";
 import dynamic from "next/dynamic";
+import { DM_Sans } from "next/font/google";
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  display: "swap",
+  axes: ["opsz"],
+});
 import {
   WisprNavbar,
   NavAnnouncementPill,
@@ -80,7 +88,7 @@ export default function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <div className="relative min-h-screen w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-slate-900 selection:text-white dark:selection:bg-slate-100 dark:selection:text-slate-900 flex flex-col overflow-x-hidden">
+      <div className={`${dmSans.variable} relative min-h-screen w-full bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-slate-900 selection:text-white dark:selection:bg-slate-100 dark:selection:text-slate-900 flex flex-col overflow-x-hidden`}>
         {/* Skip to Main Content Link for Keyboard & Screen Reader Accessibility */}
         <a
           href="#main-content"

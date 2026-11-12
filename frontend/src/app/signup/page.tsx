@@ -86,8 +86,11 @@ function SignUpPageContent() {
       } = await supabase.auth.getSession();
       if (session) {
         const dest = getSafeRedirectUrl(redirectTo);
+      const redirectUrl = new URL(dest, window.location.origin);
         setTimeout(() => {
-          window.location.href = dest;
+        if (redirectUrl.origin === window.location.origin) {
+          window.location.assign(redirectUrl);
+        }
         }, 400);
       } else {
         setSuccess(true);

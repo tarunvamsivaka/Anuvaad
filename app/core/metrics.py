@@ -92,7 +92,7 @@ def _fire_and_forget(coro) -> None:
     """
     try:
         loop = asyncio.get_running_loop()
-        task = loop.create_task(coro)
+        task = loop.create_task(coro, name="metrics-fire-and-forget")
         task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
     except RuntimeError:
         pass  # No running event loop (startup/test) — skip fire-and-forget safely

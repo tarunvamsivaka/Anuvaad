@@ -4,14 +4,38 @@ title = "Anuvaad secret scanning"
 useDefault = true
 
 [allowlist]
-description = "Ignore local build output, installed dependencies, authentication state, and agent scratch notes; continue scanning all tracked source and configuration."
+description = "Ignore local build output, installed dependencies, and authentication state. Tests are NOT path-excluded — real secrets committed to tests/ would be caught."
 paths = [
   '''(^|/)\.agents/''',
   '''(^|/)\.venv/''',
   '''(^|/)node_modules/''',
   '''(^|/)frontend/\.next/''',
   '''(^|/)frontend/playwright/\.auth/''',
-  '''(^|/)\.env(\..+)?$''',
-  '''(^|/)tests/''',
+  # detect-secrets' generated baseline stores SHA-1 fingerprints, not source secrets.
+  '''(^|/)\.secrets\.baseline$''',
+  '''(^|/)\.env\.example$''',
+  '''(^|/)frontend/\.env\.example$''',
 ]
 
+# Allowlist synthetic CI/test credential strings that are clearly not real secrets.
+# These are hardcoded test fixtures — never real provider credentials.
+# Keep this list minimal; add new entries only for known synthetic patterns.
+regexes = [
+  # pytest conftest and CI placeholder keys
+  '''test_key_for_ci''',
+  '''placeholder_key_for_ci''',
+  '''placeholder_service_key_for_ci''',
+  '''test_supabase_jwt_secret_32bytes_minimum_length''',
+  '''test_audit_hmac_key_for_ci_only''',
+  # Fixed test-only Fernet key and deliberately fake API-key fixture.
+  '''MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=''',
+  '''ak_test_1234567890abcdef''',
+  '''test_supabase_jwt_secret_32b''',
+  # Stripe test-mode keys (sk_test_ / pk_test_ prefixes are Stripe's own test sentinel)
+  '''sk_test_mock_''',
+  '''pk_test_mock_''',
+  # Synthetic GitHub PAT fixture (clearly fake — padding of A/B chars)
+  '''github_pat_11AAAAAAA_''',
+  # Synthetic Fernet token fixture — deliberately corrupted for testing decryption errors
+  '''gAAAAABcorrupted''',
+]

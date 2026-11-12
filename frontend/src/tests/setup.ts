@@ -11,6 +11,25 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock next/font/google globally
+vi.mock("next/font/google", () => ({
+  DM_Sans: () => ({
+    className: "font-dm-sans",
+    variable: "--font-dm-sans",
+    style: { fontFamily: "DM Sans, sans-serif" },
+  }),
+  Inter: () => ({
+    className: "font-inter",
+    variable: "--font-inter",
+    style: { fontFamily: "Inter, sans-serif" },
+  }),
+  JetBrains_Mono: () => ({
+    className: "font-mono",
+    variable: "--font-mono",
+    style: { fontFamily: "JetBrains Mono, monospace" },
+  }),
+}));
+
 // Mock Next.js router globally
 vi.mock("next/navigation", () => ({
   useRouter: () => ({

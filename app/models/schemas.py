@@ -196,6 +196,11 @@ class SharePayload(BaseModel):
     expires_in_days: Literal[1, 7, 30] | None = None
 
 
+class PrivacyPreferencesPayload(BaseModel):
+    cloud_processing: bool
+    code_history: bool = False
+
+
 class DesiredIndexStateCreate(BaseModel):
     import_id: str = Field(..., min_length=36, max_length=36)
     source_state_id: str = Field(..., min_length=36, max_length=36)

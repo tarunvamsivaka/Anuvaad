@@ -63,9 +63,9 @@ foreach ($name in $testEnvironment.Keys) {
 }
 
 try {
-    Invoke-Stage "Python lint" $pythonExecutable @("-m", "ruff", "check", "main.py", "app/", "tests/", "--select", "E,F,W", "--ignore", "E501,F401") $repoRoot
+    Invoke-Stage "Python lint" $pythonExecutable @("-m", "ruff", "check", "main.py", "app/", "tests/") $repoRoot
     Invoke-Stage "Python format check" $pythonExecutable @("-m", "ruff", "format", "--check", "main.py", "app/", "tests/", "alembic/") $repoRoot
-    Invoke-Stage "Backend tests" $pythonExecutable @("-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider", "--ignore=tests/test_production.py") $repoRoot
+    Invoke-Stage "Backend tests" $pythonExecutable @("-m", "pytest", "tests/", "-q", "-p", "no:cacheprovider") $repoRoot
 
     Invoke-Stage "Frontend lint" "npm" @("run", "lint") $frontendRoot
     Invoke-Stage "Frontend TypeScript" "npx" @("tsc", "--noEmit") $frontendRoot

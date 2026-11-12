@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-MAX_REPOSITORY_FILES = 2_000
+MAX_REPOSITORY_FILES = 500
 MAX_REPOSITORY_BYTES = 20 * 1024 * 1024
 MAX_FILE_BYTES = 1 * 1024 * 1024
 SUPPORTED_PROVIDERS = frozenset({"github"})

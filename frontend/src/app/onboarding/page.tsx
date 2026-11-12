@@ -32,17 +32,17 @@ const STEPS = [
     id: "welcome",
     icon: <Code2 className="h-10 w-10 text-amber-400" />,
     title: "Welcome to Anuvaad",
-    subtitle: "Your AI-powered code translation workspace",
+    subtitle: "Understand code, projects, and programming languages",
     content: (
       <div className="space-y-4 text-sm text-zinc-400">
         <p>
-          Anuvaad helps you understand, translate, and convert code across supported programming languages. Syntax validation is available only for languages with an installed parser.
+          Anuvaad helps you understand code from any project, translate between supported programming languages, and turn a description into a starting point. Syntax validation is available only for languages with an installed parser.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
           {[
-            { label: "Code → English", desc: "Ask for a plain-language explanation" },
-            { label: "English → Code", desc: "Generate a starting point from a description" },
-            { label: "Code → Code", desc: "Translate code between programming languages" },
+            { label: "Understand code", desc: "Ask for a plain-language explanation" },
+            { label: "Generate code", desc: "Create a starting point from a description" },
+            { label: "Translate code", desc: "Convert code between programming languages" },
           ].map((item) => (
             <div key={item.label} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-4">
               <p className="font-semibold text-amber-400 text-xs mb-1">{item.label}</p>
@@ -83,15 +83,15 @@ const STEPS = [
   {
     id: "translate",
     icon: <Code2 className="h-10 w-10 text-amber-400" />,
-    title: "Your First Translation",
-    subtitle: "It only takes 3 clicks",
+    title: "Understand Your First Program",
+    subtitle: "Paste code and get a clear explanation",
     content: (
       <div className="space-y-4 text-sm text-zinc-400">
         <ol className="space-y-3">
           {[
             { step: "1", text: "Paste your code into the left panel" },
-            { step: "2", text: "Select source and target languages (or leave auto-detect on)" },
-            { step: "3", text: "Click Translate — results stream in real-time" },
+            { step: "2", text: "Choose the source language, or leave the suggested language selected" },
+            { step: "3", text: "Click Explain code to get a block-by-block explanation" },
           ].map((item) => (
             <li key={item.step} className="flex items-start gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-xs font-bold text-amber-400">
@@ -106,7 +106,7 @@ const STEPS = [
             href="/dashboard/translate"
             className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400 hover:text-slate-950 transition-colors"
           >
-            Try it now <ChevronRight className="h-4 w-4" />
+            Explain code <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
@@ -115,16 +115,16 @@ const STEPS = [
   {
     id: "github",
     icon: <GitBranch className="h-10 w-10 text-amber-400" />,
-    title: "GitHub Integration",
-    subtitle: "Import from any public repository",
+    title: "Repository Context",
+    subtitle: "Add project details when they help explain a file",
     content: (
       <div className="space-y-4 text-sm text-zinc-400">
-        <p>Connect your GitHub account to:</p>
+        <p>Connect your GitHub account when repository context will help:</p>
         <ul className="space-y-2">
           {[
-            "Browse and import files from any of your repositories",
-            "Translate entire files in one click",
-            "Save translated files back to a branch",
+            "Select a repository as context for a translation",
+            "Add the relevant file path",
+            "Keep the code you want to understand in the workspace editor",
           ].map((item) => (
             <li key={item} className="flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4 text-amber-400 shrink-0" />
@@ -142,16 +142,16 @@ const STEPS = [
     id: "done",
     icon: <CheckCircle2 className="h-10 w-10 text-emerald-400" />,
     title: "You're all set!",
-    subtitle: "Welcome to the Anuvaad community",
+    subtitle: "Start with any code you want to understand",
     content: (
       <div className="space-y-4 text-sm text-zinc-400 text-center">
-        <p>Your account is ready. Head to the dashboard to start translating.</p>
+        <p>Your account is ready. Head to the workspace to explain, translate, or generate code.</p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mt-6">
           <Link
             href="/dashboard/translate"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-bold text-slate-950 hover:bg-amber-400 hover:text-slate-950 transition-colors"
           >
-            Start Translating <Code2 className="h-4 w-4" />
+            Open Workspace <Code2 className="h-4 w-4" />
           </Link>
           <Link
             href="/dashboard/history"

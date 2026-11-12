@@ -15,6 +15,7 @@ describe("English-to-code JSON endpoint integration", () => {
     fetchEventSourceMock.mockReset();
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("confirm", vi.fn(() => true));
     useTranslationStore.getState().setInput("Return the number 42.");
     useTranslationStore.getState().setSessionId("test-session");
     useTranslationStore.getState().setOutputBlocks(null);

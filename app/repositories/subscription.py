@@ -193,7 +193,7 @@ async def update_by_razorpay_id(razorpay_subscription_id: str, data: dict) -> bo
             return False
 
 
-async def delete_by_email(email: str) -> bool:
+async def delete_by_email(email: str, *, raise_on_error: bool = False) -> bool:
     """M-01: Hard-delete subscription row (used during account deletion).
 
     Call after all other user data has been removed.
@@ -214,4 +214,6 @@ async def delete_by_email(email: str) -> bool:
         except Exception as e:
             logger.error("subscription.delete_by_email failed (%s)", type(e).__name__)
             await session.rollback()
+            if raise_on_error:
+                raise
             return False

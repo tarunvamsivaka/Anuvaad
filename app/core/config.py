@@ -25,6 +25,7 @@ IS_PRODUCTION: bool = _is_production
 
 # ── FRONTEND ──
 FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000").rstrip("/")
+GITHUB_REPO_URL: str = os.getenv("GITHUB_REPO_URL", "https://github.com/tarunvamsivaka/Anuvaad")
 
 # ── LLM ──
 LLM_TIMEOUT: int = 60
@@ -96,6 +97,7 @@ GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
+ENABLE_BILLING: bool = os.getenv("ENABLE_BILLING", "false").lower() in ("true", "1", "yes")
 RAZORPAY_KEY_ID: str = os.getenv("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "")
 STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
@@ -125,6 +127,8 @@ METRICS_PASSWORD: str = os.getenv("METRICS_PASSWORD", "")
 # newest key first).  Falls back to TOKEN_ENCRYPTION_KEY for backwards-compat.
 # Generate a new key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
+AUDIT_HMAC_KEY: str = os.getenv("AUDIT_HMAC_KEY", "")
+HISTORY_ENCRYPTION_KEYS: str = os.getenv("HISTORY_ENCRYPTION_KEYS", "")
 
 # FIX-04 (P0-04): Supabase JWT secret for local JWT verification (zero HTTP round-trips).
 # Found in: Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
@@ -143,7 +147,7 @@ TRUSTED_EMAILS: frozenset[str] = frozenset(
 # ── BACKGROUND EXECUTION & CELERY (Phase 1 Rightsizing) ──
 USE_CELERY: bool = os.getenv("USE_CELERY", "false").lower() in ("true", "1", "yes")
 CRON_SECRET: str = os.getenv("CRON_SECRET", "")
-WEB_CONCURRENCY: int = int(os.getenv("WEB_CONCURRENCY", "2"))
+WEB_CONCURRENCY: int = int(os.getenv("WEB_CONCURRENCY", "4"))
 MAX_CONCURRENT_STREAMS: int = int(os.getenv("MAX_CONCURRENT_STREAMS", "16"))
 # Partition concurrency across Uvicorn workers so total container streams strictly stay within MAX_CONCURRENT_STREAMS
 WORKER_CONCURRENT_STREAMS: int = max(1, MAX_CONCURRENT_STREAMS // max(1, WEB_CONCURRENCY))

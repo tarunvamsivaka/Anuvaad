@@ -33,6 +33,13 @@ def migration_engine() -> Engine:
             url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
 
     engine = create_engine(url)
+    # Supabase's production alembic_version column is VARCHAR(64), while
+    # Alembic's default is VARCHAR(32). Pre-create the version table to make
+    # this fresh-database verification match the deployed schema.
+    with engine.begin() as connection:
+        connection.execute(
+            text("CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(64) NOT NULL PRIMARY KEY)")
+        )
     try:
         yield engine
     finally:
@@ -156,7 +163,13 @@ def test_full_chain_upgrades_from_phase_1a_to_head(migration_engine: Engine) -> 
     with migration_engine.connect() as connection:
         applied_revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
 
-    assert applied_revision == "016_share_link_expiry"
+    assert applied_revision == "019_daily_usage_counters"
+    daily_usage_columns = {column["name"]: column for column in inspect(migration_engine).get_columns("daily_usages")}
+    assert {"user_email", "usage_date", "usage_count", "updated_at"} <= set(daily_usage_columns)
+    assert inspect(migration_engine).get_pk_constraint("daily_usages")["constrained_columns"] == [
+        "user_email",
+        "usage_date",
+    ]
     share_expiry_columns = {
         column["name"]: column for column in inspect(migration_engine).get_columns("translation_history")
     }
@@ -178,3 +191,20 @@ def test_full_chain_upgrades_from_phase_1a_to_head(migration_engine: Engine) -> 
         assert connection.execute(
             text("SELECT has_column_privilege('anon', 'public.landing_leads', 'source', 'INSERT')")
         ).scalar_one()
+
+
+def test_alembic_downgrade_roundtrip_at_head(migration_engine: Engine) -> None:
+    """Guarantee bidirectional rollback safety: downgrade -1 followed by upgrade head."""
+    config = _alembic_config()
+    command.upgrade(config, "head")
+
+    # Perform downgrade of the topmost revision
+    command.downgrade(config, "-1")
+
+    # Re-apply to head cleanly
+    command.upgrade(config, "head")
+
+    with migration_engine.connect() as connection:
+        applied_revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+
+    assert applied_revision == "019_daily_usage_counters"

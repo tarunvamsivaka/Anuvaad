@@ -7,25 +7,24 @@ import os
 from unittest.mock import patch
 
 import main as app_module
+from tests.sse_helpers import parse_sse_done
 
 
-class TestAuthGating:
-    """Verify that unauthenticated users are blocked from AI endpoints."""
+class TestAnonymousTranslationAccess:
+    """Verify anonymous free-tier translation remains bounded by IP limits."""
 
     def test_anonymous_user_blocked_from_code_to_english(self, client_no_auth):
         res = client_no_auth.post("/api/code-to-english", json={"raw_code": "print(1)", "language": "python"})
-        assert res.status_code == 401
-        # FIX-S: client_no_auth now raises 401 from get_user_email (like real auth).
-        # The detail message is "Not authenticated" from the dependency override,
-        # not "authentication required" from enforce_quotas_and_protection.
-        assert res.json()["detail"] is not None
+        assert res.status_code == 200
+        assert "text/event-stream" in res.headers["content-type"]
+        assert isinstance(parse_sse_done(res), list)
 
     def test_anonymous_user_blocked_from_generate_code(self, client_no_auth):
         res = client_no_auth.post(
             "/api/generate-from-english",
             json={"prompt": "write a function", "language": "python"},
         )
-        assert res.status_code == 401
+        assert res.status_code == 200
 
     def test_anonymous_user_blocked_from_code_to_code(self, client_no_auth):
         res = client_no_auth.post(
@@ -36,7 +35,8 @@ class TestAuthGating:
                 "target_language": "javascript",
             },
         )
-        assert res.status_code == 401
+        assert res.status_code == 200
+        assert isinstance(parse_sse_done(res), list)
 
 
 class TestUserTiersAndQuotas:

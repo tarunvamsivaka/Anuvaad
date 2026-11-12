@@ -16,6 +16,7 @@ from app.core.quota import (
 )
 from app.core.rate_limit import rate_limiter
 from app.models.schemas import CodePayload
+from app.repositories.privacy import may_store_code_history
 from app.services.ai import (
     SYSTEM_INSTRUCTION,
     find_stale_translation,
@@ -25,7 +26,7 @@ from app.services.ai import (
 )
 
 from .dependencies import dispatch_history as _dispatch_history
-from .dependencies import sanitise_input, validate_code_input
+from .dependencies import require_valid_generated_blocks, sanitise_input, validate_code_input
 
 router = APIRouter()
 
@@ -46,7 +47,7 @@ async def function_translate_to_english_stream(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
-    is_ephemeral = privacy_mode == "ephemeral"
+    is_ephemeral = privacy_mode == "ephemeral" or not (email and await may_store_code_history(email))
 
     audit_receipt = generate_audit_receipt(email or "anonymous", payload.raw_code)
 
@@ -98,7 +99,7 @@ async def function_translate_to_english(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
-    is_ephemeral = privacy_mode == "ephemeral"
+    is_ephemeral = privacy_mode == "ephemeral" or not (email and await may_store_code_history(email))
 
     model_name = "deepseek-reasoner" if use_r1 else "standard"
     key = cache_key(payload.raw_code, payload.language, "code-to-english", model_name)
@@ -149,6 +150,12 @@ async def function_translate_to_english(
         )
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)
+        await require_valid_generated_blocks(
+            result,
+            source_code=payload.raw_code,
+            source_language=payload.language,
+            target_language=payload.language,
+        )
 
         if not is_ephemeral:
             await cache.put(key, result, 86400 * 7)

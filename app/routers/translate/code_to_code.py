@@ -6,6 +6,7 @@ from app.core.auth import get_optional_user_email_from_request
 from app.core.quota import enforce_quotas_and_protection
 from app.core.rate_limit import rate_limiter
 from app.models.schemas import CodeToCodePayload
+from app.repositories.privacy import may_store_code_history
 from app.services.ai import stream_code_to_code
 
 from .dependencies import sanitise_input, validate_code_input
@@ -29,7 +30,7 @@ async def function_code_to_code(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
-    is_ephemeral = privacy_mode == "ephemeral"
+    is_ephemeral = privacy_mode == "ephemeral" or not (email and await may_store_code_history(email))
 
     audit_receipt = generate_audit_receipt(email or "anonymous", payload.raw_code)
 

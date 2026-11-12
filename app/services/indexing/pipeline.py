@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 from datetime import UTC, datetime
@@ -43,8 +44,10 @@ class RepositoryIndexingPipeline:
         policy: AdmissionPolicy | None = None,
         fetcher=fetch_repository_snapshot,
         embedder=generate_embeddings_openai,
+        github_access_token: str | None = None,
     ) -> None:
         self.session, self.policy, self.fetcher, self.embedder = session, policy or AdmissionPolicy(), fetcher, embedder
+        self.github_access_token = github_access_token
 
     async def run(self, workspace_id: UUID, import_id: UUID, desired_state_id: UUID) -> str:
         context = await self._load_context(workspace_id, import_id, desired_state_id)
@@ -60,7 +63,10 @@ class RepositoryIndexingPipeline:
         try:
             run.status = "running"
             await self.session.commit()
-            snapshot = self.fetcher(import_.provider_repo_id, source.revision_sha)
+            fetch_args = (import_.provider_repo_id, source.revision_sha)
+            if self.github_access_token:
+                fetch_args += (self.github_access_token,)
+            snapshot = await asyncio.to_thread(self.fetcher, *fetch_args)
             files = snapshot["files"]
             self.policy.validate_content(files)
             if source.snapshot_hash and source.snapshot_hash != snapshot["snapshot_hash"]:

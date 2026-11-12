@@ -11,6 +11,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import pytest
 
+from tests.sse_helpers import parse_sse_done
+
 # ═══════════════════════════════════════════════════════════════
 # 1. MULTI-BLOCK TRANSLATION RESPONSES
 # ═══════════════════════════════════════════════════════════════
@@ -25,7 +27,7 @@ class TestMultiBlockResponses:
             json={"raw_code": "def add(a, b):\n    return a + b", "language": "python"},
         )
         assert res.status_code == 200
-        data = res.json()
+        data = parse_sse_done(res)
         assert isinstance(data, list)
         assert len(data) == 2
         assert data[0]["id"] == "block_1"
@@ -36,7 +38,7 @@ class TestMultiBlockResponses:
             "/api/code-to-english",
             json={"raw_code": "def add(a, b):\n    return a + b", "language": "python"},
         )
-        for block in res.json():
+        for block in parse_sse_done(res):
             assert "id" in block
             assert "code_snippet" in block
             assert "english_translation" in block
@@ -54,7 +56,7 @@ class TestMultiBlockResponses:
             },
         )
         assert res.status_code == 200
-        assert len(res.json()) == 2
+        assert len(parse_sse_done(res)) == 2
 
     def test_generate_from_english_returns_multiple_blocks(self, client_multi_block):
         res = client_multi_block.post(
@@ -79,7 +81,7 @@ class TestAIErrorHandling:
     def test_invalid_json_returns_500(self, client_ai_error):
         res = client_ai_error.post("/api/code-to-english", json={"raw_code": "x = 999", "language": "python"})
         assert res.status_code == 200
-        assert "detail" in res.json()
+        assert "detail" in parse_sse_done(res)
 
     def test_code_to_code_invalid_json(self, client_ai_error):
         res = client_ai_error.post(
@@ -91,7 +93,7 @@ class TestAIErrorHandling:
             },
         )
         assert res.status_code == 200
-        assert "detail" in res.json()
+        assert "detail" in parse_sse_done(res)
 
     def test_generate_invalid_json(self, client_ai_error):
         res = client_ai_error.post(
@@ -103,7 +105,7 @@ class TestAIErrorHandling:
     def test_empty_blocks_returns_500(self, client_empty_blocks):
         res = client_empty_blocks.post("/api/code-to-english", json={"raw_code": "x = 998", "language": "python"})
         assert res.status_code == 200
-        assert "detail" in res.json()
+        assert "detail" in parse_sse_done(res)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -120,7 +122,7 @@ class TestRedisDown:
             json={"raw_code": "print('hello')", "language": "python"},
         )
         assert res.status_code == 200
-        data = res.json()
+        data = parse_sse_done(res)
         assert isinstance(data, list)
         assert len(data) > 0
 
@@ -130,11 +132,11 @@ class TestRedisDown:
 
     def test_rate_limit_fallback_without_redis(self, client_no_redis):
         """When Redis is None, rate limiting uses in-memory fallback."""
-        import main as app_module
+        from app.api.middleware.rate_limit import RATE_LIMIT_USER_MAX
 
-        for i in range(16):
+        for i in range(RATE_LIMIT_USER_MAX + 1):
             res = client_no_redis.get("/api/health")
-            if i < app_module.RATE_LIMIT_MAX:
+            if i < RATE_LIMIT_USER_MAX:
                 assert res.status_code == 200
             else:
                 assert res.status_code == 429
@@ -484,8 +486,10 @@ class TestRateLimitingExtended:
         res = client_rate_limited.post("/api/code-to-english", json={"raw_code": "x=1", "language": "python"})
         assert res.status_code == 429
         detail = res.json()["detail"]
-        assert "15" in detail  # RATE_LIMIT_MAX
-        assert "60" in detail  # RATE_LIMIT_WINDOW
+        from app.api.middleware.rate_limit import RATE_LIMIT_USER_MAX, RATE_LIMIT_WINDOW
+
+        assert str(RATE_LIMIT_USER_MAX) in detail
+        assert str(RATE_LIMIT_WINDOW) in detail
 
     def test_rate_limit_applies_to_all_api_routes(self, client_rate_limited):
         """All /api/ routes should be rate-limited."""

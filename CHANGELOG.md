@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project will be documented in this file.
 
@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Data integrity
+- Added `docs/REAL_DATA_AUDIT.md` documenting that the checked-in benchmark scorecard has stale/inconsistent repository metadata and labels transform validation as upstream test success. No replacement figures were invented because no dated authoritative source or upstream test results were supplied.
+
+## [1.3.0] - 2026-11-02
+
+### Fixed
+- **[BE-01/DO-02]** `render.yaml` `startCommand` changed from bare `uvicorn` (single-worker) to `gunicorn` with `UvicornWorker` and `--workers 4 --timeout 120` — prevents SSE stream starvation of health checks in production.
+- **[BE-03]** Billing router now gated behind `ENABLE_BILLING` flag in `app/main.py` — Stripe/Razorpay endpoints no longer exposed unconditionally.
+- **[DO-03]** CRON_SECRET enforcement hardened on `/api/v1/cron/prune` — returns HTTP 503 if `CRON_SECRET` is empty.
+- **[FE-01]** `<EdgeWarmup />` moved inside `<AuthProvider>` scope in root `layout.tsx`.
+- **[FE-02]** `openGraph.url` now derived from `NEXT_PUBLIC_FRONTEND_URL` env var — fixes OG metadata in Vercel preview deployments.
+- **[R-05]** BYOK vault entropy source migrated from `navigator.userAgent` to stable per-device `localStorage` UUID (`anuvaad_byok_device_entropy_v1`) — eliminates key invalidation on browser updates.
+
+### Security
+- **[TS-01]** Removed blanket `tests/` path exclusion from `.gitleaks.toml`; replaced with precision regex allowlist for known synthetic CI fixture strings.
+- **[DO-01/REM-02]** `keep-warm.yml` cron schedule formally disabled — decommission notice added, `workflow_dispatch` retained for manual diagnostics only.
+
+### Changed
+- **[Gap §5.2]** `WEB_CONCURRENCY` updated from `"2"` to `"4"` in `render.yaml` and all documentation.
+- **[FE-03]** DM Sans font deferred from root `layout.tsx` to landing page layout — removes ~20-40 KB from dashboard critical font path.
+- **[BE-02]** `sso.py` documented as planned Phase-3B feature with `TODO` comment in `app/main.py` (not yet registered).
+- **[DO-04]** `docker-compose.prod.yml` audited and aligned with `render.yaml`.
+
+### Performance
+- **[FE-03]** Dashboard LCP improved: DM Sans no longer loaded on every route.
+
+### Tests
+- **[TS-03]** `test_enterprise_sso.py` expanded to 13 test scenarios (tenant lookup, SAML authorize/callback, state signing/expiry/tampering).
+- **[TS-04]** `test_share_link_expiry.py` expanded to 14 test scenarios (boundary, type coercion, immutability, permanent links).
+- **[REM-08]** `test_migrations.py` gains `test_alembic_downgrade_roundtrip_at_head`; CI migration job now runs bidirectional round-trip as an explicit gate.
+
+### Docs
+- **[Gap §5.3]** `docs/SECURITY_AND_PRIVACY_WHITEPAPER.md` updated with Frontend CSP documentation.
+- **[FE-04]** `frontend/.env.example` documents `NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION` with staging guidance.
+- **[Gap §5.1]** `SECURITY.md` at repository root verified and confirmed complete.
+
+## [1.2.0] - 2026-11-02
 ### Consumer Product Transformation & Resilience Architecture (2026-10-14)
 
 #### Frontend & Build System (Milestone 1)

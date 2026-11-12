@@ -1,5 +1,6 @@
 fastapi==0.139.0
 uvicorn==0.46.0
+gunicorn>=21.2.0
 razorpay>=1.4.1,<2.0.0
 stripe>=10.0.0
 openai>=1.0.0,<3.0.0
@@ -15,10 +16,18 @@ resend>=2.33.0
 supabase>=2.4.0
 structlog>=24.0.0
 setuptools>=84.0.0
-sqlalchemy[asyncio]>=2.0.0
+# OpenTelemetry SQLAlchemy instrumentation currently supports SQLAlchemy 2.0.x.
+sqlalchemy[asyncio]>=2.0.0,<2.1.0
 alembic>=1.13.1
 asyncpg>=0.31.0
 greenlet>=3.0.3
+# Celery — ACTIVE dependency (not decommissioned).
+# save_translation_history_task.delay() is called 8x in app/services/ai.py on every
+# successful translation. Celery workers handle: translation history persistence,
+# transactional email dispatch, scheduled DB footprint pruning (prune_database_footprint),
+# and repository embedding indexing (heavy queue).
+# Set USE_CELERY=false in .env to bypass .delay() and run tasks inline (dev/test mode).
+# See app/queue/celery_config.py and app/queue/tasks.py for configuration.
 celery>=5.6.3
 pgvector>=0.2.5
 aiosqlite>=0.19.0

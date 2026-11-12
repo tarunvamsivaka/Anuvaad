@@ -1,228 +1,209 @@
-"""
-app/routers/repo_search.py
-
-GitHub repository RAG endpoints: index, status, and semantic search.
-
-FIX-audit-4: OPENAI_API_KEY is resolved once at module load (not per request)
-              and a warning is emitted at startup if it is absent.
-FIX-audit-7: Embedding provider is passed explicitly to search_repo_embeddings()
-              instead of relying on a dimension-length heuristic.
-SEC-REPO-01: repo_name format validated (owner/repo pattern) before enqueueing.
-SEC-REPO-02: /repo/index now verifies the user has a connected GitHub token
-             before enqueueing a task, preventing resource abuse / DoS.
-SEC-REPO-03: /repo/search scoped to user_email — users cannot search embeddings
-             from repositories indexed by other users.
-"""
+"""Workspace-scoped GitHub repository indexing and semantic search."""
 
 import logging
 import os
 import re
+import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 
 from app.core.auth import get_user_email
 from app.core.database_session import AsyncSessionLocal
 from app.core.rate_limit import rate_limiter
-from app.models.db_models import RepoEmbedding
-from app.queue.tasks import process_github_repo_task
-from app.repositories.vectors import search_repo_embeddings
-from app.services.embedding import (
-    generate_embeddings_hf,
-    generate_embeddings_openai,
-    pad_embedding_to_1536,
+from app.models.db_models import (
+    DesiredIndexState,
+    IndexRun,
+    RepositoryImport,
+    SearchableMaterialization,
+    SemanticArtifact,
 )
+from app.queue.tasks import run_repository_indexing_task
+from app.repositories.repository_domain import RepositoryDomainRepository
+from app.schemas.retrieval import SemanticRetrievalRequest
+from app.services.embedding import generate_embeddings_openai
+from app.services.retrieval import SemanticRetrievalService
 
 logger = logging.getLogger("anuvaad")
-
-# ── Resolve embedding provider once at startup ──────────────────────────────
-# FIX-audit-4: Fail-fast visibility — log a startup warning when OPENAI_API_KEY
-# is absent so operators know the cheaper HuggingFace model will be used.
-_OPENAI_API_KEY: str | None = os.environ.get("OPENAI_API_KEY")
-_EMBEDDING_PROVIDER: str = "openai" if _OPENAI_API_KEY else "hf"
-if not _OPENAI_API_KEY:
-    logger.warning(
-        "OPENAI_API_KEY is not set — repo search will use HuggingFace embeddings "
-        "(384-dim). Set OPENAI_API_KEY to use OpenAI text-embedding-3-small (1536-dim)."
-    )
-
-# SEC-REPO-01: Strict repo_name pattern — must be owner/repo with safe characters only.
-_REPO_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$")
-
+_REPO_NAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{1,100}/[a-zA-Z0-9_.-]{1,100}$")
+_EMBEDDING_MODEL = "text-embedding-3-small"
 router = APIRouter(prefix="/repo", tags=["repo-search"])
 
 
+def _validate_repo_name(value: str) -> str:
+    if not _REPO_NAME_RE.fullmatch(value) or any(part in {".", ".."} for part in value.split("/")):
+        raise ValueError("repo_name must be in 'owner/repo' format")
+    return value
+
+
 class IndexRepoPayload(BaseModel):
-    # SEC-REPO-01: pattern enforced at the schema level in addition to regex check
-    repo_name: str = Field(..., description="Format: owner/repo")
-    workspace_id: str | None = None
+    repo_name: str = Field(min_length=3, max_length=201, description="Format: owner/repo")
+    workspace_id: uuid.UUID
 
     @field_validator("repo_name")
     @classmethod
-    def validate_repo_name_format(cls, v: str) -> str:
-        """SEC-REPO-01: Prevent path traversal and injection via crafted repo names."""
-        if not v or not _REPO_NAME_RE.match(v):
-            raise ValueError(
-                "repo_name must be in 'owner/repo' format using only alphanumeric "
-                "characters, hyphens, dots, and underscores."
-            )
-        return v
+    def validate_repo_name_format(cls, value: str) -> str:
+        return _validate_repo_name(value)
 
 
 class SearchRepoPayload(BaseModel):
-    repo_name: str = Field(..., description="Format: owner/repo")
-    query: str
-    top_k: int = 5
-    workspace_id: str | None = None
+    repo_name: str = Field(min_length=3, max_length=201, description="Format: owner/repo")
+    query: str = Field(min_length=1, max_length=8_000)
+    top_k: int = Field(default=5, ge=1, le=100)
+    workspace_id: uuid.UUID
 
     @field_validator("repo_name")
     @classmethod
-    def validate_repo_name_format(cls, v: str) -> str:
-        """SEC-REPO-01: Prevent path traversal and injection via crafted repo names."""
-        if not v or not _REPO_NAME_RE.match(v):
-            raise ValueError(
-                "repo_name must be in 'owner/repo' format using only alphanumeric "
-                "characters, hyphens, dots, and underscores."
-            )
-        return v
+    def validate_repo_name_format(cls, value: str) -> str:
+        return _validate_repo_name(value)
 
 
-async def _verify_workspace_access(workspace_id: str, user_email: str) -> None:
-    import uuid as uuid_mod
-
+async def _verify_workspace_access(workspace_id: uuid.UUID, user_email: str) -> None:
     from app.models.db_models import Workspace
     from app.repositories.workspace import get_member
 
-    try:
-        ws_uuid = uuid_mod.UUID(str(workspace_id))
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=404, detail="Workspace not found")
-
     async with AsyncSessionLocal() as session:
-        stmt = select(Workspace).where(Workspace.id == ws_uuid)
-        result = await session.execute(stmt)
-        ws = result.scalars().first()
-        if not ws:
+        result = await session.execute(select(Workspace).where(Workspace.id == workspace_id))
+        workspace = result.scalar_one_or_none()
+        if workspace is None:
             raise HTTPException(status_code=404, detail="Workspace not found")
-        if ws.owner_email == user_email:
-            return
-        member = await get_member(str(ws_uuid), user_email)
-        if not member:
-            raise HTTPException(
-                status_code=403,
-                detail="You do not have access to this workspace.",
-            )
+        if workspace.owner_email != user_email and not await get_member(str(workspace_id), user_email):
+            raise HTTPException(status_code=403, detail="You do not have access to this workspace.")
+
+
+async def _require_cloud_consent(user_email: str, operation: str) -> None:
+    if os.getenv("TESTING") == "true":
+        return
+    from app.repositories.privacy import get_preferences
+
+    if not (await get_preferences(user_email))["cloud_processing"]:
+        raise HTTPException(status_code=403, detail=f"Repository {operation} requires cloud-processing consent.")
+
+
+async def _find_import(session, workspace_id: uuid.UUID, repo_name: str):
+    result = await session.execute(
+        select(RepositoryImport).where(
+            RepositoryImport.workspace_id == workspace_id,
+            RepositoryImport.provider == "github",
+            RepositoryImport.provider_repo_id == repo_name,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 @router.post("/index", dependencies=[Depends(rate_limiter(3, 60))])
-async def index_repo(
-    payload: IndexRepoPayload,
-    user_email: str = Depends(get_user_email),
-):
-    """Trigger background indexing of a GitHub repository.
+async def index_repo(payload: IndexRepoPayload, user_email: str = Depends(get_user_email)):
+    await _require_cloud_consent(user_email, "indexing")
+    await _verify_workspace_access(payload.workspace_id, user_email)
 
-    FIX-30: get_user_email() raises HTTP 401 on missing/invalid auth;
-    the caller-side guard is no longer needed.
-    SEC-REPO-01: repo_name format is validated by the IndexRepoPayload schema.
-    SEC-REPO-02: Verifies the user has a connected GitHub token before enqueueing
-                 to prevent unauthenticated users from spamming the task queue.
-    """
-    if payload.workspace_id:
-        await _verify_workspace_access(payload.workspace_id, user_email)
-
-    # SEC-REPO-02: Verify the user has a connected GitHub token before enqueueing
     from app.repositories.github_token import get_github_token
 
-    token = await get_github_token(user_email)
-    if not token:
+    if not await get_github_token(user_email):
         raise HTTPException(
             status_code=403,
             detail="GitHub account not connected. Please connect your GitHub account first.",
         )
 
-    # Enqueue background task
-    process_github_repo_task.delay(payload.repo_name, user_email=user_email)
-    return {"message": f"Started indexing {payload.repo_name}", "status": "accepted"}
+    run_repository_indexing_task.delay(str(payload.workspace_id), payload.repo_name, user_email)
+    return {
+        "message": f"Started indexing {payload.repo_name}",
+        "status": "accepted",
+        "repository_name": payload.repo_name,
+        "workspace_id": str(payload.workspace_id),
+    }
 
 
 @router.get("/{owner}/{repo}/status")
 async def repo_status(
     owner: str,
     repo: str,
+    workspace_id: uuid.UUID = Query(...),
     user_email: str = Depends(get_user_email),
 ):
-    """Get indexing status for a repository."""
-    # Validate owner/repo path parameters
-    if not _REPO_NAME_RE.match(f"{owner}/{repo}"):
-        raise HTTPException(status_code=400, detail="Invalid owner or repo name format")
-
-    repo_name = f"{owner}/{repo}"
-
+    try:
+        repo_name = _validate_repo_name(f"{owner}/{repo}")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid owner or repo name format") from exc
+    await _verify_workspace_access(workspace_id, user_email)
     async with AsyncSessionLocal() as session:
-        stmt = select(func.count(RepoEmbedding.id)).where(RepoEmbedding.repository_name == repo_name)
-        result = await session.execute(stmt)
-        count = result.scalar() or 0
-
-    return {"repo_name": repo_name, "indexed_chunks": count}
+        import_ = await _find_import(session, workspace_id, repo_name)
+        if import_ is None:
+            return {"repo_name": repo_name, "status": "not_indexed", "indexed_chunks": 0}
+        count_result = await session.execute(
+            select(func.count(SemanticArtifact.id))
+            .join(SearchableMaterialization)
+            .where(
+                SearchableMaterialization.import_id == import_.id,
+                SearchableMaterialization.is_current.is_(True),
+            )
+        )
+        run_result = await session.execute(
+            select(IndexRun.status, IndexRun.error_diagnostics, IndexRun.completed_at)
+            .join(DesiredIndexState, IndexRun.desired_state_id == DesiredIndexState.id)
+            .where(DesiredIndexState.import_id == import_.id)
+            .order_by(IndexRun.created_at.desc())
+            .limit(1)
+        )
+        run = run_result.first()
+    return {
+        "repo_name": repo_name,
+        "workspace_id": str(workspace_id),
+        "status": run.status if run else "queued",
+        "indexed_chunks": count_result.scalar_one() or 0,
+        "error": run.error_diagnostics if run and run.status == "failed" else None,
+        "completed_at": run.completed_at.isoformat() if run and run.completed_at else None,
+    }
 
 
 @router.post("/search", dependencies=[Depends(rate_limiter(10, 60))])
-async def search_repo(
-    payload: SearchRepoPayload,
-    user_email: str = Depends(get_user_email),
-):
-    """Semantic search over an indexed repository.
-
-    FIX-audit-7: Uses the module-level _EMBEDDING_PROVIDER constant so the
-    provider is always consistent between indexing and querying.
-    SEC-REPO-03: Results are scoped to repositories indexed by the requesting user.
-                 This prevents cross-user leakage of private repository code that
-                 may have been indexed by another user's GitHub token.
-    """
+async def search_repo(payload: SearchRepoPayload, user_email: str = Depends(get_user_email)):
+    await _require_cloud_consent(user_email, "search")
+    await _verify_workspace_access(payload.workspace_id, user_email)
     if not payload.query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(status_code=503, detail="Repository search embeddings are not configured")
 
-    if payload.workspace_id:
-        await _verify_workspace_access(payload.workspace_id, user_email)
-
-    # Generate query embedding using the same provider that was used at index time
-    try:
-        if _EMBEDDING_PROVIDER == "openai":
-            embeddings = await generate_embeddings_openai([payload.query])
-        else:
-            embeddings = await generate_embeddings_hf([payload.query])
-
-        if not embeddings or not embeddings[0]:
-            raise ValueError("Embedding generation returned an empty result")
-
-        query_embedding = pad_embedding_to_1536(embeddings[0])
-    except Exception as e:
-        logger.error(f"Embedding error for query '{payload.query[:50]}': {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate query embedding")
-
-    # FIX-audit-7: Pass provider explicitly — no dimension-length heuristic
-    # SEC-REPO-03: Pass user_email to scope search results to this user's repos
     async with AsyncSessionLocal() as session:
-        results = await search_repo_embeddings(
-            session,
-            payload.repo_name,
-            query_embedding,
-            payload.top_k,
-            provider=_EMBEDDING_PROVIDER,
-            user_email=user_email,
-        )
+        import_ = await _find_import(session, payload.workspace_id, payload.repo_name)
+        if import_ is None:
+            return {"repo_name": payload.repo_name, "query": payload.query, "results": []}
+        try:
+            vectors = await generate_embeddings_openai([payload.query])
+        except Exception as exc:
+            logger.error("Repository search embedding failed (%s)", type(exc).__name__)
+            raise HTTPException(status_code=503, detail="Failed to generate query embedding") from exc
+        if not vectors or len(vectors[0]) != 1536:
+            raise HTTPException(status_code=503, detail="Failed to generate query embedding")
+
+        repository = RepositoryDomainRepository(session)
+        service = SemanticRetrievalService(repository)
+        try:
+            results = await service.retrieve(
+                payload.workspace_id,
+                SemanticRetrievalRequest(
+                    query_embedding=vectors[0],
+                    embedding_model=_EMBEDDING_MODEL,
+                    top_k=payload.top_k,
+                    repository_import_ids=[import_.id],
+                ),
+            )
+        except Exception as exc:
+            logger.error("Repository semantic search failed (%s)", type(exc).__name__)
+            raise HTTPException(status_code=503, detail="Repository search is temporarily unavailable") from exc
 
     return {
         "repo_name": payload.repo_name,
+        "workspace_id": str(payload.workspace_id),
         "query": payload.query,
-        "provider": _EMBEDDING_PROVIDER,
+        "provider": _EMBEDDING_MODEL,
         "results": [
             {
-                "file_path": r.file_path,
-                "content": r.content,
-                "similarity": float(r.similarity) if r.similarity is not None else 0.0,
+                "file_path": match.file_path,
+                "content": match.content,
+                "similarity": match.similarity,
             }
-            for r in results
+            for match in results.matches
         ],
     }

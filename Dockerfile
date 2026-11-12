@@ -32,10 +32,11 @@ WORKDIR /app
 COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
 COPY --from=node-runtime /usr/local/lib /usr/local/lib
 
-# Install system dependencies (curl for health check, libpq for psycopg2)
+# Install system dependencies (curl for health check, libpq for psycopg2, tini for process supervision DEP-01)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libpq5 \
+    tini \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies (including gunicorn for multi-worker production)
@@ -59,23 +60,17 @@ COPY terms.html .
 # Expose ports: 8000 (API), 3000 (frontend)
 EXPOSE 8000 3000
 
-# Add non-root user
-RUN useradd -m -u 1001 appuser
+# Copy supervisor script (DEP-01)
+COPY scripts/docker-entrypoint-monolith.sh /app/scripts/
+RUN chmod +x /app/scripts/docker-entrypoint-monolith.sh
 
-# Health check
+# Health check verifies BOTH backend and frontend (DEP-01)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
-  CMD curl -f http://localhost:8000/api/health || exit 1
+  CMD curl -f http://localhost:8000/api/health && curl -f http://localhost:3000/ || exit 1
 
 # INFRA-04: Gunicorn multi-worker production server
 # WEB_CONCURRENCY controls worker count (default: 4 workers)
-RUN chown -R appuser:appuser /app
+RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
 USER appuser
-CMD sh -c "cd /app/frontend && node server.js & \
-  gunicorn main:app \
-    --workers ${WEB_CONCURRENCY:-4} \
-    --worker-class uvicorn.workers.UvicornWorker \
-    --bind 0.0.0.0:8000 \
-    --timeout 120 \
-    --keep-alive 5 \
-    --access-logfile - \
-    --error-logfile -"
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/app/scripts/docker-entrypoint-monolith.sh"]

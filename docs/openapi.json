@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Anuvaad API",
-    "description": "**Anuvaad** \u2014 AI-powered code translation platform.\n\nTranslate code to plain English, English to code, and between 35+ languages.\n\nAll new clients should use the `/api/v1/` prefix. Legacy `/api/` routes are deprecated and will be removed on **2027-01-01**.",
+    "description": "**Anuvaad** — AI-powered code translation platform.\n\nTranslate code to plain English, English to code, and between supported programming languages.\n\nAll new clients should use the `/api/v1/` prefix. Legacy `/api/` routes are deprecated and will be removed on **2027-01-01**.",
     "contact": {
       "name": "Anuvaad Support",
       "url": "http://localhost:3000/"
@@ -56,68 +56,6 @@
             "HTTPBearer": []
           }
         ]
-      }
-    },
-    "/api/v1/import-gist": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Import Gist",
-        "description": "Fetch a public GitHub Gist, Raw file, Repository file, or Repository's default file and return its content.",
-        "operationId": "import_gist_api_v1_import_gist_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "url",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Url"
-            }
-          },
-          {
-            "name": "file_path",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "File Path"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/v1/code-to-english": {
@@ -374,6 +312,72 @@
         ]
       }
     },
+    "/api/v1/privacy/preferences": {
+      "get": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Get Privacy Preferences",
+        "operationId": "get_privacy_preferences_api_v1_privacy_preferences_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Update Privacy Preferences",
+        "operationId": "update_privacy_preferences_api_v1_privacy_preferences_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivacyPreferencesPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/history": {
       "get": {
         "tags": [
@@ -449,6 +453,29 @@
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "history"
+        ],
+        "summary": "Delete All History",
+        "description": "Hard-delete all saved translations for the authenticated user.",
+        "operationId": "delete_all_history_api_v1_history_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           }
@@ -752,7 +779,7 @@
           "history"
         ],
         "summary": "Create Api Key",
-        "description": "Generate and persist a new API key. Returns the plaintext key once.\n\nFIX-30 (P3-04): Removed redundant `if not email` guard.\nSEC-APIKEY-01: Rate-limited to 5/min. Max 10 keys per user enforced in\n               api_key_repo.create() \u2014 raises ValueError if exceeded.",
+        "description": "Generate and persist a new API key. Returns the plaintext key once.\n\nFIX-30 (P3-04): Removed redundant `if not email` guard.\nSEC-APIKEY-01: Rate-limited to 5/min. Max 10 keys per user enforced in\n               api_key_repo.create() — raises ValueError if exceeded.",
         "operationId": "create_api_key_api_v1_api_keys_post",
         "security": [
           {
@@ -843,7 +870,7 @@
           "history"
         ],
         "summary": "Delete Account",
-        "description": "Delete the authenticated user's account from Supabase Auth.\n\nM-01: Data cleanup order:\n  1. Token is already verified by Depends(get_user_email) \u2014 no extra round-trip\n  2. Hard-delete all user data (translations, API keys, subscription) via ORM\n  3. Delete the Supabase Auth user via Admin API using service role key\n\nSEC-ACC-01: Migrated from manual Bearer token parsing + outbound Supabase call\nto Depends(get_user_email) for consistency with the rest of the codebase.\nBenefits:\n  - Eliminates outbound HTTP dependency on Supabase Auth during deletion\n  - Removes fragile `authorization.replace(\"Bearer \", \"\")` string parsing\n  - Uses local JWT verification (SUPABASE_JWT_SECRET) \u2014 fails closed on network issues\n  - Consistent with all other protected endpoints",
+        "description": "Delete the authenticated user's account from Supabase Auth.\n\nM-01: Data cleanup order:\n  1. Token is already verified by Depends(get_user_email) — no extra round-trip\n  2. Hard-delete all user data (translations, API keys, subscription) via ORM\n  3. Delete the Supabase Auth user via Admin API using service role key\n\nSEC-ACC-01: Migrated from manual Bearer token parsing + outbound Supabase call\nto Depends(get_user_email) for consistency with the rest of the codebase.\nBenefits:\n  - Eliminates outbound HTTP dependency on Supabase Auth during deletion\n  - Removes fragile `authorization.replace(\"Bearer \", \"\")` string parsing\n  - Uses local JWT verification (SUPABASE_JWT_SECRET) — fails closed on network issues\n  - Consistent with all other protected endpoints",
         "operationId": "delete_account_api_v1_account_delete",
         "responses": {
           "200": {
@@ -1158,377 +1185,38 @@
         }
       }
     },
-    "/api/v1/create-checkout-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Checkout Session",
-        "description": "Create a subscription checkout session (Stripe primary, Razorpay fallback).",
-        "operationId": "create_checkout_session_api_v1_create_checkout_session_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/billing/create-checkout-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Checkout Session",
-        "description": "Create a subscription checkout session (Stripe primary, Razorpay fallback).",
-        "operationId": "create_checkout_session_api_v1_billing_create_checkout_session_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/create-portal-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Portal Session",
-        "description": "Generate a self-service customer portal session for subscription management.",
-        "operationId": "create_portal_session_api_v1_create_portal_session_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/billing/create-portal-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Portal Session",
-        "description": "Generate a self-service customer portal session for subscription management.",
-        "operationId": "create_portal_session_api_v1_billing_create_portal_session_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/create-credit-checkout": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Credit Checkout",
-        "description": "Create a Razorpay one-time order for buying 100 translation credits (\u20b9100).",
-        "operationId": "create_credit_checkout_api_v1_create_credit_checkout_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/verify-payment": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Verify Payment",
-        "description": "Verify Razorpay HMAC signature then activate Pro or top up credits.\nDelegates all business logic to BillingService.",
-        "operationId": "verify_payment_api_v1_verify_payment_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyPaymentPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/subscription-status": {
-      "get": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Get Subscription Status",
-        "description": "Return the user's current subscription plan.\nGET endpoint for SWR caching (P4: replaces the old POST version).",
-        "operationId": "get_subscription_status_api_v1_subscription_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/check-credits": {
-      "get": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Get Check Credits",
-        "description": "Return the user's current translation credit balance and remaining daily quota.",
-        "operationId": "get_check_credits_api_v1_check_credits_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/webhook/razorpay": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Razorpay Webhook",
-        "description": "Handle Razorpay webhook events \u2014 validates signature, dispatches to Celery.\n\nFIX-22 (P2-05): Dual-layer idempotency:\n  1. Cache layer (fast, 24h TTL) \u2014 handles high-frequency duplicate deliveries.\n  2. DB layer (PaymentTransaction table) \u2014 survives cache restarts/flushes.\nThis ensures we never double-activate a subscription even after a Redis restart.",
-        "operationId": "razorpay_webhook_api_v1_webhook_razorpay_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/webhook": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_v1_webhook_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/webhook/stripe": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_v1_webhook_stripe_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/billing/webhook": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_v1_billing_webhook_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/billing/webhook/stripe": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_v1_billing_webhook_stripe_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/oauth/github/login": {
       "get": {
         "summary": "Github Login",
         "description": "Initiates GitHub OAuth flow.\n\nSEC-GH-04: Includes a random state parameter in the authorization URL to\nprevent CSRF attacks on the OAuth callback. The state is a URL-safe random\ntoken; the frontend must store and verify it on callback.",
         "operationId": "github_login_api_v1_oauth_github_login_get",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "State"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -1538,7 +1226,7 @@
     "/api/v1/oauth/github/callback": {
       "post": {
         "summary": "Github Callback",
-        "description": "Handle GitHub OAuth callback \u2014 exchange code for token.\n\nFIX-01: Token is Fernet-encrypted before DB storage.\nFIX-26: Uses ORM repository instead of supabase_request().\nSEC-GH-01: Plaintext access_token is no longer returned in the response body.\n           The token is stored encrypted in the database; subsequent API calls\n           (e.g. GET /github/repos) transparently use the stored token.\nSEC-GH-02: Rate-limited to 5 requests/min per token to prevent abuse.",
+        "description": "Handle GitHub OAuth callback — exchange code for token.\n\nFIX-01: Token is Fernet-encrypted before DB storage.\nFIX-26: Uses ORM repository instead of supabase_request().\nSEC-GH-01: Plaintext access_token is no longer returned in the response body.\n           The token is stored encrypted in the database; subsequent API calls\n           (e.g. GET /github/repos) transparently use the stored token.\nSEC-GH-02: Rate-limited to 5 requests/min per token to prevent abuse.",
         "operationId": "github_callback_api_v1_oauth_github_callback_post",
         "security": [
           {
@@ -1553,6 +1241,15 @@
             "schema": {
               "type": "string",
               "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "State"
             }
           }
         ],
@@ -1699,13 +1396,237 @@
         }
       }
     },
+    "/api/v1/github/pr/{owner}/{repo}/{pr_number}/apply-refactor": {
+      "post": {
+        "summary": "Apply Pr Refactor",
+        "description": "Apply an AI refactor suggestion directly to the Pull Request branch.",
+        "operationId": "apply_pr_refactor_api_v1_github_pr__owner___repo___pr_number__apply_refactor_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Repo"
+            }
+          },
+          {
+            "name": "pr_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Pr Number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github/pr/{owner}/{repo}/{pr_number}/generate-tests": {
+      "post": {
+        "summary": "Generate Pr Tests",
+        "description": "Generate target test suite for PR diff using EquivalenceHarness.",
+        "operationId": "generate_pr_tests_api_v1_github_pr__owner___repo___pr_number__generate_tests_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Repo"
+            }
+          },
+          {
+            "name": "pr_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Pr Number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/github/pr/{owner}/{repo}/{pr_number}/approve": {
+      "post": {
+        "summary": "Approve Pr Review",
+        "description": "Submit approval review to GitHub PR.",
+        "operationId": "approve_pr_review_api_v1_github_pr__owner___repo___pr_number__approve_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Owner"
+            }
+          },
+          {
+            "name": "repo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Repo"
+            }
+          },
+          {
+            "name": "pr_number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Pr Number"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/repo/index": {
       "post": {
         "tags": [
           "repo-search"
         ],
         "summary": "Index Repo",
-        "description": "Trigger background indexing of a GitHub repository.\n\nFIX-30: get_user_email() raises HTTP 401 on missing/invalid auth;\nthe caller-side guard is no longer needed.\nSEC-REPO-01: repo_name format is validated by the IndexRepoPayload schema.\nSEC-REPO-02: Verifies the user has a connected GitHub token before enqueueing\n             to prevent unauthenticated users from spamming the task queue.",
         "operationId": "index_repo_api_v1_repo_index_post",
         "requestBody": {
           "content": {
@@ -1750,7 +1671,6 @@
           "repo-search"
         ],
         "summary": "Repo Status",
-        "description": "Get indexing status for a repository.",
         "operationId": "repo_status_api_v1_repo__owner___repo__status_get",
         "security": [
           {
@@ -1774,6 +1694,16 @@
             "schema": {
               "type": "string",
               "title": "Repo"
+            }
+          },
+          {
+            "name": "workspace_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Workspace Id"
             }
           }
         ],
@@ -1805,7 +1735,6 @@
           "repo-search"
         ],
         "summary": "Search Repo",
-        "description": "Semantic search over an indexed repository.\n\nFIX-audit-7: Uses the module-level _EMBEDDING_PROVIDER constant so the\nprovider is always consistent between indexing and querying.\nSEC-REPO-03: Results are scoped to repositories indexed by the requesting user.\n             This prevents cross-user leakage of private repository code that\n             may have been indexed by another user's GitHub token.",
         "operationId": "search_repo_api_v1_repo_search_post",
         "requestBody": {
           "content": {
@@ -1842,6 +1771,71 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/public/limits": {
+      "get": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Get Public Quota Limits",
+        "description": "Expose effective normal-mode guest/free limits for accurate UI copy.",
+        "operationId": "get_public_quota_limits_api_v1_public_limits_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicQuotaLimits"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/public/language-support": {
+      "get": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Get Public Language Support",
+        "description": "Report parser availability for a language offered by the translation UI.",
+        "operationId": "get_public_language_support_api_v1_public_language_support_get",
+        "parameters": [
+          {
+            "name": "language",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Language"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicLanguageSupport"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/health": {
@@ -1882,6 +1876,82 @@
         }
       }
     },
+    "/api/v1/health/live": {
+      "get": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Health Live",
+        "description": "Liveness probe (<10ms). Does not query external dependencies.",
+        "operationId": "health_live_api_v1_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Health Live",
+        "description": "Liveness probe (<10ms). Does not query external dependencies.",
+        "operationId": "health_live_api_v1_health_live_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/health/ready": {
+      "get": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Health Ready",
+        "description": "Readiness probe for traffic routing. Returns 503 if dependencies fail.",
+        "operationId": "health_ready_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      },
+      "head": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Health Ready",
+        "description": "Readiness probe for traffic routing. Returns 503 if dependencies fail.",
+        "operationId": "health_ready_api_v1_health_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/health/detailed": {
       "get": {
         "tags": [
@@ -1896,6 +1966,68 @@
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/import-gist": {
+      "get": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Import Gist",
+        "description": "Fetch a public GitHub Gist, Raw file, Repository file, or Repository's default file and return its content.",
+        "operationId": "import_gist_api_v1_import_gist_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Url"
+            }
+          },
+          {
+            "name": "file_path",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "File Path"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -2089,6 +2221,89 @@
         }
       }
     },
+    "/api/v1/audit/verify": {
+      "post": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Verify Audit Receipt Endpoint",
+        "description": "Verify cryptographic Zero Code Retention (ZDR) receipt.",
+        "operationId": "verify_audit_receipt_endpoint_api_v1_audit_verify_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/equivalence/evaluate": {
+      "post": {
+        "tags": [
+          "utility"
+        ],
+        "summary": "Evaluate Code Equivalence Endpoint",
+        "operationId": "evaluate_code_equivalence_endpoint_api_v1_equivalence_evaluate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Payload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/demo/translate": {
       "post": {
         "tags": [
@@ -2175,7 +2390,7 @@
           "onboarding"
         ],
         "summary": "Complete Onboarding",
-        "description": "Mark the authenticated user's onboarding as complete.\n\nCalled by the frontend after the user finishes all onboarding steps.\nIdempotent \u2014 safe to call multiple times.",
+        "description": "Mark the authenticated user's onboarding as complete.\n\nCalled by the frontend after the user finishes all onboarding steps.\nIdempotent — safe to call multiple times.",
         "operationId": "complete_onboarding_api_v1_onboarding_complete_post",
         "responses": {
           "200": {
@@ -2194,60 +2409,19 @@
         ]
       }
     },
-    "/api/v1/sso/tenants/{tenant_domain}": {
-      "get": {
-        "tags": [
-          "Enterprise SSO"
-        ],
-        "summary": "Get Tenant Sso Status",
-        "description": "Check whether a given corporate domain is enrolled in Enterprise SSO.",
-        "operationId": "get_tenant_sso_status_api_v1_sso_tenants__tenant_domain__get",
-        "parameters": [
-          {
-            "name": "tenant_domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Tenant Domain"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/sso/saml/authorize": {
+    "/api/v1/modernize/analyze-repository": {
       "post": {
         "tags": [
-          "Enterprise SSO"
+          "modernize"
         ],
-        "summary": "Saml Authorize",
-        "description": "Initiate SP-initiated SAML flow for an enterprise corporate email.",
-        "operationId": "saml_authorize_api_v1_sso_saml_authorize_post",
+        "summary": "Analyze Repository",
+        "description": "Analyze entire repository ASTs, construct dependency DAG, and return topological migration order.",
+        "operationId": "analyze_repository_api_v1_modernize_analyze_repository_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SAMLAuthorizeRequest"
+                "$ref": "#/components/schemas/AnalyzeRepositoryRequest"
               }
             }
           },
@@ -2275,19 +2449,19 @@
         }
       }
     },
-    "/api/v1/sso/saml/callback": {
+    "/api/v1/modernize/impact": {
       "post": {
         "tags": [
-          "Enterprise SSO"
+          "modernize"
         ],
-        "summary": "Saml Callback",
-        "description": "Assertion Consumer Service (ACS) endpoint to validate SAML response.\n\nParses SAML assertion, verifies signature, and issues authenticated enterprise session.",
-        "operationId": "saml_callback_api_v1_sso_saml_callback_post",
+        "summary": "Analyze Impact",
+        "description": "Calculate transitive callers affected by modifying a given symbol.",
+        "operationId": "analyze_impact_api_v1_modernize_impact_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SAMLCallbackRequest"
+                "$ref": "#/components/schemas/ImpactAnalysisRequest"
               }
             }
           },
@@ -2315,18 +2489,19 @@
         }
       }
     },
-    "/api/upload-file": {
+    "/api/v1/modernize/file": {
       "post": {
         "tags": [
-          "translate"
+          "modernize"
         ],
-        "summary": "Upload File Translate",
-        "operationId": "upload_file_translate_api_upload_file_post",
+        "summary": "Modernize File",
+        "description": "Modernize a single source file with self-healing compiler verification and characterization tests.",
+        "operationId": "modernize_file_api_v1_modernize_file_post",
         "requestBody": {
           "content": {
-            "multipart/form-data": {
+            "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Body_upload_file_translate_api_upload_file_post"
+                "$ref": "#/components/schemas/ModernizeFileRequest"
               }
             }
           },
@@ -2357,2098 +2532,42 @@
             "HTTPBearer": []
           }
         ]
-      }
-    },
-    "/api/import-gist": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Import Gist",
-        "description": "Fetch a public GitHub Gist, Raw file, Repository file, or Repository's default file and return its content.",
-        "operationId": "import_gist_api_import_gist_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "url",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Url"
-            }
-          },
-          {
-            "name": "file_path",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "File Path"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/code-to-english": {
-      "post": {
-        "tags": [
-          "translate"
-        ],
-        "summary": "Function Translate To English Stream",
-        "operationId": "function_translate_to_english_stream_api_code_to_english_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CodePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/code-to-english/sync": {
-      "post": {
-        "tags": [
-          "translate"
-        ],
-        "summary": "Function Translate To English",
-        "operationId": "function_translate_to_english_api_code_to_english_sync_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CodePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/generate-from-english": {
-      "post": {
-        "tags": [
-          "translate"
-        ],
-        "summary": "Function Generate From English",
-        "operationId": "function_generate_from_english_api_generate_from_english_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GeneratePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/english-to-code": {
-      "post": {
-        "tags": [
-          "translate"
-        ],
-        "summary": "Function Update To Code",
-        "operationId": "function_update_to_code_api_english_to_code_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EnglishUpdatePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/sync-english-to-code": {
-      "post": {
-        "tags": [
-          "translate"
-        ],
-        "summary": "Function Sync English To Code",
-        "operationId": "function_sync_english_to_code_api_sync_english_to_code_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SyncEnglishToCodePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/code-to-code": {
-      "post": {
-        "tags": [
-          "translate"
-        ],
-        "summary": "Function Code To Code",
-        "operationId": "function_code_to_code_api_code_to_code_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CodeToCodePayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/history": {
-      "get": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Get Translation History",
-        "description": "Return paginated translation history for the authenticated user.\n\nFIX-13 (P1-07): Replaced limit/offset with keyset (cursor) pagination.\nThis is O(1) at any page depth vs. O(N) for OFFSET.\nFIX-30 (P3-04): Removed redundant `if not email` guard.",
-        "operationId": "get_translation_history_api_history_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Workspace Id"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 20,
-              "title": "Limit"
-            }
-          },
-          {
-            "name": "cursor",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Cursor"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/stats": {
-      "get": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Get Translation Stats",
-        "description": "Return accurate translation counts (total, this week, today) for the dashboard.\n\nFIX-30 (P3-04): Removed redundant `if not email` guard.",
-        "operationId": "get_translation_stats_api_stats_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Workspace Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/history/{item_id}": {
-      "get": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Get Single History Item",
-        "description": "Retrieve a specific translation history item owned by the authenticated user.\n\nFIX-26 (P2-01): Migrated from supabase_request() to ORM translation_repo.\nFIX-30 (P3-04): Removed redundant `if not email` guard.",
-        "operationId": "get_single_history_item_api_history__item_id__get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Item Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Delete History Item",
-        "description": "Delete a single translation history item owned by the authenticated user.\n\nFIX-26 (P2-01): Migrated from supabase_request()/httpx to ORM translation_repo.\nFIX-30 (P3-04): Removed redundant `if not email` guard.",
-        "operationId": "delete_history_item_api_history__item_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Item Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/history/{item_id}/share": {
-      "patch": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Share History Item",
-        "description": "Toggle public/private sharing for a translation history item.\n\nFIX-26 (P2-01): Migrated from supabase_request() to ORM translation_repo.\nFIX-30 (P3-04): Removed redundant `if not email` guard.",
-        "operationId": "share_history_item_api_history__item_id__share_patch",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Item Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SharePayload"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/share/{item_id}": {
-      "get": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Get Shared Item",
-        "description": "Retrieve a public shared translation history item.\n\nFIX-26 (P2-01): Migrated from supabase_request() to ORM translation_repo.get_by_id().\nBUG#7 FIX: Visibility is checked BEFORE any data is returned to prevent\nleaking private items on 403 responses.",
-        "operationId": "get_shared_item_api_share__item_id__get",
-        "parameters": [
-          {
-            "name": "item_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Item Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/api-keys": {
-      "get": {
-        "tags": [
-          "history"
-        ],
-        "summary": "List Api Keys",
-        "description": "List all API keys for the authenticated user.\n\nFIX-30 (P3-04): Removed redundant `if not email` guard.",
-        "operationId": "list_api_keys_api_api_keys_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Workspace Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Create Api Key",
-        "description": "Generate and persist a new API key. Returns the plaintext key once.\n\nFIX-30 (P3-04): Removed redundant `if not email` guard.\nSEC-APIKEY-01: Rate-limited to 5/min. Max 10 keys per user enforced in\n               api_key_repo.create() \u2014 raises ValueError if exceeded.",
-        "operationId": "create_api_key_api_api_keys_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApiKeyCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/api-keys/{key_id}": {
-      "delete": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Delete Api Key",
-        "description": "Revoke an API key owned by the authenticated user.\n\nFIX-30 (P3-04): Removed redundant `if not email` guard.",
-        "operationId": "delete_api_key_api_api_keys__key_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "key_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Key Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/account": {
-      "delete": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Delete Account",
-        "description": "Delete the authenticated user's account from Supabase Auth.\n\nM-01: Data cleanup order:\n  1. Token is already verified by Depends(get_user_email) \u2014 no extra round-trip\n  2. Hard-delete all user data (translations, API keys, subscription) via ORM\n  3. Delete the Supabase Auth user via Admin API using service role key\n\nSEC-ACC-01: Migrated from manual Bearer token parsing + outbound Supabase call\nto Depends(get_user_email) for consistency with the rest of the codebase.\nBenefits:\n  - Eliminates outbound HTTP dependency on Supabase Auth during deletion\n  - Removes fragile `authorization.replace(\"Bearer \", \"\")` string parsing\n  - Uses local JWT verification (SUPABASE_JWT_SECRET) \u2014 fails closed on network issues\n  - Consistent with all other protected endpoints",
-        "operationId": "delete_account_api_account_delete",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/admin/dashboard-stats": {
-      "get": {
-        "tags": [
-          "history"
-        ],
-        "summary": "Get Admin Dashboard Stats",
-        "description": "Admin dashboard stats. Access restricted to ADMIN_USERS env var.",
-        "operationId": "get_admin_dashboard_stats_api_admin_dashboard_stats_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/workspaces": {
-      "get": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "List Workspaces",
-        "description": "Return all workspaces the authenticated user belongs to.",
-        "operationId": "list_workspaces_api_workspaces_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      },
-      "post": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "Create Workspace",
-        "description": "Create a workspace and automatically add the creator as the owner.",
-        "operationId": "create_workspace_api_workspaces_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WorkspaceCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/workspaces/{workspace_id}/members": {
-      "get": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "List Workspace Members",
-        "description": "List all members of a workspace. Requires membership.",
-        "operationId": "list_workspace_members_api_workspaces__workspace_id__members_get",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Workspace Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/workspaces/{workspace_id}": {
-      "delete": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "Delete Workspace",
-        "description": "Delete a workspace. Only the owner can delete it.",
-        "operationId": "delete_workspace_api_workspaces__workspace_id__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Workspace Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/workspaces/{workspace_id}/members/{member_email}": {
-      "delete": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "Remove Workspace Member",
-        "description": "Remove a member from a workspace. Requires admin or owner role.",
-        "operationId": "remove_workspace_member_api_workspaces__workspace_id__members__member_email__delete",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Workspace Id"
-            }
-          },
-          {
-            "name": "member_email",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Member Email"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/workspaces/{workspace_id}/invite": {
-      "post": {
-        "tags": [
-          "workspaces"
-        ],
-        "summary": "Invite Workspace Member",
-        "description": "Invite a user to a workspace. Requires admin or owner role.",
-        "operationId": "invite_workspace_member_api_workspaces__workspace_id__invite_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "workspace_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Workspace Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/WorkspaceInvite"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/create-checkout-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Checkout Session",
-        "description": "Create a subscription checkout session (Stripe primary, Razorpay fallback).",
-        "operationId": "create_checkout_session_api_create_checkout_session_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/billing/create-checkout-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Checkout Session",
-        "description": "Create a subscription checkout session (Stripe primary, Razorpay fallback).",
-        "operationId": "create_checkout_session_api_billing_create_checkout_session_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CheckoutPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/create-portal-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Portal Session",
-        "description": "Generate a self-service customer portal session for subscription management.",
-        "operationId": "create_portal_session_api_create_portal_session_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/billing/create-portal-session": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Portal Session",
-        "description": "Generate a self-service customer portal session for subscription management.",
-        "operationId": "create_portal_session_api_billing_create_portal_session_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/create-credit-checkout": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Create Credit Checkout",
-        "description": "Create a Razorpay one-time order for buying 100 translation credits (\u20b9100).",
-        "operationId": "create_credit_checkout_api_create_credit_checkout_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/verify-payment": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Verify Payment",
-        "description": "Verify Razorpay HMAC signature then activate Pro or top up credits.\nDelegates all business logic to BillingService.",
-        "operationId": "verify_payment_api_verify_payment_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/VerifyPaymentPayload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/subscription-status": {
-      "get": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Get Subscription Status",
-        "description": "Return the user's current subscription plan.\nGET endpoint for SWR caching (P4: replaces the old POST version).",
-        "operationId": "get_subscription_status_api_subscription_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/check-credits": {
-      "get": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Get Check Credits",
-        "description": "Return the user's current translation credit balance and remaining daily quota.",
-        "operationId": "get_check_credits_api_check_credits_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/webhook/razorpay": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Razorpay Webhook",
-        "description": "Handle Razorpay webhook events \u2014 validates signature, dispatches to Celery.\n\nFIX-22 (P2-05): Dual-layer idempotency:\n  1. Cache layer (fast, 24h TTL) \u2014 handles high-frequency duplicate deliveries.\n  2. DB layer (PaymentTransaction table) \u2014 survives cache restarts/flushes.\nThis ensures we never double-activate a subscription even after a Redis restart.",
-        "operationId": "razorpay_webhook_api_webhook_razorpay_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/webhook": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_webhook_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/webhook/stripe": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_webhook_stripe_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/billing/webhook": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_billing_webhook_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/billing/webhook/stripe": {
-      "post": {
-        "tags": [
-          "billing"
-        ],
-        "summary": "Stripe Webhook",
-        "description": "Handle Stripe webhook events \u2014 validates HMAC signature, updates subscription.",
-        "operationId": "stripe_webhook_api_billing_webhook_stripe_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/oauth/github/login": {
-      "get": {
-        "summary": "Github Login",
-        "description": "Initiates GitHub OAuth flow.\n\nSEC-GH-04: Includes a random state parameter in the authorization URL to\nprevent CSRF attacks on the OAuth callback. The state is a URL-safe random\ntoken; the frontend must store and verify it on callback.",
-        "operationId": "github_login_api_oauth_github_login_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/oauth/github/callback": {
-      "post": {
-        "summary": "Github Callback",
-        "description": "Handle GitHub OAuth callback \u2014 exchange code for token.\n\nFIX-01: Token is Fernet-encrypted before DB storage.\nFIX-26: Uses ORM repository instead of supabase_request().\nSEC-GH-01: Plaintext access_token is no longer returned in the response body.\n           The token is stored encrypted in the database; subsequent API calls\n           (e.g. GET /github/repos) transparently use the stored token.\nSEC-GH-02: Rate-limited to 5 requests/min per token to prevent abuse.",
-        "operationId": "github_callback_api_oauth_github_callback_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "code",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Code"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/github/repos": {
-      "get": {
-        "summary": "Get Github Repos",
-        "description": "Return the GitHub repositories for the authenticated user.\n\nFIX-26: ORM-based token retrieval. FIX-30: Removed redundant auth guard.",
-        "operationId": "get_github_repos_api_github_repos_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/github/process-repo": {
-      "post": {
-        "summary": "Process Github Repo",
-        "description": "Enqueue a background task to process a GitHub repository.\n\nFIX-30: Removed redundant auth guard.\nSEC-GH-03: Validates repo_name format before enqueueing.",
-        "operationId": "process_github_repo_api_github_process_repo_post",
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "repo_name",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Repo Name"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/github/disconnect": {
-      "delete": {
-        "summary": "Disconnect Github",
-        "description": "Remove the stored GitHub OAuth token for the authenticated user.",
-        "operationId": "disconnect_github_api_github_disconnect_delete",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/webhooks/github": {
-      "post": {
-        "summary": "Github Webhook",
-        "description": "Handle incoming GitHub Webhook events (e.g. pull_request, ping).\n\nVerifies HMAC-SHA256 signature and enqueues background PR review tasks.\nPhase 2B (Week 4): Automated Pull Request Review Engine.",
-        "operationId": "github_webhook_api_webhooks_github_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/github/webhook": {
-      "post": {
-        "summary": "Github Webhook",
-        "description": "Handle incoming GitHub Webhook events (e.g. pull_request, ping).\n\nVerifies HMAC-SHA256 signature and enqueues background PR review tasks.\nPhase 2B (Week 4): Automated Pull Request Review Engine.",
-        "operationId": "github_webhook_api_github_webhook_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/sso/tenants/{tenant_domain}": {
-      "get": {
-        "tags": [
-          "Enterprise SSO"
-        ],
-        "summary": "Get Tenant Sso Status",
-        "description": "Check whether a given corporate domain is enrolled in Enterprise SSO.",
-        "operationId": "get_tenant_sso_status_api_sso_tenants__tenant_domain__get",
-        "parameters": [
-          {
-            "name": "tenant_domain",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Tenant Domain"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/sso/saml/authorize": {
-      "post": {
-        "tags": [
-          "Enterprise SSO"
-        ],
-        "summary": "Saml Authorize",
-        "description": "Initiate SP-initiated SAML flow for an enterprise corporate email.",
-        "operationId": "saml_authorize_api_sso_saml_authorize_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SAMLAuthorizeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/sso/saml/callback": {
-      "post": {
-        "tags": [
-          "Enterprise SSO"
-        ],
-        "summary": "Saml Callback",
-        "description": "Assertion Consumer Service (ACS) endpoint to validate SAML response.\n\nParses SAML assertion, verifies signature, and issues authenticated enterprise session.",
-        "operationId": "saml_callback_api_sso_saml_callback_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SAMLCallbackRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/health": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Health Check",
-        "description": "Health check endpoint for load-balancer probes (Render, Kubernetes, Keep-Alive).\n\nN-MED-04: Returns only minimal public-safe fields to prevent information\ndisclosure. Internal diagnostic details are available at /health/detailed\n(requires metrics HTTP Basic Auth).\n\nSupports HEAD for zero-overhead edge keep-alive pings.\nReturns 200 when the service is operational.\nReturns 503 when critical configuration is missing in production.",
-        "operationId": "health_check_api_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      },
-      "head": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Health Check",
-        "description": "Health check endpoint for load-balancer probes (Render, Kubernetes, Keep-Alive).\n\nN-MED-04: Returns only minimal public-safe fields to prevent information\ndisclosure. Internal diagnostic details are available at /health/detailed\n(requires metrics HTTP Basic Auth).\n\nSupports HEAD for zero-overhead edge keep-alive pings.\nReturns 200 when the service is operational.\nReturns 503 when critical configuration is missing in production.",
-        "operationId": "health_check_api_health_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/health/detailed": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Health Check Detailed",
-        "description": "Detailed health check with full diagnostic breakdown.\n\nN-MED-04: Protected by metrics HTTP Basic Auth to prevent information\ndisclosure. Use this endpoint for operator dashboards and alerting.",
-        "operationId": "health_check_detailed_api_health_detailed_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/metrics": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Get Metrics Json",
-        "description": "Return all metrics as JSON. Protected by HTTP Basic Auth.\n\nSEC-MET-01: Rate-limited to 20 req/min per IP to prevent brute-force of\nBasic Auth credentials. The global per-IP limit (50/min) is too permissive\nfor an authentication-gated endpoint.",
-        "operationId": "get_metrics_json_api_metrics_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/metrics/prometheus": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Get Metrics Prometheus",
-        "description": "Return metrics in Prometheus text exposition format.\n\nSEC-MET-01: Rate-limited to 20 req/min per IP.\nSEC-PROM-01: Endpoint and model names are sanitized before inclusion in\nPrometheus text output to prevent label injection attacks.",
-        "operationId": "get_metrics_prometheus_api_metrics_prometheus_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/metrics/history": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Get Metrics History",
-        "description": "Return historical telemetry checkpoints. Protected by HTTP Basic Auth.\n\nSEC-MET-01: Rate-limited to 20 req/min per IP.",
-        "operationId": "get_metrics_history_api_metrics_history_get",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "default": 20,
-              "title": "Limit"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/cache-stats": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Get Cache Stats",
-        "description": "Return stats for the cache.\n\nFIX-07 (P1-05): Now protected by the same HTTP Basic Auth as /metrics.\nPreviously this endpoint was unauthenticated and exposed internal cache\ninformation to any caller.\nSEC-MET-01: Rate-limited to 20 req/min per IP.",
-        "operationId": "get_cache_stats_api_cache_stats_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/usage": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Get Usage",
-        "description": "Return today's translation count and limit for the authenticated user.",
-        "operationId": "get_usage_api_usage_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/sentry-test": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Sentry Test",
-        "description": "Test endpoint to trigger a deliberate error for Sentry verification",
-        "operationId": "sentry_test_api_sentry_test_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/system/telemetry": {
-      "get": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Get System Telemetry",
-        "description": "Return real-time telemetry metrics for platform monitoring.\n\nSEC-TEL-01: Protected by HTTP Basic Auth (same credentials as /metrics).\nPreviously this endpoint was unauthenticated and exposed operational\nintelligence (AI provider config, Redis state, per-endpoint error rates)\nto any anonymous caller.",
-        "operationId": "get_system_telemetry_api_system_telemetry_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/cron/prune": {
-      "post": {
-        "tags": [
-          "utility"
-        ],
-        "summary": "Cron Prune Database",
-        "description": "Scheduled database footprint cleanup endpoint.\n\nInvoked by Render Cron, GitHub Actions, or Vercel Cron.\nSecured by CRON_SECRET header, bearer token, or query param.",
-        "operationId": "cron_prune_database_api_cron_prune_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/demo/translate": {
-      "post": {
-        "tags": [
-          "demo"
-        ],
-        "summary": "Demo Translate",
-        "description": "Anonymous demo translation endpoint for the landing page.\n\nRate-limited to DEMO_RATE_LIMIT requests per IP per 24 hours.\nReturns a pre-cached sample translation (no LLM call).",
-        "operationId": "demo_translate_api_demo_translate_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DemoTranslateRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/demo/translate-stream": {
-      "post": {
-        "tags": [
-          "demo"
-        ],
-        "summary": "Demo Translate Stream",
-        "description": "Anonymous high-speed streaming demo translation endpoint.\nPowered by Groq LPU inference (llama-3.3-70b-versatile).\nRate-limited to 10 requests per IP per 24 hours.",
-        "operationId": "demo_translate_stream_api_demo_translate_stream_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DemoStreamRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     }
   },
   "components": {
     "schemas": {
+      "AnalyzeRepositoryRequest": {
+        "properties": {
+          "repository_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repository Name",
+            "default": "repository"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "AnalyzeRepositoryRequest"
+      },
       "ApiKeyCreate": {
         "properties": {
           "name": {
@@ -4497,68 +2616,6 @@
           "english_translation"
         ],
         "title": "BlockItem"
-      },
-      "Body_upload_file_translate_api_upload_file_post": {
-        "properties": {
-          "file": {
-            "type": "string",
-            "contentMediaType": "application/octet-stream",
-            "title": "File"
-          },
-          "mode": {
-            "type": "string",
-            "title": "Mode",
-            "default": "code-to-english"
-          },
-          "language": {
-            "type": "string",
-            "title": "Language",
-            "default": ""
-          },
-          "target_language": {
-            "type": "string",
-            "title": "Target Language",
-            "default": ""
-          },
-          "session_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Session Id"
-          },
-          "repository_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Repository Name"
-          },
-          "file_path": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "File Path"
-          }
-        },
-        "type": "object",
-        "required": [
-          "file"
-        ],
-        "title": "Body_upload_file_translate_api_upload_file_post"
       },
       "Body_upload_file_translate_api_v1_upload_file_post": {
         "properties": {
@@ -4621,22 +2678,6 @@
           "file"
         ],
         "title": "Body_upload_file_translate_api_v1_upload_file_post"
-      },
-      "CheckoutPayload": {
-        "properties": {
-          "user_email": {
-            "type": "string",
-            "maxLength": 254,
-            "minLength": 5,
-            "title": "User Email"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user_email"
-        ],
-        "title": "CheckoutPayload",
-        "description": "BACK-06: access_token removed \u2014 auth via Authorization header (Depends)."
       },
       "CodePayload": {
         "properties": {
@@ -4706,6 +2747,22 @@
               }
             ],
             "title": "Model"
+          },
+          "depth": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "tldr",
+                  "dev",
+                  "audit"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth"
           }
         },
         "type": "object",
@@ -4789,6 +2846,11 @@
               }
             ],
             "title": "Model"
+          },
+          "verify": {
+            "type": "boolean",
+            "title": "Verify",
+            "default": false
           }
         },
         "type": "object",
@@ -4884,15 +2946,56 @@
             "maxLength": 10000,
             "minLength": 1,
             "title": "Full Context"
+          },
+          "language": {
+            "type": "string",
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Language"
           }
         },
         "type": "object",
         "required": [
           "block_id",
           "modified_english",
-          "full_context"
+          "full_context",
+          "language"
         ],
         "title": "EnglishUpdatePayload"
+      },
+      "FileEntry": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "File Path"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "content"
+        ],
+        "title": "FileEntry"
       },
       "GeneratePayload": {
         "properties": {
@@ -4984,111 +3087,187 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "ImpactAnalysisRequest": {
+        "properties": {
+          "changed_symbol": {
+            "type": "string",
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Changed Symbol"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/FileEntry"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "minItems": 1,
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "changed_symbol",
+          "files"
+        ],
+        "title": "ImpactAnalysisRequest"
+      },
       "IndexRepoPayload": {
         "properties": {
           "repo_name": {
             "type": "string",
+            "maxLength": 201,
+            "minLength": 3,
             "title": "Repo Name",
             "description": "Format: owner/repo"
           },
           "workspace_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Workspace Id"
-          }
-        },
-        "type": "object",
-        "required": [
-          "repo_name"
-        ],
-        "title": "IndexRepoPayload"
-      },
-      "SAMLAuthorizeRequest": {
-        "properties": {
-          "email": {
             "type": "string",
-            "title": "Email"
-          },
-          "redirect_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Redirect Url"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email"
-        ],
-        "title": "SAMLAuthorizeRequest"
-      },
-      "SAMLCallbackRequest": {
-        "properties": {
-          "SAMLResponse": {
-            "type": "string",
-            "title": "Samlresponse"
-          },
-          "RelayState": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Relaystate"
-          }
-        },
-        "type": "object",
-        "required": [
-          "SAMLResponse"
-        ],
-        "title": "SAMLCallbackRequest"
-      },
-      "SearchRepoPayload": {
-        "properties": {
-          "repo_name": {
-            "type": "string",
-            "title": "Repo Name",
-            "description": "Format: owner/repo"
-          },
-          "query": {
-            "type": "string",
-            "title": "Query"
-          },
-          "top_k": {
-            "type": "integer",
-            "title": "Top K",
-            "default": 5
-          },
-          "workspace_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "format": "uuid",
             "title": "Workspace Id"
           }
         },
         "type": "object",
         "required": [
           "repo_name",
-          "query"
+          "workspace_id"
+        ],
+        "title": "IndexRepoPayload"
+      },
+      "ModernizeFileRequest": {
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "File Path"
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "Content"
+          },
+          "source_language": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Source Language"
+          },
+          "target_language": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Target Language"
+          },
+          "verify": {
+            "type": "boolean",
+            "title": "Verify",
+            "default": true
+          },
+          "self_heal": {
+            "type": "boolean",
+            "title": "Self Heal",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "file_path",
+          "content",
+          "source_language",
+          "target_language"
+        ],
+        "title": "ModernizeFileRequest"
+      },
+      "PrivacyPreferencesPayload": {
+        "properties": {
+          "cloud_processing": {
+            "type": "boolean",
+            "title": "Cloud Processing"
+          },
+          "code_history": {
+            "type": "boolean",
+            "title": "Code History",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "cloud_processing"
+        ],
+        "title": "PrivacyPreferencesPayload"
+      },
+      "PublicLanguageSupport": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "title": "Language"
+          },
+          "syntax_validation_available": {
+            "type": "boolean",
+            "title": "Syntax Validation Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "language",
+          "syntax_validation_available"
+        ],
+        "title": "PublicLanguageSupport"
+      },
+      "PublicQuotaLimits": {
+        "properties": {
+          "guest_daily_limit": {
+            "type": "integer",
+            "title": "Guest Daily Limit"
+          },
+          "free_daily_limit": {
+            "type": "integer",
+            "title": "Free Daily Limit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "guest_daily_limit",
+          "free_daily_limit"
+        ],
+        "title": "PublicQuotaLimits",
+        "description": "Non-sensitive, configured daily limits used by public product copy."
+      },
+      "SearchRepoPayload": {
+        "properties": {
+          "repo_name": {
+            "type": "string",
+            "maxLength": 201,
+            "minLength": 3,
+            "title": "Repo Name",
+            "description": "Format: owner/repo"
+          },
+          "query": {
+            "type": "string",
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Query"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 5
+          },
+          "workspace_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workspace Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repo_name",
+          "query",
+          "workspace_id"
         ],
         "title": "SearchRepoPayload"
       },
@@ -5097,6 +3276,22 @@
           "is_public": {
             "type": "boolean",
             "title": "Is Public"
+          },
+          "expires_in_days": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "enum": [
+                  1,
+                  7,
+                  30
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Days"
           }
         },
         "type": "object",
@@ -5104,7 +3299,7 @@
           "is_public"
         ],
         "title": "SharePayload",
-        "description": "Payload for toggling public/private sharing of a translation history item."
+        "description": "Payload for publishing a history item with an optional public-link lifetime."
       },
       "SyncEnglishToCodePayload": {
         "properties": {
@@ -5221,54 +3416,6 @@
           "type"
         ],
         "title": "ValidationError"
-      },
-      "VerifyPaymentPayload": {
-        "properties": {
-          "razorpay_payment_id": {
-            "type": "string",
-            "minLength": 5,
-            "title": "Razorpay Payment Id"
-          },
-          "razorpay_order_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Razorpay Order Id"
-          },
-          "razorpay_subscription_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Razorpay Subscription Id"
-          },
-          "razorpay_signature": {
-            "type": "string",
-            "minLength": 5,
-            "title": "Razorpay Signature"
-          },
-          "payment_type": {
-            "type": "string",
-            "pattern": "^(subscription|credits)$",
-            "title": "Payment Type"
-          }
-        },
-        "type": "object",
-        "required": [
-          "razorpay_payment_id",
-          "razorpay_signature",
-          "payment_type"
-        ],
-        "title": "VerifyPaymentPayload"
       },
       "WorkspaceCreate": {
         "properties": {

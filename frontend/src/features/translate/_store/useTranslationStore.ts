@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { TranslationBlock } from '../_types';
 import { annotateBlocksWithLineRanges } from '@/lib/ast-line-mapper';
 import { ExplanationDepth } from '../_components/Toolbar/DepthSlider';
@@ -66,91 +66,74 @@ function normalizeBlocks(blocks: TranslationBlock[] | null) {
 export const useTranslationStore = create<TranslationState>()(
   persist(
     (set) => ({
-  input: "",
-  setInput: (input) => set({ input }),
+      input: "",
+      setInput: (input) => set({ input }),
 
-  streamText: "",
-  setStreamText: (streamText) => set((state) => ({ 
-    streamText: typeof streamText === 'function' ? streamText(state.streamText) : streamText 
-  })),
+      streamText: "",
+      setStreamText: (streamText) => set((state) => ({
+        streamText: typeof streamText === 'function' ? streamText(state.streamText) : streamText
+      })),
 
-  isStreaming: false,
-  setIsStreaming: (isStreaming) => set({ isStreaming }),
+      isStreaming: false,
+      setIsStreaming: (isStreaming) => set({ isStreaming }),
 
-  outputBlocks: null,
-  blockIds: [],
-  blocksById: {},
-  setOutputBlocks: (outputBlocks) => set((state) => {
-    const rawNext = typeof outputBlocks === 'function' ? outputBlocks(state.outputBlocks) : outputBlocks;
-    const nextBlocks = rawNext && Array.isArray(rawNext) && state.input
-      ? annotateBlocksWithLineRanges(state.input, rawNext, state.detectedLang || "typescript")
-      : rawNext;
-    const { blockIds, blocksById } = normalizeBlocks(nextBlocks);
-    return { outputBlocks: nextBlocks, blockIds, blocksById };
-  }),
+      outputBlocks: null,
+      blockIds: [],
+      blocksById: {},
+      setOutputBlocks: (outputBlocks) => set((state) => {
+        const rawNext = typeof outputBlocks === 'function' ? outputBlocks(state.outputBlocks) : outputBlocks;
+        const nextBlocks = rawNext && Array.isArray(rawNext) && state.input
+          ? annotateBlocksWithLineRanges(state.input, rawNext, state.detectedLang || "typescript")
+          : rawNext;
+        const { blockIds, blocksById } = normalizeBlocks(nextBlocks);
+        return { outputBlocks: nextBlocks, blockIds, blocksById };
+      }),
 
-  updateBlockEnglish: (blockId, newEnglish) => set((state) => {
-    const existing = state.blocksById[blockId];
-    if (!existing) return state;
-    const updated = { ...existing, english_translation: newEnglish };
-    const nextBlocksById = { ...state.blocksById, [blockId]: updated };
-    const nextBlocks = (state.outputBlocks || []).map((b) => (b.id === blockId ? updated : b));
-    return {
-      blocksById: nextBlocksById,
-      outputBlocks: nextBlocks,
-    };
-  }),
+      updateBlockEnglish: (blockId, newEnglish) => set((state) => {
+        const existing = state.blocksById[blockId];
+        if (!existing) return state;
+        const updated = { ...existing, english_translation: newEnglish };
+        const nextBlocksById = { ...state.blocksById, [blockId]: updated };
+        const nextBlocks = (state.outputBlocks || []).map((b) => (b.id === blockId ? updated : b));
+        return {
+          blocksById: nextBlocksById,
+          outputBlocks: nextBlocks,
+        };
+      }),
 
-  originalBlocks: null,
-  setOriginalBlocks: (originalBlocks) => set({ originalBlocks }),
+      originalBlocks: null,
+      setOriginalBlocks: (originalBlocks) => set({ originalBlocks }),
 
-  rawError: "",
-  setRawError: (rawError) => set({ rawError }),
+      rawError: "",
+      setRawError: (rawError) => set({ rawError }),
 
-  detectedLang: null,
-  setDetectedLang: (detectedLang) => set({ detectedLang }),
+      detectedLang: null,
+      setDetectedLang: (detectedLang) => set({ detectedLang }),
 
-  modelUsed: null,
-  setModelUsed: (modelUsed) => set({ modelUsed }),
+      modelUsed: null,
+      setModelUsed: (modelUsed) => set({ modelUsed }),
 
-  sessionId: "",
-  setSessionId: (sessionId) => set({ sessionId }),
+      sessionId: "",
+      setSessionId: (sessionId) => set({ sessionId }),
 
-  diffOriginalCode: null,
-  setDiffOriginalCode: (diffOriginalCode) => set({ diffOriginalCode }),
+      diffOriginalCode: null,
+      setDiffOriginalCode: (diffOriginalCode) => set({ diffOriginalCode }),
 
-  activeHoveredBlockId: null,
-  setActiveHoveredBlockId: (activeHoveredBlockId) => set({ activeHoveredBlockId }),
+      activeHoveredBlockId: null,
+      setActiveHoveredBlockId: (activeHoveredBlockId) => set({ activeHoveredBlockId }),
 
-  executionEngine: "cloud",
-  setExecutionEngine: (executionEngine) => set({ executionEngine }),
+      executionEngine: "cloud",
+      setExecutionEngine: (executionEngine) => set({ executionEngine }),
 
-  explanationDepth: "dev",
-  setExplanationDepth: (explanationDepth) => set({ explanationDepth }),
+      explanationDepth: "dev",
+      setExplanationDepth: (explanationDepth) => set({ explanationDepth }),
     }),
     {
-      name: "anuvaad-active-draft",
-      storage: createJSONStorage(() => (typeof window !== "undefined" ? window.sessionStorage : {
-        getItem: () => null,
-        setItem: () => {},
-        removeItem: () => {},
-      })),
+      name: "anuvaad-ui-prefs",
       partialize: (state) => ({
-        input: state.input,
-        detectedLang: state.detectedLang,
-        sessionId: state.sessionId,
-        outputBlocks: state.outputBlocks,
-        originalBlocks: state.originalBlocks,
-        diffOriginalCode: state.diffOriginalCode,
+        executionEngine: state.executionEngine,
         explanationDepth: state.explanationDepth,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state && state.outputBlocks) {
-          const { blockIds, blocksById } = normalizeBlocks(state.outputBlocks);
-          state.blockIds = blockIds;
-          state.blocksById = blocksById;
-        }
-      },
     }
   )
 );

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { FileDropZone } from "./FileDropZone";
 import { AstToolbar } from "./AstToolbar";
 import { languages } from "../../_constants/languages";
-import { Skeleton } from "@/components/ui/skeleton";
+import { MonacoSkeleton } from "@/components/ui/monaco-skeleton";
 import { toast } from "sonner";
 import { useTranslationStore } from "../../_store/useTranslationStore";
 import { detectLanguage } from "../../_hooks/useLanguageDetection";
@@ -16,7 +16,7 @@ import type { DropzoneRootProps, DropzoneInputProps } from "react-dropzone";
 
 const Editor = dynamic(() => import("@monaco-editor/react").then((mod) => mod.Editor), {
   ssr: false,
-  loading: () => <Skeleton className="h-full w-full min-h-[500px] rounded-lg" />,
+  loading: () => <MonacoSkeleton lines={16} />,
 });
 
 const GithubIcon = ({ className }: { className?: string }) => (
@@ -102,6 +102,11 @@ export function InputPanel({
 }: InputPanelProps) {
   const { input, setInput, isStreaming, detectedLang, setDetectedLang, outputBlocks, activeHoveredBlockId } = useTranslationStore();
   const hasOutputBlocks = !!outputBlocks && outputBlocks.length > 0;
+  const primaryActionLabel = mode === "code-to-english"
+    ? "Explain code"
+    : mode === "english-to-code"
+      ? "Generate code"
+      : "Translate code";
   const decorationsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -184,8 +189,8 @@ export function InputPanel({
           <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{input.length.toLocaleString()} chars</span>
           <Button variant="ghost" size="sm" aria-label="Clear" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
           <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} 
-            aria-label={isStreaming ? "Stop translation" : "Translate code (⌘ + Enter)"}
-            title={isStreaming ? "Stop translation" : "Translate code (⌘ + Enter)"}
+            aria-label={isStreaming ? "Stop processing" : `${primaryActionLabel} (⌘ + Enter)`}
+            title={isStreaming ? "Stop processing" : `${primaryActionLabel} (⌘ + Enter)`}
             size="sm"
             className={cn(
               "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs font-bold cursor-pointer",
@@ -195,7 +200,7 @@ export function InputPanel({
               <><X className="h-3.5 w-3.5" /> Stop</>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5" /> Translate
+                <Sparkles className="h-3.5 w-3.5" /> {primaryActionLabel}
                 <kbd className="hidden sm:inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-black/25 text-amber-100 font-semibold ml-0.5">⌘↵</kbd>
               </>
             )}
@@ -213,7 +218,7 @@ export function InputPanel({
           onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleTranslate(); }}
         />
       ) : (
-        <div className="flex-1 relative min-h-0">
+        <div className="flex-1 relative min-h-[300px]">
           <Editor
             height="100%"
             language={languages.find(l => l.value === sourceLanguage)?.monacoId || sourceLanguage}

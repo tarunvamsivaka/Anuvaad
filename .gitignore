@@ -1,5 +1,7 @@
 # Environments
 .env
+.secrets.env
+Anuvaad.secrets.env
 .env.*
 !.env.example
 
@@ -77,3 +79,7 @@ id_rsa*
 id_ed25519*
 secrets.tar*
 
+
+# PWA generated assets
+frontend/public/sw*
+frontend/public/workbox-*

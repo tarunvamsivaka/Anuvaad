@@ -18,6 +18,28 @@ This document describes the current application behavior visible in this reposit
 
 Generated code is validated in memory. Python uses `compile()` without executing the submitted code. Other supported languages use Tree-sitter in a worker thread. If a grammar is unavailable, validation reports that it could not validate the language; it does not treat the output as valid. These checks detect syntax errors only and do not prove compilation, semantic equivalence, correctness, or safety.
 
+## Frontend Content Security Policy (CSP)
+
+The web frontend and reverse proxy enforce a defense-in-depth Content Security Policy to prevent cross-site scripting (XSS), data exfiltration, and unauthorized iframe embedding:
+
+- **Nginx Reverse Proxy / Edge Tier (`nginx.conf`)**:
+  - `default-src 'self'`: Restricts origin loading to the application origin by default.
+  - `script-src 'self' https://checkout.razorpay.com https://js.stripe.com`: Limits script execution strictly to first-party code and verified payment gateway SDKs (Razorpay & Stripe).
+  - `style-src 'self' 'unsafe-inline'`: Permits first-party styles and inline style tags required for Tailwind CSS and dynamic Monaco editor theme injections.
+  - `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.razorpay.com https://api.stripe.com`: Restricts network connections (XHR/Fetch/WebSocket) strictly to self, Supabase backend auth/database instances, and payment APIs.
+  - `img-src 'self' data: blob: https://*.stripe.com`: Allows self-hosted imagery, base64 data URIs, volatile memory blobs, and Stripe payment asset badges.
+  - `font-src 'self'`: Prevents unauthorized external font lookups.
+  - `frame-src https://api.razorpay.com https://checkout.razorpay.com https://js.stripe.com https://hooks.stripe.com`: Secures embedded payment checkout and verification frames.
+
+- **FastAPI Backend Tier (`app/api/middleware/security_headers.py`)**:
+  - `Content-Security-Policy: default-src 'self'; frame-ancestors 'none';`: Disallows API embedding inside third-party iframes (clickjacking protection).
+  - `X-Content-Type-Options: nosniff`: Enforces strict MIME typing.
+  - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`: Enforces TLS across all client requests.
+
+- **Next.js Application Layer (`frontend/next.config.ts`)**:
+  - `poweredByHeader: false`: Strips the `X-Powered-By` fingerprinting header.
+  - `compress: true`: Enforces Brotli/Gzip compression on all static and dynamic HTTP responses.
+
 ## Authentication and database
 
 The application uses Supabase for authentication and PostgreSQL. The project audit on 2026-10-04 observed row-level security enabled on the reviewed public tables. Continue to review access policies whenever schema or sharing behavior changes. Supabase Auth's leaked-password protection was reported disabled during that audit and remains a dashboard configuration item until verified as enabled.

@@ -1,6 +1,6 @@
 import os
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, Request
 
@@ -15,9 +15,21 @@ from app.core.config import (
     logger,
 )
 from app.domain.quota.policy import compute_quota_policy
+from app.repositories import daily_usage as daily_usage_repo
 from app.repositories import subscription as subscription_repo
 from app.repositories import translation as translation_repo
 from app.services.email import email_service
+
+
+def _seconds_until_midnight_utc() -> int:
+    """Return remaining seconds until midnight UTC to prevent TTL drift (PERF-02)."""
+    now = datetime.now(UTC)
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    return max(int((tomorrow - now).total_seconds()), 60)
+
+
+def _quota_user_key(email: str) -> str:
+    return email.strip().lower()
 
 
 def raise_quota_429(
@@ -102,6 +114,10 @@ async def save_translation_background(
     if not user_email:
         return
     try:
+        from app.repositories.privacy import may_store_code_history
+
+        if not await may_store_code_history(user_email):
+            return
         input_preview = input_text[:80]
         char_count = len(input_text)
         block_count = len(blocks)
@@ -159,6 +175,8 @@ async def save_translation_background(
             input_hash=input_hash,
             workspace_id=workspace_id,
             session_id=session_id,
+            repository_name=repository_name,
+            file_path=file_path,
         )
 
         # Invalidate stats and history caches
@@ -175,43 +193,61 @@ async def save_translation_background(
         except Exception as milestone_err:
             logger.warning(f"Welcome/milestone email check failed: {milestone_err}")
     except Exception as e:
-        logger.warning(f"Failed to save translation history in background: {e}")
+        logger.warning("Failed to save translation history in background (%s)", type(e).__name__)
 
 
 async def get_today_usage_count(email: str) -> int:
-    """Count how many translations a user has made today (UTC).
-    H-02: Uses ORM COUNT(*) — correct and no REST dependency.
-    """
+    """Return today's authoritative database usage count and refresh its cache."""
     if not email:
         return 0
-
-    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
-    usage_cache_key = f"user_daily_usage:{email}:{today_str}"
-
-    cached = await cache.get(usage_cache_key)
-    if cached is not None:
-        return int(cached)
-
-    today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-    count = await translation_repo.get_count_since(email, since=today_start)
-    await cache.put(usage_cache_key, count, ttl=86400)
+    today = datetime.now(UTC).date()
+    user_key = _quota_user_key(email)
+    count = await daily_usage_repo.get_daily_usage(user_key, today)
+    usage_cache_key = f"user_daily_usage:{user_key}:{today.isoformat()}"
+    try:
+        await cache.set_int_max(usage_cache_key, count, ttl=_seconds_until_midnight_utc())
+    except Exception as exc:
+        logger.warning("Daily usage cache refresh failed (%s)", type(exc).__name__)
     return count
 
 
 async def increment_today_usage_count(email: str) -> int:
-    """Atomically increment daily usage count. Prevents TOCTOU race (FIX-J)."""
+    """Reserve a daily use atomically in PostgreSQL, then reconcile the cache."""
     if not email:
         return 0
-    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
-    key = f"user_daily_usage:{email}:{today_str}"
+    today = datetime.now(UTC).date()
+    user_key = _quota_user_key(email)
+    key = f"user_daily_usage:{user_key}:{today.isoformat()}"
+    legacy_count = 0
+    try:
+        legacy_keys = {key, f"user_daily_usage:{email}:{today.isoformat()}"}
+        for legacy_key in legacy_keys:
+            cached = await cache.get(legacy_key)
+            if cached is not None:
+                legacy_count = max(legacy_count, int(cached))
+    except (TypeError, ValueError):
+        legacy_count = 0
+    try:
+        # The cache floor adopts still-live pre-migration counters on the first
+        # request; subsequent reservations are ordered by the DB upsert.
+        count = await daily_usage_repo.increment_daily_usage(user_key, today, minimum_count=legacy_count)
+    except Exception as exc:
+        logger.error("Daily usage reservation failed (%s)", type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail="Translation quota service is temporarily unavailable. Please retry.",
+        ) from exc
 
-    cached = await cache.get(key)
-    if cached is None:
-        today_start = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
-        count = await translation_repo.get_count_since(email, since=today_start)
-        await cache.put(key, count, ttl=86400)
+    try:
+        await cache.set_int_max(key, count, ttl=_seconds_until_midnight_utc())
+    except Exception as exc:
+        # The DB reservation is authoritative. A cache outage must not reset quota.
+        logger.warning("Daily usage cache write failed (%s)", type(exc).__name__)
+    return count
 
-    return await cache.incr_rate_limit(key, 86400)
+
+_unmocked_increment_today_usage_count = increment_today_usage_count
+_unmocked_get_today_usage_count = get_today_usage_count
 
 
 async def get_user_credits(email: str) -> int:
@@ -265,7 +301,7 @@ async def get_lifetime_translations(email: str) -> int:
 async def increment_platform_daily_usage() -> int:
     today_str = datetime.now(UTC).strftime("%Y-%m-%d")
     key = f"platform_daily_usage:{today_str}"
-    count = await cache.incr_rate_limit(key, 86400)
+    count = await cache.incr_rate_limit(key, _seconds_until_midnight_utc())
     return count
 
 
@@ -332,6 +368,23 @@ async def enforce_quotas_and_protection(
             detail="Request payload exceeds absolute maximum size of 50,000 characters.",
         )
 
+    # Production requests must be explicitly authorized for external processing.
+    # Tests retain their isolated behavior without weakening deployed environments.
+    if os.getenv("TESTING") != "true":
+        if email:
+            from app.repositories.privacy import get_preferences
+
+            if not (await get_preferences(email))["cloud_processing"]:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Cloud processing requires explicit consent in Privacy settings.",
+                )
+        elif request.headers.get("X-Anuvaad-Cloud-Consent", "").lower() != "true":
+            raise HTTPException(
+                status_code=403,
+                detail="Cloud processing requires explicit consent.",
+            )
+
     mode = await get_active_protection_mode()
 
     # ── Guest rate limiting (5 translations/day per client IP) ──
@@ -347,13 +400,14 @@ async def enforce_quotas_and_protection(
 
         today_str = datetime.now(UTC).strftime("%Y-%m-%d")
         guest_key = f"guest_daily_usage:{client_ip}:{today_str}"
-        guest_usage = await cache.incr_rate_limit(guest_key, 86400)
+        guest_window = _seconds_until_midnight_utc()
+        guest_usage = await cache.incr_rate_limit(guest_key, guest_window)
 
         if guest_usage > policy.daily_limit:
             raise_quota_429(
                 detail=f"Daily translation limit reached for guest tier ({policy.daily_limit}/{policy.daily_limit}).",
                 limit_type="guest_daily_limit",
-                retry_after_seconds=86400,
+                retry_after_seconds=guest_window,
                 tier_limit=policy.daily_limit,
             )
 
@@ -385,6 +439,8 @@ async def enforce_quotas_and_protection(
     deduct_credit_flag = False
     if not is_pro and not is_admin and daily_limit != -1:
         today_usage = await increment_today_usage_count(email)
+        user_window = _seconds_until_midnight_utc()
+
         if today_usage > daily_limit:
             deduct_credit_flag = True
             credits = await get_user_credits(email)
@@ -392,7 +448,7 @@ async def enforce_quotas_and_protection(
                 raise_quota_429(
                     detail=f"Daily translation limit reached for free tier ({daily_limit}/{daily_limit}). Your limit resets daily.",
                     limit_type="user_daily_limit",
-                    retry_after_seconds=86400,
+                    retry_after_seconds=user_window,
                     tier_limit=daily_limit,
                 )
 

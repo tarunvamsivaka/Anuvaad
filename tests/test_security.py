@@ -250,6 +250,18 @@ class TestAdvancedSecurity:
             )
             # Since the webhook signature is successfully verified by our mock utility, it returns 200 OK
             assert res5.status_code == 200
+
+            # 6. Machine-to-machine requests with X-API-Key bypass CSRF Origin check
+            res6 = client.post(
+                "/api/code-to-code",
+                json={
+                    "raw_code": "print(1)",
+                    "source_language": "py",
+                    "target_language": "js",
+                },
+                headers={"X-API-Key": "ak_test_key_for_cli"},
+            )
+            assert res6.status_code == 200
         finally:
             csrf_module.IS_PRODUCTION = original_production
             csrf_module._allowed_origins_set = original_allowed

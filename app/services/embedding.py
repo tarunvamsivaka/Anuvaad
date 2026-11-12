@@ -26,7 +26,7 @@ async def generate_embeddings_openai(texts: list[str]) -> list[list[float]]:
         response = await client.embeddings.create(input=texts, model="text-embedding-3-small")
         return [data.embedding for data in response.data]
     except Exception as e:
-        logger.error(f"Failed to generate embeddings via OpenAI API: {e}")
+        logger.error("Failed to generate embeddings via OpenAI API (%s)", type(e).__name__)
         return []
 
 
@@ -70,12 +70,12 @@ async def generate_embeddings_hf(texts: list[str]) -> list[list[float]]:
             if isinstance(result, list):
                 if len(result) > 0 and isinstance(result[0], float):
                     return [pad_embedding_to_1536(result)]  # Single text case
-                return [pad_embedding_to_1536(v) for v in result]
+                return [pad_embedding_to_1536(v) for v in result if v]
             return []
     except Exception as e:
-        logger.error(f"Failed to generate embeddings via HF API: {e}")
-        # Return dummy embeddings so the pipeline doesn't completely crash for free users
-        return [[0.0] * 1536 for _ in texts]
+        logger.error("Failed to generate embeddings via HF API (%s)", type(e).__name__)
+        # A zero vector corrupts semantic ranking. Callers must surface an unavailable state.
+        return []
 
 
 def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 200) -> list[str]:

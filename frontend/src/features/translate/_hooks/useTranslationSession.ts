@@ -107,7 +107,11 @@ export function useTranslationSession({
         setDiffOriginalCode(input);
         setInput(data.updated_code);
         setOutputBlocks(data.blocks);
-        setOriginalBlocks(JSON.parse(JSON.stringify(data.blocks)));
+        // setOutputBlocks normalizes blocks and adds parser line ranges. Keep
+        // the edit baseline identical to that normalized store value so the
+        // sync banner clears after a successful regeneration.
+        const normalizedBlocks = useTranslationStore.getState().outputBlocks;
+        setOriginalBlocks(normalizedBlocks ? JSON.parse(JSON.stringify(normalizedBlocks)) : null);
         if (data.model_used) {
           setModelUsed(data.model_used);
         }

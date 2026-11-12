@@ -82,10 +82,10 @@ print(fibonacci(10))`;
               <Code2 className="h-8 w-8" />
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4 text-slate-200">
-              Initialize Translation Engine
+              Understand Your First Program
             </h1>
             <p className="text-slate-400 max-w-lg mb-8 text-sm leading-relaxed">
-              Anuvaad parses legacy files, redacts database inputs, and generates highly annotated plain English maps using Google Gemini core weights.
+              Paste a snippet from any project to get a plain-language explanation. Start with code you are learning, maintaining, or trying to understand.
             </p>
 
             <div className="w-full max-w-lg bg-surface-charcoal/80 border border-amber-600/10 rounded-xl overflow-hidden mb-8 text-left shadow-lg">
@@ -116,7 +116,7 @@ print(fibonacci(10))`;
                   router.push(`/dashboard/translate?code=${encodeURIComponent(demoCode)}&lang=python&mode=code-to-english`);
                 }}
               >
-                Execute Pipeline <ArrowRight className="ml-2 h-4 w-4" />
+                Explain This Code <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </div>
           </div>
@@ -126,10 +126,10 @@ print(fibonacci(10))`;
         {step === 2 && (
           <div className="w-full animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col items-center text-center">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4 text-slate-200">
-              Versatile Translation Architectures
+              Choose What You Want To Do
             </h1>
             <p className="text-slate-400 max-w-xl mb-12 text-sm leading-relaxed">
-              Toggle between three processing loops depending on your integration context: translating documentation, synthesizing specs, or rewriting languages.
+              Explain unfamiliar code, generate a starting point from a description, or translate code between supported languages.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full mb-12">
@@ -213,10 +213,10 @@ print(fibonacci(10))`;
               <CheckCircle className="h-10 w-10" />
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4 text-slate-200">
-              System Operations Ready
+              You’re Ready To Start
             </h1>
             <p className="text-slate-400 max-w-sm mb-8 text-sm leading-relaxed">
-              Your profile is verified. Access the workspace cluster to translate, optimize, and build without bounds.
+              Open the workspace whenever you need to understand, translate, or generate code.
             </p>
 
             <button
@@ -224,7 +224,7 @@ print(fibonacci(10))`;
               disabled={isFinishing}
               className="inline-flex items-center justify-center rounded-lg bg-amber-500 hover:bg-amber-600 px-8 py-3 text-xs font-bold uppercase tracking-wider text-slate-950 hover:text-slate-950 shadow transition-colors h-11 shadow-[0_0_12px_rgba(245,158,11,0.2)] disabled:opacity-50"
             >
-              {isFinishing ? "Launching..." : "Enter Workspace"} <ArrowRight className="ml-2 h-4 w-4" />
+              {isFinishing ? "Opening..." : "Open Workspace"} <ArrowRight className="ml-2 h-4 w-4" />
             </button>
           </div>
         )}

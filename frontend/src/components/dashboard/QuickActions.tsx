@@ -16,8 +16,8 @@ export function QuickActions() {
     {
       href: "/dashboard/translate?mode=english-to-code",
       icon: Code2,
-      label: "Modify Using English",
-      desc: "English → Code",
+      label: "Generate Code",
+      desc: "Describe what you need",
       color: "text-emerald-500",
     },
     {
@@ -28,17 +28,17 @@ export function QuickActions() {
       color: "text-blue-500",
     },
     {
-      href: "/dashboard/translate?import=repo",
+      href: "/dashboard/translate",
       icon: GitBranch,
-      label: "Import Repository",
-      desc: "Connect GitHub",
+      label: "Add Repository Context",
+      desc: "Connect GitHub in the workspace",
       color: "text-violet-500",
     },
     {
-      href: "/dashboard/translate?upload=true",
+      href: "/dashboard/translate",
       icon: Upload,
       label: "Upload File",
-      desc: "Local machine",
+      desc: "Drop a file into the workspace",
       color: "text-rose-500",
     },
     {
