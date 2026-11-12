@@ -463,11 +463,13 @@ export function OutputPanel({
                 </motion.div>
               )}
 
-              <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+              <div
+                aria-live="polite"
+                aria-atomic="false"
+                aria-label="Translation output"
+                className="flex-1 overflow-y-auto custom-scrollbar relative"
+              >
                 <pre
-                  aria-label="Translation output"
-                  aria-live="polite"
-                  aria-atomic="false"
                   className={cn(
                     "font-mono text-[13px] text-slate-800 dark:text-slate-200 whitespace-pre-wrap break-words leading-relaxed p-2",
                     isStreaming ? "blinking-cursor" : ""
@@ -502,7 +504,7 @@ export function OutputPanel({
             >
               {/* Monaco Editor View */}
               {viewType === "editor" ? (
-                <div className="h-full w-full relative">
+                <div className="h-full w-full relative min-h-[300px]">
                   <MonacoEditor
                     height="100%"
                     language={monacoLang}
@@ -541,7 +543,7 @@ export function OutputPanel({
                       </button>
                     </div>
                   )}
-                  <div className="flex-1 w-full overflow-hidden">
+                  <div className="flex-1 w-full overflow-hidden min-h-[300px]">
                     <DiffEditor
                       height="100%"
                       original={diffOriginalCode ?? input}

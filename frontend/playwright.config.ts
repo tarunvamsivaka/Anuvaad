@@ -93,7 +93,7 @@ export default defineConfig({
   webServer: {
     command: process.env.CI
       ? 'node .next/standalone/server.js'
-      : 'npm run dev',
+      : 'npm run dev -- --webpack',
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     /* Give the Next.js production server up to 2 minutes to start in CI */

@@ -154,6 +154,33 @@ export class AnuvaadApiClient {
         );
       }
 
+      if (response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
+        const streamText = await response.text();
+        let terminalPayload: unknown;
+        for (const frame of streamText.split(/\r?\n\r?\n/)) {
+          const data = frame
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trim())
+            .join('\n');
+          if (!data) continue;
+          try {
+            const event = JSON.parse(data) as { done?: boolean; error?: string };
+            if (event.error) {
+              throw new AnuvaadApiError(response.status, event.error, event.error);
+            }
+            if (event.done) terminalPayload = event;
+          } catch (error) {
+            if (error instanceof AnuvaadApiError) throw error;
+            // Ignore non-JSON SSE frames; the terminal JSON event is authoritative.
+          }
+        }
+        if (terminalPayload === undefined) {
+          throw new AnuvaadApiError(response.status, 'The API stream ended before a final result was received.');
+        }
+        return { data: terminalPayload as T, headers: response.headers };
+      }
+
       const data = await response.json() as T;
       return { data, headers: response.headers };
     } finally {
@@ -193,7 +220,7 @@ export class AnuvaadApiClient {
       '/api/v1/code-to-code',
       {
         raw_code: code,
-        language: fromLanguage,
+        source_language: fromLanguage,
         target_language: toLanguage,
       },
       customHeaders

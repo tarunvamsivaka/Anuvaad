@@ -9,6 +9,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests.sse_helpers import parse_sse_done
+
 
 class TestRedisCache:
     """Tests for the Redis-backed cache."""
@@ -20,7 +22,7 @@ class TestRedisCache:
         res2 = client.post("/api/code-to-english", json=payload)
         assert res1.status_code == 200
         assert res2.status_code == 200
-        assert res1.json() == res2.json()
+        assert parse_sse_done(res1) == parse_sse_done(res2)
 
     def test_different_code_not_cached(self, client):
         """Different code should not hit the cache."""

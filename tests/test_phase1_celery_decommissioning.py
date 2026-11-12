@@ -65,6 +65,13 @@ class TestCronPruneEndpoint:
             assert res.status_code == 401
             assert res.json()["detail"] == "Invalid or missing cron secret"
 
+    def test_cron_prune_service_unavailable_when_secret_empty(self):
+        """Verify /api/v1/cron/prune returns 503 when CRON_SECRET is empty (DO-03)."""
+        with patch("app.core.config.CRON_SECRET", ""):
+            res = client.post("/api/v1/cron/prune")
+            assert res.status_code == 503
+            assert "CRON_SECRET is empty" in res.json()["detail"]
+
     @patch("app.queue.tasks.prune_database_footprint_async", new_callable=AsyncMock)
     def test_cron_prune_success_with_bearer_token(self, mock_prune):
         """Verify /api/v1/cron/prune executes prune_database_footprint_async when token matches."""

@@ -127,3 +127,11 @@ def test_backward_compatibility_unknown_depth_falls_back_to_dev():
 
     assert key_invalid == key_dev, "Unknown depth must fall back to 'dev'"
     assert key_invalid.startswith("ast_cache:")
+
+
+def test_target_language_partitions_code_translation_cache():
+    code = "def greet(name): return name"
+    python = compute_ast_cache_key(code, "python", target_language="python")
+    typescript = compute_ast_cache_key(code, "python", target_language="typescript")
+
+    assert python != typescript

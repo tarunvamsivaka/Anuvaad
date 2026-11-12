@@ -40,14 +40,9 @@
     "configuration": {
       "title": "Anuvaad",
       "properties": {
-        "anuvaad.apiKey": {
-          "type": "string",
-          "default": "",
-          "description": "Your Anuvaad API Key"
-        },
         "anuvaad.apiUrl": {
           "type": "string",
-          "default": "http://localhost:8000",
+          "default": "https://api.getanuvaad.com",
           "description": "Anuvaad API Base URL"
         },
         "anuvaad.enableHover": {

@@ -15,8 +15,9 @@ from pydantic import BaseModel, Field
 
 from app.core.audit import generate_audit_receipt
 from app.core.auth import get_optional_user_email_from_request
+from app.core.quota import enforce_quotas_and_protection, record_successful_completion
 from app.core.rate_limit import rate_limiter
-from app.services.ast_parser import analyze
+from app.services.ast_parser import analyze, is_language_supported, verify_translation
 from app.services.graph.dependency_graph import RepositoryDependencyGraph
 from app.services.sandbox.self_healing_agent import SelfHealingAgent
 from app.services.verification.equivalence_harness import EquivalenceHarness
@@ -27,28 +28,28 @@ router = APIRouter(prefix="", tags=["modernize"])
 
 
 class FileEntry(BaseModel):
-    file_path: str = Field(..., min_length=1)
-    content: str = Field(..., min_length=1)
-    language: str | None = None
+    file_path: str = Field(..., min_length=1, max_length=512)
+    content: str = Field(..., min_length=1, max_length=50000)
+    language: str | None = Field(default=None, max_length=32)
 
 
 class AnalyzeRepositoryRequest(BaseModel):
-    repository_name: str | None = "repository"
-    files: list[FileEntry] = Field(..., min_length=1)
+    repository_name: str | None = Field(default="repository", max_length=200)
+    files: list[FileEntry] = Field(..., min_length=1, max_length=500)
 
 
 class ModernizeFileRequest(BaseModel):
-    file_path: str = Field(..., min_length=1)
-    content: str = Field(..., min_length=1)
-    source_language: str = Field(..., min_length=1)
-    target_language: str = Field(..., min_length=1)
+    file_path: str = Field(..., min_length=1, max_length=512)
+    content: str = Field(..., min_length=1, max_length=50000)
+    source_language: str = Field(..., min_length=1, max_length=32)
+    target_language: str = Field(..., min_length=1, max_length=32)
     verify: bool = True
     self_heal: bool = True
 
 
 class ImpactAnalysisRequest(BaseModel):
-    changed_symbol: str = Field(..., min_length=1)
-    files: list[FileEntry] = Field(..., min_length=1)
+    changed_symbol: str = Field(..., min_length=1, max_length=256)
+    files: list[FileEntry] = Field(..., min_length=1, max_length=500)
 
 
 @router.post("/modernize/analyze-repository", dependencies=[Depends(rate_limiter(15, 60))])
@@ -105,6 +106,8 @@ async def modernize_file(
     """Modernize a single source file with self-healing compiler verification and characterization tests."""
     from app.services.ai import get_completion
 
+    is_pro, _, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(request, email, len(payload.content))
+
     user_id = email or "anonymous"
 
     # 1. Initial Translation
@@ -115,21 +118,51 @@ async def modernize_file(
     )
     user_prompt = f"Source code ({payload.source_language}):\n{payload.content}"
 
-    translated_code = await get_completion(user_prompt, system_prompt=system_prompt)
+    translated_code, model_used = await get_completion(
+        user_prompt,
+        system_instruction=system_prompt,
+        mode="translation",
+        source_language=payload.source_language,
+        ephemeral=request.headers.get("X-Anuvaad-Privacy-Mode", "").lower() == "ephemeral",
+    )
     translated_code = _clean_code_fence(translated_code)
 
     healing_diagnostics = []
     # 2. Self-Healing Compiler Verification
     if payload.self_heal:
+
+        class _RepairAdapter:
+            async def complete(self, prompt: str) -> str:
+                repaired, _ = await get_completion(
+                    prompt,
+                    system_instruction="You are a precision compiler repair engineer. Return only corrected code.",
+                    mode="translation",
+                    source_language=payload.source_language,
+                )
+                return repaired
+
         agent = SelfHealingAgent(max_retries=2)
         outcome = await agent.verify_and_heal(
             candidate_code=translated_code,
             target_language=payload.target_language,
             source_language=payload.source_language,
             source_code=payload.content,
+            ai_service=_RepairAdapter(),
         )
         translated_code = outcome.final_code
         healing_diagnostics = outcome.diagnostics
+
+    if not await asyncio.to_thread(is_language_supported, payload.target_language):
+        raise HTTPException(status_code=422, detail="No syntax parser is available for the target language.")
+    syntax_check = await asyncio.to_thread(
+        verify_translation,
+        payload.content,
+        payload.source_language,
+        translated_code,
+        payload.target_language,
+    )
+    if syntax_check.has_parse_errors_in_target:
+        raise HTTPException(status_code=422, detail="Generated code did not pass syntax validation.")
 
     # 3. Semantic Equivalence & Test Suite Generation
     equivalence_report = None
@@ -145,16 +178,16 @@ async def modernize_file(
         equivalence_report = eq.to_dict()
 
     # 4. Generate Zero Code Retention Receipt
-    receipt = generate_audit_receipt(
-        user_id=user_id,
-        code=f"{payload.content}\n---\n{translated_code}",
-    )
+    receipt = generate_audit_receipt(user_id=user_id, code=payload.content)
+
+    await record_successful_completion(email, is_pro, deduct_credit_flag, cooldown)
 
     return {
         "file_path": payload.file_path,
         "source_language": payload.source_language,
         "target_language": payload.target_language,
         "modernized_code": translated_code,
+        "model_used": model_used,
         "healing_diagnostics": healing_diagnostics,
         "equivalence": equivalence_report,
         "audit_receipt": receipt,

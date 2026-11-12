@@ -22,6 +22,7 @@ import {
   Check, 
   Trash2, 
   ShieldAlert, 
+  ShieldCheck,
   Loader2,
   User,
   Palette
@@ -61,6 +62,9 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [cloudProcessing, setCloudProcessing] = useState(false);
+  const [codeHistory, setCodeHistory] = useState(false);
+  const [privacySaving, setPrivacySaving] = useState(false);
 
 
 
@@ -69,6 +73,42 @@ export default function SettingsPage() {
       setDisplayName(user.user_metadata.full_name);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!session) return;
+    const controller = new AbortController();
+    fetch("/api/privacy/preferences", {
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    }).then(async (response) => {
+      if (!response.ok) return;
+      const preferences = await response.json();
+      setCloudProcessing(preferences.cloud_processing === true);
+      setCodeHistory(preferences.code_history === true);
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [session]);
+
+  async function savePrivacyPreferences(nextCloudProcessing: boolean, nextCodeHistory: boolean) {
+    if (!session) return;
+    setPrivacySaving(true);
+    try {
+      const response = await fetch("/api/privacy/preferences", {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ cloud_processing: nextCloudProcessing, code_history: nextCodeHistory }),
+      });
+      if (!response.ok) throw new Error("Unable to save privacy preferences");
+      const preferences = await response.json();
+      setCloudProcessing(preferences.cloud_processing === true);
+      setCodeHistory(preferences.code_history === true);
+      toast.success("Privacy preferences updated.");
+    } catch {
+      toast.error("Unable to update privacy preferences.");
+    } finally {
+      setPrivacySaving(false);
+    }
+  }
 
   const fetchApiKeys = useCallback(async (signal?: AbortSignal, activeRef?: { active: boolean }) => {
     if (!session) return;
@@ -244,6 +284,24 @@ export default function SettingsPage() {
           
           {/* LEFT COLUMN: Main Configurations (8 cols) */}
           <div className="lg:col-span-8 space-y-8">
+
+            <Card className="p-6 sm:p-8 bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"><ShieldCheck className="h-5 w-5" /></div>
+                <div className="flex-1">
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">Code Privacy</h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Code stays in memory by default. Cloud processing sends submitted code to the selected provider. Saved code history is separately opt-in and encrypted at rest.</p>
+                  <label className="mt-5 flex items-center justify-between gap-4 text-xs font-medium text-slate-700 dark:text-slate-200">
+                    Allow cloud processing
+                    <input aria-label="Allow cloud processing" type="checkbox" checked={cloudProcessing} disabled={privacySaving} onChange={(event) => savePrivacyPreferences(event.target.checked, event.target.checked ? codeHistory : false)} />
+                  </label>
+                  <label className="mt-3 flex items-center justify-between gap-4 text-xs font-medium text-slate-700 dark:text-slate-200">
+                    Save encrypted code history
+                    <input aria-label="Save encrypted code history" type="checkbox" checked={codeHistory} disabled={!cloudProcessing || privacySaving} onChange={(event) => savePrivacyPreferences(cloudProcessing, event.target.checked)} />
+                  </label>
+                </div>
+              </div>
+            </Card>
             
 
 

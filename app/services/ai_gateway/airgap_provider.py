@@ -8,6 +8,8 @@ source code or telemetry to public networks.
 
 from __future__ import annotations
 
+import asyncio
+import ipaddress
 import logging
 import os
 from collections.abc import AsyncGenerator
@@ -55,28 +57,35 @@ class AirgapInferenceProvider:
             "::1",
             "host.docker.internal",
         }
-        # Allow internal private subnets (10.x.x.x, 192.168.x.x, 172.16-31.x.x)
-        is_private = (
-            hostname in allowed_hosts
-            or hostname.startswith("10.")
-            or hostname.startswith("192.168.")
-            or (hostname.startswith("172.") and any(hostname.startswith(f"172.{i}.") for i in range(16, 32)))
-            or hostname.endswith(".local")
-            or hostname.endswith(".internal")
-        )
-        if not is_private and not os.getenv("ALLOW_PUBLIC_AIRGAP_OVERRIDE"):
-            logger.warning(
-                f"Air-gap endpoint '{hostname}' is not a recognised local/private host. Set ALLOW_PUBLIC_AIRGAP_OVERRIDE=1 if intentional."
-            )
+        try:
+            is_private = ipaddress.ip_address(hostname).is_private or ipaddress.ip_address(hostname).is_loopback
+        except ValueError:
+            is_private = hostname in allowed_hosts or hostname.endswith(".local") or hostname.endswith(".internal")
+        if not is_private:
+            raise ValueError("Air-gap inference must use a loopback or private-network endpoint.")
 
     async def is_available(self) -> bool:
         """Check if local inference server is responsive."""
         try:
             parsed = urlparse(self.config.base_url)
             health_url = f"{parsed.scheme}://{parsed.netloc}/"
-            async with httpx.AsyncClient(timeout=2.0) as client:
-                resp = await client.get(health_url)
-                return resp.status_code < 500
+            # Never inherit HTTP proxy settings for a private-only endpoint.
+            # Besides violating the air-gap contract, a proxy can turn a fast
+            # loopback connection refusal into a long remote connection wait.
+            timeout = httpx.Timeout(timeout=2.0, connect=0.5)
+
+            def probe() -> bool:
+                # The Windows async transport may not honour task cancellation
+                # while tearing down a refused local connection. This is a
+                # low-frequency health probe, so use a worker thread and keep
+                # the request independent from the event loop.
+                with httpx.Client(timeout=timeout, trust_env=False) as client:
+                    resp = client.get(health_url)
+                    return resp.status_code in (200, 204)
+
+            # Bound the entire probe, including transport setup and teardown;
+            # a connect/read timeout alone does not cap every async transport.
+            return await asyncio.wait_for(asyncio.to_thread(probe), timeout=2.5)
         except Exception:
             return False
 

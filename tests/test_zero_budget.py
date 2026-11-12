@@ -121,7 +121,7 @@ class TestGuestAndUserRateLimiting:
             assert isinstance(exc.detail, dict)
             assert exc.detail["limit_type"] == "guest_daily_limit"
             assert exc.detail["tier_limit"] == 5
-            assert exc.headers["Retry-After"] == "86400"
+            assert 1 <= int(exc.headers["Retry-After"]) <= 86400
 
     @pytest.mark.asyncio
     async def test_signed_in_user_daily_limit_exceeded_raises_structured_429(self):
@@ -141,7 +141,7 @@ class TestGuestAndUserRateLimiting:
             assert isinstance(exc.detail, dict)
             assert exc.detail["limit_type"] == "user_daily_limit"
             assert exc.detail["tier_limit"] == 25
-            assert exc.headers["Retry-After"] == "86400"
+            assert 1 <= int(exc.headers["Retry-After"]) <= 86400
 
 
 class TestModelFailover:
@@ -219,11 +219,11 @@ class TestWireContract429Response:
                 json={"raw_code": "print('hello')", "language": "python"},
             )
             assert response.status_code == 429
-            assert response.headers.get("Retry-After") == "86400"
+            assert 1 <= int(response.headers.get("Retry-After", "0")) <= 86400
 
             data = response.json()
             assert isinstance(data, dict)
             assert "Daily translation limit reached for free tier" in data.get("detail", "")
             assert data.get("limit_type") == "user_daily_limit"
-            assert data.get("retry_after_seconds") == 86400
+            assert 1 <= data.get("retry_after_seconds", 0) <= 86400
             assert data.get("tier_limit") == 25

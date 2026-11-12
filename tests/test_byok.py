@@ -50,12 +50,13 @@ async def test_byok_key_redaction_and_injection():
         except Exception:
             pass
 
-        # Verify logger.info was called with redacted key (never the full raw key)
+        # Verify logger.info acknowledged BYOK usage without leaking any portion of the raw key
         found_redacted = False
         for call_args in mock_logger.info.call_args_list:
             msg = str(call_args)
-            if "test...6789" in msg or "testmock" in msg:
+            if "byok" in msg.lower():
                 found_redacted = True
                 assert test_key not in msg, "Full raw API key was leaked in log message!"
+                assert test_key[:8] not in msg, "API key prefix was leaked in log message!"
 
         assert found_redacted, "Expected logger.info to log redacted BYOK key!"

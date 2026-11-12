@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 
 from pgvector.sqlalchemy import HALFVEC
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, Column, Date, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -33,6 +33,8 @@ class UserSubscription(Base):
     credits = Column(Integer, default=0)
     current_period_end = Column(DateTime(timezone=True), nullable=True)
     onboarded = Column(Boolean, default=False)
+    cloud_processing_consent_at = Column(DateTime(timezone=True), nullable=True)
+    code_history_opt_in = Column(Boolean, default=False, nullable=False)
     razorpay_subscription_id = Column(Text, nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
@@ -81,6 +83,8 @@ class TranslationHistory(Base):
     character_count = Column(Integer, default=0)
     block_count = Column(Integer, default=0)
     blocks = Column(JSONB, nullable=True)
+    encrypted_blocks = Column(Text, nullable=True)
+    history_key_version = Column(Integer, nullable=True)
     target_language = Column(Text, nullable=True)
     source_language = Column(Text, nullable=True)
     mode = Column(Text, nullable=True)
@@ -116,6 +120,16 @@ class UserTranslationStats(Base):
     total = Column(BigInteger, default=0)
     today_count = Column(BigInteger, default=0)
     this_week_count = Column(BigInteger, default=0)
+
+
+class DailyUsage(Base):
+    """Authoritative atomic translation reservations by user and UTC day."""
+
+    __tablename__ = "daily_usages"
+    user_email = Column(Text, primary_key=True)
+    usage_date = Column(Date, primary_key=True)
+    usage_count = Column(Integer, nullable=False, default=0, server_default="0")
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
 
 
 # New table for immutable webhook logs and idempotency

@@ -7,6 +7,8 @@ so no real API calls are made.
 
 from unittest.mock import MagicMock, patch
 
+from tests.sse_helpers import parse_sse_done
+
 
 class TestHealthEndpoint:
     """Tests for GET /api/health."""
@@ -72,7 +74,7 @@ class TestCodeToEnglish:
         print("STATUS:", res.status_code)
         print("CONTENT:", res.text)
         assert res.status_code == 200
-        data = res.json()
+        data = parse_sse_done(res)
         assert isinstance(data, list)
         assert len(data) > 0
         assert "id" in data[0]
@@ -167,7 +169,7 @@ class TestCodeToCode:
             },
         )
         assert res.status_code == 200
-        data = res.json()
+        data = parse_sse_done(res)
         assert isinstance(data, list)
         assert len(data) > 0
 

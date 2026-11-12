@@ -5,12 +5,13 @@
 
 ## Before release
 
-1. Review the code diff, dependency lockfiles, security findings, and current [implementation gates](IMPLEMENTATION_PLAN_2026-10-04.md). Do not enable GitHub writes, SSO, or checkout while their feature gates remain closed.
-2. Run the verification commands in the repository README and the CI workflows. Require backend tests/lint and the PostgreSQL migration job to pass; local frontend success alone is not a release gate.
-3. Review pending Alembic migrations for expand/contract compatibility and downgrade safety. Follow [the database migration policy](DATABASE_MIGRATION_POLICY.md); reconcile the live revision and historical Supabase migration evidence before applying DDL.
-4. Confirm the operator can restore a recent database backup and record the chosen restore point. Never put credentials, SQL dumps, or source code into release logs.
-5. Verify required environment-variable presence in the deployment secret store without printing values. Check frontend/API origin, OAuth callback URLs, webhook signature secret (if webhooks are enabled), provider availability, rate limits, and billing feature flags.
-6. Confirm privacy notice, support contact, quota/error copy, and rollback owner are current. If provider retention or hosting diagnostics are unverified, do not claim end-to-end zero retention.
+1. Review the code diff, dependency lockfiles, security findings, and current [launch strategy](LAUNCH_STRATEGY.md). Do not enable GitHub writes, SSO, or checkout while their feature gates remain closed.
+2. Apply the reviewed Alembic head (currently `019_daily_usage_counters`); it includes `017_privacy_history` and seeds today's daily usage where opted-in translation history is available. Redis counters still live from the prior release are adopted on each user's first use. Then migrate legacy translation history before representing historical records as encrypted at rest. Set `HISTORY_ENCRYPTION_KEYS`, run `python scripts/backfill_encrypted_history.py --dry-run`, then run the same command without `--dry-run` in bounded batches. Record only aggregate migrated/skipped counts; never export or log source payloads. Investigate skipped rows before any plaintext-retention cleanup.
+3. Run the verification commands in the repository README and the CI workflows. Require backend tests/lint and the PostgreSQL migration job to pass; local frontend success alone is not a release gate.
+4. Review pending Alembic migrations for expand/contract compatibility and downgrade safety. Follow [the database migration policy](DATABASE_MIGRATION_POLICY.md); reconcile the live revision and historical Supabase migration evidence before applying DDL.
+5. Confirm the operator can restore a recent database backup and record the chosen restore point. Never put credentials, SQL dumps, or source code into release logs.
+6. Verify required environment-variable presence in the deployment secret store without printing values. Check frontend/API origin, OAuth callback URLs, webhook signature secret (if webhooks are enabled), provider availability, rate limits, and billing feature flags.
+7. Confirm privacy notice, support contact, quota/error copy, and rollback owner are current. If provider retention or hosting diagnostics are unverified, do not claim end-to-end zero retention.
 
 ## Release sequence
 
@@ -23,9 +24,10 @@
    alembic current
    ```
 
-4. Deploy the API and frontend from the reviewed commit. The Render Blueprint does not run pre-deploy migrations; do not rely on application startup to alter the schema.
-5. Smoke-test health, sign-in, an ephemeral translation, an opted-in history save/delete, share expiry/revocation, and quota/error behavior. Use synthetic non-sensitive input. Confirm logs and analytics contain no source text.
-6. Record commit, migration revision, operator, start/end times, smoke-test results, and any issue in the release record. Do not record tokens, prompts, generated code, or provider payloads.
+4. Run the reviewed history backfill in bounded batches when the applied head includes `017_privacy_history` (currently the case). Verify aggregate migrated/skipped counts and retain the recovery plan for skipped rows.
+5. Deploy the API and frontend from the reviewed commit. The Render Blueprint does not run pre-deploy migrations; do not rely on application startup to alter the schema.
+6. Smoke-test health, sign-in, an ephemeral translation, an opted-in history save/delete, share expiry/revocation, and quota/error behavior. Use synthetic non-sensitive input. Confirm logs and analytics contain no source text.
+7. Record commit, migration revision, operator, start/end times, smoke-test results, and any issue in the release record. Do not record tokens, prompts, generated code, or provider payloads.
 
 ## Rollback
 

@@ -59,19 +59,25 @@ describe("Milestone 4: Guest Sandbox & Store Draft Persistence", () => {
     });
   });
 
-  describe("Zustand OAuth Active Draft Persistence", () => {
-    it("persists active input and blocks across store updates in sessionStorage", () => {
+  describe("Zustand Storage ZDR Compliance (FE-01)", () => {
+    it("does NOT persist sensitive input or code in sessionStorage or localStorage", () => {
       useTranslationStore.getState().setInput("def calculate_tax(income): return income * 0.2");
       useTranslationStore.getState().setDetectedLang("python");
       useTranslationStore.getState().setSessionId("test-session-123");
+      useTranslationStore.getState().setExecutionEngine("byok");
 
+      // sessionStorage must not contain user draft code (FE-01)
       const raw = sessionStorage.getItem("anuvaad-active-draft");
-      expect(raw).toBeTruthy();
+      expect(raw).toBeNull();
 
-      const parsed = JSON.parse(raw!);
-      expect(parsed.state.input).toBe("def calculate_tax(income): return income * 0.2");
-      expect(parsed.state.detectedLang).toBe("python");
-      expect(parsed.state.sessionId).toBe("test-session-123");
+      // UI prefs in localStorage must only contain non-sensitive preferences
+      const prefsRaw = localStorage.getItem("anuvaad-ui-prefs");
+      if (prefsRaw) {
+        const parsed = JSON.parse(prefsRaw);
+        expect(parsed.state?.input).toBeUndefined();
+        expect(parsed.state?.outputBlocks).toBeUndefined();
+        expect(parsed.state?.executionEngine).toBe("byok");
+      }
     });
   });
 });

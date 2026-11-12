@@ -353,7 +353,7 @@ class TestTier1Feature06Structured429Payloads:
             assert exc.status_code == 429
             assert exc.detail["limit_type"] == "guest_daily_limit"
             assert exc.detail["tier_limit"] == 5
-            assert exc.headers["Retry-After"] == "86400"
+            assert 1 <= int(exc.headers["Retry-After"]) <= 86400
 
     @pytest.mark.asyncio
     async def test_f06_2_user_daily_limit_429_payload(self):
@@ -371,7 +371,7 @@ class TestTier1Feature06Structured429Payloads:
             assert exc.status_code == 429
             assert exc.detail["limit_type"] == "user_daily_limit"
             assert exc.detail["tier_limit"] == 25
-            assert exc.headers["Retry-After"] == "86400"
+            assert 1 <= int(exc.headers["Retry-After"]) <= 86400
 
     @pytest.mark.asyncio
     async def test_f06_3_retry_after_header_present(self):
@@ -760,7 +760,7 @@ class TestTier2BoundaryAndCornerCases:
                 await enforce_quotas_and_protection(req, email=None, char_count=100)
             assert exc_info.value.status_code == 429
             assert exc_info.value.detail["limit_type"] == "guest_daily_limit"
-            assert exc_info.value.headers["Retry-After"] == "86400"
+            assert 1 <= int(exc_info.value.headers["Retry-After"]) <= 86400
 
     @pytest.mark.asyncio
     async def test_t2_bva_free_user_daily_limit_boundary_25_vs_26(self):

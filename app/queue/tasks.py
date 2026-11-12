@@ -132,9 +132,11 @@ class HybridTask:
             loop = asyncio.get_running_loop()
             if loop.is_running():
                 if self._async_fn:
-                    task = loop.create_task(self._async_fn(*args, **kwargs))
+                    task = loop.create_task(self._async_fn(*args, **kwargs), name=f"celery_shim.{self.name}")
                 else:
-                    task = loop.create_task(asyncio.to_thread(self._celery_task, *args, **kwargs))
+                    task = loop.create_task(
+                        asyncio.to_thread(self._celery_task, *args, **kwargs), name=f"celery_shim.{self.name}"
+                    )
                 _register_active_task(task, name=self.name)
                 return task
         except RuntimeError:
@@ -399,7 +401,7 @@ def _process_large_file_celery_task(
                 pass  # Result is saved via save_translation_history_task inside the generator
             logger.info(f"Celery: Large file processed successfully for {user_email}")
         except Exception as e:
-            logger.error(f"Celery: Failed to process large file for {user_email}: {e}")
+            logger.error("Celery: Failed to process large file (%s)", type(e).__name__)
             raise  # re-raise so autoretry_for can catch it
 
     run_async(_process())
@@ -462,8 +464,6 @@ def _process_github_repo_celery_task(repo_name: str, installation_id: str = None
 
         openai_key = os.environ.get("OPENAI_API_KEY")
         provider = "openai" if openai_key else "hf"
-        embedding_dim = 1536
-
         # We should chunk the embeddings request in case there are thousands of chunks
         BATCH_SIZE = 100
         for i in range(0, len(chunks_data), BATCH_SIZE):
@@ -481,14 +481,18 @@ def _process_github_repo_celery_task(repo_name: str, installation_id: str = None
                         batch[j]["embedding"] = pad_embedding_to_1536(emb)
                         batch[j]["provider"] = provider
                     elif j < len(batch):
-                        # Fallback if the embedding is somehow malformed
-                        batch[j]["embedding"] = [0.0] * embedding_dim
+                        # Omit failed vectors instead of storing artificial nearest-neighbor values.
+                        batch[j]["embedding"] = None
 
                 # Insert into DB
+                batch = [item for item in batch if item.get("embedding") is not None]
+                if not batch:
+                    logger.warning("Skipping repository batch %s because no embeddings were produced", i)
+                    continue
                 async with AsyncSessionLocal() as session:
                     await insert_repo_embeddings(session, repo_name, batch, indexed_by=user_email)
             except Exception as e:
-                logger.error(f"Error processing batch {i} for {repo_name}: {e}")
+                logger.error("Error processing repository batch %s (%s)", i, type(e).__name__)
 
     run_async(_process())
 
@@ -530,7 +534,7 @@ def _process_github_pr_review_celery_task(
                     if resp.status_code == 200:
                         diff_text = resp.text
             except Exception as e:
-                logger.warning(f"Could not fetch PR diff from {diff_url}: {e}")
+                logger.warning("Could not fetch PR diff (%s)", type(e).__name__)
 
         if not diff_text:
             diff_text = (
@@ -568,15 +572,86 @@ process_github_pr_review_task = HybridTask(_process_github_pr_review_celery_task
     retry_backoff=True,
     retry_jitter=True,
 )
-def _run_repository_indexing_celery_task(workspace_id: str, import_id: str, desired_state_id: str):
-    """Run the workspace-owned Phase 3 ingestion pipeline, never RepoEmbedding."""
+def _run_repository_indexing_celery_task(workspace_id: str, repo_name: str, user_email: str):
+    """Create workspace-owned index state and run Phase 3 without RepoEmbedding."""
+    import hashlib
+    import json
+
+    from github import Auth, Github
+    from sqlalchemy import select
+
     from app.core.database_session import AsyncSessionLocal
+    from app.models.db_models import (
+        DesiredIndexState,
+        IndexConfiguration,
+        RepositoryImport,
+        SourceState,
+        Workspace,
+        WorkspaceMember,
+    )
+    from app.repositories.github_token import get_github_token
     from app.services.indexing.pipeline import RepositoryIndexingPipeline
 
     async def _process():
+        token = await get_github_token(user_email)
+        if not token:
+            raise ValueError("GitHub connection is no longer available")
+
+        def resolve_revision():
+            repo = Github(auth=Auth.Token(token)).get_repo(repo_name)
+            return repo.get_commit(repo.default_branch).sha
+
+        revision_sha = await asyncio.to_thread(resolve_revision)
+        config_values = {
+            "chunk_size": 1000,
+            "admission_policy_version": "v1",
+        }
+        config_hash = hashlib.sha256(json.dumps(config_values, sort_keys=True).encode()).hexdigest()
         async with AsyncSessionLocal() as session:
-            return await RepositoryIndexingPipeline(session).run(
-                UUID(workspace_id), UUID(import_id), UUID(desired_state_id)
+            workspace_result = await session.execute(select(Workspace).where(Workspace.id == UUID(workspace_id)))
+            workspace = workspace_result.scalar_one_or_none()
+            if workspace is None:
+                raise ValueError("Workspace not found")
+            if workspace.owner_email != user_email:
+                member = await session.get(WorkspaceMember, (UUID(workspace_id), user_email))
+                if member is None:
+                    raise PermissionError("Workspace access was revoked before indexing began")
+
+            import_result = await session.execute(
+                select(RepositoryImport).where(
+                    RepositoryImport.workspace_id == UUID(workspace_id),
+                    RepositoryImport.provider == "github",
+                    RepositoryImport.provider_repo_id == repo_name,
+                )
+            )
+            repository_import = import_result.scalar_one_or_none()
+            if repository_import is None:
+                repository_import = RepositoryImport(
+                    workspace_id=UUID(workspace_id), provider="github", provider_repo_id=repo_name
+                )
+                session.add(repository_import)
+                await session.flush()
+
+            source = SourceState(import_id=repository_import.id, revision_sha=revision_sha)
+            session.add(source)
+            await session.flush()
+            config_result = await session.execute(
+                select(IndexConfiguration).where(IndexConfiguration.config_hash == config_hash)
+            )
+            config = config_result.scalar_one_or_none()
+            if config is None:
+                config = IndexConfiguration(config_hash=config_hash, **config_values)
+                session.add(config)
+                await session.flush()
+            desired = DesiredIndexState(
+                import_id=repository_import.id,
+                source_state_id=source.id,
+                index_configuration_id=config.id,
+            )
+            session.add(desired)
+            await session.commit()
+            return await RepositoryIndexingPipeline(session, github_access_token=token).run(
+                UUID(workspace_id), repository_import.id, desired.id
             )
 
     return run_async(_process())
@@ -713,45 +788,61 @@ def prune_old_translation_history_scheduled():
 
 
 async def prune_database_footprint_async():
-    """Daily database footprint cleanup: prune anonymous history (7d) and stale vectors (30d)."""
-    from app.core.database_session import AsyncSessionLocal
+    """Daily cleanup of anonymous history, expired quota counters, and stale vectors."""
+    from datetime import UTC, datetime
+
+    from app.core.database_session import AsyncSessionLocal, engine
+    from app.repositories.daily_usage import prune_before
     from app.repositories.translation import prune_anonymous_history
     from app.repositories.vectors import prune_stale_vectors
+
+    deleted_usage = await prune_before(datetime.now(UTC).date())
 
     async with AsyncSessionLocal() as session:
         deleted_history = await prune_anonymous_history(session, 7)
         deleted_vectors = await prune_stale_vectors(session, 30)
+        # The ORM pruning helpers share this transaction; commit it before the
+        # separate maintenance connection is opened below.
+        await session.commit()
 
-        # Defragment and optimize IVFFlat centroid indexes on PostgreSQL
-        bind = getattr(session, "bind", None)
-        if bind is None and hasattr(session, "get_bind"):
-            bind_res = session.get_bind()
-            if not hasattr(bind_res, "__await__"):
-                bind = bind_res
+    # REINDEX CONCURRENTLY cannot run inside a transaction block. Use a
+    # separate AUTOCOMMIT connection after pruning has committed.
+    if getattr(getattr(engine, "dialect", None), "name", None) == "postgresql":
+        from sqlalchemy import text as sa_text
 
-        if bind is not None and getattr(getattr(bind, "dialect", None), "name", None) == "postgresql":
-            from sqlalchemy import text as sa_text
-
-            try:
-                await session.execute(sa_text("REINDEX INDEX CONCURRENTLY ix_semantic_artifacts_embedding_ivfflat;"))
-                await session.execute(sa_text("REINDEX INDEX CONCURRENTLY ix_repo_embeddings_embedding_ivfflat;"))
-                await session.execute(sa_text("REINDEX INDEX CONCURRENTLY ix_llm_semantic_cache_embedding_ivfflat;"))
-                logger.info("Successfully reindexed IVFFlat vector centroid indexes.")
-            except Exception as reindex_err:
-                logger.warning(f"IVFFlat reindexing skipped or deferred: {reindex_err}")
-
-        # Capture persistent telemetry checkpoint across scheduled maintenance cycles
-        try:
-            from app.core.metrics import metrics
-
-            await metrics.record_telemetry_checkpoint()
-        except Exception as tel_err:
-            logger.warning(f"Failed to record telemetry checkpoint: {tel_err}")
-
-        logger.info(
-            f"Database footprint cleanup complete. Deleted {deleted_history} anonymous history records and {deleted_vectors} stale vector cache records."
+        indexes = (
+            "ix_semantic_artifacts_embedding_ivfflat",
+            "ix_repo_embeddings_embedding_ivfflat",
+            "ix_llm_semantic_cache_embedding_ivfflat",
         )
-        return {"deleted_history": deleted_history, "deleted_vectors": deleted_vectors}
+        try:
+            async with engine.connect() as connection:
+                connection = await connection.execution_options(isolation_level="AUTOCOMMIT")
+                for index_name in indexes:
+                    await connection.execute(sa_text(f"REINDEX INDEX CONCURRENTLY {index_name}"))
+            logger.info("Successfully reindexed IVFFlat vector centroid indexes.")
+        except Exception as reindex_err:
+            logger.warning("IVFFlat reindexing skipped or deferred (%s)", type(reindex_err).__name__)
+
+    # Capture persistent telemetry checkpoint across scheduled maintenance cycles.
+    try:
+        from app.core.metrics import metrics
+
+        await metrics.record_telemetry_checkpoint()
+    except Exception as tel_err:
+        logger.warning("Failed to record telemetry checkpoint (%s)", type(tel_err).__name__)
+
+    logger.info(
+        "Database footprint cleanup complete. Deleted %s anonymous history, %s quota, and %s stale vector records.",
+        deleted_history,
+        deleted_usage,
+        deleted_vectors,
+    )
+    return {
+        "deleted_history": deleted_history,
+        "deleted_daily_usage": deleted_usage,
+        "deleted_vectors": deleted_vectors,
+    }
 
 
 @celery_app.task(name="prune_database_footprint")

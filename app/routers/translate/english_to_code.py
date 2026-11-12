@@ -1,5 +1,6 @@
 import asyncio
 import json
+from typing import TYPE_CHECKING
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -18,6 +19,7 @@ from app.models.schemas import (
     GeneratePayload,
     SyncEnglishToCodePayload,
 )
+from app.repositories.privacy import may_store_code_history
 from app.services.ai import (
     SYNC_SYSTEM_INSTRUCTION,
     SYSTEM_INSTRUCTION,
@@ -29,11 +31,18 @@ from app.services.ai import (
 from .dependencies import dispatch_history as _dispatch_history
 from .dependencies import sanitise_input, validate_code_input
 
+if TYPE_CHECKING:
+    from app.services.ast_parser import TranslationVerification
+
 router = APIRouter()
 
 
-async def _require_valid_generated_code(code: str, language: str) -> None:
-    """Reject generated code unless Tree-sitter can validate its syntax."""
+async def _require_valid_generated_code(code: str, language: str) -> "TranslationVerification":
+    """Reject generated code unless Tree-sitter can validate its syntax.
+
+    Returns the verification result so callers that expose verification metadata
+    do not need to bypass this fail-closed gate.
+    """
     try:
         from app.services.ast_parser import is_language_supported, verify_translation
 
@@ -44,12 +53,14 @@ async def _require_valid_generated_code(code: str, language: str) -> None:
     except HTTPException:
         raise
     except Exception as exc:
-        logger.warning("Generated code validation failed for %s: %s", language, exc)
+        logger.warning("Generated code validation failed for %s (%s)", language, type(exc).__name__)
         raise HTTPException(status_code=422, detail="Generated code could not be validated. Please retry.") from exc
 
     if verification.has_parse_errors_in_target:
         logger.warning("Generated code did not pass syntax validation for %s", language)
         raise HTTPException(status_code=422, detail="Generated code did not pass syntax validation. Please retry.")
+
+    return verification
 
 
 @router.post("/generate-from-english")
@@ -69,7 +80,7 @@ async def function_generate_from_english(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
-    is_ephemeral = privacy_mode == "ephemeral"
+    is_ephemeral = privacy_mode == "ephemeral" or not (email and await may_store_code_history(email))
 
     audit_receipt = generate_audit_receipt(email or "anonymous", payload.prompt)
     response_headers = {
@@ -215,7 +226,9 @@ async def function_update_to_code(
     is_pro, daily_limit, deduct_credit_flag, cooldown = await enforce_quotas_and_protection(
         request, email, len(payload.modified_english)
     )
-    is_ephemeral = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower() == "ephemeral"
+    is_ephemeral = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower() == "ephemeral" or not (
+        email and await may_store_code_history(email)
+    )
     user_prompt = f"You are an expert programmer. The user is modifying a specific part of their code based on an English instruction. Here is the full context of the code: {payload.full_context}. The user wants to change the block identified as {payload.block_id} to do the following: '{payload.modified_english}'. Generate ONLY the new raw programming syntax required to fulfill this specific instruction. Do not include markdown formatting, backticks, or explanations. Return strictly the raw code."
 
     try:
@@ -266,7 +279,7 @@ async def function_sync_english_to_code(
     tier = "pro" if is_pro else "free"
     use_r1 = is_pro
     privacy_mode = request.headers.get("X-Anuvaad-Privacy-Mode", "").lower()
-    is_ephemeral = privacy_mode == "ephemeral"
+    is_ephemeral = privacy_mode == "ephemeral" or not (email and await may_store_code_history(email))
 
     blocks_formatted = []
     for b in payload.blocks:
@@ -302,36 +315,15 @@ async def function_sync_english_to_code(
 
         normalized_blocks = normalize_blocks(raw_blocks, model_used=model_used, tier=tier)
 
-        # Sprint 1 wiring: verify structural coherence of the generated code
-        verification_meta: dict = {}
-        try:
-            from app.services.ast_parser import verify_translation as _verify
-
-            source_code = json.dumps(blocks_formatted)
-            vr = await asyncio.to_thread(_verify, source_code, "english", updated_code, payload.language)
-            verification_meta = {
-                "structural_similarity": round(vr.structural_similarity, 3),
-                "has_parse_errors": vr.has_parse_errors_in_target,
-                "warnings": vr.warnings,
-            }
-            if vr.has_parse_errors_in_target:
-                logger.warning(
-                    "Parse errors detected in sync-english-to-code output",
-                    language=payload.language,
-                    score=vr.structural_similarity,
-                )
-                raise HTTPException(
-                    status_code=422,
-                    detail="Generated code did not pass syntax validation. Please retry.",
-                )
-        except Exception as _ve:
-            if isinstance(_ve, HTTPException):
-                raise
-            logger.warning("Generated code validation failed in sync: %s", _ve)
-            raise HTTPException(
-                status_code=422,
-                detail="Generated code could not be validated. Please retry.",
-            ) from _ve
+        # Use the same fail-closed gate as every code-generation endpoint.
+        # In particular, an unavailable target grammar must never be treated as
+        # a successful validation merely because it reports no parse errors.
+        vr = await _require_valid_generated_code(updated_code, payload.language)
+        verification_meta = {
+            "structural_similarity": round(vr.structural_similarity, 3),
+            "has_parse_errors": vr.has_parse_errors_in_target,
+            "warnings": vr.warnings,
+        }
 
         audit_receipt = generate_audit_receipt(email or "anonymous", updated_code or user_prompt)
         response_headers = {

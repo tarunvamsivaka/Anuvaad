@@ -16,25 +16,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 20
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           registry-url: "https://registry.npmjs.org"
 
       - name: Build and Pack npm CLI
         working-directory: cli
         run: |
-          npm ci || npm install
+          npm ci
           npm run build
+          npm test
           npm pack
 
       - name: Build VS Code Extension
         working-directory: vscode-extension
         run: |
-          npm ci || npm install
+          npm ci
           npm run compile
-          npx @vscode/vsce package --no-dependencies || true
+          npm test
+          npx @vscode/vsce package --no-dependencies
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

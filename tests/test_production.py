@@ -1,82 +1,30 @@
-from unittest.mock import patch
-
 import pytest
 
 
-# Define tests for production behavior
-def test_production_flag_detection():
-    # If ENV is set to production, _is_production should be True
-    # Testing logic would require reloading the module or importing directly,
-    # but we can simulate the environment parsing logic.
-    env_val = "production"
-    is_prod = env_val.lower() == "production"
-    assert is_prod is True
+def test_production_env_validation_uses_startup_guard(monkeypatch):
+    import app.main as app_module
 
-    env_val = "development"
-    is_prod = env_val.lower() == "production"
-    assert is_prod is False
+    monkeypatch.setattr(app_module, "ENV", "production")
+    monkeypatch.setattr(app_module, "_CRITICAL_VARS", (("DATABASE_URL", ""),))
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        app_module.validate_production_env()
 
 
-def test_cors_localhost_gating():
-    frontend_url = "https://anuvaad.dev"
-    allowed_origins = [frontend_url]
-    is_production = True
+def test_development_env_validation_warns_without_raising(monkeypatch):
+    import app.main as app_module
 
-    if not is_production:
-        for origin in [
-            "http://localhost:3000",
-            "http://localhost:5500",
-            "http://127.0.0.1:5500",
-        ]:
-            if origin not in allowed_origins:
-                allowed_origins.append(origin)
-
-    assert "http://localhost:3000" not in allowed_origins
-
-    allowed_origins = [frontend_url]
-    is_production = False
-    if not is_production:
-        for origin in [
-            "http://localhost:3000",
-            "http://localhost:5500",
-            "http://127.0.0.1:5500",
-        ]:
-            if origin not in allowed_origins:
-                allowed_origins.append(origin)
-
-    assert "http://localhost:3000" in allowed_origins
+    monkeypatch.setattr(app_module, "ENV", "development")
+    monkeypatch.setattr(app_module, "_CRITICAL_VARS", (("DATABASE_URL", ""),))
+    app_module.validate_production_env()
 
 
-def test_production_env_validation():
-    # Test that missing variables raise RuntimeError in production
-    is_production = True
-    missing_vars = []
+def test_production_env_validation_accepts_complete_configuration(monkeypatch):
+    import app.main as app_module
 
-    # Mocking os.getenv
-    def mock_getenv(key, default=""):
-        if key == "FRONTEND_URL":
-            return "http://localhost:3000"
-        return ""
-
-    with patch("os.getenv", side_effect=mock_getenv):
-        for var in [
-            "SUPABASE_URL",
-            "SUPABASE_SERVICE_ROLE_KEY",
-            "GROQ_API_KEY",
-            "RAZORPAY_WEBHOOK_SECRET",
-            "FRONTEND_URL",
-        ]:
-            val = mock_getenv(var)
-            if not val or val.startswith("your_") or val == "dummy_key":
-                missing_vars.append(var)
-
-    assert "SUPABASE_URL" in missing_vars
-    assert "FRONTEND_URL" not in missing_vars
-
-    frontend_url = mock_getenv("FRONTEND_URL")
-    if is_production and frontend_url.startswith("http://localhost"):
-        with pytest.raises(RuntimeError):
-            raise RuntimeError("FATAL: FRONTEND_URL must not be localhost in production")
+    monkeypatch.setattr(app_module, "ENV", "production")
+    monkeypatch.setattr(app_module, "_CRITICAL_VARS", (("DATABASE_URL", "postgresql://configured"),))
+    app_module.validate_production_env()
 
 
 def test_lru_cache_eviction():

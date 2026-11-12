@@ -43,6 +43,7 @@ services:
   backend:
     image: ghcr.io/placeholder-overridden-by-deploy-script:latest
     container_name: anuvaad-backend-prod
+    command: gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:8000 --timeout 120 --keep-alive 5
     env_file:
       - .env
     environment:
@@ -50,6 +51,7 @@ services:
       - ENV=production
       - USE_CELERY=true
       - WEB_CONCURRENCY=${WEB_CONCURRENCY:-4}
+      - ENABLE_BILLING=${ENABLE_BILLING:-false}
       # FIX-deploy-4: Do NOT hardcode DATABASE_URL here — let .env supply the real password
     depends_on:
       redis:
@@ -140,6 +142,42 @@ services:
         max-file: "3"
         labels: "service=anuvaad-beat"
 
+  # ── Celery Worker (Heavy) ──────────────────────────────────────────────────
+  # DEP-01: worker-heavy handles large repo embedding tasks at low concurrency.
+  worker-heavy:
+    image: ghcr.io/placeholder-overridden-by-deploy-script:latest
+    container_name: anuvaad-worker-heavy-prod
+    command: celery -A app.queue.celery_config.celery_app worker -Q heavy --concurrency=1 --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - ENV=production
+      - USE_CELERY=true
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.queue.celery_config.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 2>&1 | grep -q pong"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=anuvaad-worker-heavy"
+
   # ── Next.js Frontend ─────────────────────────────────────────────────────────
   # FIX-deploy-2: context=. + dockerfile=Dockerfile.frontend (was context=./frontend + wrong Dockerfile)
   # FIX-deploy-3: Added NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY build-args
@@ -185,7 +223,11 @@ services:
       - "443:443"
     environment:
       - DOMAIN=${DOMAIN}
+      - NGINX_ENVSUBST_FILTER=DOMAIN
+    # SEC-06: entrypoint validates DOMAIN before envsubst + nginx -t
+    entrypoint: ["/scripts/nginx-entrypoint.sh"]
     volumes:
+      - ./scripts/nginx-entrypoint.sh:/scripts/nginx-entrypoint.sh:ro
       - ./nginx.conf:/etc/nginx/templates/default.conf.template:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - certbot_www:/var/www/certbot:ro

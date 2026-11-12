@@ -94,6 +94,9 @@ export function useTranslationStream({
   const rafIdRef = useRef<number | null>(null);
   // FIX-18 (P1-10): AbortController to cancel the in-flight fetch when streaming stops.
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Guest approval is intentionally memory-only: closing or refreshing the tab
+  // requires a new affirmative decision before code is sent to a provider.
+  const guestCloudConsentRef = useRef(false);
 
   const clearPartialOutput = useCallback(() => {
     if (rafIdRef.current !== null) {
@@ -127,6 +130,14 @@ export function useTranslationStream({
         tier_limit: 3,
       });
       return;
+    }
+
+    if (!isOffline && !session?.access_token && !guestCloudConsentRef.current) {
+      const approved = window.confirm(
+        "Send this request to a third-party cloud AI provider? Your code is processed only for this request and is not saved by Anuvaad."
+      );
+      if (!approved) return;
+      guestCloudConsentRef.current = true;
     }
 
     setIsStreaming(true);
@@ -213,6 +224,8 @@ export function useTranslationStream({
       if (filePath) body.file_path = filePath;
       
       const headers: Record<string, string> = { "Content-Type": "application/json" };
+      // The API refuses third-party processing unless the guest explicitly approved it above.
+      if (!session?.access_token && guestCloudConsentRef.current) headers["X-Anuvaad-Cloud-Consent"] = "true";
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
       }

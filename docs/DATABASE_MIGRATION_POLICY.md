@@ -2,7 +2,7 @@
 
 **Status:** forward process adopted locally; historical reconciliation remains open
 
-**Updated:** 2026-10-04
+**Updated:** 2026-11-12
 
 ## Source of truth
 
@@ -17,6 +17,15 @@ Use Supabase project settings for Supabase Auth and platform configuration that 
 - The CI migration job exercises the additive `006_phase_1a` → `007_phase_1b` upgrade/downgrade, then has a full-chain upgrade smoke test from `006_phase_1a` to `015_revoke_public_table_grants`, including client-role privilege assertions. This check is present in the checkout and still needs a successful CI run; it does not test downgrading the entire chain.
 
 These facts show that both ledgers exist; they do not prove that their recorded changes are identical or that the current live schema has no drift.
+
+## Read-only production check — 2026-11-12
+
+- The connected, healthy Supabase project named Anuvaad reports `public.alembic_version.version_num = 014_fix_supabase_security_and_indexes`.
+- The checked-in migration file had accidentally declared its revision as `014_supabase_security_indexes`, despite its migration docstring and the live database using `014_fix_supabase_security_and_indexes`. The revision identifier and the next migration's `down_revision` are now corrected locally; production has not been changed.
+- The live public schema does not contain `daily_usages`; the checkout's current head is `019_daily_usage_counters`.
+- Supabase's separate migration ledger still reports ten migrations. Their SQL statements are retrievable from the live ledger but are not checked into this repository. Several statements perform application-schema changes beyond the current Alembic history, so those changes still need a reviewed mapping before production DDL.
+
+Do not apply revisions 015–019 to production until the historical Supabase migration mapping is reconciled and the PostgreSQL migration suite passes. Use the controlled release procedure before production DDL.
 
 ## Required workflow
 

@@ -143,7 +143,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Get configuration
     const currentConfig = vscode.workspace.getConfiguration('anuvaad');
-    const apiUrl = currentConfig.get<string>('apiUrl', 'http://localhost:8000');
+    const apiUrl = currentConfig.get<string>('apiUrl', 'https://api.getanuvaad.com');
     const apiKey = await context.secrets.get('anuvaad.apiKey');
 
     if (!apiKey) {
@@ -214,7 +214,7 @@ export async function activate(context: vscode.ExtensionContext) {
         return null;
       }
 
-      const apiUrl = currentConfig.get<string>('apiUrl', 'http://localhost:8000');
+      const apiUrl = currentConfig.get<string>('apiUrl', 'https://api.getanuvaad.com');
 
       // Get current line or block
       const range = document.getWordRangeAtPosition(position);

@@ -73,3 +73,11 @@ def test_empty_files_rejected():
         },
     )
     assert resp.status_code == 422  # pydantic validation error for min_length=1
+
+
+def test_repository_file_size_is_bounded():
+    resp = client.post(
+        "/api/v1/modernize/analyze-repository",
+        json={"files": [{"file_path": "large.py", "content": "x" * 50001, "language": "python"}]},
+    )
+    assert resp.status_code == 422

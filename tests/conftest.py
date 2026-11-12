@@ -27,6 +27,7 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 
+import hashlib  # noqa: E402
 import json  # noqa: E402
 import os  # noqa: E402
 from unittest.mock import MagicMock, patch  # noqa: E402
@@ -34,43 +35,8 @@ from unittest.mock import MagicMock, patch  # noqa: E402
 import app.compat  # noqa: F401, E402
 
 # isort: split
-import httpx  # noqa: E402
 import pytest  # noqa: E402
 import razorpay  # noqa: E402
-
-_original_httpx_json = httpx.Response.json
-
-
-def _patched_json(self, **kwargs):
-    try:
-        if hasattr(self, "_original_json_fn"):
-            return self._original_json_fn(**kwargs)
-        return _original_httpx_json(self, **kwargs)
-    except json.JSONDecodeError:
-        if self.text.startswith("data: "):
-            lines = self.text.strip().split("\n\n")
-            for line in reversed(lines):
-                if line.startswith("data: "):
-                    try:
-                        parsed = json.loads(line[6:])
-                        if parsed.get("done"):
-                            if "blocks" in parsed:
-                                return parsed["blocks"]
-                            if "error" in parsed:
-                                return {"detail": parsed["error"]}
-                    except Exception:
-                        pass
-        raise
-
-
-httpx.Response.json = _patched_json
-
-try:
-    import httpx2
-
-    httpx2.Response.json = _patched_json
-except ImportError:
-    pass
 
 # ── Ensure env vars are set BEFORE importing main ──
 os.environ.setdefault("GROQ_API_KEY", "test_key_for_ci")
@@ -84,6 +50,8 @@ os.environ.setdefault("RATE_LIMIT_IP_MAX", "15")
 # BACK-01: Signal test mode via env var (replaces sys.modules inspection in quota.py)
 os.environ["TESTING"] = "true"
 os.environ.setdefault("SUPABASE_JWT_SECRET", "test_supabase_jwt_secret_32bytes_minimum_length")
+os.environ.setdefault("AUDIT_HMAC_KEY", "test_audit_hmac_key_for_ci_only")
+os.environ.setdefault("HISTORY_ENCRYPTION_KEYS", "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=")
 
 import app.core.cache as cache_module  # noqa: E402
 
@@ -291,6 +259,12 @@ class MockRedisCache:
         self._rate_limits[key] = val
         return val
 
+    async def set_int_max(self, key: str, value: int, ttl: int) -> int:
+        current = max(int(self._rate_limits.get(key, 0)), int(value))
+        self._rate_limits[key] = current
+        await self.put(key, current, ttl=ttl)
+        return current
+
     async def incr_rate_limit_by(
         self, key: str, amount: int = 1, window_seconds: int = 86400, window: int = 120
     ) -> int:
@@ -317,14 +291,21 @@ class MockRedisCache:
         return True
 
 
+def _get_user_email_dependency():
+    """Return the auth dependency from its defining module for overrides."""
+    from app.core.auth import get_user_email
+
+    return get_user_email
+
+
 @pytest.fixture
 def client():
     """
     Yield a TestClient whose LLM clients are monkey-patched via the
     ai module singleton accessors so tests run offline and instantly.
     """
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
@@ -345,23 +326,24 @@ def client():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture
 def client_rate_limited():
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
-    from app.api.middleware.rate_limit import RATE_LIMIT_IP_MAX
+    from app.api.middleware.rate_limit import RATE_LIMIT_USER_MAX
 
-    fake_redis_async = MockRedisCache({"rate_limit:testclient": RATE_LIMIT_IP_MAX})
+    user_hash = hashlib.sha256(b"testuser@example.com").hexdigest()
+    fake_redis_async = MockRedisCache({f"rate_limit:user:{user_hash}": RATE_LIMIT_USER_MAX})
     mock_groq = MockAsyncOpenAI()
 
     async def fake_get_user_email():
@@ -379,20 +361,20 @@ def client_rate_limited():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture
 def client_multi_block():
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIMulti()
@@ -412,20 +394,20 @@ def client_multi_block():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture
 def client_ai_error():
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIError()
@@ -445,20 +427,20 @@ def client_ai_error():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture
 def client_empty_blocks():
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAIEmpty()
@@ -478,20 +460,20 @@ def client_empty_blocks():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture
 def client_no_redis():
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
 
     fake_redis = MockRedisCache()
     fake_redis.client = None
@@ -512,20 +494,20 @@ def client_no_redis():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
 @pytest.fixture
 def client_with_auth():
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
@@ -545,13 +527,13 @@ def client_with_auth():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 
@@ -565,8 +547,8 @@ def client_no_auth():
     """
     from fastapi import HTTPException as FastAPIHTTPException
 
+    import app.main as app_module
     import app.services.ai as ai_module
-    import main as app_module
 
     fake_redis = MockRedisCache()
     mock_groq = MockAsyncOpenAI()
@@ -586,13 +568,13 @@ def client_no_auth():
         patch.object(ai_module, "init_clients", fake_init_clients),
         patch("app.core.auth.get_user_pro_status", new=fake_get_user_pro_status),
     ):
-        app_module.app.dependency_overrides[app_module.get_user_email] = fake_get_user_email_raises
+        app_module.app.dependency_overrides[_get_user_email_dependency()] = fake_get_user_email_raises
         app_module.app.dependency_overrides[app_module.get_user_email_from_request] = fake_get_user_email_raises
         from fastapi.testclient import TestClient
 
         with TestClient(app_module.app) as tc:
             yield tc
-        app_module.app.dependency_overrides.pop(app_module.get_user_email, None)
+        app_module.app.dependency_overrides.pop(_get_user_email_dependency(), None)
         app_module.app.dependency_overrides.pop(app_module.get_user_email_from_request, None)
 
 

@@ -3,7 +3,7 @@ import os
 import httpx
 import resend
 
-from app.core.config import RESEND_API_KEY, logger
+from app.core.config import GITHUB_REPO_URL, RESEND_API_KEY, logger
 
 if RESEND_API_KEY:
     resend.api_key = RESEND_API_KEY
@@ -130,7 +130,7 @@ class EmailService:
         <div style="text-align:center;margin:32px 0;">
           <a href="{FRONTEND_BASE_URL}/dashboard/translate" style="display:inline-block;background-color:#d97706;color:#ffffff;text-decoration:none;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;">Start Translating →</a>
         </div>
-        <p style="margin:0;font-size:12px;color:#a1a1aa;text-align:center;">Star us on <a href="https://github.com/tarunvamsivaka/Anuvaad" style="color:#d97706;text-decoration:none;">GitHub</a> if you find Anuvaad useful!</p>"""
+        <p style="margin:0;font-size:12px;color:#a1a1aa;text-align:center;">Star us on <a href="{GITHUB_REPO_URL}" style="color:#d97706;text-decoration:none;">GitHub</a> if you find Anuvaad useful!</p>"""
         html = _email_body(header, body)
         EmailService._send(user_email, "Welcome to Anuvaad 🚀", html)
 

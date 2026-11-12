@@ -56,10 +56,12 @@ jobs:
           SUPABASE_ANON_KEY: placeholder_key_for_ci
           SUPABASE_SERVICE_ROLE_KEY: placeholder_service_key_for_ci
           SUPABASE_JWT_SECRET: "test_supabase_jwt_secret_32bytes_minimum_length"
+          AUDIT_HMAC_KEY: "test_audit_hmac_key_for_ci_only"
+          HISTORY_ENCRYPTION_KEYS: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
           DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           REDIS_URL: redis://localhost:6379
         run: |
-          pytest tests/ -v --tb=short --ignore=tests/test_production.py
+          python -m pytest tests/ -v --tb=short
 
       - name: Security audit (pip-audit)
         run: |
@@ -163,7 +165,15 @@ jobs:
         env:
           DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
           MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
-        run: pytest tests/test_migrations.py -v
+        run: python -m pytest tests/test_migrations.py -v
+
+      - name: Verify Alembic downgrade -1 and upgrade head round-trip
+        env:
+          DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
+          MIGRATION_DATABASE_URL: postgresql://anuvaad:anuvaad@localhost:5432/anuvaad_migration
+        run: |
+          alembic downgrade -1
+          alembic upgrade head
 
   lint:
     runs-on: ubuntu-latest
@@ -180,7 +190,7 @@ jobs:
         run: pip install ruff
 
       - name: Lint Python
-        run: ruff check main.py app/ tests/ --select E,F,W --ignore E501,F401
+        run: ruff check main.py app/ tests/
 
       - name: Format check Python
         run: ruff format --check main.py app/ tests/ alembic/
@@ -236,7 +246,7 @@ jobs:
         run: npm audit --audit-level=high
 
       - name: Lint frontend
-        run: npm run lint
+        run: npm run lint -- --max-warnings=0
 
   e2e:
     runs-on: ubuntu-latest
@@ -356,6 +366,7 @@ jobs:
           npx tsc -p tsconfig.json
           node dist/index.js --version
           node dist/index.js --help
+          npm test
 
   # L-03: VSCode extension CI — typecheck + lint + test (P2-RISK-01)
   vscode-extension:

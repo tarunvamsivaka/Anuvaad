@@ -65,8 +65,11 @@ function SignInPageContent() {
       setError(err);
     } else {
       const dest = getSafeRedirectUrl(redirectTo);
+      const redirectUrl = new URL(dest, window.location.origin);
       setTimeout(() => {
-        window.location.href = dest;
+        if (redirectUrl.origin === window.location.origin) {
+          window.location.assign(redirectUrl);
+        }
       }, 400);
     }
   }

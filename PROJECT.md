@@ -5,7 +5,7 @@
 - **Frontend**: Next.js 16 (React 19, Monaco Editor, SWR, SSE Buffer, Vitest)
 - **Database**: PostgreSQL (Supabase 500MB free tier) + pgvector, SQLAlchemy async connection pooling (`pool_size=5`, `max_overflow=10`, `pool_recycle=300`)
 - **Cache / Rate Limiting**: Upstash Redis (10k requests/day free tier) with in-memory LRU cache fallback
-- **Hosting / Deployments**: Render backend web service + Vercel frontend web app
+- **Hosting / Deployments**: Render backend web service (Gunicorn + UvicornWorker, 4 workers) + Vercel frontend web app
 - **Background Tasks**: Celery + Redis for scheduled database footprint pruning (`prune_database_footprint`)
 
 ## Feature Inventory

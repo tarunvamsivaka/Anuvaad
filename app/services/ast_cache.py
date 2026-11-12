@@ -99,9 +99,9 @@ def _normalize_tree_sitter(code: str, language: str) -> str:
 def _fallback_normalize(code: str) -> str:
     """Regex fallback: strip single/multi-line comments and collapse whitespace."""
     # Strip line comments (#, //)
-    cleaned = re.sub(r"(#|//).*$", "", code, flags=re.MULTILINE)
+    cleaned = re.sub(r"(?:#|//)[^\r\n]*+", "", code)
     # Strip block comments (/* ... */)
-    cleaned = re.sub(r"/\*.*?\*/", "", cleaned, flags=re.DOTALL)
+    cleaned = re.sub(r"/\*(?:(?!\*/)[\s\S])*+\*/", "", cleaned)
     # Collapse whitespace
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     return cleaned
@@ -115,7 +115,7 @@ def normalize_code_ast(code: str, language: str) -> str:
     return _normalize_tree_sitter(code, lang)
 
 
-def compute_ast_cache_key(code: str, language: str, depth: str = "dev") -> str:
+def compute_ast_cache_key(code: str, language: str, depth: str = "dev", *, target_language: str = "english") -> str:
     """Compute deterministic SHA-256 digest of normalized AST + explanation depth.
 
     The depth parameter partitions cache entries by persona:
@@ -128,19 +128,28 @@ def compute_ast_cache_key(code: str, language: str, depth: str = "dev") -> str:
     lang = language.lower().strip()
     effective_depth = depth if depth in ("tldr", "dev", "audit") else "dev"
     normalized = normalize_code_ast(code, lang)
-    digest = hashlib.sha256(f"{lang}:{effective_depth}:{normalized}".encode()).hexdigest()
+    target = target_language.lower().strip()
+    digest = hashlib.sha256(f"{lang}:{target}:{effective_depth}:{normalized}".encode()).hexdigest()
     return f"ast_cache:{digest}"
 
 
-async def get_cached_ast_translation(code: str, language: str, depth: str = "dev") -> dict[str, Any] | None:
+async def get_cached_ast_translation(
+    code: str, language: str, depth: str = "dev", *, target_language: str = "english"
+) -> dict[str, Any] | None:
     """Check L1/L2 cache for an existing AST translation."""
-    cache_key = compute_ast_cache_key(code, language, depth)
+    cache_key = compute_ast_cache_key(code, language, depth, target_language=target_language)
     return await cache.get(cache_key)
 
 
 async def set_cached_ast_translation(
-    code: str, language: str, data: dict[str, Any], ttl: int = 86400, depth: str = "dev"
+    code: str,
+    language: str,
+    data: dict[str, Any],
+    ttl: int = 86400,
+    depth: str = "dev",
+    *,
+    target_language: str = "english",
 ) -> None:
     """Store AST translation in L1/L2 cache."""
-    cache_key = compute_ast_cache_key(code, language, depth)
+    cache_key = compute_ast_cache_key(code, language, depth, target_language=target_language)
     await cache.put(cache_key, data, ttl=ttl)

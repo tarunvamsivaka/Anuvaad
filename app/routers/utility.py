@@ -503,7 +503,11 @@ async def import_gist(
 
         api_url = f"https://api.github.com/repos/{owner}/{repo}/contents"
         if file_path:
-            api_url = f"{api_url}/{file_path.strip('/')}"
+            normalized_path = file_path.replace("\\", "/").strip("/")
+            path_parts = normalized_path.split("/")
+            if not normalized_path or any(part in ("", ".", "..") for part in path_parts):
+                raise HTTPException(status_code=400, detail="Invalid repository file path.")
+            api_url = f"{api_url}/{normalized_path}"
 
         try:
             client = await get_http_client()
@@ -787,7 +791,7 @@ async def cron_prune_database(request: Request):
     Invoked by Render Cron, GitHub Actions, or Vercel Cron.
     Secured by CRON_SECRET header, bearer token, or query param.
     """
-    from app.core.config import CRON_SECRET, IS_PRODUCTION
+    from app.core.config import CRON_SECRET
     from app.queue.tasks import prune_database_footprint_async
 
     auth_header = request.headers.get("Authorization", "")
@@ -802,11 +806,14 @@ async def cron_prune_database(request: Request):
     elif query_secret:
         token = query_secret
 
-    if CRON_SECRET:
-        if not token or not secrets.compare_digest(token, CRON_SECRET):
-            raise HTTPException(status_code=401, detail="Invalid or missing cron secret")
-    elif IS_PRODUCTION:
-        raise HTTPException(status_code=403, detail="CRON_SECRET must be configured in production")
+    if not CRON_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Cron endpoint not configured — CRON_SECRET is empty.",
+        )
+
+    if not token or not secrets.compare_digest(token, CRON_SECRET):
+        raise HTTPException(status_code=401, detail="Invalid or missing cron secret")
 
     result = await prune_database_footprint_async()
     return JSONResponse(content={"success": True, "details": result})

@@ -154,6 +154,10 @@ jobs:
                 image: ${DOCKER_REGISTRY}/${REPO}-frontend:${IMAGE_TAG}
             EOF
 
+            echo "==> Running preflight check & Alembic migration gate"
+            docker run --rm --env-file .env "${DOCKER_REGISTRY}/${REPO}-api:${IMAGE_TAG}" \
+              sh -c "python scripts/preflight_check.py && alembic upgrade head && alembic current"
+
             echo "==> Rolling update (zero-downtime)"
             docker compose -f docker-compose.prod.yml -f docker-compose.override.yml \
               up -d --no-deps --wait backend worker beat frontend

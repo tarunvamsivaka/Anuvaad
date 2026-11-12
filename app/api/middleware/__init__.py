@@ -17,6 +17,7 @@ from app.api.middleware.deprecation import api_deprecation_middleware
 from app.api.middleware.metrics_mw import metrics_middleware
 from app.api.middleware.rate_limit import rate_limit_middleware
 from app.api.middleware.security_headers import security_headers_middleware
+from app.api.middleware.upload_limit import UploadBodyLimitMiddleware
 
 
 def register_all(app: FastAPI) -> None:
@@ -26,6 +27,9 @@ def register_all(app: FastAPI) -> None:
     All middleware is extracted here — app/main.py stays a thin entry-point.
     """
     # CORS must be registered via add_middleware (FastAPI handles it specially)
+    # Bound multipart request bodies before Starlette's UploadFile parser can
+    # roll oversized source files from memory onto temporary disk.
+    app.add_middleware(UploadBodyLimitMiddleware)
     # FIX-09 (P2-13): Restricted to explicit methods/headers — no more wildcard.
     app.add_middleware(
         CORSMiddleware,
@@ -39,6 +43,8 @@ def register_all(app: FastAPI) -> None:
             "X-CSRF-Token",
             "X-Anuvaad-Privacy-Mode",
             "X-Anuvaad-Session-ID",
+            "X-Anuvaad-Cloud-Consent",
+            "X-User-LLM-Key",
         ],
         expose_headers=[
             "X-Protection-Mode",

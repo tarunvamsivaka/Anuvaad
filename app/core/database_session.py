@@ -66,6 +66,8 @@ if _DB_URL and _DB_URL.startswith("postgresql://"):
 _is_sqlite = False
 
 if not _DB_URL:
+    if IS_PRODUCTION:
+        raise RuntimeError("DATABASE_URL is required in production. SQLite fallback is forbidden in production.")
     logger.warning(
         "DATABASE_URL is missing. Falling back to in-memory SQLite "
         "(requires aiosqlite; pgvector features will NOT work)."
@@ -73,6 +75,8 @@ if not _DB_URL:
     _DB_URL = "sqlite+aiosqlite:///:memory:"
     _is_sqlite = True
 elif _DB_URL.startswith("sqlite"):
+    if IS_PRODUCTION:
+        raise RuntimeError("SQLite is not permitted in production. DATABASE_URL must point to PostgreSQL.")
     _is_sqlite = True
 
 # PERF-01: When using PgBouncer (transaction-mode pooler) the driver must NOT

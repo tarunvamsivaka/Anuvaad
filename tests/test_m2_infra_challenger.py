@@ -237,8 +237,11 @@ def test_dockerfile_ast_and_compatibility():
     assert "/api/health" in final_stage_text
     print("  [PASS] Healthcheck directive configured with /api/health endpoint.")
 
-    # Gunicorn worker concurrency parameterization
-    assert "${WEB_CONCURRENCY:-4}" in final_stage_text or "${WEB_CONCURRENCY:-2}" in final_stage_text
+    # Gunicorn worker concurrency parameterization (either in Dockerfile CMD or monolith entrypoint)
+    with open("scripts/docker-entrypoint-monolith.sh", encoding="utf-8") as ep:
+        entrypoint_text = ep.read()
+    combined_runtime_text = final_stage_text + "\n" + entrypoint_text
+    assert "${WEB_CONCURRENCY:-4}" in combined_runtime_text or "${WEB_CONCURRENCY:-2}" in combined_runtime_text
     print("  [PASS] Gunicorn worker concurrency respects WEB_CONCURRENCY environment variable.")
 
 
@@ -247,9 +250,10 @@ def test_render_and_ci_configurations():
     with open("render.yaml", encoding="utf-8") as f:
         render_yaml = f.read()
 
-    assert "startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT" in render_yaml, (
-        "render.yaml must start the API through the root ASGI entry point"
-    )
+    assert (
+        "startCommand: gunicorn main:app" in render_yaml
+        or "startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT" in render_yaml
+    ), "render.yaml must start the API through the root ASGI entry point"
     assert "plan: free" in render_yaml, "render.yaml should reflect the configured free API plan"
     print("  [PASS] render.yaml API start command and plan are explicit.")
 

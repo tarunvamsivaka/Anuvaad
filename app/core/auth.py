@@ -51,14 +51,10 @@ _jwks_cache: dict[str, Any] = {}  # kid → public key object
 _jwks_fetched_at: float = 0.0
 _JWKS_TTL = 3600.0  # re-fetch at most once per hour
 _jwks_lock = threading.Lock()
-_jwks_async_lock: asyncio.Lock | None = None
-
-
-def _get_jwks_lock() -> asyncio.Lock:
-    global _jwks_async_lock
-    if _jwks_async_lock is None:
-        _jwks_async_lock = asyncio.Lock()
-    return _jwks_async_lock
+# SEC-01: asyncio.Lock() created once at import time, before any request arrives.
+# Python 3.10+ makes asyncio.Lock loop-agnostic - safe to initialize at module level.
+# _get_jwks_lock() lazy-init helper removed; _jwks_async_lock is used directly.
+_jwks_async_lock: asyncio.Lock = asyncio.Lock()
 
 
 async def _get_jwks_public_key(kid: str | None) -> Any | None:
@@ -66,9 +62,17 @@ async def _get_jwks_public_key(kid: str | None) -> Any | None:
     global _jwks_fetched_at
 
     now = time.monotonic()
-    if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
-        async with _get_jwks_lock():
-            if not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL:
+    refresh_required = (
+        not _jwks_cache or (now - _jwks_fetched_at) > _JWKS_TTL or (kid is not None and kid not in _jwks_cache)
+    )
+    if refresh_required:
+        async with _jwks_async_lock:
+            refresh_required = (
+                not _jwks_cache
+                or (time.monotonic() - _jwks_fetched_at) > _JWKS_TTL
+                or (kid is not None and kid not in _jwks_cache)
+            )
+            if refresh_required:
                 if not SUPABASE_URL:
                     return None
                 jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
@@ -97,8 +101,8 @@ async def _get_jwks_public_key(kid: str | None) -> Any | None:
                 _jwks_cache.update(new_cache)
                 _jwks_fetched_at = time.monotonic()
 
-    if kid and kid in _jwks_cache:
-        return _jwks_cache[kid]
+    if kid:
+        return _jwks_cache.get(kid)
     if _jwks_cache:
         return next(iter(_jwks_cache.values()))
     return None
@@ -246,6 +250,12 @@ async def get_user_email(
     Routes that used `if not email: raise HTTPException(...)` after calling
     this function no longer need that guard — it is handled here.
     """
+    # The global rate-limit middleware may already have verified this request.
+    # Reuse that principal so API-key checks do not hit the database twice.
+    authenticated_email = getattr(request.state, "authenticated_email", None)
+    if authenticated_email:
+        return authenticated_email
+
     # 1. API key (machine-to-machine, e.g. VSCode extension)
     api_key = request.headers.get("X-API-Key")
     if api_key:
@@ -275,8 +285,9 @@ async def get_user_email_from_request(
     Use this variant in routes that accept a Request directly and want
     API key support in addition to JWT.
     """
-    if hasattr(request, "app") and hasattr(request.app, "dependency_overrides"):
-        override = request.app.dependency_overrides.get(get_user_email)
+    app = request.scope.get("app")
+    if app is not None and hasattr(app, "dependency_overrides"):
+        override = app.dependency_overrides.get(get_user_email)
         if override:
             import inspect
 
@@ -302,19 +313,23 @@ async def get_optional_user_email_from_request(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
 ) -> str | None:
     """Full optional auth function checking X-API-Key and Bearer JWT with dependency override support."""
-    if hasattr(request, "app") and hasattr(request.app, "dependency_overrides"):
+    app = request.scope.get("app")
+    if app is not None and hasattr(app, "dependency_overrides"):
         override = (
-            request.app.dependency_overrides.get(get_optional_user_email_from_request)
-            or request.app.dependency_overrides.get(get_optional_user_email)
-            or request.app.dependency_overrides.get(get_user_email_from_request)
-            or request.app.dependency_overrides.get(get_user_email)
+            app.dependency_overrides.get(get_optional_user_email_from_request)
+            or app.dependency_overrides.get(get_optional_user_email)
+            or app.dependency_overrides.get(get_user_email_from_request)
+            or app.dependency_overrides.get(get_user_email)
         )
         if override:
             import inspect
 
-            if inspect.iscoroutinefunction(override):
-                return await override()
-            return override()
+            try:
+                if inspect.iscoroutinefunction(override):
+                    return await override()
+                return override()
+            except HTTPException:
+                return None
     return await get_optional_user_email(request, credentials=credentials)
 
 

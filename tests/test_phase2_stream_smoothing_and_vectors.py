@@ -114,37 +114,32 @@ class TestStreamConcurrencyBackpressure:
     @pytest.mark.asyncio
     async def test_stream_timeout_backpressure_rejection(self):
         """Verify saturated streams fail fast with backpressure error instead of deadlocking."""
-        sem = get_stream_semaphore()
-        # Acquire all permits
-        permits = []
-        for _ in range(sem._value):
-            await sem.acquire()
-            permits.append(True)
-
-        try:
-            payload = CodePayload(raw_code="print('backpressure')", language="python")
-            with (
-                patch("app.core.config.STREAM_ACQUIRE_TIMEOUT", 0.05),
-                patch("app.services.ai.cache.get", new_callable=AsyncMock, return_value=None),
+        payload = CodePayload(raw_code="print('backpressure')", language="python")
+        with (
+            patch("app.core.config.STREAM_ACQUIRE_TIMEOUT", 0.05),
+            patch(
+                "app.services.ai.streaming.acquire_stream_slot_raw",
+                new_callable=AsyncMock,
+                return_value=(False, "local"),
+            ),
+            patch("app.services.ai.streaming.check_and_track_groq_limits", new_callable=AsyncMock),
+        ):
+            events = []
+            async for line in stream_code_to_english(
+                payload=payload,
+                email=None,
+                is_pro=False,
+                use_r1=False,
+                tier="free",
+                ephemeral=True,
             ):
-                events = []
-                async for line in stream_code_to_english(
-                    payload=payload,
-                    email=None,
-                    is_pro=False,
-                    use_r1=False,
-                    tier="free",
-                ):
-                    if line.startswith("data: "):
-                        events.append(json.loads(line[6:].strip()))
+                if line.startswith("data: "):
+                    events.append(json.loads(line[6:].strip()))
 
-                assert len(events) == 1
-                assert "error" in events[0]
-                assert "maximum capacity" in events[0]["error"]
-                assert events[0]["done"] is True
-        finally:
-            for _ in permits:
-                sem.release()
+            assert len(events) == 1
+            assert "error" in events[0]
+            assert "maximum capacity" in events[0]["error"]
+            assert events[0]["done"] is True
 
     def test_ivfflat_probes_config(self):
         """Verify IVFFLAT_PROBES configuration is active and defaults to 10."""

@@ -41,12 +41,27 @@ from app.core.config import (
 from app.core.constants import DEFAULT_HISTORY_PAGE_SIZE, MAX_HISTORY_PAGE_SIZE
 from app.core.quota import get_active_protection_mode
 from app.core.rate_limit import rate_limiter
-from app.models.schemas import ApiKeyCreate, SharePayload
+from app.models.schemas import ApiKeyCreate, PrivacyPreferencesPayload, SharePayload
 from app.repositories import api_key as api_key_repo
+from app.repositories import privacy as privacy_repo
 from app.repositories import subscription as subscription_repo
 from app.repositories import translation as translation_repo
 
 router = APIRouter(prefix="", tags=["history"])
+
+
+@router.get("/privacy/preferences")
+async def get_privacy_preferences(email: str = Depends(get_user_email)):
+    return await privacy_repo.get_preferences(email)
+
+
+@router.put("/privacy/preferences")
+async def update_privacy_preferences(payload: PrivacyPreferencesPayload, email: str = Depends(get_user_email)):
+    if payload.code_history and not payload.cloud_processing:
+        raise HTTPException(status_code=422, detail="Code history requires cloud-processing consent.")
+    return await privacy_repo.set_preferences(
+        email, cloud_processing=payload.cloud_processing, code_history=payload.code_history
+    )
 
 
 # ── Cursor helpers (FIX-13 / P1-07) ──────────────────────────────────────────
@@ -180,7 +195,7 @@ async def delete_all_history(email: str = Depends(get_user_email)):
     try:
         deleted_count = await translation_repo.delete_all_for_user(email, raise_on_error=True)
     except Exception as exc:
-        logger.error("Failed to delete all translation history for authenticated user: %s", exc)
+        logger.error("Failed to delete all translation history (%s)", type(exc).__name__)
         raise HTTPException(status_code=500, detail="Failed to delete translation history.") from exc
     await cache.delete(f"user_stats:{email}")
     await cache.delete_prefix(f"user_history:{email}")
@@ -228,7 +243,7 @@ async def get_shared_item(item_id: str):
     BUG#7 FIX: Visibility is checked BEFORE any data is returned to prevent
     leaking private items on 403 responses.
     """
-    item = await translation_repo.get_by_id(item_id, email=None)  # no auth — public endpoint
+    item = await translation_repo.get_by_id(item_id, email=None, decrypt_public=True)  # no auth — public endpoint
     if not item:
         raise HTTPException(status_code=404, detail="Shared snippet not found")
 
@@ -341,13 +356,38 @@ async def delete_account(email: str = Depends(get_user_email)):
       - Uses local JWT verification (SUPABASE_JWT_SECRET) — fails closed on network issues
       - Consistent with all other protected endpoints
     """
+    if not SUPABASE_SERVICE_KEY or not SUPABASE_URL:
+        raise HTTPException(status_code=503, detail="Account deletion is temporarily unavailable")
     try:
         # M-01: Clean up all user data before deleting auth account
-        deleted_translations = await translation_repo.delete_all_for_user(email)
-        deleted_keys = await api_key_repo.delete_all_for_user(email)
-        from app.repositories import subscription as subscription_repo
+        deleted_translations = await translation_repo.delete_all_for_user(email, raise_on_error=True)
+        deleted_keys = await api_key_repo.delete_all_for_user(email, raise_on_error=True)
+        from sqlalchemy import delete
 
-        deleted_sub = await subscription_repo.delete_by_email(email)
+        from app.core.database_session import AsyncSessionLocal
+        from app.models.db_models import User, UserTranslationStats, WorkspaceMember
+        from app.repositories import subscription as subscription_repo
+        from app.repositories.github_token import delete_github_token
+
+        deleted_sub = await subscription_repo.delete_by_email(email, raise_on_error=True)
+        if not await delete_github_token(email):
+            raise RuntimeError("Failed to delete GitHub token during account cleanup")
+
+        async with AsyncSessionLocal() as session:
+            try:
+                await session.execute(delete(UserTranslationStats).where(UserTranslationStats.user_email == email))
+                await session.execute(delete(WorkspaceMember).where(WorkspaceMember.user_email == email))
+                await session.execute(delete(User).where(User.email == email))
+                await session.commit()
+            except Exception as cleanup_err:
+                await session.rollback()
+                logger.warning("Secondary table cleanup failed (%s)", type(cleanup_err).__name__)
+                raise
+
+        await cache.delete(f"user_pro_status:{email}")
+        await cache.delete(f"user_stats:{email}")
+        await cache.delete(f"user_workspaces:{email}")
+        await cache.delete_prefix(f"user_history:{email}")
         logger.info(
             f"Account deletion data cleanup for {email}: "
             f"{deleted_translations} translations, {deleted_keys} API keys, "
@@ -355,44 +395,45 @@ async def delete_account(email: str = Depends(get_user_email)):
         )
 
         # Resolve user_id from Supabase Admin API to delete the auth record
-        if SUPABASE_SERVICE_KEY:
-            client = await get_http_client()
-            # Look up the user by email using the Admin API (service role key)
-            list_resp = await client.get(
-                f"{SUPABASE_URL}/auth/v1/admin/users",
-                headers={
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                    "apikey": SUPABASE_SERVICE_KEY,
-                },
-                params={"email": email},
-            )
-            if list_resp.status_code == 200:
-                users_data = list_resp.json()
-                # Supabase returns {"users": [...]} or a list depending on version
-                users = users_data.get("users", users_data) if isinstance(users_data, dict) else users_data
-                user_id = None
-                for u in users if isinstance(users, list) else []:
-                    if u.get("email", "").lower() == email.lower():
-                        user_id = u.get("id")
-                        break
-
-                if user_id:
-                    admin_resp = await client.delete(
-                        f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
-                        headers={
-                            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                            "apikey": SUPABASE_SERVICE_KEY,
-                        },
-                    )
-                    if admin_resp.status_code not in (200, 204):
-                        logger.error(f"Admin delete user failed: {admin_resp.text}")
-                        raise HTTPException(status_code=500, detail="Failed to delete account")
+        client = await get_http_client()
+        # Look up the user by email using the Admin API (service role key)
+        list_resp = await client.get(
+            f"{SUPABASE_URL}/auth/v1/admin/users",
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "apikey": SUPABASE_SERVICE_KEY,
+            },
+            params={"email": email},
+        )
+        if list_resp.status_code == 200:
+            users_data = list_resp.json()
+            # Supabase returns {"users": [...]} or a list depending on version
+            users = users_data.get("users", users_data) if isinstance(users_data, dict) else users_data
+            user_id = None
+            for u in users if isinstance(users, list) else []:
+                if u.get("email", "").lower() == email.lower():
+                    user_id = u.get("id")
+                    break
+            if user_id:
+                admin_resp = await client.delete(
+                    f"{SUPABASE_URL}/auth/v1/admin/users/{user_id}",
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        "apikey": SUPABASE_SERVICE_KEY,
+                    },
+                )
+                if admin_resp.status_code not in (200, 204):
+                    logger.error("Supabase admin account deletion failed (HTTP %s)", admin_resp.status_code)
+                    raise HTTPException(status_code=500, detail="Failed to delete account")
+        else:
+            logger.error("Supabase admin user lookup failed (HTTP %s)", list_resp.status_code)
+            raise HTTPException(status_code=503, detail="Account deletion is temporarily unavailable")
 
         return JSONResponse(status_code=200, content={"status": "deleted"})
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Delete account error: {e}")
+        logger.error("Delete account failed (%s)", type(e).__name__)
         raise HTTPException(status_code=500, detail="Failed to delete account")
 
 

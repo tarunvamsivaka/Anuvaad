@@ -11,6 +11,7 @@ Existing SHA-256 keys are upgraded transparently on first successful use.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import secrets
 from datetime import UTC, datetime
@@ -101,7 +102,7 @@ async def get_by_raw_key(raw_key: str) -> dict | None:
 
             if row:
                 # FIX-27: Upgrade SHA-256 hash to Argon2id transparently
-                new_hash = _argon2_hash(raw_key)
+                new_hash = await asyncio.to_thread(_argon2_hash, raw_key)
                 await session.execute(
                     update(ApiKey).where(ApiKey.id == row.id).values(api_key_hash=new_hash, key_hash_algo="argon2id")
                 )
@@ -122,11 +123,11 @@ async def get_by_raw_key(raw_key: str) -> dict | None:
             if not candidates:
                 # SEC-01: Constant-time dummy verification to equalize timing profiles
                 # and prevent prefix enumeration side-channel attacks.
-                _argon2_verify(raw_key, _get_dummy_argon2_hash())
+                await asyncio.to_thread(_argon2_verify, raw_key, _get_dummy_argon2_hash())
                 return None
 
             for candidate in candidates:
-                if _argon2_verify(raw_key, candidate.api_key_hash):
+                if await asyncio.to_thread(_argon2_verify, raw_key, candidate.api_key_hash):
                     return {c.key: getattr(candidate, c.key) for c in candidate.__mapper__.columns}
 
             return None
@@ -191,7 +192,7 @@ async def create(
     to prevent unbounded key creation and resource exhaustion.
     """
     raw_key = f"ak_{secrets.token_urlsafe(24)}"
-    key_hash = _argon2_hash(raw_key)  # FIX-27: Argon2id for new keys
+    key_hash = await asyncio.to_thread(_argon2_hash, raw_key)  # FIX-27: Argon2id for new keys
 
     async with AsyncSessionLocal() as session:
         try:
@@ -256,7 +257,7 @@ async def delete_by_id(key_id: str, email: str) -> bool:
             return False
 
 
-async def delete_all_for_user(email: str) -> int:
+async def delete_all_for_user(email: str, *, raise_on_error: bool = False) -> int:
     """M-01: Hard-delete all API keys for a user (used during account deletion).
 
     Removes all api_keys rows for the user so no orphaned tokens remain
@@ -272,4 +273,6 @@ async def delete_all_for_user(email: str) -> int:
         except Exception as e:
             logger.error(f"api_key.delete_all_for_user({email}): {e}")
             await session.rollback()
+            if raise_on_error:
+                raise
             return 0

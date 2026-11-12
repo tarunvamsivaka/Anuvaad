@@ -17,14 +17,14 @@ import hashlib
 import hmac
 from datetime import UTC, datetime
 
-from app.core.config import SUPABASE_JWT_SECRET, TOKEN_ENCRYPTION_KEY
+from app.core.config import AUDIT_HMAC_KEY
 
 AUDIT_DIGEST_HEADER = "X-Anuvaad-Audit-Digest"
 PRIVACY_HEADER = "X-Anuvaad-Privacy"
 PRIVACY_MODE_HEADER = "X-Anuvaad-Privacy-Mode"
 EPHEMERAL_VALUE = "ephemeral; application-history-and-cache-skipped"
 
-_DEFAULT_SECRET = SUPABASE_JWT_SECRET or TOKEN_ENCRYPTION_KEY
+_DEFAULT_SECRET = AUDIT_HMAC_KEY
 
 
 def _signing_secret(secret: str | None) -> str:

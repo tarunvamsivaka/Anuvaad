@@ -44,7 +44,7 @@ code --install-extension anuvaad-vscode-1.2.0.vsix
 
 - **60 FPS `requestAnimationFrame` Stream Buffer:** Decouples high-frequency Server-Sent Events (80–120 chunks/sec) from React state dispatch, throttling UI updates to 16.6ms intervals with zero Cumulative Layout Shift (CLS) and guaranteed zero-drop synchronous final flush.
 - **Two-Tier L1/L2 Cache & Semantic AST Deduplication:** In-process `TTLCache` (L1) fronting Upstash Redis (L2) reduces external cache queries by ~80%. Normalizes code whitespace, comments, and docstrings into deterministic SHA-256 hashes, returning instant cached explanations in `< 40ms` at 0 LLM token cost.
-- **Client-Side Encrypted BYOK Vault:** Uses Web Cryptography API (AES-GCM 256-bit with PBKDF2) to securely persist personal Gemini API keys inside client IndexedDB. Transmitted via ephemeral `X-User-LLM-Key` headers with zero platform credit deductions and strict server-side log redaction.
+- **Client-Side Encrypted BYOK Vault:** Uses a non-extractable AES-GCM `CryptoKey` stored in IndexedDB to encrypt personal provider keys. Keys are sent only in ephemeral `X-User-LLM-Key` headers; the server redacts them from logs. Existing vault entries are migrated from the earlier PBKDF2 format.
 - **Sub-10ms Split Health & Constant-Time Metrics:** `/health/live` probe verifies API container responsiveness in $< 10\text{ms}$; `/health/ready` validates PostgreSQL and Redis upstream dependencies; `/metrics` enforces constant-time HTTP Basic Auth (`secrets.compare_digest`).
 - **Zero Code Retention (ZDR) & Verified Security Invariants:** Enforces tenant isolation on Supabase PostgreSQL and `pgvector`, CSRF token validation, proxy IP trust (ignoring spoofed `X-Forwarded-For`), and webhook HMAC signature and timestamp replay defenses.
 
@@ -56,6 +56,14 @@ code --install-extension anuvaad-vscode-1.2.0.vsix
 - Power users can bring their personal Gemini API key via the Settings drawer for unlimited private translation.
 - Ephemeral mode ensures source code streams through volatile RAM buffers only with zero non-ephemeral logging.
 
+## API versioning, repositories, and quotas
+
+- New clients should use `/api/v1/`. Unversioned `/api/` aliases remain available for compatibility and return deprecation headers; their planned sunset is **January 1, 2027**. The checked-in API schema is [docs/openapi.json](docs/openapi.json).
+- Repository indexing and search require an authenticated user, a workspace the user can access, a connected GitHub account for indexing, and cloud-processing consent. Search uses the workspace's current published index.
+- Signed-in daily usage is reserved atomically in PostgreSQL by user and UTC date. Redis is a reconciled cache; deleting or losing a cache key does not reset the quota. Guest quotas remain IP-based.
+- Daily usage rows older than the current UTC date are removed by scheduled database-footprint cleanup.
+- Apply database changes through Alembic. The current migration head is `019_daily_usage_counters`; production migration and rollback steps are in the [release runbook](docs/RELEASE_RUNBOOK.md).
+
 ## Repository
 
 | Area | Location |
@@ -65,7 +73,9 @@ code --install-extension anuvaad-vscode-1.2.0.vsix
 | Database migrations | `alembic/versions/` |
 | Backend tests | `tests/` |
 | Consumer strategy and validation protocol | `docs/CONSUMER_PRODUCT_DEVELOPMENT_STRATEGY.md`, `docs/CONSUMER_VALIDATION_PLAN.md` |
-| Implementation plan | `docs/IMPLEMENTATION_PLAN_2026-10-04.md` |
+| Operating rules | `docs/OPERATING_RULES.md` |
+| Launch strategy | `docs/LAUNCH_STRATEGY.md` |
+| Consumer product strategy | `docs/CONSUMER_PRODUCT_DEVELOPMENT_STRATEGY.md` |
 
 ## Local development
 
@@ -92,9 +102,9 @@ Use `-SkipBuild` for a quicker local loop. The script sets CI-only placeholder s
 The equivalent individual checks are:
 
 ```powershell
-python -m ruff check main.py app/ tests/ --select E,F,W --ignore E501,F401
+python -m ruff check main.py app/ tests/
 python -m ruff format --check main.py app/ tests/ alembic/
-python -m pytest tests/ -q -p no:cacheprovider --ignore=tests/test_production.py
+python -m pytest tests/ -q -p no:cacheprovider
 cd frontend; npm run lint; npx tsc --noEmit; npm test -- --run; npm run build
 ```
 

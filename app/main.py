@@ -10,20 +10,26 @@ Responsibilities (and ONLY these):
   6. Register global exception handlers
 """
 
+import os
 from contextlib import asynccontextmanager
 
 import sentry_sdk
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials
 
+# Apply third-party runtime compatibility shims before importing routers.
+import app.compat  # noqa: F401
 from app.api.middleware import register_all
-from app.core.auth import get_user_email
+from app.core.auth import get_user_email_from_request
+from app.core.cache import cache
 from app.core.config import (
+    AUDIT_HMAC_KEY,
     DATABASE_URL,
+    ENABLE_BILLING,
     ENV,
     FRONTEND_URL,
     GROQ_API_KEY,
+    HISTORY_ENCRYPTION_KEYS,
     IS_PRODUCTION,
     SENTRY_DSN,
     SUPABASE_JWT_SECRET,
@@ -33,6 +39,8 @@ from app.core.config import (
 )
 from app.core.config import lifespan as _base_lifespan
 from app.core.telemetry import setup_tracing
+
+# ── Routers ──
 from app.routers.billing import router as billing_router
 from app.routers.demo import router as demo_router
 from app.routers.github import router as github_router
@@ -40,8 +48,6 @@ from app.routers.history import router as history_router
 from app.routers.modernize import router as modernize_router
 from app.routers.onboarding import router as onboarding_router  # FIX-35 (P3-08)
 from app.routers.repo_search import router as repo_search_router
-
-# ── Routers ──
 from app.routers.translate import router as translate_router
 from app.routers.utility import router as utility_router
 from app.routers.workspace import router as workspace_router
@@ -57,8 +63,39 @@ _CRITICAL_VARS: list[tuple[str, str]] = [
     ("SUPABASE_URL", SUPABASE_URL),
     ("SUPABASE_JWT_SECRET", SUPABASE_JWT_SECRET),
     ("TOKEN_ENCRYPTION_KEY", TOKEN_ENCRYPTION_KEY),
+    ("AUDIT_HMAC_KEY", AUDIT_HMAC_KEY),
+    ("HISTORY_ENCRYPTION_KEYS", HISTORY_ENCRYPTION_KEYS),
     ("FRONTEND_URL", FRONTEND_URL),
 ]
+
+
+def _validate_audit_hmac_key_isolation() -> None:
+    """SEC-04: Verify AUDIT_HMAC_KEY is set and does not reuse JWT or Fernet keys.
+
+    Key reuse between audit HMAC receipts and authentication/encryption keys
+    is a cryptographic violation — a compromised auth key would also compromise
+    the audit receipt guarantee.
+    """
+    if not AUDIT_HMAC_KEY:
+        return  # Covered by _CRITICAL_VARS check in production
+
+    if SUPABASE_JWT_SECRET and AUDIT_HMAC_KEY == SUPABASE_JWT_SECRET:
+        msg = (
+            "SEC-04: AUDIT_HMAC_KEY must not reuse SUPABASE_JWT_SECRET. "
+            'Generate a dedicated secret: python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+        if ENV == "production":
+            raise RuntimeError(msg)
+        logger.warning(f"[dev] {msg}")
+
+    if TOKEN_ENCRYPTION_KEY and AUDIT_HMAC_KEY == TOKEN_ENCRYPTION_KEY:
+        msg = (
+            "SEC-04: AUDIT_HMAC_KEY must not reuse TOKEN_ENCRYPTION_KEY. "
+            'Generate a dedicated secret: python -c "import secrets; print(secrets.token_hex(32))"'
+        )
+        if ENV == "production":
+            raise RuntimeError(msg)
+        logger.warning(f"[dev] {msg}")
 
 
 def validate_production_env() -> None:
@@ -85,8 +122,6 @@ def validate_production_env() -> None:
     for name in missing:
         logger.warning(f"[dev] Environment variable '{name}' is not set. This will cause a hard failure in production.")
 
-    import os
-
     if os.getenv("GROQ_API_KEY") and not os.getenv("OPENROUTER_API_KEY"):
         logger.info("AI routing uses Groq; OpenRouter fallback is not configured")
 
@@ -94,11 +129,41 @@ def validate_production_env() -> None:
 # ── Lifespan ──
 
 
+async def _verify_alembic_head() -> None:
+    """Raise RuntimeError if database is not at the Alembic migration head (DEP-04)."""
+    from alembic.config import Config
+    from alembic.runtime.migration import MigrationContext
+    from alembic.script import ScriptDirectory
+
+    from app.core.database_session import _is_sqlite, engine
+
+    if _is_sqlite:
+        return  # Skip for in-memory test database
+
+    alembic_cfg = Config("alembic.ini")
+    script = ScriptDirectory.from_config(alembic_cfg)
+    head_revisions = {s.revision for s in script.get_revisions("heads")}
+
+    async with engine.connect() as conn:
+        current_heads = set(await conn.run_sync(lambda c: MigrationContext.configure(c).get_current_heads()))
+
+    if current_heads != head_revisions:
+        raise RuntimeError(
+            f"Database schema is behind migration head. "
+            f"Current: {current_heads}, Expected: {head_revisions}. "
+            f"Run: alembic upgrade head"
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize singletons on startup; clean up gracefully on shutdown."""
     # Validate env vars before accepting any traffic
     validate_production_env()
+    # SEC-04: Verify audit HMAC key is not reusing auth/encryption secrets
+    _validate_audit_hmac_key_isolation()
+    if IS_PRODUCTION:
+        await _verify_alembic_head()
     # BACK-02: Initialize LLM client singletons once (avoids per-request DNS + TLS)
     ai_service.init_clients(GROQ_API_KEY or "dummy_key_to_allow_startup")
     async with _base_lifespan(app):
@@ -157,11 +222,70 @@ register_all(app)
 # Gracefully no-ops when OTEL packages not installed or OTEL_EXPORTER_OTLP_ENDPOINT unset.
 setup_tracing(app)
 
+
 # ── Sentry ──
+def sentry_before_send(event: dict, hint: dict) -> dict | None:
+    """Remove user content and identifiers before an event leaves this process."""
+    event.pop("user", None)
+    event.pop("extra", None)
+    event.pop("breadcrumbs", None)
+    if "request" in event and isinstance(event["request"], dict):
+        req = event["request"]
+        if "data" in req:
+            req["data"] = "[REDACTED_FOR_ZDR]"
+        req.pop("query_string", None)
+        if isinstance(req.get("url"), str):
+            req["url"] = req["url"].split("?", 1)[0]
+        if "headers" in req and isinstance(req["headers"], dict):
+            for h in list(req["headers"].keys()):
+                h_lower = h.lower()
+                if h_lower in ("authorization", "x-user-llm-key", "cookie", "x-api-key", "set-cookie"):
+                    req["headers"][h] = "[REDACTED]"
+    exception_data = event.get("exception")
+    for exception in exception_data.get("values", []) if isinstance(exception_data, dict) else []:
+        if isinstance(exception, dict) and exception.get("value"):
+            exception["value"] = "[REDACTED_FOR_ZDR]"
+        if isinstance(exception, dict):
+            stacktrace = exception.get("stacktrace")
+            frames = stacktrace.get("frames", []) if isinstance(stacktrace, dict) else []
+            for frame in frames:
+                if isinstance(frame, dict):
+                    frame.pop("vars", None)
+    threads = event.get("threads")
+    if isinstance(threads, dict):
+        for thread in threads.get("values", []):
+            stacktrace = thread.get("stacktrace") if isinstance(thread, dict) else None
+            frames = stacktrace.get("frames", []) if isinstance(stacktrace, dict) else []
+            for frame in frames:
+                if isinstance(frame, dict):
+                    frame.pop("vars", None)
+    if event.get("message"):
+        event["message"] = "[REDACTED_FOR_ZDR]"
+    if isinstance(event.get("logentry"), dict) and event["logentry"].get("message"):
+        event["logentry"]["message"] = "[REDACTED_FOR_ZDR]"
+    # Keep transaction timing but drop arbitrary span attributes that can carry
+    # request parameters, query text, provider payloads, or database bind values.
+    spans = event.get("spans")
+    if isinstance(spans, list):
+        for span in spans:
+            if isinstance(span, dict):
+                span.pop("data", None)
+                span.pop("tags", None)
+                span.pop("description", None)
+    return event
+
+
 if SENTRY_DSN and SENTRY_DSN.startswith(("http://", "https://")):
     try:
-        sentry_sdk.init(dsn=SENTRY_DSN, traces_sample_rate=0.1, environment=ENV)
-        logger.info("Sentry initialized")
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            traces_sample_rate=0.1,
+            environment=ENV,
+            send_default_pii=False,
+            before_send=sentry_before_send,
+            before_send_transaction=sentry_before_send,
+        )
+        logger.info("Sentry initialized with ZDR scrubbing")
     except Exception as e:
         logger.warning(f"Sentry initialization skipped: {e}")
 else:
@@ -184,20 +308,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split(" ")[1]
-        try:
-            creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
-            # Pass both request and credentials as required by the dependency signature
-            email = await get_user_email(request, creds)
-            if email:
-                sentry_sdk.set_user({"email": email})
-        except Exception:
-            pass
-
     sentry_sdk.capture_exception(exc)
-    logger.error(f"Unhandled server error: {exc}")
+    logger.error("Unhandled server error", error_type=type(exc).__name__)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
@@ -206,10 +318,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Legacy /api/ routes are kept for backward compatibility during migration.
 # Sunset date: 2027-01-01
 
+
 app.include_router(translate_router, prefix="/api/v1")
 app.include_router(history_router, prefix="/api/v1")
 app.include_router(workspace_router, prefix="/api/v1")
-app.include_router(billing_router, prefix="/api/v1")
+if ENABLE_BILLING or os.getenv("TESTING") == "true":
+    app.include_router(billing_router, prefix="/api/v1")
 app.include_router(github_router, prefix="/api/v1")
 app.include_router(repo_search_router, prefix="/api/v1")
 app.include_router(utility_router, prefix="/api/v1")
@@ -218,14 +332,16 @@ app.include_router(onboarding_router, prefix="/api/v1")  # FIX-35 (P3-08)
 app.include_router(modernize_router, prefix="/api/v1")
 
 # Legacy aliases — api_deprecation_middleware emits Deprecation header
-app.include_router(translate_router, prefix="/api")
-app.include_router(history_router, prefix="/api")
-app.include_router(workspace_router, prefix="/api")
-app.include_router(billing_router, prefix="/api")
-app.include_router(github_router, prefix="/api")
-app.include_router(utility_router, prefix="/api")
-app.include_router(demo_router, prefix="/api")
-app.include_router(modernize_router, prefix="/api")
+app.include_router(translate_router, prefix="/api", include_in_schema=False)
+app.include_router(history_router, prefix="/api", include_in_schema=False)
+app.include_router(workspace_router, prefix="/api", include_in_schema=False)
+if ENABLE_BILLING or os.getenv("TESTING") == "true":
+    app.include_router(billing_router, prefix="/api", include_in_schema=False)
+app.include_router(github_router, prefix="/api", include_in_schema=False)
+app.include_router(repo_search_router, prefix="/api", include_in_schema=False)
+app.include_router(utility_router, prefix="/api", include_in_schema=False)
+app.include_router(demo_router, prefix="/api", include_in_schema=False)
+app.include_router(modernize_router, prefix="/api", include_in_schema=False)
 
 
 # Root health probe fallback for platform load balancers (Render, K8s, Keep-Alive)

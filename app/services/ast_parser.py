@@ -29,6 +29,7 @@ never raising exceptions that would block the translation path.
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 
 logger = logging.getLogger("anuvaad")
@@ -40,10 +41,26 @@ logger = logging.getLogger("anuvaad")
 _PARSERS: dict[str, object] = {}  # language_name → tree_sitter.Parser
 
 
+_thread_local = threading.local()
+
+
+def _get_thread_parsers() -> dict[str, object]:
+    """Return the thread-local dictionary of tree_sitter.Parser instances.
+
+    Tree-sitter Parser objects are stateful C structs and NOT thread-safe
+    for concurrent parses across worker threads. Thread-local caching guarantees
+    safe off-thread execution in asyncio.to_thread while reusing parsers.
+    """
+    if not hasattr(_thread_local, "parsers"):
+        _thread_local.parsers = {}
+    return _thread_local.parsers
+
+
 def _get_parser(language: str) -> object | None:
     """Return a cached tree_sitter.Parser for the given language, or None if unsupported."""
-    if language in _PARSERS:
-        return _PARSERS[language]
+    parsers = _get_thread_parsers()
+    if language in parsers:
+        return parsers[language]
 
     try:
         from tree_sitter import Language, Parser
@@ -190,17 +207,22 @@ def _get_parser(language: str) -> object | None:
             return None
 
         parser = Parser(lang)
+        parsers[language] = parser
         _PARSERS[language] = parser
         # For dual-alias languages, set both
         if language in ("c#", "csharp"):
+            parsers["c#"] = parser
             _PARSERS["c#"] = parser
+            parsers["csharp"] = parser
             _PARSERS["csharp"] = parser
         elif language in ("c++", "cpp"):
+            parsers["c++"] = parser
             _PARSERS["c++"] = parser
+            parsers["cpp"] = parser
             _PARSERS["cpp"] = parser
         return parser
     except Exception as e:
-        logger.warning(f"Tree-sitter: failed to load grammar for {language!r}: {e}")
+        logger.warning("Tree-sitter: failed to load grammar for %s (%s)", language, type(e).__name__)
         _PARSERS[language] = None
         return None
 
@@ -670,7 +692,7 @@ def analyze(code: str, language: str) -> ASTAnalysis:
             max_nesting_depth=_max_depth(tree.root_node),
         )
     except Exception as e:
-        logger.warning(f"Tree-sitter analysis failed for {language!r}: {e}")
+        logger.warning("Tree-sitter analysis failed for %s (%s)", language, type(e).__name__)
         return ASTAnalysis(
             language=norm_lang,
             has_parse_errors=True,

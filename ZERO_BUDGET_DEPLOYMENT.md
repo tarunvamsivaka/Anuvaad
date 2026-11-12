@@ -16,7 +16,7 @@ This guide outlines how to deploy and operate the complete Anuvaad platform with
 | **Relational & Vector DB** | **Supabase PostgreSQL** | **500 MB** storage, 2 active projects, pgvector | Async pool `pool_size=5`, `pool_recycle=300`, nightly DB pruning of anonymous data |
 | **Cache & Rate Limiting** | **Upstash Redis** | **10,000 commands/day** | In-memory LRU fallback (100 items), client IP & account sliding window rate limits |
 | **Web Frontend** | **Vercel** / **Render** | **100 GB bandwidth / mo**, Serverless Edge runtime | Static generation for landing/auth, SWR client caching, proxy rewrites |
-| **FastAPI Backend** | **Render Free Web Service** | **750 hours/month** (1 Web Service) | Asynchronous non-blocking I/O, 2 Uvicorn workers for safe memory footprint (<300 MB) |
+| **FastAPI Backend** | **Render Free Web Service** | **750 hours/month** (1 Web Service) | Asynchronous non-blocking I/O, Gunicorn + UvicornWorker (4 workers, WEB_CONCURRENCY=4) |
 | **Background Execution**| **In-Process Async (FastAPI)** | **Included in Web Service** | Native `asyncio.create_task` saves ~7,500 Upstash commands/day; no separate worker needed |
 | **Transactional Email** | **Resend** | **3,000 emails/month** (100/day) | Asynchronous background dispatch with retry backoff |
 
@@ -51,7 +51,7 @@ This guide outlines how to deploy and operate the complete Anuvaad platform with
 3. Configure the service:
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4`
+   - **Start Command**: `gunicorn main:app --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:$PORT --timeout 120 --keep-alive 5`
    - **Worker count**: 4 workers allows up to 4 concurrent SSE translation streams.
      Each worker uses ~80–120 MB RAM; 4 workers ≈ 320–480 MB, within Render's 512 MB free limit.
      If you see OOM restarts, reduce to `--workers 2` as a fallback.
