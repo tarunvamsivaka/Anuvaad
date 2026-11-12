@@ -53,4 +53,3 @@ def rate_limiter(calls: int, window: int):
             )
 
     return _rate_limit_dependency
-
