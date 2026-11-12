@@ -10,6 +10,8 @@ from app.core.config import AUDIT_HMAC_KEY
 def hash_rate_limit_identity(identity: str) -> str:
     """Return a keyed pseudonym so cache keys do not expose account emails."""
     normalized_identity = identity.strip().lower().encode()
+    # codeql[py/weak-sensitive-data-hashing] - Keyed BLAKE2b is used as a PRF for
+    # Redis bucket pseudonyms, not for password storage or verification.
     return hashlib.blake2b(
         b"rate-limit:user:" + normalized_identity,
         key=AUDIT_HMAC_KEY.encode()[:64],
