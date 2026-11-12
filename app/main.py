@@ -155,6 +155,17 @@ async def _verify_alembic_head() -> None:
         )
 
 
+async def _backfill_encrypted_history_on_startup() -> None:
+    """Complete the encrypted-history rollout after migrations are applied."""
+    if os.getenv("HISTORY_BACKFILL_ON_START", "false").lower() != "true":
+        return
+
+    from scripts.backfill_encrypted_history import backfill
+
+    migrated, skipped = await backfill(batch_size=100, max_batches=None, dry_run=False)
+    logger.info("Encrypted history backfill finished: migrated=%s skipped=%s", migrated, skipped)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize singletons on startup; clean up gracefully on shutdown."""
@@ -164,6 +175,7 @@ async def lifespan(app: FastAPI):
     _validate_audit_hmac_key_isolation()
     if IS_PRODUCTION:
         await _verify_alembic_head()
+        await _backfill_encrypted_history_on_startup()
     # BACK-02: Initialize LLM client singletons once (avoids per-request DNS + TLS)
     ai_service.init_clients(GROQ_API_KEY or "dummy_key_to_allow_startup")
     async with _base_lifespan(app):

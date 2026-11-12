@@ -214,7 +214,7 @@ services:
 
       # ── Worker concurrency (set to 2*CPU+1 for IO-bound workloads) ─────────
       - key: WEB_CONCURRENCY
-        value: "4"
+        value: "1"
 
       # ── Automated DB Pruning Cron Secret ──────────────────────────────────
       - key: CRON_SECRET
