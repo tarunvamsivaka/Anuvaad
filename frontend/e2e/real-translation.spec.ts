@@ -91,7 +91,7 @@ int main() {
   await setMonacoValue(page, cCode);
 
   // Verify Translate button is enabled
-  const translateBtn = page.locator('button:has-text("Translate")');
+  const translateBtn = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
   await expect(translateBtn).toBeEnabled({ timeout: 5000 });
 
   // Click Translate

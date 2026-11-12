@@ -310,7 +310,7 @@ test.describe('Translation Workspace', () => {
   test('translate page loads with correct heading and controls', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await expect(page.locator('h1')).toContainText('Translation studio');
-    await expect(page.locator('button:has-text("Translate")')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ })).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("Code → English")')).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("English → Code")')).toBeVisible();
     await expect(page.locator('button[role="tab"]:has-text("Code → Code")')).toBeVisible();
@@ -318,7 +318,7 @@ test.describe('Translation Workspace', () => {
 
   test('Generate Translation button is disabled when editor is empty', async ({ page }) => {
     await page.goto('/dashboard/translate');
-    await expect(page.locator('button:has-text("Translate")')).toBeDisabled();
+    await expect(page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ })).toBeDisabled();
   });
 
   test('"Type Code Manually" button dismisses drag-and-drop overlay', async ({ page }) => {
@@ -333,8 +333,9 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'print("Hello")');
-    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")', { force: true });
+    const actionButton = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
+    await expect(actionButton).toBeEnabled({ timeout: 5000 });
+    await actionButton.click({ force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
   });
 
@@ -343,8 +344,9 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'x = 42');
-    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")', { force: true });
+    const actionButton = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
+    await expect(actionButton).toBeEnabled({ timeout: 5000 });
+    await actionButton.click({ force: true });
     await expect(page.locator('button:has-text("Copy as Markdown")')).toBeVisible({ timeout: 10000 });
   });
 
@@ -353,8 +355,9 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'y = 2');
-    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")', { force: true });
+    const actionButton = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
+    await expect(actionButton).toBeEnabled({ timeout: 5000 });
+    await actionButton.click({ force: true });
     const downloadBtn = page.locator('button:has-text("Download JSON")');
     await expect(downloadBtn).toBeVisible({ timeout: 10000 });
     const downloadPromise = page.waitForEvent('download');
@@ -375,8 +378,9 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button[role="tab"]:has-text("English → Code")');
     await page.fill('textarea', 'Write a function that adds two numbers');
-    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")', { force: true });
+    const actionButton = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
+    await expect(actionButton).toBeEnabled({ timeout: 5000 });
+    await actionButton.click({ force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
   });
 
@@ -409,8 +413,9 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'z = 3');
-    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")', { force: true });
+    const actionButton = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
+    await expect(actionButton).toBeEnabled({ timeout: 5000 });
+    await actionButton.click({ force: true });
     await expect(page.locator('text=Block 1')).toBeVisible({ timeout: 10000 });
     // Click the reset/clear button (aria-label="Clear")
     await page.locator('button[aria-label="Clear"]').click({ force: true });
@@ -431,7 +436,7 @@ test.describe('Translation Workspace', () => {
     await mockTranslateAPI(page);
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'print("Collapse me")');
-    await page.click('button:has-text("Translate")', { force: true });
+    await page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ }).click({ force: true });
     
     // The collapse button should have a chevron-up initially (expanded)
     const collapseBtn = page.locator('.lucide-chevron-up').first();
@@ -462,8 +467,9 @@ test.describe('Translation Workspace', () => {
 
     await page.click('button:has-text("Type Code Manually")');
     await setMonacoValue(page, 'b = 2');
-    await expect(page.locator('button:has-text("Translate")')).toBeEnabled({ timeout: 5000 });
-    await page.click('button:has-text("Translate")', { force: true });
+    const actionButton = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
+    await expect(actionButton).toBeEnabled({ timeout: 5000 });
+    await actionButton.click({ force: true });
     await expect(page.locator('button:has-text("Copy as Markdown")')).toBeVisible({ timeout: 10000 });
     await page.click('button:has-text("Copy as Markdown")');
     // Button should briefly change text to confirm copy

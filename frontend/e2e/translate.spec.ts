@@ -81,7 +81,7 @@ test.describe('Authenticated Translation Flow', () => {
   test('authenticated user can see the translate page', async ({ page }) => {
     await page.goto('/dashboard/translate');
     await expect(page.locator('h1')).toContainText('Translation studio');
-    await expect(page.locator('button:has-text("Translate")')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ })).toBeVisible();
   });
 
   test('mobile translation workspace switches between input and output panes', async ({ page }) => {
@@ -113,7 +113,7 @@ test.describe('Authenticated Translation Flow', () => {
     await setMonacoValue(page, 'print("Hello world")');
 
     // The button should now be enabled
-    const translateBtn = page.locator('button:has-text("Translate")');
+    const translateBtn = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
     await translateBtn.click({ force: true });
     
@@ -160,7 +160,7 @@ test.describe('Authenticated Translation Flow', () => {
     // Fill the editor with a simple Python script
     await setMonacoValue(page, 'def greet(name):\n    print(f"Hello, {name}!")\n\ngreet("Alice")');
 
-    const translateBtn = page.locator('button:has-text("Translate")');
+    const translateBtn = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
     await translateBtn.click({ force: true });
     
@@ -194,7 +194,7 @@ test.describe('Authenticated Translation Flow', () => {
     // Fill the editor
     await setMonacoValue(page, 'print("Ready for JSON export")');
 
-    const translateBtn = page.locator('button:has-text("Translate")');
+    const translateBtn = page.getByRole('button', { name: /^(Explain code|Generate code|Translate code)/ });
     await expect(translateBtn).toBeEnabled({ timeout: 5000 });
     await translateBtn.click({ force: true });
     
