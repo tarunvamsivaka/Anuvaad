@@ -355,7 +355,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     needs: [test, migration, lint, frontend, e2e, cli, vscode-extension]
-    if: github.ref == 'refs/heads/master'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/master'
 
     steps:
       - uses: actions/checkout@v4

@@ -14,7 +14,7 @@ FRONTEND_PID=$!
 
 echo "[supervisor] Starting FastAPI / Gunicorn backend on port 8000..."
 cd /app && gunicorn main:app \
-    --workers ${WEB_CONCURRENCY:-4} \
+    --workers ${WEB_CONCURRENCY:-1} \
     --worker-class uvicorn.workers.UvicornWorker \
     --bind 0.0.0.0:8000 \
     --timeout 120 \
@@ -24,7 +24,7 @@ cd /app && gunicorn main:app \
 BACKEND_PID=$!
 
 # Forward SIGTERM and SIGINT to both child processes
-trap 'kill -TERM $FRONTEND_PID $BACKEND_PID 2>/dev/null' SIGTERM SIGINT
+trap 'kill -TERM "$FRONTEND_PID" "$BACKEND_PID" 2>/dev/null || true' TERM INT
 
 echo "[supervisor] Both services started. Monitoring child processes ($FRONTEND_PID, $BACKEND_PID)..."
 
