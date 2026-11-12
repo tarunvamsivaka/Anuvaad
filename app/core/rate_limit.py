@@ -1,5 +1,5 @@
 import hashlib
-import hmac
+import asyncio
 
 from fastapi import HTTPException, Request
 
@@ -11,12 +11,16 @@ from app.core.config import AUDIT_HMAC_KEY
 def hash_rate_limit_identity(identity: str) -> str:
     """Return a keyed pseudonym so cache keys do not expose account emails."""
     normalized_identity = identity.strip().lower().encode()
-    # HMAC creates Redis bucket pseudonyms; it is not password storage or verification.
-    return hmac.new(
-        AUDIT_HMAC_KEY.encode(),
-        b"rate-limit:user:" + normalized_identity,
-        hashlib.sha256,
-    ).hexdigest()
+    # scrypt prevents recovery of account emails from leaked Redis key names.
+    return hashlib.scrypt(
+        normalized_identity,
+        salt=b"rate-limit:user:" + AUDIT_HMAC_KEY.encode(),
+        n=2**12,
+        r=8,
+        p=1,
+        dklen=32,
+        maxmem=16 * 1024 * 1024,
+    ).hex()
 
 
 def rate_limiter(calls: int, window: int):
@@ -29,7 +33,7 @@ def rate_limiter(calls: int, window: int):
         user_email = await get_optional_user_email_from_request(request, credentials=credentials)
 
         if user_email:
-            identity_hash = hash_rate_limit_identity(user_email)
+            identity_hash = await asyncio.to_thread(hash_rate_limit_identity, user_email)
             redis_key = f"rate_limit:specific:{request.url.path}:user:{identity_hash}"
         else:
             redis_key = f"rate_limit:specific:{request.url.path}:{client_ip}"
@@ -49,3 +53,4 @@ def rate_limiter(calls: int, window: int):
             )
 
     return _rate_limit_dependency
+
