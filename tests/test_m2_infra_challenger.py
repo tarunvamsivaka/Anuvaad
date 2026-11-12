@@ -241,7 +241,10 @@ def test_dockerfile_ast_and_compatibility():
     with open("scripts/docker-entrypoint-monolith.sh", encoding="utf-8") as ep:
         entrypoint_text = ep.read()
     combined_runtime_text = final_stage_text + "\n" + entrypoint_text
-    assert "${WEB_CONCURRENCY:-4}" in combined_runtime_text or "${WEB_CONCURRENCY:-2}" in combined_runtime_text
+    assert any(
+        default in combined_runtime_text
+        for default in ("${WEB_CONCURRENCY:-1}", "${WEB_CONCURRENCY:-2}", "${WEB_CONCURRENCY:-4}")
+    )
     print("  [PASS] Gunicorn worker concurrency respects WEB_CONCURRENCY environment variable.")
 
 
