@@ -39,7 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tini \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies (including gunicorn for multi-worker production)
+# Install Python dependencies (Gunicorn worker count is kept small for free-tier memory).
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
@@ -68,8 +68,8 @@ RUN chmod +x /app/scripts/docker-entrypoint-monolith.sh
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD curl -f http://localhost:8000/api/health && curl -f http://localhost:3000/ || exit 1
 
-# INFRA-04: Gunicorn multi-worker production server
-# WEB_CONCURRENCY controls worker count (default: 4 workers)
+# INFRA-04: Gunicorn production server
+# WEB_CONCURRENCY controls worker count (default: 1 worker for free-tier memory).
 RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
 USER appuser
 ENTRYPOINT ["/usr/bin/tini", "--"]
