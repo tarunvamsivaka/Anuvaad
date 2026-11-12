@@ -2,17 +2,14 @@ import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
-  // Proxy API requests to the FastAPI backend to avoid CORS in production
-  // INFRA-05: Exclude /monitoring (Sentry tunnelRoute) from the proxy rewrite
+  // Proxy API requests to the FastAPI backend to avoid CORS in production.
+  // Run this before the frontend catch-all route so API requests reach Render.
   async rewrites() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     return {
-      fallback: [
+      afterFiles: [
         {
-          // Proxy all unmatched /api/... requests to the FastAPI backend.
-          // Native routes (like /api/auth/callback) are served by Next.js and bypass this fallback.
-          // INFRA-05: /sentry-tunnel (tunnelRoute) is handled by Next.js natively and does NOT match
-          // this fallback, since it does not start with /api/.
+          // Native Next.js routes (such as /api/auth/callback) take precedence.
           source: "/api/:path*",
           destination: `${API_URL}/api/:path*`,
         },
