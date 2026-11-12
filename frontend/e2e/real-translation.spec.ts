@@ -73,6 +73,25 @@ test('Perform real translation and verify results in the website', async ({ page
     });
   });
 
+  // The sync action uses a same-origin API route. Register its exact path too
+  // so the browser test never depends on the local API implementation.
+  await page.route('**/api/sync-english-to-code', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: corsHeaders,
+      body: JSON.stringify({
+        status: 'success',
+        updated_code: `#include <stdio.h>\n\nint main() {\n    printf("Hello, Anuvaad!\\n");\n    return 0;\n}`,
+        blocks: [
+          { id: 'block_1', code_snippet: '#include <stdio.h>', english_translation: 'Imports the standard input/output library.' },
+          { id: 'block_2', code_snippet: 'int main() {\n    printf("Hello, Anuvaad!\\n");\n    return 0;\n}', english_translation: 'Prints hello world.' },
+        ],
+        model_used: 'llama-3',
+      }),
+    });
+  });
+
   console.log('Navigating to translate page...');
   await page.goto('/dashboard/translate');
 
