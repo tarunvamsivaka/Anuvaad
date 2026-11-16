@@ -43,7 +43,9 @@ def test_history_encryption_round_trip(monkeypatch):
 async def test_health_checks_are_exempt_from_rate_limiting():
     """Verify health check and metrics endpoints bypass IP rate limiting (fixes Render 429 server failure)."""
     from unittest.mock import AsyncMock, MagicMock
+
     from fastapi import Request
+
     from app.api.middleware.rate_limit import rate_limit_middleware
 
     for path in ["/api/health", "/api/v1/health", "/api/health/live", "/api/health/ready", "/api/metrics"]:
@@ -65,6 +67,7 @@ async def test_health_checks_are_exempt_from_rate_limiting():
 def test_audit_hmac_and_history_encryption_fallbacks(monkeypatch):
     """Verify that when only TOKEN_ENCRYPTION_KEY is configured, AUDIT_HMAC_KEY and HISTORY_ENCRYPTION_KEYS have secure fallbacks."""
     import importlib
+
     import app.core.config as config_mod
 
     sample_fernet_key = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
@@ -83,7 +86,9 @@ def test_audit_hmac_and_history_encryption_fallbacks(monkeypatch):
 def test_token_encryption_key_derives_from_jwt_secret_when_missing(monkeypatch):
     """Verify that when TOKEN_ENCRYPTION_KEY is unset, a deterministic Fernet key is derived from SUPABASE_JWT_SECRET."""
     import importlib
+
     from cryptography.fernet import Fernet
+
     import app.core.config as config_mod
 
     monkeypatch.delenv("TOKEN_ENCRYPTION_KEY", raising=False)
@@ -105,8 +110,9 @@ def test_token_encryption_key_derives_from_jwt_secret_when_missing(monkeypatch):
 @pytest.mark.asyncio
 async def test_alembic_head_check_is_non_blocking_on_mismatch(monkeypatch):
     """Verify that database schema mismatch does not throw RuntimeError on startup."""
-    import app.main as app_main
     from unittest.mock import AsyncMock, MagicMock
+
+    import app.main as app_main
 
     monkeypatch.setattr("app.core.database_session._is_sqlite", False)
 

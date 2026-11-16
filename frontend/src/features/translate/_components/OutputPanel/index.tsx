@@ -75,6 +75,7 @@ export function OutputPanel({
 }: OutputPanelProps) {
   const {
     input,
+    setInput,
     streamText,
     isStreaming,
     outputBlocks,
@@ -371,9 +372,9 @@ export function OutputPanel({
                         <motion.span 
                           animate={{ rotate: 360 }} 
                           transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                          className="absolute inset-0 rounded-full border-[2px] border-amber-500/20 border-t-amber-500" 
+                          className="absolute inset-0 rounded-full border-[2px] border-emerald-500/20 border-t-emerald-500" 
                         />
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
                       </>
                     ) : (
                       <>
@@ -438,7 +439,7 @@ export function OutputPanel({
                     className="w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden mb-3 shrink-0"
                   >
                     <motion.div 
-                      className="h-full bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500 w-full"
+                      className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 w-full"
                       animate={{ backgroundPosition: ["200% 0", "-200% 0"] }}
                       transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
                       style={{ backgroundSize: "200% 100%" }}
@@ -596,16 +597,56 @@ export function OutputPanel({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex h-full min-h-[350px] items-center justify-center"
+              className="flex h-full min-h-[350px] items-center justify-center p-6"
             >
-              <div className="text-center max-w-sm px-6">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-lg">
-                  <Code2 className="h-8 w-8 text-amber-500" />
+              <div className="text-center max-w-md w-full">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 border border-emerald-500/20 shadow-lg">
+                  <Code2 className="h-7 w-7 text-emerald-500" />
                 </div>
-                <p className="mt-5 text-base font-bold text-foreground">Workspace Ready</p>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                  Paste your code or requirements into the Monaco editor on the left panel, select your target language and LLM model, then click Translate.
+                <p className="mt-4 text-sm font-bold text-foreground">Workspace Ready</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Paste code or requirements into the Monaco editor, or choose a quick-start template below:
                 </p>
+
+                <div className="mt-5 flex flex-col gap-2 text-left">
+                  {[
+                    {
+                      title: "FastAPI Endpoint → TypeScript Fetch",
+                      desc: "Converts Python route & Pydantic schema to typed TS",
+                      code: `@app.get("/users/{user_id}", response_model=UserResponse)\nasync def get_user(user_id: int, db: AsyncSession = Depends(get_db)):\n    user = await db.get(User, user_id)\n    if not user:\n        raise HTTPException(status_code=404, detail="User not found")\n    return user`,
+                    },
+                    {
+                      title: "Concurrent Task Pool",
+                      desc: "Translates async gather with semaphore to Tokio",
+                      code: `async def run_worker_pool(tasks: list[Coroutine], max_concurrency: int = 5):\n    semaphore = asyncio.Semaphore(max_concurrency)\n    async def sem_task(task):\n        async with semaphore:\n            return await task\n    return await asyncio.gather(*(sem_task(t) for t in tasks))`,
+                    },
+                    {
+                      title: "Modernize SQL Subquery to CTE",
+                      desc: "Optimizes nested subquery to clean CTE with index hints",
+                      code: `SELECT u.id, u.email, COUNT(o.id) as order_count\nFROM users u\nLEFT JOIN orders o ON o.user_id = u.id\nWHERE u.created_at >= NOW() - INTERVAL '30 days'\nGROUP BY u.id, u.email\nHAVING COUNT(o.id) > 5;`,
+                    },
+                  ].map((example) => (
+                    <button
+                      key={example.title}
+                      type="button"
+                      onClick={() => {
+                        setInput(example.code);
+                        toast.success(`Loaded template: ${example.title}`);
+                      }}
+                      className="group flex flex-col items-start gap-1 p-2.5 rounded-lg border border-border bg-card/60 hover:bg-muted/80 hover:border-emerald-500/40 transition-all text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className="text-xs font-semibold text-foreground group-hover:text-emerald-500 transition-colors">
+                          {example.title}
+                        </span>
+                        <Sparkles className="h-3 w-3 text-muted-foreground group-hover:text-emerald-500 transition-colors shrink-0" />
+                      </div>
+                      <span className="text-[11px] text-muted-foreground font-normal line-clamp-1">
+                        {example.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </motion.div>
           )}

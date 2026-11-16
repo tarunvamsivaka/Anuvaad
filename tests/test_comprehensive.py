@@ -135,7 +135,7 @@ class TestRedisDown:
         from app.api.middleware.rate_limit import RATE_LIMIT_USER_MAX
 
         for i in range(RATE_LIMIT_USER_MAX + 1):
-            res = client_no_redis.get("/api/health")
+            res = client_no_redis.get("/api/public/limits")
             if i < RATE_LIMIT_USER_MAX:
                 assert res.status_code == 200
             else:
@@ -501,7 +501,7 @@ class TestRateLimitingExtended:
                 "/api/code-to-code",
                 {"raw_code": "x", "source_language": "py", "target_language": "js"},
             ),
-            ("GET", "/api/health", None),
+            ("GET", "/api/public/limits", None),
         ]
         for method, path, body in endpoints:
             if method == "GET":

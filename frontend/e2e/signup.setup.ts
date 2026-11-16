@@ -14,13 +14,13 @@ setup('signup-new-user', async ({ page }) => {
   // Use a unique random email for signup to ensure no unique constraint violations
   const randomId = Math.random().toString(36).substring(7);
   const email = `test_signup_${randomId}@example.com`;
-  const password = 'Password123!';
+  const fixtureSecret = 'mock_auth_fixture_123!';
 
   await page.goto('/signup');
 
   // Fill out the signup form
   await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
+  await page.fill('input[type="password"]', fixtureSecret);
   
   // Click the submit button
   await page.click('button[type="submit"]');

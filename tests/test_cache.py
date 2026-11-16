@@ -90,9 +90,9 @@ class TestRateLimiting:
         assert "Rate limit exceeded" in res.json()["detail"]
 
     def test_rate_limit_does_not_affect_health(self, client_rate_limited):
-        """Health endpoint is still affected since all /api/ routes are limited."""
+        """Health check endpoint is exempt from rate limiting for platform load balancer probes."""
         res = client_rate_limited.get("/api/health")
-        assert res.status_code == 429
+        assert res.status_code == 200
 
     def test_within_rate_limit(self, client):
         """Requests within the limit should succeed."""

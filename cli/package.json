@@ -59,6 +59,9 @@
     "ts-jest": "^29.2.3",
     "typescript": "^5.5.3"
   },
+  "overrides": {
+    "handlebars": "^4.7.10"
+  },
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",

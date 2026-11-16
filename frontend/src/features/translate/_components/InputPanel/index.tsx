@@ -187,21 +187,29 @@ export function InputPanel({
         <div className="flex items-center gap-2.5">
           {mode !== "english-to-code" && <AstToolbar sourceLanguage={sourceLanguage} />}
           <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">{input.length.toLocaleString()} chars</span>
-          <Button variant="ghost" size="sm" aria-label="Clear" onClick={handleClear} className="h-7 w-7 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5"><RotateCcw className="h-3.5 w-3.5 text-amber-500" /></Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label="Clear input"
+            onClick={handleClear}
+            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-emerald-500"
+          >
+            <RotateCcw className="h-3.5 w-3.5 text-slate-400 hover:text-foreground transition-colors" />
+          </Button>
           <Button onClick={handleTranslate} disabled={!input.trim() && !isStreaming} 
             aria-label={isStreaming ? "Stop processing" : `${primaryActionLabel} (⌘ + Enter)`}
             title={isStreaming ? "Stop processing" : `${primaryActionLabel} (⌘ + Enter)`}
             size="sm"
             className={cn(
-              "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs font-bold cursor-pointer",
-              isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-500"
+              "gap-1.5 shadow-sm transition-all text-white h-8 px-3 text-xs font-bold cursor-pointer rounded-md focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2",
+              isStreaming ? "bg-destructive hover:bg-destructive/90" : "bg-emerald-600 hover:bg-emerald-500"
             )}>
             {isStreaming ? (
               <><X className="h-3.5 w-3.5" /> Stop</>
             ) : (
               <>
                 <Sparkles className="h-3.5 w-3.5" /> {primaryActionLabel}
-                <kbd className="hidden sm:inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-black/25 text-amber-100 font-semibold ml-0.5">⌘↵</kbd>
+                <kbd className="hidden sm:inline-flex items-center text-[9px] font-mono px-1 py-0.2 rounded bg-black/25 text-emerald-100 font-semibold ml-0.5">⌘↵</kbd>
               </>
             )}
           </Button>
@@ -214,7 +222,7 @@ export function InputPanel({
           title="Input editor"
           value={input} onChange={(e) => setInput(e.target.value)}
           placeholder="Describe the functionality you need. Be as detailed as possible..."
-          className="flex-1 resize-none border-0 bg-transparent p-6 font-sans text-sm leading-relaxed focus:outline-none min-h-0"
+          className="flex-1 resize-none border-0 bg-transparent p-6 font-sans text-sm leading-relaxed focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 min-h-0"
           onKeyDown={(e) => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") handleTranslate(); }}
         />
       ) : (
@@ -242,9 +250,9 @@ export function InputPanel({
                   setDetectedLang(null);
                   toast.success(`Language switched to ${languages.find(l => l.value === detectedLang)?.label}!`);
                 }}
-                className="bg-amber-500 hover:bg-amber-600 dark:bg-amber-500 dark:hover:bg-amber-500 text-white font-bold text-xs gap-1.5 shadow-lg border border-amber-500/20 px-4 h-8 rounded-full"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-lg border border-emerald-500/20 px-4 h-8 rounded-full focus-visible:ring-2 focus-visible:ring-emerald-400"
               >
-                <Sparkles className="h-3.5 w-3.5 animate-pulse text-amber-300" />
+                <Sparkles className="h-3.5 w-3.5 animate-pulse text-emerald-200" />
                 Switch to {languages.find(l => l.value === detectedLang)?.label}?
               </Button>
             </div>
