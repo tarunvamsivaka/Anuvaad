@@ -190,7 +190,7 @@ export function InputPanel({
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Clear input"
+            aria-label="Clear"
             onClick={handleClear}
             className="h-8 w-8 p-0 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-emerald-500"
           >
