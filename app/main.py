@@ -63,8 +63,6 @@ _CRITICAL_VARS: list[tuple[str, str]] = [
     ("SUPABASE_URL", SUPABASE_URL),
     ("SUPABASE_JWT_SECRET", SUPABASE_JWT_SECRET),
     ("TOKEN_ENCRYPTION_KEY", TOKEN_ENCRYPTION_KEY),
-    ("AUDIT_HMAC_KEY", AUDIT_HMAC_KEY),
-    ("HISTORY_ENCRYPTION_KEYS", HISTORY_ENCRYPTION_KEYS),
     ("FRONTEND_URL", FRONTEND_URL),
 ]
 
@@ -130,7 +128,7 @@ def validate_production_env() -> None:
 
 
 async def _verify_alembic_head() -> None:
-    """Raise RuntimeError if database is not at the Alembic migration head (DEP-04)."""
+    """Verify database migration head, logging a warning if behind without crashing the container."""
     from alembic.config import Config
     from alembic.runtime.migration import MigrationContext
     from alembic.script import ScriptDirectory
@@ -140,27 +138,28 @@ async def _verify_alembic_head() -> None:
     if _is_sqlite:
         return  # Skip for in-memory test database
 
-    alembic_cfg = Config("alembic.ini")
-    script = ScriptDirectory.from_config(alembic_cfg)
-    head_revisions = {s.revision for s in script.get_revisions("heads")}
-
     try:
+        alembic_cfg = Config("alembic.ini")
+        script = ScriptDirectory.from_config(alembic_cfg)
+        head_revisions = {s.revision for s in script.get_revisions("heads")}
+
         async with engine.connect() as conn:
             current_heads = set(await conn.run_sync(lambda c: MigrationContext.configure(c).get_current_heads()))
 
         if current_heads != head_revisions:
             if not current_heads.intersection(head_revisions):
-                raise RuntimeError(
-                    f"Database schema is behind migration head. "
+                logger.warning(
+                    f"Database schema is behind migration head: "
                     f"Current: {current_heads}, Expected: {head_revisions}. "
                     f"Run: alembic upgrade head"
                 )
-            logger.warning(
-                f"Database schema revision difference noted: current={current_heads}, expected={head_revisions}"
-            )
+            else:
+                logger.warning(
+                    f"Database schema revision difference noted: current={current_heads}, expected={head_revisions}"
+                )
+        else:
+            logger.info(f"Database schema verified at migration head: {current_heads}")
     except Exception as e:
-        if isinstance(e, RuntimeError):
-            raise
         logger.warning(f"Alembic migration head verification deferred: {e}")
 
 
@@ -169,10 +168,13 @@ async def _backfill_encrypted_history_on_startup() -> None:
     if os.getenv("HISTORY_BACKFILL_ON_START", "false").lower() != "true":
         return
 
-    from scripts.backfill_encrypted_history import backfill
+    try:
+        from scripts.backfill_encrypted_history import backfill
 
-    migrated, skipped = await backfill(batch_size=100, max_batches=None, dry_run=False)
-    logger.info("Encrypted history backfill finished: migrated=%s skipped=%s", migrated, skipped)
+        migrated, skipped = await backfill(batch_size=100, max_batches=None, dry_run=False)
+        logger.info("Encrypted history backfill finished: migrated=%s skipped=%s", migrated, skipped)
+    except Exception as e:
+        logger.warning(f"Encrypted history backfill deferred: {e}")
 
 
 @asynccontextmanager

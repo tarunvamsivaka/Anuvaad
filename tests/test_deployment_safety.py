@@ -79,3 +79,48 @@ def test_audit_hmac_and_history_encryption_fallbacks(monkeypatch):
     assert config_mod.AUDIT_HMAC_KEY != sample_fernet_key  # Must NOT reuse the same raw key
     assert len(config_mod.AUDIT_HMAC_KEY) == 64  # SHA-256 hex digest
 
+
+def test_token_encryption_key_derives_from_jwt_secret_when_missing(monkeypatch):
+    """Verify that when TOKEN_ENCRYPTION_KEY is unset, a deterministic Fernet key is derived from SUPABASE_JWT_SECRET."""
+    import importlib
+    from cryptography.fernet import Fernet
+    import app.core.config as config_mod
+
+    monkeypatch.delenv("TOKEN_ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", "super-secret-supabase-jwt-token-1234567890")
+    monkeypatch.delenv("AUDIT_HMAC_KEY", raising=False)
+    monkeypatch.delenv("HISTORY_ENCRYPTION_KEYS", raising=False)
+
+    importlib.reload(config_mod)
+
+    assert config_mod.TOKEN_ENCRYPTION_KEY
+    # Verify it is a valid Fernet key
+    fernet = Fernet(config_mod.TOKEN_ENCRYPTION_KEY.encode())
+    encrypted = fernet.encrypt(b"test data")
+    assert fernet.decrypt(encrypted) == b"test data"
+    assert config_mod.HISTORY_ENCRYPTION_KEYS == config_mod.TOKEN_ENCRYPTION_KEY
+    assert config_mod.AUDIT_HMAC_KEY
+
+
+@pytest.mark.asyncio
+async def test_alembic_head_check_is_non_blocking_on_mismatch(monkeypatch):
+    """Verify that database schema mismatch does not throw RuntimeError on startup."""
+    import app.main as app_main
+    from unittest.mock import AsyncMock, MagicMock
+
+    monkeypatch.setattr("app.core.database_session._is_sqlite", False)
+
+    mock_conn = AsyncMock()
+    mock_conn.run_sync = AsyncMock(return_value=["001_old_rev"])
+    mock_connect_cm = AsyncMock()
+    mock_connect_cm.__aenter__.return_value = mock_conn
+    mock_connect_cm.__aexit__.return_value = None
+
+    mock_engine = MagicMock()
+    mock_engine.connect.return_value = mock_connect_cm
+
+    monkeypatch.setattr("app.core.database_session.engine", mock_engine)
+
+    # Should complete cleanly without raising RuntimeError
+    await app_main._verify_alembic_head()
+

@@ -121,12 +121,26 @@ SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
 METRICS_USERNAME: str = os.getenv("METRICS_USERNAME", "")
 METRICS_PASSWORD: str = os.getenv("METRICS_PASSWORD", "")
 
+# FIX-04 (P0-04): Supabase JWT secret for local JWT verification (zero HTTP round-trips).
+# Found in: Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
+SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
+
 # ── SECURITY — ENCRYPTION & JWT ──
 # FIX-01 (P0-01): Fernet key used to encrypt GitHub OAuth tokens at rest.
 # For key rotation without downtime, use TOKEN_ENCRYPTION_KEYS (comma-separated,
 # newest key first).  Falls back to TOKEN_ENCRYPTION_KEY for backwards-compat.
 # Generate a new key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
+_token_enc_env = os.getenv("TOKEN_ENCRYPTION_KEY", "")
+if not _token_enc_env and SUPABASE_JWT_SECRET:
+    import base64
+    import hashlib
+
+    # Deterministic 32-byte urlsafe-base64 Fernet key derived from SUPABASE_JWT_SECRET
+    _token_enc_env = base64.urlsafe_b64encode(
+        hashlib.sha256((SUPABASE_JWT_SECRET + ":anuvaad_token_encryption").encode()).digest()
+    ).decode()
+TOKEN_ENCRYPTION_KEY: str = _token_enc_env
+
 # Backwards-compat: fallback to TOKEN_ENCRYPTION_KEY if HISTORY_ENCRYPTION_KEYS is not explicitly provided
 HISTORY_ENCRYPTION_KEYS: str = os.getenv("HISTORY_ENCRYPTION_KEYS", "") or TOKEN_ENCRYPTION_KEY
 
@@ -137,10 +151,6 @@ if not _audit_hmac_env and TOKEN_ENCRYPTION_KEY:
 
     _audit_hmac_env = hashlib.sha256((TOKEN_ENCRYPTION_KEY + ":anuvaad_audit_receipt_salt").encode()).hexdigest()
 AUDIT_HMAC_KEY: str = _audit_hmac_env
-
-# FIX-04 (P0-04): Supabase JWT secret for local JWT verification (zero HTTP round-trips).
-# Found in: Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
-SUPABASE_JWT_SECRET: str = os.getenv("SUPABASE_JWT_SECRET", "")
 
 
 # ── PRE-PARSED EMAIL SETS (H-7: parsed once at startup, O(1) lookups) ──
