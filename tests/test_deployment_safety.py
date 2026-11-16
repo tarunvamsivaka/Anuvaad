@@ -129,4 +129,3 @@ async def test_alembic_head_check_is_non_blocking_on_mismatch(monkeypatch):
 
     # Should complete cleanly without raising RuntimeError
     await app_main._verify_alembic_head()
-
