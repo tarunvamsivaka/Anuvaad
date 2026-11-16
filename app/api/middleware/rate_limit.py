@@ -29,6 +29,23 @@ async def rate_limit_middleware(request: Request, call_next):
     if "/webhook/" in request.url.path:
         return await call_next(request)
 
+    # Health check and probe endpoints (Render, Kubernetes, Vercel proxy, keep-alive)
+    # must NEVER be rate-limited, as 429 triggers false server failure alerts and deploy rollbacks.
+    path = request.url.path.rstrip("/")
+    if path in (
+        "/api/health",
+        "/api/health/live",
+        "/api/health/ready",
+        "/api/health/detailed",
+        "/api/v1/health",
+        "/api/v1/health/live",
+        "/api/v1/health/ready",
+        "/api/v1/health/detailed",
+        "/api/metrics",
+        "/api/v1/metrics",
+    ) or path.startswith(("/api/health/", "/api/v1/health/")):
+        return await call_next(request)
+
     client_ip = get_client_ip(request)
     credentials = await security(request)
     user_email = await get_optional_user_email_from_request(request, credentials=credentials)

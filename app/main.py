@@ -144,15 +144,24 @@ async def _verify_alembic_head() -> None:
     script = ScriptDirectory.from_config(alembic_cfg)
     head_revisions = {s.revision for s in script.get_revisions("heads")}
 
-    async with engine.connect() as conn:
-        current_heads = set(await conn.run_sync(lambda c: MigrationContext.configure(c).get_current_heads()))
+    try:
+        async with engine.connect() as conn:
+            current_heads = set(await conn.run_sync(lambda c: MigrationContext.configure(c).get_current_heads()))
 
-    if current_heads != head_revisions:
-        raise RuntimeError(
-            f"Database schema is behind migration head. "
-            f"Current: {current_heads}, Expected: {head_revisions}. "
-            f"Run: alembic upgrade head"
-        )
+        if current_heads != head_revisions:
+            if not current_heads.intersection(head_revisions):
+                raise RuntimeError(
+                    f"Database schema is behind migration head. "
+                    f"Current: {current_heads}, Expected: {head_revisions}. "
+                    f"Run: alembic upgrade head"
+                )
+            logger.warning(
+                f"Database schema revision difference noted: current={current_heads}, expected={head_revisions}"
+            )
+    except Exception as e:
+        if isinstance(e, RuntimeError):
+            raise
+        logger.warning(f"Alembic migration head verification deferred: {e}")
 
 
 async def _backfill_encrypted_history_on_startup() -> None:

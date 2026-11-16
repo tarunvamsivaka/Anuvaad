@@ -37,3 +37,45 @@ def test_history_encryption_round_trip(monkeypatch):
     ciphertext = encrypt_blocks(blocks)
     assert "print('safe')" not in ciphertext
     assert decrypt_blocks(ciphertext) == blocks
+
+
+@pytest.mark.asyncio
+async def test_health_checks_are_exempt_from_rate_limiting():
+    """Verify health check and metrics endpoints bypass IP rate limiting (fixes Render 429 server failure)."""
+    from unittest.mock import AsyncMock, MagicMock
+    from fastapi import Request
+    from app.api.middleware.rate_limit import rate_limit_middleware
+
+    for path in ["/api/health", "/api/v1/health", "/api/health/live", "/api/health/ready", "/api/metrics"]:
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "headers": [(b"host", b"testserver")],
+        }
+        request = Request(scope)
+        call_next = AsyncMock(return_value=MagicMock(status_code=200))
+
+        # Even with no auth, call_next should be called directly without 429
+        response = await rate_limit_middleware(request, call_next)
+        assert call_next.called, f"call_next not called for {path}"
+        assert response.status_code == 200, f"Expected 200 for {path}, got {response.status_code}"
+
+
+def test_audit_hmac_and_history_encryption_fallbacks(monkeypatch):
+    """Verify that when only TOKEN_ENCRYPTION_KEY is configured, AUDIT_HMAC_KEY and HISTORY_ENCRYPTION_KEYS have secure fallbacks."""
+    import importlib
+    import app.core.config as config_mod
+
+    sample_fernet_key = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", sample_fernet_key)
+    monkeypatch.delenv("AUDIT_HMAC_KEY", raising=False)
+    monkeypatch.delenv("HISTORY_ENCRYPTION_KEYS", raising=False)
+
+    importlib.reload(config_mod)
+
+    assert config_mod.HISTORY_ENCRYPTION_KEYS == sample_fernet_key
+    assert config_mod.AUDIT_HMAC_KEY
+    assert config_mod.AUDIT_HMAC_KEY != sample_fernet_key  # Must NOT reuse the same raw key
+    assert len(config_mod.AUDIT_HMAC_KEY) == 64  # SHA-256 hex digest
+

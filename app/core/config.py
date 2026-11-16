@@ -127,8 +127,16 @@ METRICS_PASSWORD: str = os.getenv("METRICS_PASSWORD", "")
 # newest key first).  Falls back to TOKEN_ENCRYPTION_KEY for backwards-compat.
 # Generate a new key: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 TOKEN_ENCRYPTION_KEY: str = os.getenv("TOKEN_ENCRYPTION_KEY", "")
-AUDIT_HMAC_KEY: str = os.getenv("AUDIT_HMAC_KEY", "")
-HISTORY_ENCRYPTION_KEYS: str = os.getenv("HISTORY_ENCRYPTION_KEYS", "")
+# Backwards-compat: fallback to TOKEN_ENCRYPTION_KEY if HISTORY_ENCRYPTION_KEYS is not explicitly provided
+HISTORY_ENCRYPTION_KEYS: str = os.getenv("HISTORY_ENCRYPTION_KEYS", "") or TOKEN_ENCRYPTION_KEY
+
+# SEC-04: Derive isolated AUDIT_HMAC_KEY if not explicitly set, without reusing TOKEN_ENCRYPTION_KEY directly
+_audit_hmac_env = os.getenv("AUDIT_HMAC_KEY", "")
+if not _audit_hmac_env and TOKEN_ENCRYPTION_KEY:
+    import hashlib
+
+    _audit_hmac_env = hashlib.sha256((TOKEN_ENCRYPTION_KEY + ":anuvaad_audit_receipt_salt").encode()).hexdigest()
+AUDIT_HMAC_KEY: str = _audit_hmac_env
 
 # FIX-04 (P0-04): Supabase JWT secret for local JWT verification (zero HTTP round-trips).
 # Found in: Supabase Dashboard → Settings → API → JWT Settings → JWT Secret
