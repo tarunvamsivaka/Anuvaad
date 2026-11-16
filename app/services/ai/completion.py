@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from typing import Any
 
 from fastapi import HTTPException
+from openai import AsyncOpenAI
 
 from app.core.config import LLM_TIMEOUT, logger, metrics
 from app.core.quota import check_and_track_groq_limits
@@ -20,6 +21,9 @@ from app.services.ai.caching import (
     find_stale_translation,
 )
 from app.services.ai.clients import (
+    _get_cerebras_client,
+    _get_deepseek_client,
+    _get_gemini_client,
     _get_groq_client,
     _get_openrouter_client,
 )
@@ -98,50 +102,120 @@ async def get_completion(
     source_language: str = "",
     explanation_depth: str = "dev",
     ephemeral: bool = False,
+    user_llm_key: str | None = None,
 ) -> tuple[str, str]:
-    """
-    Router for Groq models.
-    If use_r1=True, routes to deepseek-r1-distill-llama-70b via Groq.
-    Otherwise uses llama-3.3-70b-versatile with llama-3.1-8b-instant fallback.
+    """Router for multi-tier LLM models.
 
-    source_language: if provided, the AST symbol contract for the source code
-        will be injected into the system prompt to constrain the LLM output.
-        Supported: python, go, typescript, javascript. Others silently skipped.
+    Iterates through candidate providers (BYOK -> Cerebras -> Gemini -> DeepSeek -> Groq -> OpenRouter)
+    until a successful completion is returned, providing resilient fault-tolerance.
     """
+    candidates: list[dict] = []
+
+    # 1. BYOK Key if supplied
+    if user_llm_key and user_llm_key.strip():
+        k = user_llm_key.strip()
+        if k.startswith("gsk_"):
+            candidates.append({
+                "client": AsyncOpenAI(api_key=k, base_url="https://api.groq.com/openai/v1"),
+                "model": "llama-3.3-70b-versatile",
+                "name": "BYOK Groq Llama 3.3",
+            })
+            candidates.append({
+                "client": AsyncOpenAI(api_key=k, base_url="https://api.groq.com/openai/v1"),
+                "model": "llama-3.1-8b-instant",
+                "name": "BYOK Groq Llama 3.1 8B",
+            })
+        elif k.startswith("sk-") and not k.startswith("AIzaSy"):
+            candidates.append({
+                "client": AsyncOpenAI(api_key=k, base_url="https://api.openai.com/v1"),
+                "model": "gpt-4o-mini",
+                "name": "BYOK OpenAI",
+            })
+        else:
+            candidates.append({
+                "client": AsyncOpenAI(api_key=k, base_url="https://generativelanguage.googleapis.com/v1beta/openai/"),
+                "model": "gemini-2.0-flash",
+                "name": "BYOK Gemini 2.0 Flash",
+            })
+            candidates.append({
+                "client": AsyncOpenAI(api_key=k, base_url="https://generativelanguage.googleapis.com/v1beta/openai/"),
+                "model": "gemini-1.5-flash",
+                "name": "BYOK Gemini 1.5 Flash",
+            })
+
+    # 2. Groq Primary & Fallback (Standard Free Tier)
     groq_api_key = os.getenv("GROQ_API_KEY")
+    if groq_api_key or not candidates:
+        await _gw("check_and_track_groq_limits", check_and_track_groq_limits)(prompt, expected_output_tokens=max_tokens)
+        groq_client = _gw("_get_groq_client", _get_groq_client)()
+        if use_r1:
+            candidates.append({
+                "client": groq_client,
+                "model": "deepseek-r1-distill-llama-70b",
+                "name": "Groq DeepSeek R1",
+            })
+            candidates.append({
+                "client": groq_client,
+                "model": "llama-3.3-70b-versatile",
+                "name": "Groq Llama 3.3 (fallback)",
+            })
+        else:
+            candidates.append({
+                "client": groq_client,
+                "model": "llama-3.3-70b-versatile",
+                "name": "Groq Llama 3.3",
+            })
+            candidates.append({
+                "client": groq_client,
+                "model": "llama-3.1-8b-instant",
+                "name": "Groq Llama 3.1 8B (fallback)",
+            })
 
-    if not groq_api_key:
-        raise HTTPException(status_code=500, detail="Groq API key not configured")
+    # 3. Gemini Fallback
+    gemini_client = _gw("_get_gemini_client", _get_gemini_client)()
+    if gemini_client:
+        candidates.append({
+            "client": gemini_client,
+            "model": "gemini-2.0-flash",
+            "name": "Google Gemini 2.0 Flash",
+        })
+        candidates.append({
+            "client": gemini_client,
+            "model": "gemini-1.5-flash",
+            "name": "Google Gemini 1.5 Flash",
+        })
 
-    await _gw("check_and_track_groq_limits", check_and_track_groq_limits)(prompt, expected_output_tokens=max_tokens)
+    # 4. Cerebras Fallback
+    cerebras_client = _gw("_get_cerebras_client", _get_cerebras_client)()
+    if cerebras_client:
+        candidates.append({
+            "client": cerebras_client,
+            "model": "llama3.3-70b",
+            "name": "Cerebras Llama 3.3 70B",
+        })
 
-    groq_client = _gw("_get_groq_client", _get_groq_client)()
+    # 5. DeepSeek Fallback
+    deepseek_client = _gw("_get_deepseek_client", _get_deepseek_client)()
+    if deepseek_client:
+        candidates.append({
+            "client": deepseek_client,
+            "model": "deepseek-reasoner" if use_r1 else "deepseek-chat",
+            "name": "DeepSeek API",
+        })
 
-    if use_r1:
-        primary = {
-            "client": groq_client,
-            "model": "deepseek-r1-distill-llama-70b",
-            "name": "Groq DeepSeek R1",
-        }
-        fallback = {
-            "client": groq_client,
-            "model": "llama-3.3-70b-versatile",
-            "name": "Groq Llama 3.3 (fallback)",
-        }
-    else:
-        primary = {
-            "client": groq_client,
-            "model": "llama-3.3-70b-versatile",
-            "name": "Groq Llama 3.3",
-        }
-        fallback = {
-            "client": groq_client,
-            "model": "llama-3.1-8b-instant",
-            "name": "Groq Llama 3.1 8B (fallback)",
-        }
+    # 6. OpenRouter Fallback
+    openrouter_client = _gw("_get_openrouter_client", _get_openrouter_client)()
+    if openrouter_client:
+        candidates.append({
+            "client": openrouter_client,
+            "model": "meta-llama/llama-3.3-70b-instruct",
+            "name": "OpenRouter",
+        })
 
-    # Sprint 1 wiring: inject AST symbol contract into system prompt for
-    # supported source languages.
+    if not candidates:
+        raise HTTPException(status_code=500, detail="No LLM providers configured.")
+
+    # Sprint 1 wiring: inject AST symbol contract into system prompt for supported source languages
     augmented_system = await _inject_symbol_contract(system_instruction, prompt, source_language)
 
     messages = [
@@ -155,98 +229,32 @@ async def get_completion(
 
     metrics_obj = _gw("metrics", metrics)
 
-    try:
-        with (
-            sentry_sdk.start_span(
-                op="llm.completion",
-                name=f"LLM: {primary['name']}",
-            )
-            if _SENTRY_AVAILABLE
-            else _nullctx()
-        ) as span:
-            if _SENTRY_AVAILABLE and span:
-                span.set_tag("llm.provider", primary["name"])
-                span.set_tag("llm.model", primary["model"])
-                span.set_tag("llm.mode", mode)
-            response = await asyncio.wait_for(
-                primary["client"].chat.completions.create(model=primary["model"], messages=messages, **kwargs),
-                timeout=LLM_TIMEOUT,
-            )
-        await metrics_obj.record_model_call(primary["model"])
-        return _clean_json_response(response.choices[0].message.content), primary["name"]
-    except TimeoutError:
-        await metrics_obj.record_model_call(primary["model"], is_error=True)
-        logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on primary {primary['name']}")
-    except Exception as primary_e:
-        await metrics_obj.record_model_call(primary["model"], is_error=True)
-        logger.error("Primary %s failed (%s)", primary["name"], type(primary_e).__name__)
-
-    # Fallback to secondary model
-    logger.info("Falling back to %s", fallback["name"])
-    fallback_kwargs = {"max_tokens": max_tokens}
-    if response_format == "json_object":
-        fallback_kwargs["response_format"] = {"type": "json_object"}
-
-    try:
-        with (
-            sentry_sdk.start_span(
-                op="llm.completion",
-                name=f"LLM: {fallback['name']}",
-            )
-            if _SENTRY_AVAILABLE
-            else _nullctx()
-        ) as span:
-            if _SENTRY_AVAILABLE and span:
-                span.set_tag("llm.provider", fallback["name"])
-                span.set_tag("llm.model", fallback["model"])
-                span.set_tag("llm.mode", mode)
-                span.set_tag("llm.is_fallback", True)
-            response = await asyncio.wait_for(
-                fallback["client"].chat.completions.create(
-                    model=fallback["model"], messages=messages, **fallback_kwargs
-                ),
-                timeout=LLM_TIMEOUT,
-            )
-        await metrics_obj.record_model_call(fallback["model"])
-        return _clean_json_response(response.choices[0].message.content), fallback["name"]
-    except TimeoutError:
-        await metrics_obj.record_model_call(fallback["model"], is_error=True)
-        logger.error(f"LLM API Timeout after {LLM_TIMEOUT}s on fallback {fallback['name']}")
-    except Exception as fallback_e:
-        await metrics_obj.record_model_call(fallback["model"], is_error=True)
-        logger.error("Fallback %s failed (%s)", fallback["name"], type(fallback_e).__name__)
-
-    # FIX-24 (P1-03): Third-level fallback — OpenRouter (external, different infra).
-    openrouter_client = _gw("_get_openrouter_client", _get_openrouter_client)()
-    if openrouter_client:
-        or_model = "meta-llama/llama-3.3-70b-instruct"
-        or_kwargs = {"max_tokens": max_tokens}
-        if response_format == "json_object":
-            or_kwargs["response_format"] = {"type": "json_object"}
+    for cand in candidates:
         try:
             with (
                 sentry_sdk.start_span(
                     op="llm.completion",
-                    name="LLM third-level fallback: OpenRouter",
+                    name=f"LLM: {cand['name']}",
                 )
                 if _SENTRY_AVAILABLE
                 else _nullctx()
             ) as span:
                 if _SENTRY_AVAILABLE and span:
-                    span.set_tag("llm.provider", "openrouter")
-                    span.set_tag("llm.model", or_model)
+                    span.set_tag("llm.provider", cand["name"])
+                    span.set_tag("llm.model", cand["model"])
                     span.set_tag("llm.mode", mode)
-                    span.set_tag("llm.is_fallback", True)
                 response = await asyncio.wait_for(
-                    openrouter_client.chat.completions.create(model=or_model, messages=messages, **or_kwargs),
+                    cand["client"].chat.completions.create(model=cand["model"], messages=messages, **kwargs),
                     timeout=LLM_TIMEOUT,
                 )
-            await metrics_obj.record_model_call("openrouter-llama")
-            logger.warning("OpenRouter third-level fallback succeeded")
-            return _clean_json_response(response.choices[0].message.content), "OpenRouter Llama 3.3"
-        except Exception as or_e:
-            await metrics_obj.record_model_call("openrouter-llama", is_error=True)
-            logger.error("OpenRouter fallback failed (%s)", type(or_e).__name__)
+            await metrics_obj.record_model_call(cand["model"])
+            return _clean_json_response(response.choices[0].message.content), cand["name"]
+        except TimeoutError:
+            await metrics_obj.record_model_call(cand["model"], is_error=True)
+            logger.error("LLM API Timeout after %ss on %s", LLM_TIMEOUT, cand["name"])
+        except Exception as cand_e:
+            await metrics_obj.record_model_call(cand["model"], is_error=True)
+            logger.warning("Provider %s failed (%s)", cand["name"], type(cand_e).__name__)
 
     if not ephemeral:
         find_stale_fn = _gw("find_stale_translation", find_stale_translation)

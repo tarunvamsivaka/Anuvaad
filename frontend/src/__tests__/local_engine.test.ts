@@ -71,4 +71,74 @@ describe('Zero-Server Offline Local Engine', () => {
     expect(result.blocks[0].english_translation).toContain('branching control flow');
     expect(result.blocks[0].model_used).toBe('offline-ast-engine');
   });
+
+  it('correctly decomposes and translates a Python script (user use case) into step-by-step semantic English', async () => {
+    const scriptCode = [
+      'num1 = float(input("Enter first number: "))',
+      'num2 = float(input("Enter second number: "))',
+      'num3 = float(input("Enter third number: "))',
+      'largest = max(num1, num2, num3)',
+      'print(f"The largest number is: {largest}")',
+    ].join('\n');
+
+    const result = await executeLocalOfflineEngine(scriptCode, {
+      language: 'python',
+      mode: 'code-to-english',
+    });
+
+    expect(result.blocks.length).toBe(5);
+
+    // Block 1: num1 input
+    expect(result.blocks[0].code_snippet).toBe('num1 = float(input("Enter first number: "))');
+    expect(result.blocks[0].english_translation).toContain('Prompts the user with "Enter first number: "');
+    expect(result.blocks[0].english_translation).toContain('floating-point number');
+    expect(result.blocks[0].english_translation).toContain('`num1`');
+
+    // Block 4: largest = max(num1, num2, num3)
+    expect(result.blocks[3].code_snippet).toBe('largest = max(num1, num2, num3)');
+    expect(result.blocks[3].english_translation).toContain('`max()`');
+    expect(result.blocks[3].english_translation).toContain('greatest value');
+    expect(result.blocks[3].english_translation).toContain('`largest`');
+
+    // Block 5: print output
+    expect(result.blocks[4].code_snippet).toBe('print(f"The largest number is: {largest}")');
+    expect(result.blocks[4].english_translation).toContain('interpolated string');
+  });
+
+  it('generates executable code from English prompt offline in English-to-Code mode', async () => {
+    const result = await executeLocalOfflineEngine(
+      'write a python program to find largest of three numbers',
+      {
+        language: 'english',
+        targetLanguage: 'python',
+        mode: 'english-to-code',
+      }
+    );
+
+    expect(result.blocks.length).toBeGreaterThanOrEqual(1);
+    const combinedCode = result.blocks.map((b) => b.code_snippet).join('\n');
+    expect(combinedCode).toContain('input');
+    expect(combinedCode).toContain('max');
+    expect(combinedCode).toContain('print');
+  });
+
+  it('translates code between languages offline in Code-to-Code mode', async () => {
+    const pyCode = [
+      'num1 = float(input("Enter first number: "))',
+      'largest = max(num1, 10)',
+      'print(f"The largest number is: {largest}")',
+    ].join('\n');
+
+    const result = await executeLocalOfflineEngine(pyCode, {
+      language: 'python',
+      targetLanguage: 'javascript',
+      mode: 'code-to-code',
+    });
+
+    expect(result.blocks.length).toBe(1);
+    const jsCode = result.blocks[0].code_snippet;
+    expect(jsCode).toContain('parseFloat(prompt("Enter first number: "))');
+    expect(jsCode).toContain('Math.max(num1, 10)');
+    expect(jsCode).toContain('console.log(`The largest number is: ${largest}`);');
+  });
 });

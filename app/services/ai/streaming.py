@@ -25,6 +25,9 @@ from app.services.ai.caching import (
     normalize_blocks,
 )
 from app.services.ai.clients import (
+    _get_cerebras_client,
+    _get_deepseek_client,
+    _get_gemini_client,
     _get_groq_client,
     _get_openrouter_client,
 )
@@ -122,12 +125,35 @@ async def smooth_stream_chunks(
         yield "".join(buffer)
 
 
+def _build_byok_providers(user_llm_key: str, requested_model: str | None = None) -> list[tuple[AsyncOpenAI, str, str]]:
+    k = user_llm_key.strip()
+    providers: list[tuple[AsyncOpenAI, str, str]] = []
+    if k.startswith("gsk_"):
+        client = AsyncOpenAI(api_key=k, base_url="https://api.groq.com/openai/v1")
+        providers.append((client, "llama-3.3-70b-versatile", "BYOK Groq Llama 3.3"))
+        providers.append((client, "llama-3.1-8b-instant", "BYOK Groq Llama 3.1 8B"))
+    elif k.startswith("sk-") and not k.startswith("AIzaSy"):
+        base = "https://api.deepseek.com" if "deepseek" in (requested_model or "").lower() else "https://api.openai.com/v1"
+        model = "deepseek-chat" if "deepseek" in (requested_model or "").lower() else "gpt-4o-mini"
+        client = AsyncOpenAI(api_key=k, base_url=base)
+        providers.append((client, model, "BYOK OpenAI/DeepSeek"))
+    else:
+        # Default: Google Gemini (handles AIzaSy... or standard Gemini API keys)
+        client = AsyncOpenAI(api_key=k, base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
+        providers.append((client, "gemini-2.0-flash", "BYOK Gemini 2.0 Flash"))
+        providers.append((client, "gemini-1.5-flash", "BYOK Gemini 1.5 Flash"))
+    return providers
+
+
 def _build_streaming_providers(
     requested_model: str | None,
     use_r1: bool,
 ) -> list[tuple[AsyncOpenAI, str, str]]:
     """Build prioritised list of (client, model_name, display_name) for streaming requests."""
     providers: list[tuple[AsyncOpenAI, str, str]] = []
+    cerebras_client = _gw("_get_cerebras_client", _get_cerebras_client)()
+    gemini_client = _gw("_get_gemini_client", _get_gemini_client)()
+    deepseek_client = _gw("_get_deepseek_client", _get_deepseek_client)()
     groq_client = _gw("_get_groq_client", _get_groq_client)()
     openrouter_client = _gw("_get_openrouter_client", _get_openrouter_client)()
 
@@ -149,6 +175,17 @@ def _build_streaming_providers(
         if groq_client:
             providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Llama 3.3 70B"))
             providers.append((groq_client, "llama-3.1-8b-instant", "Groq Llama 3.1 8B Backup"))
+    elif "gemini" in req:
+        if gemini_client:
+            providers.append((gemini_client, "gemini-2.0-flash", "Google Gemini 2.0 Flash"))
+            providers.append((gemini_client, "gemini-1.5-flash", "Google Gemini 1.5 Flash"))
+        if groq_client:
+            providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Fallback"))
+    elif "cerebras" in req:
+        if cerebras_client:
+            providers.append((cerebras_client, "llama3.3-70b", "Cerebras Llama 3.3 70B"))
+        if groq_client:
+            providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Fallback"))
     elif "claude" in req:
         if openrouter_client:
             providers.append((openrouter_client, "anthropic/claude-3.5-sonnet", "OpenRouter Claude 3.5 Sonnet"))
@@ -166,10 +203,12 @@ def _build_streaming_providers(
             providers.append((groq_client, "deepseek-r1-distill-llama-70b", "Groq DeepSeek R1"))
         if openrouter_client:
             providers.append((openrouter_client, "deepseek/deepseek-r1", "OpenRouter DeepSeek R1"))
+        if deepseek_client:
+            providers.append((deepseek_client, "deepseek-reasoner" if use_r1 else "deepseek-chat", "DeepSeek API"))
         if groq_client:
             providers.append((groq_client, "llama-3.3-70b-versatile", "Groq Llama Fallback"))
     else:
-        # Default / Auto (Optimal): try primary then fast fallback
+        # Default / Auto (Optimal): High-speed streaming via Groq Primary -> Backup -> OpenRouter
         if groq_client:
             primary_model = "deepseek-r1-distill-llama-70b" if use_r1 else "llama-3.3-70b-versatile"
             fallback_model = "llama-3.3-70b-versatile" if use_r1 else "llama-3.1-8b-instant"
@@ -277,11 +316,9 @@ async def stream_code_to_english(
         if user_llm_key and user_llm_key.strip():
             _logger.info("Using client BYOK provider key (credit deduction bypassed)")
             deduct_credit_flag = False
-            _openai_cls = _gw("AsyncOpenAI", AsyncOpenAI)
-            byok_client = _openai_cls(
-                api_key=user_llm_key.strip(), base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-            )
-            providers.insert(0, (byok_client, "gemini-2.5-flash", "BYOK Gemini 2.5 Flash"))
+            byok_list = _build_byok_providers(user_llm_key, requested_model)
+            for idx, bp in enumerate(byok_list):
+                providers.insert(idx, bp)
 
         depth_prefix = DEPTH_PREFIXES.get(depth, "")
         base_instruction = f"{depth_prefix}\n\n{SYSTEM_INSTRUCTION}".lstrip() if depth_prefix else SYSTEM_INSTRUCTION
@@ -456,6 +493,7 @@ async def stream_code_to_code(
     deduct_credit_flag: bool = False,
     cooldown: int = 0,
     ephemeral: bool = False,
+    user_llm_key: str | None = None,
 ):
     _cache = _gw("cache", cache)
     _metrics = _gw("metrics", metrics)
@@ -549,6 +587,12 @@ async def stream_code_to_code(
         )
 
         providers = _build_streaming_providers(requested_model, use_r1)
+        if user_llm_key and user_llm_key.strip():
+            _logger.info("Using client BYOK provider key for code-to-code (credit deduction bypassed)")
+            deduct_credit_flag = False
+            byok_list = _build_byok_providers(user_llm_key, requested_model)
+            for idx, bp in enumerate(byok_list):
+                providers.insert(idx, bp)
 
         system = f"""You are an expert polyglot programmer. Translate the given code from {payload.source_language} to {payload.target_language}.
 Produce a complete, working, idiomatic translation. Then break the translated code into logical blocks.

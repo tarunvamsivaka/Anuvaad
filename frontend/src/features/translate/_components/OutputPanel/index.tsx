@@ -101,6 +101,8 @@ export function OutputPanel({
   }, [outputBlocks]);
 
   const monacoLang = languages.find((l) => l.value === targetLanguage)?.monacoId || targetLanguage;
+  const editorLanguage = mode === "code-to-english" ? "markdown" : monacoLang;
+  const editorValue = mode === "code-to-english" ? (fullEnglishText || fullCodeText) : (fullCodeText || fullEnglishText);
 
   useEffect(() => {
     setFeedbackRating(null);
@@ -508,9 +510,9 @@ export function OutputPanel({
                 <div className="h-full w-full relative min-h-[300px]">
                   <MonacoEditor
                     height="100%"
-                    language={monacoLang}
+                    language={editorLanguage}
                     theme={isDark ? "vs-dark" : "light"}
-                    value={fullCodeText || fullEnglishText}
+                    value={editorValue}
                     options={{
                       ...monacoOptions,
                       readOnly: true,

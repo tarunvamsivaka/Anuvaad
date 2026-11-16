@@ -160,7 +160,9 @@ export function useTranslationStream({
       try {
         const localResult = await executeLocalOfflineEngine(input, {
           language: sourceLanguage,
+          targetLanguage,
           mode,
+          depth: explanationDepth,
           onChunk: (chunk) => {
             setStreamText((prev) => prev + chunk);
           },
@@ -429,7 +431,7 @@ export function useTranslationStream({
       setIsStreaming(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session, sessionId, setSessionId, repositoryName, filePath, selectedModel, skipAppHistory, clearPartialOutput]);
+  }, [mode, sourceLanguage, targetLanguage, input, customInstructions, activeWorkspace, isPro, session, sessionId, setSessionId, repositoryName, filePath, selectedModel, skipAppHistory, clearPartialOutput, executionEngine, explanationDepth]);
 
   return {
     quotaError,

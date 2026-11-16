@@ -130,6 +130,10 @@ async def function_generate_from_english(
 
     user_prompt = f"Programming Language: {payload.language}\n\nUser Request:\n{payload.prompt}\n\nFirst, generate the complete, working code to satisfy this request. Then, analyze your generated code and break it down into logical blocks using the system instructions."
 
+    user_llm_key = request.headers.get("X-User-LLM-Key")
+    if user_llm_key and user_llm_key.strip():
+        deduct_credit_flag = False
+
     try:
         response_text, model_used = await get_completion(
             prompt=user_prompt,
@@ -139,6 +143,7 @@ async def function_generate_from_english(
             use_r1=use_r1,
             source_language="",  # English text is the source — no AST contract
             ephemeral=is_ephemeral,
+            user_llm_key=user_llm_key,
         )
         raw = json.loads(response_text)
         result = normalize_blocks(raw, model_used=model_used, tier=tier)

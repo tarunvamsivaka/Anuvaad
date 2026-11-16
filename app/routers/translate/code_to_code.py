@@ -41,8 +41,22 @@ async def function_code_to_code(
     if is_ephemeral:
         headers["X-Anuvaad-Privacy"] = "ephemeral; application-history-and-cache-skipped"
 
+    user_llm_key = request.headers.get("X-User-LLM-Key")
+    if user_llm_key and user_llm_key.strip():
+        deduct_credit_flag = False
+
     return StreamingResponse(
-        stream_code_to_code(payload, email, is_pro, use_r1, tier, deduct_credit_flag, cooldown, ephemeral=is_ephemeral),
+        stream_code_to_code(
+            payload,
+            email,
+            is_pro,
+            use_r1,
+            tier,
+            deduct_credit_flag,
+            cooldown,
+            ephemeral=is_ephemeral,
+            user_llm_key=user_llm_key,
+        ),
         media_type="text/event-stream",
         headers=headers,
     )

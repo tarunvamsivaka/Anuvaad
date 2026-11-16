@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TypographyProse } from "@/design/primitives/TypographyProse";
-import { ChevronDown, ChevronUp, Copy, Check, Pencil, GripVertical, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Copy, Check, Pencil, GripVertical, Sparkles, Code2 } from "lucide-react";
 import { EnglishEditor } from "./EnglishEditor";
 import { TranslationBlock } from "../../_types";
 import { useTranslationStore } from "../../_store/useTranslationStore";
@@ -139,6 +139,11 @@ export const BlockCard = memo(function BlockCard({
               className="flex flex-col"
             >
               <div className="relative border-b border-border bg-slate-900/95 dark:bg-black/40 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider flex items-center gap-1.5 select-none">
+                    <Code2 className="h-3 w-3 text-sky-400" /> Code Segment
+                  </span>
+                </div>
                 <pre className="font-mono text-[13px] text-slate-300 overflow-x-auto whitespace-pre-wrap break-words leading-relaxed selection:bg-amber-500/30">
                   <code>{block.code_snippet}</code>
                 </pre>
@@ -154,6 +159,11 @@ export const BlockCard = memo(function BlockCard({
               </div>
               
               <div className="relative p-5 bg-transparent">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[10px] font-mono font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1.5 select-none">
+                    <Sparkles className="h-3 w-3 text-amber-500" /> Plain English Translation
+                  </span>
+                </div>
                 {isEditing ? (
                   <EnglishEditor
                     initialText={block.english_translation}
